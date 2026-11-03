@@ -1,0 +1,7 @@
+*.o
+*.pd_linux
+*.pd_darwin
+*.dll
+cz_test
+demos/
+dist/
