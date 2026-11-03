@@ -40,10 +40,10 @@ CONTROLS = [
                 "waveform (0 = sine)."),
     ("dcw2", 6, "DCW of line 2."),
     ("detn", 64, "Detunes line 2 in half-semitone steps, 64 = none."),
-    ("mix", 0, "Balance from line 1 (0) to line 2 (127). With ring: line 1 "
-               "to the ring product."),
-    ("era", 0, "Vintage character: chip resolution, chip rate, DAC and "
-               "output stage, from clean to crunchy."),
+    ("amp1", 127, "Level of line 1."),
+    ("amp2", 0, "Level of line 2. With ring: level of the ring product. "
+                "Above full scale (amp1 + amp2 > 127) both are scaled down "
+                "together, so two lines never clip."),
     ("mod", 0, "Modulation of line 2: 0-42 off, 43-85 ring, 86-127 noise."),
 ]
 
@@ -62,13 +62,17 @@ SETTINGS = [
     "ch2 (2) MIDI channel of line 2 (with trk 0)",
     "pmor (1) 1: morph the bent phase, 0: CZ-style crossfade",
     "sine (1) 1: DCW 0 = sine on every wave, 0: chip behaviour",
+    "era (0) vintage character 0-127: chip resolution, chip rate,",
+    "DAC and output stage, from clean to crunchy",
+    "fine (64) fine detune of line 2, 64 = none, +-50 cents",
 ]
 
 # number boxes in the bottom panel: name, min, max
 ADV = [("pai1", -1, 10), ("pai2", -1, 10), ("octv", -1, 1), ("sprd", 0, 1),
        ("levl", 0, 2), ("drft", 0, 1), ("mrph", 0, 100), ("hold", 0, 1),
        ("a4", 400, 480), ("dvel", 0, 127), ("trk", 0, 1), ("ch1", 0, 16),
-       ("ch2", 1, 16), ("pmor", 0, 1), ("sine", 0, 1)]
+       ("ch2", 1, 16), ("pmor", 0, 1), ("sine", 0, 1), ("era", 0, 127),
+       ("fine", 0, 127)]
 VINT = [("quant", 0, 1), ("chiprate", 0, 44100), ("bits", 4, 16), ("dacerr", 0, 1),
         ("hiss", -120, -40), ("lpf", 0, 20000), ("drive", 0, 1)]
 
@@ -148,7 +152,7 @@ def build():
         "dump: send all values to outlet 2 as 'dump " + SHORT + " v0 ..'",
         "dump " + SHORT + " v0 v1 ...: restore such a dump (this voice only)",
         "voice <i> <p>, voiceoff <i>: play one voice directly",
-        "tone b0 ... b127: waves, mix and detune from a CZ-1 tone",
+        "tone b0 ... b127: waves, levels and detune from a CZ-1 tone",
         "quant, chiprate, bits, dacerr, hiss, lpf, drive: single",
         "vintage stages instead of era"]))
     clines = []
@@ -168,7 +172,8 @@ def build():
         "With trk 1 line 2 plays the same notes, detuned by detn.",
         "With trk 0 it gets its own 4-voice allocation and notes from",
         "MIDI channel ch2, like a second oscillator: two sequencer",
-        "tracks on one voice, blended by mix, joined by ring or noise."]))
+        "tracks on one voice, levelled by amp1 and amp2, joined by",
+        "ring or noise. detn and fine tune line 2 against line 1."]))
     sections.append(("Envelopes", [
         "cz4~ has no envelopes. A note-on restarts its voice's phase,",
         "velocity opens the DCW (dvel), and the level is shaped by an",

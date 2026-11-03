@@ -90,7 +90,9 @@ typedef struct {
     int       mod;           /* CZ_MOD_* flags                       */
     int       octave;        /* -1, 0, +1 (whole tone)               */
     float     detune;        /* line 2, signed semitones (cz_detune) */
-    float     line_mix;      /* 0 = line 1 only .. 1 = line 2 only   */
+    float     line_amp[2];   /* level of line 1 and line 2 (two-line modes),
+                                0..1 each, default 0.5; with ring modulation
+                                line_amp[1] is the level of the ring product */
     float     spread;        /* 0 mono .. 1 wide                     */
     float     level;         /* master gain, default 0.4             */
     cz_vintage_t vint;
@@ -102,6 +104,7 @@ typedef struct {
                                 notes and gain (cz_line2_*), like a second osc */
     /* ---- state ---- */
     float pos_s[2][2];                  /* smoothed wave positions [line][pair] */
+    float amp_s[2];                     /* line levels at the end of the last block */
     cz_voice_t v[CZ_VOICES];
     float era_target, era;              /* ERA macro and its smoothed value  */
     int   era_active;                   /* 1 once cz_set_era has been called  */

@@ -422,7 +422,8 @@ void cz_init(cz_engine_t *e, float fs)
 {
     tables_init();
     memset(e, 0, sizeof *e);
-    e->fs = fs; e->a4 = 440.0f; e->level = 0.5f; e->line_mix = 0.5f; e->spread = 0.5f;
+    e->fs = fs; e->a4 = 440.0f; e->level = 0.5f; e->spread = 0.5f;
+    e->line_amp[0] = e->line_amp[1] = e->amp_s[0] = e->amp_s[1] = 0.5f;
     e->line_mode = CZ_LINE_1;            /* lines start on saw, no pair */
     e->morph_ms = 8.0f;
     e->phase_morph = 1; e->sine0 = 1;
@@ -521,10 +522,18 @@ static void render(cz_engine_t *e, float *out_l, float *out_r, unsigned n,
     int mode = e->line_mode & 3;
     unsigned first = mode == CZ_LINE_2 ? 1u : 0u, last = mode >= CZ_LINE_1_1 ? 1u : first;
     unsigned srcl[2] = { 0u, mode == CZ_LINE_1_1 ? 0u : 1u };
-    float mix = clampf(e->line_mix, 0.0f, 1.0f);
     int ring = (e->mod & CZ_MOD_RING) && first != last, noise = (e->mod & CZ_MOD_NOISE) != 0;
-    /* a line the mix silences is not computed (ring needs both) */
-    if (first != last && !ring) { if (mix <= 0.0f) last = first; else if (mix >= 1.0f) first = last; }
+    /* line levels (two-line modes): ramped across the block, no zipper */
+    float amp0[2], ampd[2];
+    for (int l = 0; l < 2; l++) {
+        float t = clampf(e->line_amp[l], 0.0f, 1.0f);
+        amp0[l] = e->amp_s[l]; ampd[l] = (t - amp0[l]) / (float)n; e->amp_s[l] = t;
+    }
+    /* a line that is silent before and after the ramp is not computed (ring needs both) */
+    if (first != last && !ring) {
+        if (amp0[1] <= 0.0f && e->amp_s[1] <= 0.0f) last = first;
+        else if (amp0[0] <= 0.0f && e->amp_s[0] <= 0.0f) first = last;
+    }
 
     /* wave positions: smoothed per block, then split into neighbour + blend */
     morph_t mo[2][2];
@@ -607,10 +616,11 @@ static void render(cz_engine_t *e, float *out_l, float *out_r, unsigned n,
                     line[l] = (raw - c->dc[l]) * 0.5f * g[l];
                 }
                 float s;
-                if (first == last) s = line[first];
+                if (mode < CZ_LINE_1_1) s = line[first];       /* single-line CZ modes: no amps */
                 else {
+                    float a1 = amp0[0] + ampd[0] * (float)(i + 1u), a2 = amp0[1] + ampd[1] * (float)(i + 1u);
                     float l2 = ring ? line[0] * line[1] * 2.0f : line[1];
-                    s = line[0] * (1.0f - mix) + l2 * mix;
+                    s = line[0] * a1 + l2 * a2;
                 }
                 sl += s * pan_l[v]; sr += s * pan_r[v];
             }

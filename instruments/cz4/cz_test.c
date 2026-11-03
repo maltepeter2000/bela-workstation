@@ -140,7 +140,8 @@ static void test_lines(void)
     double d = 0.0, quiet = 0.0, loud = 0.0;
     /* at mix 1 only line 2 is heard: line 1's DCW must change nothing */
     cz_init(&a, FS); cz_init(&b, FS);
-    a.line_mode = b.line_mode = CZ_LINE_1_2; a.line_mix = b.line_mix = 1.0f;
+    a.line_mode = b.line_mode = CZ_LINE_1_2; a.line_amp[0] = b.line_amp[0] = 0.0f; a.line_amp[1] = b.line_amp[1] = 1.0f;
+    a.amp_s[0] = b.amp_s[0] = 0.0f; a.amp_s[1] = b.amp_s[1] = 1.0f;
     cz_voice_on(&a, 0, 48); cz_voice_on(&b, 0, 48);
     for (int k = 0; k < 100; k++) {
         cz_render2(&a, la, ra, 64, 0.0f, 0.0f, 0.3f, 0.3f); cz_render2(&b, lb, rb, 64, 0.9f, 0.9f, 0.3f, 0.3f);
@@ -148,7 +149,7 @@ static void test_lines(void)
     }
     CHECK(d == 0.0, "line 1 DCW leaks into line 2 (%g)", d);
     /* split: line 2 silent until it gets its own note, then sounds */
-    cz_init(&a, FS); a.line_mode = CZ_LINE_1_2; a.line_mix = 1.0f; a.split = 1;
+    cz_init(&a, FS); a.line_mode = CZ_LINE_1_2; a.line_amp[0] = a.amp_s[0] = 0.0f; a.line_amp[1] = a.amp_s[1] = 1.0f; a.split = 1;
     cz_voice_on(&a, 0, 48);
     for (int k = 0; k < 50; k++) { cz_render(&a, la, ra, 64, 0.3f, 0.3f); for (int i = 0; i < 64; i++) quiet += la[i] * la[i]; }
     cz_line2_on(&a, 1, 67);
@@ -297,11 +298,10 @@ static void demos(const char *dir)
     cz_init(&e, FS);
     e.line[0] = (cz_line_t){3.0f, 3.0f, 0};     /* double sine */
     e.line[1] = (cz_line_t){4.0f, 4.0f, 0};     /* saw-pulse */
-    e.line_mode = CZ_LINE_1_2; e.detune = cz_detune(1, 1, 7, 0); e.mod = CZ_MOD_RING; e.line_mix = 0.7f;
+    e.line_mode = CZ_LINE_1_2; e.detune = cz_detune(1, 1, 7, 0); e.mod = CZ_MOD_RING; e.line_amp[0] = 0.3f; e.line_amp[1] = 0.7f;
     snprintf(path, sizeof path, "%s/demo_ring.wav", dir);
     render_phrase(path, &e, 9.0f, 100.0f, 0.4f, 0.4f, 0.0f, 0.8f, 0.3f, 0);
     e.mod = CZ_MOD_NOISE; e.line[1] = (cz_line_t){0.0f, 0.0f, 0};
-    e.line_mix = 0.5f;
     snprintf(path, sizeof path, "%s/demo_noise.wav", dir);
     render_phrase(path, &e, 9.0f, 100.0f, 0.4f, 0.4f, 0.1f, 0.6f, 0.25f, 0);
 }

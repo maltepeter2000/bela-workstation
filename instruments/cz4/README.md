@@ -26,11 +26,13 @@ The messages follow the skandrums-pd conventions (`dump`, `params`, `defaults`, 
 | 2 | `dcw1` | 6 | DCW of line 1, amount of phase distortion (0 = sine) |
 | 3 | `dcw2` | 6 | DCW of line 2 |
 | 4 | `detn` | 64 | detune of line 2 in 1/2 semitones (64 = none, ±32 semitones) |
-| 5 | `mix` | 0 | line 1 (0) to line 2 (127); with ring: line 1 to ring product |
-| 6 | `era` | 0 | vintage layer, clean to crunchy |
+| 5 | `amp1` | 127 | level of line 1 |
+| 6 | `amp2` | 0 | level of line 2; with ring: level of the ring product |
 | 7 | `mod` | 0 | modulation: 0–42 off, 43–85 ring, 86–127 noise |
 
-The CZ line modes are covered by these controls: line 1 only = `mix 0`, line 2 only = `mix 127`, 1+1' = `wav2` equal to `wav1` and a `detn`, 1+2' = two waves mixed. A line the mix silences is not computed.
+Below full scale each amp is a plain level. When `amp1 + amp2` goes above 127, both are scaled down together so the sum stays at full scale: two lines at full level peak no higher than one line alone (as the Cizzle drops its level for chords). A line at level 0 is not computed.
+
+The CZ line modes are covered by these controls: line 1 only = `amp2 0`, line 2 only = `amp1 0`, 1+1' = `wav2` equal to `wav1` plus `detn`/`fine`, 1+2' = two different waves.
 
 Send them by name (`wav1 64`) or by number (`ctl 0 64`, handy for MIDI CC).
 
@@ -57,6 +59,8 @@ Send them by name (`wav1 64`) or by number (`ctl 0 64`, handy for MIDI CC).
 | `trk` | 1/0 | 1 | 1: line 2 follows line 1; 0: line 2 plays its own notes (second allocator, like a second oscillator) |
 | `ch1` | 0–16 | 0 | MIDI channel of line 1 for `p v ch` lists (0 = any) |
 | `ch2` | 1–16 | 2 | MIDI channel of line 2 for `p v ch` lists when `trk 0` |
+| `era` | 0–127 | 0 | vintage layer, clean to crunchy (see below) |
+| `fine` | 0–127 | 64 | fine detune of line 2: 64 = none, about 0.8 cent a step, ±50 cents; adds to `detn` |
 | `pmor` | 0/1 | 1 | 1: phase morph between waves; 0: CZ-style crossfade |
 | `sine` | 0/1 | 1 | 1: DCW 0 is the plain sine on every wave; 0: chip behaviour |
 
@@ -73,15 +77,15 @@ Send them by name (`wav1 64`) or by number (`ctl 0 64`, handy for MIDI CC).
 | `phase` | phase reset of all voices |
 | `get <name>` | outlet 3 answers `value <name> <v>` (controls and settings) |
 | `voice i p` / `voiceoff i` | play a voice directly, for your own allocation |
-| `dump` | outlet 3 sends `dump cz4` + the 8 controls + the 15 settings, in the order of the tables above |
+| `dump` | outlet 3 sends `dump cz4` + the 8 controls + the 17 settings, in the order of the tables above |
 | `dump cz4 …` | restore such a line; lines of other voices are ignored |
 | `tone b0 … b127` | waves, line mode, modulation, octave and detune from a decoded native CZ-1 tone; envelopes are ignored |
 | `quant` `chiprate` `bits` `dacerr` `hiss` `lpf` `drive` | single vintage stages instead of `era` |
 | `print` | voices, values and sample rate to the Pd window |
 
-Default dump line: `dump cz4 0 0 6 6 64 0 0 0 -1 -1 0 0.5 0.5 0 8 1 440 40 1 0 2 1 1`. Wiring with `[skpreset name]`: outlet 3 → skpreset inlet 0, skpreset outlet 0 → `cz4~` inlet; a slot number 0–15 on skpreset inlet 1 recalls and keeps the values per step.
+Default dump line: `dump cz4 0 0 6 6 64 127 0 0 -1 -1 0 0.5 0.5 0 8 1 440 40 1 0 2 1 1 0 64`. Wiring with `[skpreset name]`: outlet 3 → skpreset inlet 0, skpreset outlet 0 → `cz4~` inlet; a slot number 0–15 on skpreset inlet 1 recalls and keeps the values per step.
 
-## Vintage layer (`era`)
+## Vintage layer (`era`, setting 0–127)
 
 | Stage | Effect | Fades in |
 |---|---|---|
@@ -129,6 +133,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - With `pmor 0` and `sine 0`, single positions are still sample-identical to melodee.
 - DCW per line: line 1's DCW changes nothing when only line 2 is heard; a split line 2 stays silent until it gets its own note.
 - In Pd (libpd 0.56): object loads, notes, voice stealing, controls by name and number, clamping, dump and recall round trip, velocity and `dcw2` on DCW, channel routing with `trk 0`, `hold`, `params`, `get`, `defaults`, foreign dump lines ignored, error on unknown messages; the help patch opens without errors.
+- Levels: worst-case peak over all waves and DCW values with 4 loud voices at `levl 0.5` is 0.98 for one line and also 0.98 for both lines at full level. `fine` covers −49.5 to +48.9 cents, `detn 66` gives +99 cents.
 - With the real `skpreset.pd` from skandrums-pd: slot store and recall round trip, empty slots keep the current sound.
 - Not yet built or measured on the Bela.
 

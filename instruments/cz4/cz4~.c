@@ -17,19 +17,20 @@
 #include "cz_core.h"
 #include <stdio.h>
 #include <string.h>
+#include <math.h>
 
 /* The eight controls (0..127), one per pot, Machinedrum style. Both lines
- * always run with their own wave; mix crossfades between them. */
-enum { C_WAV1, C_WAV2, C_DCW1, C_DCW2, C_DETN, C_MIX, C_ERA, C_MOD, NCTL };
-static const char *CTL_NAME[NCTL] = {"wav1", "wav2", "dcw1", "dcw2", "detn", "mix", "era", "mod"};
-static const float CTL_DEFAULT[NCTL] = {0, 0, 6, 6, 64, 0, 0, 0};
+ * always run with their own wave, wave shape and level. */
+enum { C_WAV1, C_WAV2, C_DCW1, C_DCW2, C_DETN, C_AMP1, C_AMP2, C_MOD, NCTL };
+static const char *CTL_NAME[NCTL] = {"wav1", "wav2", "dcw1", "dcw2", "detn", "amp1", "amp2", "mod"};
+static const float CTL_DEFAULT[NCTL] = {0, 0, 6, 6, 64, 127, 0, 0};
 
 /* Further settings with raw values, in dump order after the controls. */
 enum { X_PAI1, X_PAI2, X_OCTV, X_SPRD, X_LEVL, X_DRFT, X_MRPH, X_HOLD, X_A4, X_DVEL, X_TRK, X_CH1, X_CH2,
-       X_PMOR, X_SINE, NEXT };
+       X_PMOR, X_SINE, X_ERA, X_FINE, NEXT };
 static const char *EXT_NAME[NEXT] = {"pai1", "pai2", "octv", "sprd", "levl", "drft", "mrph", "hold", "a4", "dvel",
-                                     "trk", "ch1", "ch2", "pmor", "sine"};
-static const float EXT_DEFAULT[NEXT] = {-1, -1, 0, 0.5f, 0.5f, 0, 8, 1, 440, 40, 1, 0, 2, 1, 1};
+                                     "trk", "ch1", "ch2", "pmor", "sine", "era", "fine"};
+static const float EXT_DEFAULT[NEXT] = {-1, -1, 0, 0.5f, 0.5f, 0, 8, 1, 440, 40, 1, 0, 2, 1, 1, 0, 64};
 
 /* One paraphonic allocator per line: line 1 always, line 2 when it is split
  * off (trk 0) and plays its own notes from a second MIDI channel. */
@@ -86,6 +87,24 @@ static void cz4_dsp(t_cz4 *x, t_signal **sp)
 }
 
 /* ------------------------------------------------------- applying values */
+/* line 2 detune: detn in 1/2 semitones, fine 64 = 0, about 0.8 cent a step
+ * (+-50 cents over the range) */
+static void update_detune(t_cz4 *x)
+{
+    x->e.detune = (float)(x->ctl[C_DETN] - 64.0f) * 0.5f + (float)(x->ext[X_FINE] - 64.0f) * (1.0f / 128.0f);
+}
+
+/* Line levels. Below full scale each amp is a plain level; when amp1 + amp2
+ * goes above it, both are scaled so that the sum stays at full scale (as the
+ * Cizzle drops its level for chords): two lines at full level cannot clip
+ * where one line alone does not. */
+static void update_amps(t_cz4 *x)
+{
+    float a1 = (float)x->ctl[C_AMP1] / 127.0f, a2 = (float)x->ctl[C_AMP2] / 127.0f, sum = a1 + a2;
+    float k = sum > 1.0f ? 1.0f / sum : 1.0f;
+    x->e.line_amp[0] = a1 * k; x->e.line_amp[1] = a2 * k;
+}
+
 static void apply_ctl(t_cz4 *x, int i, t_float v)
 {
     if (i < 0 || i >= NCTL) return;
@@ -95,9 +114,8 @@ static void apply_ctl(t_cz4 *x, int i, t_float v)
     switch (i) {
     case C_WAV1: e->line[0].pos = (float)v / 127.0f * CZ_MORPH_MAX; break;
     case C_WAV2: e->line[1].pos = (float)v / 127.0f * CZ_MORPH_MAX; break;
-    case C_DETN: e->detune = ((float)v - 64.0f) * 0.5f; break;        /* 1/2 semitone steps */
-    case C_MIX:  e->line_mix = (float)v / 127.0f; break;              /* 0 line 1 .. 127 line 2 */
-    case C_ERA:  cz_set_era(e, (float)v / 127.0f); break;
+    case C_DETN: update_detune(x); break;
+    case C_AMP1: case C_AMP2: update_amps(x); break;                  /* amp2 with ring: the ring product */
     case C_MOD:                                                        /* off / ring / noise */
         e->mod = v < 43.0f ? 0 : v < 86.0f ? CZ_MOD_RING : CZ_MOD_NOISE; break;
     default: break;                                                   /* dcw1, dcw2: read per block */
@@ -142,6 +160,8 @@ static void apply_ext(t_cz4 *x, int i, t_float v)
     case X_CH2: v = (t_float)(int)clampf_((float)v, 1.0f, 16.0f); break;
     case X_PMOR: v = v != 0; e->phase_morph = v != 0; break;       /* 0: CZ-style crossfade */
     case X_SINE: v = v != 0; e->sine0 = v != 0; break;             /* 0: chip behaviour at DCW 0 */
+    case X_ERA:  v = clampf_((float)v, 0.0f, 127.0f); cz_set_era(e, (float)v / 127.0f); break;
+    case X_FINE: v = clampf_((float)v, 0.0f, 127.0f); x->ext[X_FINE] = v; update_detune(x); break;
     default: return;
     }
     x->ext[i] = v;
@@ -328,8 +348,13 @@ static void cz4_tone(t_cz4 *x, t_symbol *s, int argc, t_atom *argv)
     /* write the imported state back into the controls so dump stays true */
     apply_ctl(x, C_WAV1, clampf_(e->line[0].pos / CZ_MORPH_MAX * 127.0f, 0.0f, 127.0f));
     apply_ctl(x, C_WAV2, clampf_(e->line[1].pos / CZ_MORPH_MAX * 127.0f, 0.0f, 127.0f));
-    apply_ctl(x, C_DETN, clampf_(64.0f + e->detune * 2.0f, 0.0f, 127.0f));
-    apply_ctl(x, C_MIX, mode == CZ_LINE_1 ? 0 : mode == CZ_LINE_2 ? 127 : 64);
+    {   /* the CZ's detune (1/64 semitone steps) split into detn and fine */
+        float total = e->detune, d = clampf_(roundf(total * 2.0f), -64.0f, 63.0f);
+        x->ext[X_FINE] = clampf_(64.0f + (total - d * 0.5f) * 128.0f, 0.0f, 127.0f);
+        apply_ctl(x, C_DETN, 64.0f + d);
+    }
+    apply_ctl(x, C_AMP1, mode == CZ_LINE_2 ? 0 : mode == CZ_LINE_1 ? 127 : 64);
+    apply_ctl(x, C_AMP2, mode == CZ_LINE_1 ? 0 : mode == CZ_LINE_2 ? 127 : 64);
     apply_ctl(x, C_MOD, (e->mod & CZ_MOD_RING) ? 64 : (e->mod & CZ_MOD_NOISE) ? 106 : 0);
     x->ext[X_PAI1] = e->line[0].pair_on ? e->line[0].pair : -1;
     x->ext[X_PAI2] = e->line[1].pair_on ? e->line[1].pair : -1;
