@@ -200,6 +200,30 @@ static void test_morph_quality(void)
     CHECK(fabs(worst_db) < 2.0, "morph midpoint level off by %.1f dB", worst_db);
 }
 
+/* ---------------- 2e. ring modulation keeps the level of line 2 */
+static double ring_level(cz_engine_t *e, int ring, float wav, float dcw)
+{
+    float l[256], r[256]; double s = 0, s2 = 0; long n = 0;
+    cz_init(e, FS); e->line_mode = CZ_LINE_1_2; e->morph_ms = 0.0f; e->spread = 0.0f; e->level = 1.0f;
+    e->line[0].pos = e->line[1].pos = wav; e->detune = 7.0f; e->mod = ring ? CZ_MOD_RING : 0;
+    e->line_amp[0] = e->amp_s[0] = 0.0f; e->line_amp[1] = e->amp_s[1] = 1.0f;
+    cz_voice_on(e, 0, 57.0f);
+    for (int k = 0; k < 100; k++) cz_render(e, l, r, 256, dcw, dcw);
+    for (int k = 0; k < 300; k++) { cz_render(e, l, r, 256, dcw, dcw); for (int i = 0; i < 256; i++) { s += l[i]; s2 += l[i] * l[i]; n++; } }
+    double m = s / n; return sqrt(s2 / n - m * m);
+}
+static void test_ring_level(void)
+{
+    static cz_engine_t e;
+    double worst = 0.0;
+    for (int w = 0; w <= 10; w++) for (int d = 0; d <= 4; d++) {
+        double db = 20 * log10(ring_level(&e, 1, (float)w, 0.25f * d) / ring_level(&e, 0, (float)w, 0.25f * d));
+        if (fabs(db) > fabs(worst)) worst = db;
+    }
+    printf("ring level: worst difference to line 2 alone over all waves and DCW %+.1f dB\n", worst);
+    CHECK(fabs(worst) < 3.0, "ring modulation level off by %.1f dB", worst);
+}
+
 /* -------------------------------------------------------- 3. CPU timing */
 static void test_cpu(void)
 {
@@ -313,6 +337,7 @@ int main(int argc, char **argv)
     test_morph_continuity();
     test_lines();
     test_morph_quality();
+    test_ring_level();
     test_cpu();
     if (argc > 1) demos(argv[1]);
     printf(failures ? "\n%d check(s) FAILED\n" : "\nall checks passed\n", failures);

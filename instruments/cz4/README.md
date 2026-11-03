@@ -30,7 +30,9 @@ The messages follow the skandrums-pd conventions (`dump`, `params`, `defaults`, 
 | 6 | `amp2` | 0 | level of line 2; with ring: level of the ring product |
 | 7 | `mod` | 0 | modulation: 0–42 off, 43–85 ring, 86–127 noise |
 
-Below full scale each amp is a plain level. When `amp1 + amp2` goes above 127, both are scaled down together so the sum stays at full scale: two lines at full level peak no higher than one line alone (as the Cizzle drops its level for chords). A line at level 0 is not computed.
+Below full scale each amp is a plain level. When `amp1 + amp2` goes above 127, both are scaled down together so the sum stays at full scale: two lines at full level peak no higher than one line alone (as the Cizzle drops its level for chords). Line 2 at level 0 is not computed.
+
+**Ring modulation** (`mod` 43–85): the product of the two lines is normalised by line 1's running level and DC-blocked, so it plays at the level of line 2 alone (within about 2 dB over all waves and DCW values) and `amp2` sets its level directly. Without this the product dropped 3 to 7 dB depending on line 1's wave. A soft saturation keeps its peaks at those of a plain line. At exact unison the product is half DC, which is removed, so it sits 3 dB lower there.
 
 The CZ line modes are covered by these controls: line 1 only = `amp2 0`, line 2 only = `amp1 0`, 1+1' = `wav2` equal to `wav1` plus `detn`/`fine`, 1+2' = two different waves.
 

@@ -79,6 +79,7 @@ typedef struct {
     float    note2;           /* line 2 when split (own MIDI channel)   */
     float    gain2, gain2_target;
     float    drift, drift_goal; uint32_t drift_rng; uint32_t drift_count;
+    float    ring_ms, ring_pk, ring_dc;  /* ring mod: line 1 mean square and peak, DC of the product */
 } cz_voice_t;
 
 typedef struct {

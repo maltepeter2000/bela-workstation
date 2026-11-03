@@ -513,6 +513,7 @@ static void render(cz_engine_t *e, float *out_l, float *out_r, unsigned n,
     float rate = hold ? vi->chip_hz : fs, tick = rate / fs;
     float quant = clampf(vi->quant, 0.0f, 1.0f);
     float dc_k = 1.0f - expf(-TWO_PI * 6.9f / rate);          /* = melodee's 1/1024 at 44.1k */
+    float ring_k = 1.0f - expf(-1.0f / (0.03f * rate));       /* line 1 level follower, 30 ms */
     float fade = 1.0f / (0.004f * rate);
     float hiss = vi->noise_db > -120.0f ? 1.7320508f * powf(10.0f, vi->noise_db / 20.0f) : 0.0f;
     float g_drive = 1.0f + 2.0f * clampf(vi->drive, 0.0f, 1.0f);
@@ -529,11 +530,9 @@ static void render(cz_engine_t *e, float *out_l, float *out_r, unsigned n,
         float t = clampf(e->line_amp[l], 0.0f, 1.0f);
         amp0[l] = e->amp_s[l]; ampd[l] = (t - amp0[l]) / (float)n; e->amp_s[l] = t;
     }
-    /* a line that is silent before and after the ramp is not computed (ring needs both) */
-    if (first != last && !ring) {
-        if (amp0[1] <= 0.0f && e->amp_s[1] <= 0.0f) last = first;
-        else if (amp0[0] <= 0.0f && e->amp_s[0] <= 0.0f) first = last;
-    }
+    /* line 2, silent before and after the ramp, is not computed (ring needs it).
+     * Line 1 always runs: it feeds the ring level followers. */
+    if (first != last && !ring && amp0[1] <= 0.0f && e->amp_s[1] <= 0.0f) last = first;
 
     /* wave positions: smoothed per block, then split into neighbour + blend */
     morph_t mo[2][2];
@@ -619,7 +618,31 @@ static void render(cz_engine_t *e, float *out_l, float *out_r, unsigned n,
                 if (mode < CZ_LINE_1_1) s = line[first];       /* single-line CZ modes: no amps */
                 else {
                     float a1 = amp0[0] + ampd[0] * (float)(i + 1u), a2 = amp0[1] + ampd[1] * (float)(i + 1u);
-                    float l2 = ring ? line[0] * line[1] * 2.0f : line[1];
+                    float l2 = line[1];
+                    /* line 1 level followers run all the time, so switching to
+                     * ring modulation starts at the right level, without a swell */
+                    float m = line[0] / (g[0] > 1e-4f ? g[0] : 1e-4f);       /* line 1 before its fade */
+                    float am = fabsf(m);
+                    c->ring_ms += (m * m - c->ring_ms) * ring_k;
+                    c->ring_pk = am > c->ring_pk ? am : c->ring_pk + (am - c->ring_pk) * ring_k;
+                    if (ring) {
+                        /* The product's level follows line 1's level, which changes
+                         * with wave and DCW (-3 to -7 dB against line 2 alone).
+                         * Divide by line 1's running RMS so the ring product sits at
+                         * line 2's level, and block the DC a same-pitch product has. */
+                        /* normalise by the RMS, but never let the normalised line 1
+                         * peak above 3 (a sine is 1.41): peaky resonance waves
+                         * would otherwise blow the product up */
+                        float den = sqrtf(c->ring_ms), lim = c->ring_pk * (1.0f / 3.0f);
+                        den = den > lim ? den : lim;
+                        float r = m * line[1] / (den > 0.05f ? den : 0.05f);
+                        /* +1 dB, then a soft saturation that keeps the product's
+                         * peaks at those of a plain line: same loudness as line 2
+                         * within about 2 dB, no extra headroom needed */
+                        r = softclip(r * 1.12f);
+                        c->ring_dc += (r - c->ring_dc) * dc_k;
+                        l2 = r - c->ring_dc;
+                    }
                     s = line[0] * a1 + l2 * a2;
                 }
                 sl += s * pan_l[v]; sr += s * pan_r[v];
