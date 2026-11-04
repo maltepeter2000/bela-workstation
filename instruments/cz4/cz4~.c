@@ -23,7 +23,7 @@
  * always run with their own wave, wave shape and level. */
 enum { C_WAV1, C_WAV2, C_DCW1, C_DCW2, C_DETN, C_AMP1, C_AMP2, C_MOD, NCTL };
 static const char *CTL_NAME[NCTL] = {"wav1", "wav2", "dcw1", "dcw2", "detn", "amp1", "amp2", "mod"};
-static const float CTL_DEFAULT[NCTL] = {0, 0, 6, 6, 64, 127, 0, 0};
+static const float CTL_DEFAULT[NCTL] = {0, 0, 6, 6, 0, 127, 0, 0};
 
 /* Further settings with raw values, in dump order after the controls. */
 enum { X_PAI1, X_PAI2, X_OCTV, X_SPRD, X_LEVL, X_DRFT, X_MRPH, X_HOLD, X_A4, X_DVEL, X_TRK, X_CH1, X_CH2,
@@ -87,11 +87,13 @@ static void cz4_dsp(t_cz4 *x, t_signal **sp)
 }
 
 /* ------------------------------------------------------- applying values */
-/* line 2 detune: detn in 1/2 semitones, fine 64 = 0, about 0.8 cent a step
+/* line 2 detune: detn 0 = unison .. 127 = one octave up, in whole semitones
+ * (13 steps, about 10 values each); fine 64 = 0, about 0.8 cent a step
  * (+-50 cents over the range) */
 static void update_detune(t_cz4 *x)
 {
-    x->e.detune = (float)(x->ctl[C_DETN] - 64.0f) * 0.5f + (float)(x->ext[X_FINE] - 64.0f) * (1.0f / 128.0f);
+    float semis = roundf((float)x->ctl[C_DETN] * (12.0f / 127.0f));
+    x->e.detune = semis + (float)(x->ext[X_FINE] - 64.0f) * (1.0f / 128.0f);
 }
 
 /* Line levels. Below full scale each amp is a plain level; when amp1 + amp2
@@ -348,10 +350,12 @@ static void cz4_tone(t_cz4 *x, t_symbol *s, int argc, t_atom *argv)
     /* write the imported state back into the controls so dump stays true */
     apply_ctl(x, C_WAV1, clampf_(e->line[0].pos / CZ_MORPH_MAX * 127.0f, 0.0f, 127.0f));
     apply_ctl(x, C_WAV2, clampf_(e->line[1].pos / CZ_MORPH_MAX * 127.0f, 0.0f, 127.0f));
-    {   /* the CZ's detune (1/64 semitone steps) split into detn and fine */
-        float total = e->detune, d = clampf_(roundf(total * 2.0f), -64.0f, 63.0f);
-        x->ext[X_FINE] = clampf_(64.0f + (total - d * 0.5f) * 128.0f, 0.0f, 127.0f);
-        apply_ctl(x, C_DETN, 64.0f + d);
+    {   /* the CZ's detune (1/64 semitone steps) split into detn (whole
+         * semitones, 0..12) and fine; a downward or wider CZ detune is
+         * clamped to unison or one octave up */
+        float total = e->detune, n = clampf_(roundf(total), 0.0f, 12.0f);
+        x->ext[X_FINE] = clampf_(64.0f + (total - n) * 128.0f, 0.0f, 127.0f);
+        apply_ctl(x, C_DETN, roundf(n * (127.0f / 12.0f)));
     }
     apply_ctl(x, C_AMP1, mode == CZ_LINE_2 ? 0 : mode == CZ_LINE_1 ? 127 : 64);
     apply_ctl(x, C_AMP2, mode == CZ_LINE_1 ? 0 : mode == CZ_LINE_2 ? 127 : 64);
