@@ -68,6 +68,8 @@ SETTINGS = [
     "DAC and output stage, from clean to crunchy",
     "fine (64) fine detune of line 2, 64 = none, +-50 cents",
     "pat8 (0) 1: resonance through the 8-bit circuit of the patent",
+    "fade (4) voice fade in/out at note-on and note-off, 1-100 ms;",
+    "short = snappy CZ attack, longer = no click with an open VCA",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -75,7 +77,7 @@ ADV = [("pai1", -1, 11), ("pai2", -1, 11), ("octv", -1, 1), ("sprd", 0, 1),
        ("levl", 0, 2), ("drft", 0, 1), ("mrph", 0, 100), ("hold", 0, 1),
        ("a4", 400, 480), ("dvel", 0, 127), ("trk", 0, 1), ("ch1", 0, 16),
        ("ch2", 1, 16), ("pmor", 0, 1), ("sine", 0, 1), ("era", 0, 127),
-       ("fine", 0, 127)]
+       ("fine", 0, 127), ("fade", 1, 100)]
 VINT = [("pat8", 0, 1), ("quant", 0, 1), ("chiprate", 0, 44100), ("bits", 4, 16), ("dacerr", 0, 1),
         ("hiss", -120, -40), ("lpf", 0, 20000), ("drive", 0, 1)]
 

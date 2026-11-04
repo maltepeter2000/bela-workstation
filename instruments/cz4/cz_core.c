@@ -475,7 +475,7 @@ void cz_init(cz_engine_t *e, float fs)
     e->fs = fs; e->a4 = 440.0f; e->level = 0.5f; e->spread = 0.5f;
     e->line_amp[0] = e->line_amp[1] = e->amp_s[0] = e->amp_s[1] = 0.5f;
     e->line_mode = CZ_LINE_1;            /* lines start on saw, no pair */
-    e->morph_ms = 8.0f;
+    e->morph_ms = 8.0f; e->fade_ms = 4.0f;
     e->phase_morph = 1; e->sine0 = 1;
     e->vint.dac_bits = 16; e->vint.noise_db = -200.0f;
     e->dcw_last = -1.0f;
@@ -564,7 +564,7 @@ static void render(cz_engine_t *e, float *out_l, float *out_r, unsigned n,
     float quant = clampf(vi->quant, 0.0f, 1.0f);
     float dc_k = 1.0f - expf(-TWO_PI * 6.9f / rate);          /* = melodee's 1/1024 at 44.1k */
     float ring_k = 1.0f - expf(-1.0f / (0.03f * rate));       /* line 1 level follower, 30 ms */
-    float fade = 1.0f / (0.004f * rate);
+    float fade = 1.0f / (0.001f * clampf(e->fade_ms, 0.1f, 1000.0f) * rate);   /* per evaluated sample */
     float hiss = vi->noise_db > -120.0f ? 1.7320508f * powf(10.0f, vi->noise_db / 20.0f) : 0.0f;
     float g_drive = 1.0f + 2.0f * clampf(vi->drive, 0.0f, 1.0f);
     int use_drive = vi->drive > 0.001f;

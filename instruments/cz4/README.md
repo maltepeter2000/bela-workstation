@@ -66,6 +66,7 @@ The cosine window (6) is not on the CZ chip: it is the raised-cosine envelope fr
 | `era` | 0–127 | 0 | vintage layer, clean to crunchy (see below) |
 | `fine` | 0–127 | 64 | fine detune of line 2: 64 = none, about 0.8 cent a step, ±50 cents; adds to `detn` |
 | `pat8` | 0/1 | 0 | 1: resonance waves through the 8-bit circuit of Casio's patent (see below) |
+| `fade` | 1–100 ms | 4 | fade-in and fade-out of a voice at note-on and note-off. Short gives the snappy CZ attack; with a VCA that stays open between notes, 10 ms or more removes the click |
 | `pmor` | 0/1 | 1 | 1: phase morph between waves; 0: CZ-style crossfade |
 | `sine` | 0/1 | 1 | 1: DCW 0 is the plain sine on every wave; 0: chip behaviour |
 
@@ -82,13 +83,13 @@ The cosine window (6) is not on the CZ chip: it is the raised-cosine envelope fr
 | `phase` | phase reset of all voices |
 | `get <name>` | outlet 3 answers `value <name> <v>` (controls and settings) |
 | `voice i p` / `voiceoff i` | play a voice directly, for your own allocation |
-| `dump` | outlet 3 sends `dump cz4` + the 8 controls + the 18 settings, in the order of the tables above |
+| `dump` | outlet 3 sends `dump cz4` + the 8 controls + the 19 settings, in the order of the tables above |
 | `dump cz4 …` | restore such a line; lines of other voices are ignored |
 | `tone b0 … b127` | waves, line levels, modulation, octave and detune from a decoded native CZ-1 tone (detune clamped to 0…+12 semitones); envelopes are ignored |
 | `quant` `chiprate` `bits` `dacerr` `hiss` `lpf` `drive` | single vintage stages instead of `era` |
 | `print` | voices, values and sample rate to the Pd window |
 
-Default dump line: `dump cz4 0 0 6 6 0 127 0 0 -1 -1 0 0.5 0.5 0 8 1 440 40 1 0 2 1 1 0 64 0`. Wiring with `[skpreset name]`: outlet 3 → skpreset inlet 0, skpreset outlet 0 → `cz4~` inlet; a slot number 0–15 on skpreset inlet 1 recalls and keeps the values per step.
+Default dump line: `dump cz4 0 0 6 6 0 127 0 0 -1 -1 0 0.5 0.5 0 8 1 440 40 1 0 2 1 1 0 64 0 4`. Wiring with `[skpreset name]`: outlet 3 → skpreset inlet 0, skpreset outlet 0 → `cz4~` inlet; a slot number 0–15 on skpreset inlet 1 recalls and keeps the values per step.
 
 ## Patent 8-bit resonance (`pat8`)
 

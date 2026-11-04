@@ -102,6 +102,7 @@ typedef struct {
     float     level;         /* master gain, default 0.4             */
     cz_vintage_t vint;
     float     morph_ms;      /* smoothing of wave positions, default 8 ms */
+    float     fade_ms;       /* voice fade in / out at note-on and -off, default 4 ms */
     int       phase_morph;   /* 1: morph the bent phase (default); 0: crossfade */
     int       patent8;       /* 1: resonance waves through the 8-bit multiplier
                                 circuit of Casio's patent (256-entry cosine ROM,

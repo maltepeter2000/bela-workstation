@@ -266,6 +266,27 @@ static void test_patent8(void)
     CHECK(max_levels <= 256, "patent 8-bit: %d levels, more than 8 bit", max_levels);
 }
 
+/* -------------------------------------- 2g. voice fade time (fade_ms) */
+static void test_fade(void)
+{
+    static cz_engine_t e;
+    float l[64], r[64];
+    const float ms[3] = {1.0f, 4.0f, 20.0f};
+    for (int k = 0; k < 3; k++) {
+        cz_init(&e, FS); e.fade_ms = ms[k]; e.line_mode = CZ_LINE_1;
+        cz_voice_on(&e, 0, 60.0f);
+        long n = 0, full = -1;
+        while (n < (long)FS && full < 0) {
+            cz_render(&e, l, r, 1, 0.3f, 0.3f);
+            if (e.v[0].gain >= 1.0f) full = n;
+            n++;
+        }
+        float got = 1000.0f * (float)full / FS;
+        printf("fade %4.0f ms: voice at full level after %.2f ms\n", ms[k], got);
+        CHECK(fabsf(got - ms[k]) < 0.1f + 0.02f * ms[k], "fade %.0f ms took %.2f ms", ms[k], got);
+    }
+}
+
 /* -------------------------------------------------------- 3. CPU timing */
 static void test_cpu(void)
 {
@@ -381,6 +402,7 @@ int main(int argc, char **argv)
     test_morph_quality();
     test_ring_level();
     test_patent8();
+    test_fade();
     test_cpu();
     if (argc > 1) demos(argv[1]);
     printf(failures ? "\n%d check(s) FAILED\n" : "\nall checks passed\n", failures);
