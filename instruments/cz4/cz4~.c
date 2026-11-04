@@ -87,13 +87,12 @@ static void cz4_dsp(t_cz4 *x, t_signal **sp)
 }
 
 /* ------------------------------------------------------- applying values */
-/* line 2 detune: detn 0 = unison .. 127 = one octave up, in whole semitones
- * (13 steps, about 10 values each); fine 64 = 0, about 0.8 cent a step
+/* line 2 detune: detn 0 = unison .. 127 = one octave up, continuous (about
+ * 9.4 cents a step); fine 64 = 0, about 0.8 cent a step
  * (+-50 cents over the range) */
 static void update_detune(t_cz4 *x)
 {
-    float semis = roundf((float)x->ctl[C_DETN] * (12.0f / 127.0f));
-    x->e.detune = semis + (float)(x->ext[X_FINE] - 64.0f) * (1.0f / 128.0f);
+    x->e.detune = (float)x->ctl[C_DETN] * (12.0f / 127.0f) + (float)(x->ext[X_FINE] - 64.0f) * (1.0f / 128.0f);
 }
 
 /* Line levels. Below full scale each amp is a plain level; when amp1 + amp2
@@ -350,12 +349,12 @@ static void cz4_tone(t_cz4 *x, t_symbol *s, int argc, t_atom *argv)
     /* write the imported state back into the controls so dump stays true */
     apply_ctl(x, C_WAV1, clampf_(e->line[0].pos / CZ_MORPH_MAX * 127.0f, 0.0f, 127.0f));
     apply_ctl(x, C_WAV2, clampf_(e->line[1].pos / CZ_MORPH_MAX * 127.0f, 0.0f, 127.0f));
-    {   /* the CZ's detune (1/64 semitone steps) split into detn (whole
-         * semitones, 0..12) and fine; a downward or wider CZ detune is
-         * clamped to unison or one octave up */
-        float total = e->detune, n = clampf_(roundf(total), 0.0f, 12.0f);
-        x->ext[X_FINE] = clampf_(64.0f + (total - n) * 128.0f, 0.0f, 127.0f);
-        apply_ctl(x, C_DETN, roundf(n * (127.0f / 12.0f)));
+    {   /* the CZ's detune (1/64 semitone steps) goes to detn, the rest of
+         * the rounding to fine; a downward or wider CZ detune is clamped to
+         * unison or one octave up */
+        float total = clampf_(e->detune, 0.0f, 12.0f), d = roundf(total * (127.0f / 12.0f));
+        x->ext[X_FINE] = clampf_(64.0f + (total - d * (12.0f / 127.0f)) * 128.0f, 0.0f, 127.0f);
+        apply_ctl(x, C_DETN, d);
     }
     apply_ctl(x, C_AMP1, mode == CZ_LINE_2 ? 0 : mode == CZ_LINE_1 ? 127 : 64);
     apply_ctl(x, C_AMP2, mode == CZ_LINE_1 ? 0 : mode == CZ_LINE_2 ? 127 : 64);

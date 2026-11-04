@@ -25,7 +25,7 @@ The messages follow the skandrums-pd conventions (`dump`, `params`, `defaults`, 
 | 1 | `wav2` | 0 | wave of line 2 |
 | 2 | `dcw1` | 6 | DCW of line 1, amount of phase distortion (0 = sine) |
 | 3 | `dcw2` | 6 | DCW of line 2 |
-| 4 | `detn` | 0 | detune of line 2 upwards in whole semitones: 0 = unison, 127 = one octave up (13 steps, about 10 values each) |
+| 4 | `detn` | 0 | detune of line 2 upwards, continuous: 0 = unison, 127 = one octave up (about 9.4 cents a step) |
 | 5 | `amp1` | 127 | level of line 1 |
 | 6 | `amp2` | 0 | level of line 2; with ring: level of the ring product |
 | 7 | `mod` | 0 | modulation: 0–42 off, 43–85 ring, 86–127 noise |
@@ -135,7 +135,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - With `pmor 0` and `sine 0`, single positions are still sample-identical to melodee.
 - DCW per line: line 1's DCW changes nothing when only line 2 is heard; a split line 2 stays silent until it gets its own note.
 - In Pd (libpd 0.56): object loads, notes, voice stealing, controls by name and number, clamping, dump and recall round trip, velocity and `dcw2` on DCW, channel routing with `trk 0`, `hold`, `params`, `get`, `defaults`, foreign dump lines ignored, error on unknown messages; the help patch opens without errors.
-- Levels: worst-case peak over all waves and DCW values with 4 loud voices at `levl 0.5` is 0.98 for one line and also 0.98 for both lines at full level. `fine` covers −49.5 to +48.9 cents; `detn` 0 / 74 / 127 give unison / +7 / +12 semitones.
+- Levels: worst-case peak over all waves and DCW values with 4 loud voices at `levl 0.5` is 0.98 for one line and also 0.98 for both lines at full level. `fine` covers −49.5 to +48.9 cents; `detn` 127 gives +12 semitones, 74 gives +6.99 semitones (+7 with `fine` 65).
 - With the real `skpreset.pd` from skandrums-pd: slot store and recall round trip, empty slots keep the current sound.
 - Not yet built or measured on the Bela.
 

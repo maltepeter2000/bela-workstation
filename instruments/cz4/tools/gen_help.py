@@ -39,7 +39,7 @@ CONTROLS = [
     ("dcw1", 6, "DCW of line 1: how far the sine is bent towards the "
                 "waveform (0 = sine)."),
     ("dcw2", 6, "DCW of line 2."),
-    ("detn", 0, "Detunes line 2 upwards in semitone steps: 0 = unison, "
+    ("detn", 0, "Detunes line 2 upwards, continuously: 0 = unison, "
                 "127 = one octave up. fine adds +-50 cents."),
     ("amp1", 127, "Level of line 1."),
     ("amp2", 0, "Level of line 2. With ring: level of the ring product. "
