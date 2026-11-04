@@ -20,6 +20,7 @@
 /* ------------------------------------------------------------------ tables */
 static float    SIN_T[1025];      /* one sine cycle, as melodee's FM6_SIN   */
 static uint16_t CHIP_COS[2048];   /* 4095 * (1 - cos) / 2, 12 bit           */
+static uint8_t  COS8[256];        /* patent ROM: one cosine cycle, 8 bit    */
 static int      tables_ready;
 
 static void tables_init(void)
@@ -28,6 +29,8 @@ static void tables_init(void)
     for (int i = 0; i <= 1024; i++) SIN_T[i] = sinf(TWO_PI * (float)i / 1024.0f);
     for (int i = 0; i < 2048; i++)
         CHIP_COS[i] = (uint16_t)lrintf(4095.0f * (1.0f - cosf(TWO_PI * (float)i / 2048.0f)) * 0.5f);
+    for (int i = 0; i < 256; i++)
+        COS8[i] = (uint8_t)lrintf(255.0f * (1.0f - cosf(TWO_PI * (float)i / 256.0f)) * 0.5f);
     tables_ready = 1;
 }
 
@@ -48,6 +51,8 @@ typedef struct {
     float wg;                   /* window gain: 1, or rising with DCW (sine mode) */
     float g;                    /* sine mode: 0 at DCW 0 .. 1 from DCW 25 %      */
     int sine;                   /* sine mode on                                  */
+    int p8;                     /* patent 8-bit resonance on                     */
+    uint32_t mx8;               /* its frequency factor, 8.8 fixed point          */
 } pd_t;
 
 static void pd_make(pd_t *p, float dcw)
@@ -61,7 +66,7 @@ static void pd_make(pd_t *p, float dcw)
     /* Float reciprocals: the Cortex-A8 has no integer divider. */
     p->r0 = (uint32_t)(1073741824.0f / (float)p->ipiv);
     p->r1 = (uint32_t)(1073741824.0f / (float)(2048 - p->ipiv));
-    p->wg = p->g = 1.0f; p->sine = 0;
+    p->wg = p->g = 1.0f; p->sine = 0; p->p8 = 0; p->mx8 = 256u;
 }
 
 /* Sine mode: DCW 0 gives the fundamental sine at every wave position. The
@@ -236,7 +241,7 @@ typedef struct { uint8_t wa, na, wb, nb, phase_ok; float f, ga, gb; } morph_t;
 
 static int is_double(unsigned w) { return w == 4u || w == 7u; }
 
-static void morph_make(morph_t *m, float pos, int phase_morph)
+static void morph_make(morph_t *m, float pos, int phase_morph, int p8)
 {
     pos = clampf(pos, 0.0f, CZ_MORPH_MAX);
     unsigned i = (unsigned)pos;
@@ -253,7 +258,7 @@ static void morph_make(morph_t *m, float pos, int phase_morph)
      * the same number of sine cycles. Elsewhere the outputs are crossfaded. */
     int both_reso = m->wa == 6u && m->wb == 6u;
     int no_reso = m->wa != 6u && m->wb != 6u && is_double(m->wa) == is_double(m->wb);
-    m->phase_ok = (uint8_t)(phase_morph && (both_reso || no_reso));
+    m->phase_ok = (uint8_t)(phase_morph && ((both_reso && !p8) || no_reso));
     /* Crossfade gains. Neighbours with a different cycle count (a single
      * and a double wave) share almost no harmonics, so a linear fade dips
      * about 4 dB at the midpoint; with phase_morph on they get an
@@ -264,8 +269,42 @@ static void morph_make(morph_t *m, float pos, int phase_morph)
     } else { m->ga = 1.0f - m->f; m->gb = m->f; }
 }
 
+/* Resonance as in the multiplier arrangement of Casio's patent US4658691
+ * (Figs. 16-24): a 12-bit phase N is multiplied by MX (8.8 fixed point,
+ * MX = 256 is one cycle per note); the low 8 bits of N*MX/4096 address a
+ * 256-entry cosine ROM with 8-bit amplitude, read without interpolation;
+ * the result is multiplied 8 x 8 bit by an envelope over the note cycle,
+ * taken from the top 8 phase bits (here: the chosen window, at 8 bit). */
+static inline float wave_p8(unsigned window, uint32_t ph, const pd_t *b)
+{
+    uint32_t n = ph >> 20;                                    /* 12-bit phase N   */
+    uint32_t addr = ((n * b->mx8) >> 12) & 255u;              /* MPY1, low 8 bits */
+    uint32_t top = n >> 4;                                    /* N4..N11          */
+    int32_t pos = (int32_t)(top << 3), half = pos & 1023, win = 0;   /* 11-bit grid of 256 steps */
+    switch (window) {
+    case 0: break;
+    case 1: win = pos; break;
+    case 2: win = pos < 1024 ? 2048 - half * 2 : half * 2; break;
+    case 3: if (pos >= 1024) win = half * 2; break;
+    case 4: win = pos < 1024 ? pos * 2 : 2048; break;
+    case 6: win = 2048 - (int32_t)((CHIP_COS[pos & 2047] * 2049u) >> 12); break;
+    default: win = (1024 - half) * 2; break;
+    }
+    if (b->wg < 1.0f) win = (int32_t)((float)win * b->wg);
+    uint32_t env = (uint32_t)(((2048 - win) * 255) >> 11);       /* 8-bit envelope    */
+    uint32_t s = ((uint32_t)COS8[addr] * env) >> 8;              /* MPY2, 8 x 8 bit   */
+    return (float)s * (2.0f / 255.0f) - 1.0f;
+}
+
+float cz_wave_p8_test(unsigned window, uint32_t ph, float dcw)
+{
+    pd_t p; tables_init(); pd_make(&p, dcw); p.p8 = 1; p.mx8 = (uint32_t)(256.0f + p.dcw * 4.0f);
+    return wave_p8(window, ph, &p);
+}
+
 static inline float wave_q(unsigned w, unsigned win, uint32_t ph, const pd_t *pd, float quant)
 {
+    if (w == 6u && pd->p8) return wave_p8(win, ph, pd);
     if (quant <= 0.0f) return wave_clean_pd(w, win, ph, pd);
     if (quant >= 1.0f) return wave_chip_pd(w, win, ph, pd);
     return lerpf(wave_clean_pd(w, win, ph, pd), wave_chip_pd(w, win, ph, pd), quant);
@@ -552,7 +591,7 @@ static void render(cz_engine_t *e, float *out_l, float *out_r, unsigned n,
         float tgt[2] = { e->line[l].pos, e->line[l].pair_on ? e->line[l].pair : e->line[l].pos };
         for (int t = 0; t < 2; t++) {
             e->pos_s[l][t] += (clampf(tgt[t], 0.0f, CZ_MORPH_MAX) - e->pos_s[l][t]) * pk;
-            morph_make(&mo[l][t], e->pos_s[l][t], e->phase_morph);
+            morph_make(&mo[l][t], e->pos_s[l][t], e->phase_morph, e->patent8);
         }
     }
 
@@ -596,7 +635,12 @@ static void render(cz_engine_t *e, float *out_l, float *out_r, unsigned n,
             for (unsigned l = first; l <= last; l++) {
                 float d = dcw_buf ? dcw_buf[i] : dcw0[l] + dstep[l] * (float)(i + 1u);
                 float dcw = clampf(d, 0.0f, 1.0f) * 1023.0f;
-                if (dcw != pd_dcw[l]) { pd_make(&pd[l], dcw); pd_sine(&pd[l], e->sine0); pd_dcw[l] = dcw; }
+                if (dcw != pd_dcw[l]) {
+                    pd_make(&pd[l], dcw); pd_sine(&pd[l], e->sine0);
+                    pd[l].p8 = e->patent8;
+                    pd[l].mx8 = (uint32_t)(256.0f + dcw * 4.0f);   /* 1 + DCW/64, in 8.8 */
+                    pd_dcw[l] = dcw;
+                }
             }
             float sl = 0.0f, sr = 0.0f;
             for (int v = 0; v < CZ_VOICES; v++) {

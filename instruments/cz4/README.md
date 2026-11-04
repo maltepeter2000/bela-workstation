@@ -65,6 +65,7 @@ The cosine window (6) is not on the CZ chip: it is the raised-cosine envelope fr
 | `ch2` | 1–16 | 2 | MIDI channel of line 2 for `p v ch` lists when `trk 0` |
 | `era` | 0–127 | 0 | vintage layer, clean to crunchy (see below) |
 | `fine` | 0–127 | 64 | fine detune of line 2: 64 = none, about 0.8 cent a step, ±50 cents; adds to `detn` |
+| `pat8` | 0/1 | 0 | 1: resonance waves through the 8-bit circuit of Casio's patent (see below) |
 | `pmor` | 0/1 | 1 | 1: phase morph between waves; 0: CZ-style crossfade |
 | `sine` | 0/1 | 1 | 1: DCW 0 is the plain sine on every wave; 0: chip behaviour |
 
@@ -81,13 +82,23 @@ The cosine window (6) is not on the CZ chip: it is the raised-cosine envelope fr
 | `phase` | phase reset of all voices |
 | `get <name>` | outlet 3 answers `value <name> <v>` (controls and settings) |
 | `voice i p` / `voiceoff i` | play a voice directly, for your own allocation |
-| `dump` | outlet 3 sends `dump cz4` + the 8 controls + the 17 settings, in the order of the tables above |
+| `dump` | outlet 3 sends `dump cz4` + the 8 controls + the 18 settings, in the order of the tables above |
 | `dump cz4 …` | restore such a line; lines of other voices are ignored |
 | `tone b0 … b127` | waves, line levels, modulation, octave and detune from a decoded native CZ-1 tone (detune clamped to 0…+12 semitones); envelopes are ignored |
 | `quant` `chiprate` `bits` `dacerr` `hiss` `lpf` `drive` | single vintage stages instead of `era` |
 | `print` | voices, values and sample rate to the Pd window |
 
-Default dump line: `dump cz4 0 0 6 6 0 127 0 0 -1 -1 0 0.5 0.5 0 8 1 440 40 1 0 2 1 1 0 64`. Wiring with `[skpreset name]`: outlet 3 → skpreset inlet 0, skpreset outlet 0 → `cz4~` inlet; a slot number 0–15 on skpreset inlet 1 recalls and keeps the values per step.
+Default dump line: `dump cz4 0 0 6 6 0 127 0 0 -1 -1 0 0.5 0.5 0 8 1 440 40 1 0 2 1 1 0 64 0`. Wiring with `[skpreset name]`: outlet 3 → skpreset inlet 0, skpreset outlet 0 → `cz4~` inlet; a slot number 0–15 on skpreset inlet 1 recalls and keeps the values per step.
+
+## Patent 8-bit resonance (`pat8`)
+
+With `pat8 1` the resonance waves (morph positions 4–9) run through the multiplier circuit of Casio's patent US4658691 (Figs. 16–24) instead of the chip model:
+
+1. a 12-bit phase N is multiplied by MX (8.8 fixed point, MX = 256 + 4 × DCW, so 1× to about 17×);
+2. the low 8 bits of N × MX / 4096 address a 256-entry cosine ROM with 8-bit amplitude, read without interpolation;
+3. the result is multiplied 8 × 8 bit by an envelope taken from the top 8 phase bits: the chosen window at 8-bit resolution (saw = the patent's inverter version, triangle = its XOR version, cosine = its HROM version; trapezoid, pulse and double saw are the chip's windows at 8 bit).
+
+Same level and resonance peak as the normal path; the difference is a raised noise floor and stepped images up the spectrum (about 32 dB below the signal). The patent describes this circuit; whether the shipped CZ chip used it is not documented there. `pat8` acts before `era`, so both can be combined.
 
 ## Vintage layer (`era`, setting 0–127)
 
@@ -135,6 +146,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - Wave morph continuous: output step across every integer position below 0.001.
 - Morph quality: with `sine 1` DCW 0 gives a pure sine on all 12 positions (overtones below 1 %); midpoint level within ±2 dB on every pair.
 - With `pmor 0` and `sine 0`, single positions are still sample-identical to melodee.
+- `pat8`: same level as the normal resonance on all six windows (±0.1 dB), at most 223 distinct output values per cycle (8 bit).
 - DCW per line: line 1's DCW changes nothing when only line 2 is heard; a split line 2 stays silent until it gets its own note.
 - In Pd (libpd 0.56): object loads, notes, voice stealing, controls by name and number, clamping, dump and recall round trip, velocity and `dcw2` on DCW, channel routing with `trk 0`, `hold`, `params`, `get`, `defaults`, foreign dump lines ignored, error on unknown messages; the help patch opens without errors.
 - Levels: worst-case peak over all waves and DCW values with 4 loud voices at `levl 0.5` is 0.98 for one line and also 0.98 for both lines at full level. `fine` covers −49.5 to +48.9 cents; `detn` 127 gives +12 semitones, 74 gives +6.99 semitones (+7 with `fine` 65).

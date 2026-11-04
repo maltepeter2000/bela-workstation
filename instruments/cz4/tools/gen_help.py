@@ -67,6 +67,7 @@ SETTINGS = [
     "era (0) vintage character 0-127: chip resolution, chip rate,",
     "DAC and output stage, from clean to crunchy",
     "fine (64) fine detune of line 2, 64 = none, +-50 cents",
+    "pat8 (0) 1: resonance through the 8-bit circuit of the patent",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -75,7 +76,7 @@ ADV = [("pai1", -1, 11), ("pai2", -1, 11), ("octv", -1, 1), ("sprd", 0, 1),
        ("a4", 400, 480), ("dvel", 0, 127), ("trk", 0, 1), ("ch1", 0, 16),
        ("ch2", 1, 16), ("pmor", 0, 1), ("sine", 0, 1), ("era", 0, 127),
        ("fine", 0, 127)]
-VINT = [("quant", 0, 1), ("chiprate", 0, 44100), ("bits", 4, 16), ("dacerr", 0, 1),
+VINT = [("pat8", 0, 1), ("quant", 0, 1), ("chiprate", 0, 44100), ("bits", 4, 16), ("dacerr", 0, 1),
         ("hiss", -120, -40), ("lpf", 0, 20000), ("drive", 0, 1)]
 
 
@@ -170,7 +171,11 @@ def build():
         "so a DCW envelope always opens from the same sine.",
         "pmor 0 and sine 0 give the CZ chip's own behaviour.",
         "The cosine window (position 6) comes from Casio's patent: a",
-        "resonance without the buzz of the chip's windows."]))
+        "resonance without the buzz of the chip's windows.",
+        "pat8 1 sends the resonance waves (positions 4-9) through the",
+        "patent's 8-bit circuit: a 256-step cosine ROM with 8-bit",
+        "values, an 8-bit window and 8 x 8 bit products - stepped and",
+        "gritty."]))
     sections.append(("Two lines", [
         "Every voice has two lines, each with its own wave and DCW.",
         "With trk 1 line 2 plays the same notes, detuned by detn.",

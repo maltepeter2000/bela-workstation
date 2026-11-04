@@ -103,6 +103,9 @@ typedef struct {
     cz_vintage_t vint;
     float     morph_ms;      /* smoothing of wave positions, default 8 ms */
     int       phase_morph;   /* 1: morph the bent phase (default); 0: crossfade */
+    int       patent8;       /* 1: resonance waves through the 8-bit multiplier
+                                circuit of Casio's patent (256-entry cosine ROM,
+                                8-bit envelope, 8 x 8 bit products); default 0 */
     int       sine0;         /* 1: DCW 0 = fundamental sine everywhere (default);
                                 0: the chip's own behaviour (octave, windows) */
     int       split;         /* 0: line 2 follows the voice; 1: line 2 has its own
@@ -161,6 +164,8 @@ int   cz_import_tone(cz_engine_t *e, const uint8_t *tone, unsigned len);
  * wave 0..7, window 0..5, ph: 32-bit phase, dcw: chip units 0..1023. */
 float cz_wave_clean(unsigned wave, unsigned window, uint32_t ph, float dcw);
 float cz_wave_chip(unsigned wave, unsigned window, uint32_t ph, float dcw);
+/* the patent 8-bit resonance alone (window 0..6), for tests */
+float cz_wave_p8_test(unsigned window, uint32_t ph, float dcw);
 
 #ifdef __cplusplus
 }

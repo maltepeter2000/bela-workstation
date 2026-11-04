@@ -27,10 +27,10 @@ static const float CTL_DEFAULT[NCTL] = {0, 0, 6, 6, 0, 127, 0, 0};
 
 /* Further settings with raw values, in dump order after the controls. */
 enum { X_PAI1, X_PAI2, X_OCTV, X_SPRD, X_LEVL, X_DRFT, X_MRPH, X_HOLD, X_A4, X_DVEL, X_TRK, X_CH1, X_CH2,
-       X_PMOR, X_SINE, X_ERA, X_FINE, NEXT };
+       X_PMOR, X_SINE, X_ERA, X_FINE, X_PAT8, NEXT };
 static const char *EXT_NAME[NEXT] = {"pai1", "pai2", "octv", "sprd", "levl", "drft", "mrph", "hold", "a4", "dvel",
-                                     "trk", "ch1", "ch2", "pmor", "sine", "era", "fine"};
-static const float EXT_DEFAULT[NEXT] = {-1, -1, 0, 0.5f, 0.5f, 0, 8, 1, 440, 40, 1, 0, 2, 1, 1, 0, 64};
+                                     "trk", "ch1", "ch2", "pmor", "sine", "era", "fine", "pat8"};
+static const float EXT_DEFAULT[NEXT] = {-1, -1, 0, 0.5f, 0.5f, 0, 8, 1, 440, 40, 1, 0, 2, 1, 1, 0, 64, 0};
 
 /* One paraphonic allocator per line: line 1 always, line 2 when it is split
  * off (trk 0) and plays its own notes from a second MIDI channel. */
@@ -163,6 +163,7 @@ static void apply_ext(t_cz4 *x, int i, t_float v)
     case X_SINE: v = v != 0; e->sine0 = v != 0; break;             /* 0: chip behaviour at DCW 0 */
     case X_ERA:  v = clampf_((float)v, 0.0f, 127.0f); cz_set_era(e, (float)v / 127.0f); break;
     case X_FINE: v = clampf_((float)v, 0.0f, 127.0f); x->ext[X_FINE] = v; update_detune(x); break;
+    case X_PAT8: v = v != 0; e->patent8 = v != 0; break;            /* 8-bit patent resonance */
     default: return;
     }
     x->ext[i] = v;

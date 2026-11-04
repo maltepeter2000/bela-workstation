@@ -175,6 +175,14 @@ static double harm_k(const float *x, int n, int k)
     for (int i = 0; i < n; i++) { re += x[i] * cos(6.283185307179586 * k * i / n); im += x[i] * sin(6.283185307179586 * k * i / n); }
     return 2 * sqrt(re * re + im * im) / n;
 }
+/* render one more cycle with the engine as it is (after changing a flag) */
+static void cycle_of_keep(cz_engine_t *e, float *x, int n, float dcw)
+{
+    float l[64], r[64];
+    for (int k = 0; k < 20; k++) cz_render(e, l, r, 64, dcw, dcw);
+    cz_voice_reset(e, 0); e->v[0].dc[0] = 0.0f;
+    for (int i = 0; i < n; i += 64) { cz_render(e, l, r, 64, dcw, dcw); for (int j = 0; j < 64; j++) x[i + j] = l[j]; }
+}
 static double rms_of(const float *x, int n) { double s = 0; for (int i = 0; i < n; i++) s += x[i] * x[i]; return sqrt(s / n); }
 static void test_morph_quality(void)
 {
@@ -224,6 +232,38 @@ static void test_ring_level(void)
     }
     printf("ring level: worst difference to line 2 alone over all waves and DCW %+.1f dB\n", worst);
     CHECK(fabs(worst) < 3.5, "ring modulation level off by %.1f dB", worst);
+}
+
+/* -------------- 2f. patent 8-bit resonance: same level, 8-bit steps */
+static void test_patent8(void)
+{
+    static cz_engine_t e;
+    float x[1024]; const int n = 1024;
+    double worst_db = 0.0; int max_levels = 0, bad = 0;
+    for (int p = 4; p <= 9; p++) for (int d = 1; d <= 4; d++) {      /* the six resonance windows */
+        double r[2];
+        for (int k = 0; k < 2; k++) {
+            cycle_of(&e, (float)p, 0.25f * d, 1, 1, x, n);
+            if (k) { e.patent8 = 1; cycle_of_keep(&e, x, n, 0.25f * d); }
+            double s = 0; for (int i = 0; i < n; i++) { if (!isfinite(x[i])) bad++; s += x[i] * x[i]; }
+            r[k] = sqrt(s / n);
+        }
+        double db = 20 * log10(r[1] / r[0]);
+        if (fabs(db) > fabs(worst_db)) worst_db = db;
+        /* distinct raw output values of the 8-bit path over one cycle */
+        float vals[1024]; int nv = 0;
+        for (int i = 0; i < n; i++) {
+            static const unsigned WIN[6] = {1, 2, 6, 3, 4, 5};              /* positions 4..9 */
+            float v = cz_wave_p8_test(WIN[p - 4], (unsigned)i << 22, 0.25f * d * 1023.0f);
+            int seen = 0; for (int j = 0; j < nv; j++) if (vals[j] == v) { seen = 1; break; }
+            if (!seen) vals[nv++] = v;
+        }
+        if (nv > max_levels) max_levels = nv;
+    }
+    printf("patent 8-bit: level vs normal resonance worst %+.1f dB, at most %d output levels per cycle\n", worst_db, max_levels);
+    CHECK(bad == 0, "patent 8-bit: non-finite output");
+    CHECK(fabs(worst_db) < 2.0, "patent 8-bit level off by %.1f dB", worst_db);
+    CHECK(max_levels <= 256, "patent 8-bit: %d levels, more than 8 bit", max_levels);
 }
 
 /* -------------------------------------------------------- 3. CPU timing */
@@ -340,6 +380,7 @@ int main(int argc, char **argv)
     test_lines();
     test_morph_quality();
     test_ring_level();
+    test_patent8();
     test_cpu();
     if (argc > 1) demos(argv[1]);
     printf(failures ? "\n%d check(s) FAILED\n" : "\nall checks passed\n", failures);
