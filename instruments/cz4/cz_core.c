@@ -97,6 +97,9 @@ static inline float wave_clean_pd(unsigned wave, unsigned window, uint32_t ph, c
     case 2: win = pos < 1024.0f ? 2048.0f - half * 2.0f : half * 2.0f; break;
     case 3: if (pos >= 1024.0f) win = half * 2.0f; break;
     case 4: win = pos < 1024.0f ? pos * 2.0f : 2048.0f; break;
+    case 6: { float x = pos * 0.5f + 256.0f; uint32_t k = (uint32_t)x; float fr = x - (float)k; k &= 1023u;
+              /* raised cosine (patent US4658691, HROM): 0 -> 1 -> 0 over the cycle */
+              win = 1024.0f * (1.0f + SIN_T[k] + (SIN_T[k + 1u] - SIN_T[k]) * fr); } break;
     default: win = (1024.0f - half) * 2.0f; break;
     }
     float x = phase * 0.5f + 256.0f; uint32_t i = (uint32_t)x; float f = x - (float)i;
@@ -128,6 +131,7 @@ static inline float wave_chip_pd(unsigned wave, unsigned window, uint32_t ph, co
     case 2: win = pos < 1024 ? 2048 - half * 2 : half * 2; break;
     case 3: if (pos >= 1024) win = half * 2; break;
     case 4: win = pos < 1024 ? pos * 2 : 2048; break;
+    case 6: win = 2048 - (int32_t)((CHIP_COS[pos & 2047] * 2049u) >> 12); break;   /* raised cosine */
     default: win = (1024 - half) * 2; break;
     }
     if (b->wg < 1.0f) win = (int32_t)((float)win * b->wg);
@@ -156,6 +160,9 @@ static inline void phw_clean(unsigned wave, unsigned window, float pos, const pd
     case 2: win = pos < 1024.0f ? 2048.0f - half * 2.0f : half * 2.0f; break;
     case 3: if (pos >= 1024.0f) win = half * 2.0f; break;
     case 4: win = pos < 1024.0f ? pos * 2.0f : 2048.0f; break;
+    case 6: { float x = pos * 0.5f + 256.0f; uint32_t k = (uint32_t)x; float fr = x - (float)k; k &= 1023u;
+              /* raised cosine (patent US4658691, HROM): 0 -> 1 -> 0 over the cycle */
+              win = 1024.0f * (1.0f + SIN_T[k] + (SIN_T[k + 1u] - SIN_T[k]) * fr); } break;
     default: win = (1024.0f - half) * 2.0f; break;
     }
     *ph = phase; *wn = win;
@@ -191,6 +198,7 @@ static inline void phw_chip(unsigned wave, unsigned window, int32_t pos, const p
     case 2: win = pos < 1024 ? 2048 - half * 2 : half * 2; break;
     case 3: if (pos >= 1024) win = half * 2; break;
     case 4: win = pos < 1024 ? pos * 2 : 2048; break;
+    case 6: win = 2048 - (int32_t)((CHIP_COS[pos & 2047] * 2049u) >> 12); break;   /* raised cosine */
     default: win = (1024 - half) * 2; break;
     }
     *ph = phase; *wn = win;
@@ -218,9 +226,11 @@ float cz_wave_chip(unsigned wave, unsigned window, uint32_t ph, float dcw)
 
 /* ------------------------------------------------------------ wave morph */
 /* Positions ordered so that neighbours are harmonically close: the four
- * classic waves, the five resonance windows, then the two double waves. */
-static const uint8_t MORPH_WAVE[11] = {0, 5, 1, 2, 6, 6, 6, 6, 6, 4, 7};
-static const uint8_t MORPH_WIN[11]  = {0, 0, 0, 0, 1, 2, 3, 4, 5, 0, 0};
+ * classic waves, the six resonance windows (the raised cosine from the
+ * Casio patent next to the triangle), then the two double waves. */
+#define NPOS 12u
+static const uint8_t MORPH_WAVE[NPOS] = {0, 5, 1, 2, 6, 6, 6, 6, 6, 6, 4, 7};
+static const uint8_t MORPH_WIN[NPOS]  = {0, 0, 0, 0, 1, 2, 6, 3, 4, 5, 0, 0};
 
 typedef struct { uint8_t wa, na, wb, nb, phase_ok; float f, ga, gb; } morph_t;
 
@@ -230,12 +240,12 @@ static void morph_make(morph_t *m, float pos, int phase_morph)
 {
     pos = clampf(pos, 0.0f, CZ_MORPH_MAX);
     unsigned i = (unsigned)pos;
-    if (i >= 10u) i = 9u;
+    if (i >= NPOS - 1u) i = NPOS - 2u;
     m->f = pos - (float)i;
     if (m->f < 1e-4f) m->f = 0.0f;
     if (m->f > 1.0f - 1e-4f) { i++; m->f = 0.0f; }
     m->wa = MORPH_WAVE[i]; m->na = MORPH_WIN[i];
-    unsigned j = i < 10u ? i + 1u : i;
+    unsigned j = i < NPOS - 1u ? i + 1u : i;
     m->wb = MORPH_WAVE[j]; m->nb = MORPH_WIN[j];
     /* Interpolating the bent phase gives one single wave at every point, but
      * only where both phases end a cycle on the same multiple of 2048:
@@ -310,15 +320,16 @@ static inline float wave_morph(const morph_t *m, uint32_t ph, const pd_t *pd, fl
 
 float cz_pos_from_chip(unsigned wave, unsigned window)
 {
+    static const float RESO[6] = {4.0f, 4.0f, 5.0f, 7.0f, 8.0f, 9.0f};   /* window 0..5 */
     switch (wave & 7u) {
     case 0: return 0.0f;
     case 5: return 1.0f;
     case 1: return 2.0f;
     case 2: return 3.0f;
     case 3: return 0.0f;                     /* silent: no morph position */
-    case 6: return window == 0u ? 4.0f : (float)(3u + (window > 5u ? 5u : window));
-    case 4: return 9.0f;
-    default: return 10.0f;
+    case 6: return RESO[window > 5u ? 5u : window];
+    case 4: return 10.0f;
+    default: return 11.0f;
     }
 }
 

@@ -51,7 +51,7 @@ static void wav_close(wav_t *w)
 static void test_chip_vs_clean(void)
 {
     double worst = 0.0; int ww = 0, wn = 0, wd = 0;
-    for (int wave = 0; wave < 8; wave++) for (int win = 0; win < 6; win++) {
+    for (int wave = 0; wave < 8; wave++) for (int win = 0; win < 7; win++) {
         for (int d = 0; d <= 1020; d += 60) {
             double err = 0.0; int count = 0;
             for (uint32_t k = 0; k < 4096; k++) {
@@ -181,13 +181,13 @@ static void test_morph_quality(void)
     static cz_engine_t e;
     float x[1024]; const int n = 1024;
     double worst_h = 0.0, worst_db = 0.0;
-    for (int p = 0; p <= 10; p++) {                       /* sine mode: only the fundamental */
+    for (int p = 0; p <= (int)CZ_MORPH_MAX; p++) {        /* sine mode: only the fundamental */
         cycle_of(&e, (float)p, 0.0f, 1, 1, x, n);
         double h1 = harm_k(x, n, 1), rest = 0;
         for (int k = 2; k <= 6; k++) rest += harm_k(x, n, k);
         if (rest / h1 > worst_h) worst_h = rest / h1;
     }
-    for (int p = 0; p < 10; p++) {                        /* level at every midpoint */
+    for (int p = 0; p < (int)CZ_MORPH_MAX; p++) {         /* level at every midpoint */
         double a, b, m;
         cycle_of(&e, (float)p, 0.7f, 1, 1, x, n); a = rms_of(x, n);
         cycle_of(&e, (float)p + 1.0f, 0.7f, 1, 1, x, n); b = rms_of(x, n);
@@ -216,7 +216,7 @@ static void test_ring_level(void)
 {
     static cz_engine_t e;
     double worst = 0.0;
-    for (int w = 0; w <= 10; w++) for (int d = 0; d <= 4; d++) {
+    for (int w = 0; w <= (int)CZ_MORPH_MAX; w++) for (int d = 0; d <= 4; d++) {
         double alone = ring_level(&e, 0, (float)w, 0.25f * d);
         if (alone < 0.05) continue;      /* pulse waves at full DCW are nearly silent themselves */
         double db = 20 * log10(ring_level(&e, 1, (float)w, 0.25f * d) / alone);

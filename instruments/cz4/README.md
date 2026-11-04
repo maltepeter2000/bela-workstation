@@ -21,7 +21,7 @@ The messages follow the skandrums-pd conventions (`dump`, `params`, `defaults`, 
 
 | # | Name | Default | Function |
 |---|---|---|---|
-| 0 | `wav1` | 0 | wave of line 1, continuous morph over 11 chip waves |
+| 0 | `wav1` | 0 | wave of line 1, continuous morph over 12 waves |
 | 1 | `wav2` | 0 | wave of line 2 |
 | 2 | `dcw1` | 6 | DCW of line 1, amount of phase distortion (0 = sine) |
 | 3 | `dcw2` | 6 | DCW of line 2 |
@@ -40,7 +40,9 @@ Send them by name (`wav1 64`) or by number (`ctl 0 64`, handy for MIDI CC).
 
 ### Wave morph
 
-`wav1`/`wav2` 0–127 cover 11 positions, ordered so that neighbours sound close: 0 saw, 1 saw-pulse, 2 square, 3 pulse, 4 resonance I (saw window), 5 resonance II (triangle), 6 resonance III (trapezoid), 7 resonance with pulse window, 8 resonance with double-saw window, 9 double sine, 10 double pulse.
+`wav1`/`wav2` 0–127 cover 12 positions, ordered so that neighbours sound close: 0 saw, 1 saw-pulse, 2 square, 3 pulse, 4 resonance I (saw window), 5 resonance II (triangle), 6 resonance with cosine window, 7 resonance III (trapezoid), 8 resonance with pulse window, 9 resonance with double-saw window, 10 double sine, 11 double pulse.
+
+The cosine window (6) is not on the CZ chip: it is the raised-cosine envelope from Casio's patent US4658691 (Fig. 24). It gives the same resonance peak as the triangle window with almost nothing above it, a resonance without the buzz.
 
 - **Phase morph (`pmor 1`, default):** between two positions the bent phase and the window are interpolated, so every point is one single wave. Where the neighbours differ in cycle count (pulse → resonance, resonance → double sine) the outputs are crossfaded instead, equal-power where they share no harmonics. Level at every midpoint stays within −1.6 to +0.8 dB (the plain crossfade dipped up to −4 dB). `pmor 0` gives the plain CZ-style crossfade.
 - **Sine at DCW 0 (`sine 1`, default):** every position starts from the fundamental sine; the resonance windows and the octave of the double waves fade in over the first quarter of the DCW range. `sine 0` keeps the chip's own behaviour (double waves an octave up, resonance windows audible at DCW 0).
@@ -49,7 +51,7 @@ Send them by name (`wav1 64`) or by number (`ctl 0 64`, handy for MIDI CC).
 
 | Message | Range | Default | Function |
 |---|---|---|---|
-| `pai1` / `pai2` | 0–10, −1 = off | −1 | second wave of a CZ wave pair, alternating every cycle |
+| `pai1` / `pai2` | 0–11, −1 = off | −1 | second wave of a CZ wave pair, alternating every cycle |
 | `octv` | −1/0/1 | 0 | octave |
 | `sprd` | 0–1 | 0.5 | stereo spread of the 4 voices |
 | `levl` | 0–2 | 0.5 | output level |
@@ -131,7 +133,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 
 - Clean wave function sample-identical to melodee (35.6 million comparisons, max difference 0).
 - Wave morph continuous: output step across every integer position below 0.001.
-- Morph quality: with `sine 1` DCW 0 gives a pure sine on all 11 positions (overtones below 1 %); midpoint level within ±2 dB on every pair.
+- Morph quality: with `sine 1` DCW 0 gives a pure sine on all 12 positions (overtones below 1 %); midpoint level within ±2 dB on every pair.
 - With `pmor 0` and `sine 0`, single positions are still sample-identical to melodee.
 - DCW per line: line 1's DCW changes nothing when only line 2 is heard; a split line 2 stays silent until it gets its own note.
 - In Pd (libpd 0.56): object loads, notes, voice stealing, controls by name and number, clamping, dump and recall round trip, velocity and `dcw2` on DCW, channel routing with `trk 0`, `hold`, `params`, `get`, `defaults`, foreign dump lines ignored, error on unknown messages; the help patch opens without errors.

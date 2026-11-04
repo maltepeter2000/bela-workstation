@@ -34,7 +34,8 @@ SUBTITLE = "Paraphonic 4-Voice Synth (CZ-1) - phase distortion synthesis"
 CONTROLS = [
     ("wav1", 0, "Waveform of line 1. Morphs through the CZ waves: saw, "
                 "saw-pulse, square, pulse, resonance with saw, triangle, "
-                "trapezoid, pulse and double-saw window, double sine, double pulse."),
+                "cosine, trapezoid, pulse and double-saw window, double sine, "
+                "double pulse."),
     ("wav2", 0, "Waveform of line 2, same range."),
     ("dcw1", 6, "DCW of line 1: how far the sine is bent towards the "
                 "waveform (0 = sine)."),
@@ -49,7 +50,7 @@ CONTROLS = [
 ]
 
 SETTINGS = [
-    "pai1, pai2 (-1) second wave of a CZ wave pair 0-10, -1 = off",
+    "pai1, pai2 (-1) second wave of a CZ wave pair 0-11, -1 = off",
     "octv (0) octave -1, 0, 1",
     "sprd (0.5) stereo spread of the 4 voices 0-1",
     "levl (0.5) output level 0-2",
@@ -69,7 +70,7 @@ SETTINGS = [
 ]
 
 # number boxes in the bottom panel: name, min, max
-ADV = [("pai1", -1, 10), ("pai2", -1, 10), ("octv", -1, 1), ("sprd", 0, 1),
+ADV = [("pai1", -1, 11), ("pai2", -1, 11), ("octv", -1, 1), ("sprd", 0, 1),
        ("levl", 0, 2), ("drft", 0, 1), ("mrph", 0, 100), ("hold", 0, 1),
        ("a4", 400, 480), ("dvel", 0, 127), ("trk", 0, 1), ("ch1", 0, 16),
        ("ch2", 1, 16), ("pmor", 0, 1), ("sine", 0, 1), ("era", 0, 127),
@@ -162,12 +163,14 @@ def build():
     sections.append(("Controls (index name default)", clines))
     sections.append(("Settings (name default)", SETTINGS))
     sections.append(("Wave morph", [
-        "wav moves through 11 chip waves. Neighbours are ordered so",
+        "wav moves through 12 waves. Neighbours are ordered so",
         "they sound close, and with pmor 1 the bent phase itself is",
         "interpolated: one single wave at every point, no level dip.",
         "With sine 1 every wave starts from the plain sine at DCW 0,",
         "so a DCW envelope always opens from the same sine.",
-        "pmor 0 and sine 0 give the CZ chip's own behaviour."]))
+        "pmor 0 and sine 0 give the CZ chip's own behaviour.",
+        "The cosine window (position 6) comes from Casio's patent: a",
+        "resonance without the buzz of the chip's windows."]))
     sections.append(("Two lines", [
         "Every voice has two lines, each with its own wave and DCW.",
         "With trk 1 line 2 plays the same notes, detuned by detn.",

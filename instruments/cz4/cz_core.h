@@ -26,21 +26,25 @@ extern "C" {
 /* Chip waveforms (uPD933 codes), as used inside a CZ tone:
  * 0 saw, 1 square, 2 pulse, 3 silent, 4 double sine, 5 saw-pulse,
  * 6 resonance (frequency follows DCW), 7 double pulse.
- * Windows: 0 none, 1 saw, 2 triangle, 3 trapezoid, 4 pulse, 5 double saw. */
+ * Windows: 0 none, 1 saw, 2 triangle, 3 trapezoid, 4 pulse, 5 double saw,
+ * 6 raised cosine (patent only). */
 enum { CZ_WAVE_SAW, CZ_WAVE_SQUARE, CZ_WAVE_PULSE, CZ_WAVE_SILENT,
        CZ_WAVE_DSINE, CZ_WAVE_SAWPULSE, CZ_WAVE_RESO, CZ_WAVE_DPULSE };
-enum { CZ_WIN_NONE, CZ_WIN_SAW, CZ_WIN_TRI, CZ_WIN_TRAP, CZ_WIN_PULSE, CZ_WIN_DSAW };
+enum { CZ_WIN_NONE, CZ_WIN_SAW, CZ_WIN_TRI, CZ_WIN_TRAP, CZ_WIN_PULSE, CZ_WIN_DSAW,
+       CZ_WIN_COS /* raised cosine, from the Casio patent; not on the CZ chip */ };
 
 /* Continuous wave position. Integer positions are the chip combinations
  * below, ordered so that neighbours are harmonically close:
  *   0 saw            1 saw-pulse       2 square          3 pulse
- *   4 reso, saw win  5 reso, tri win   6 reso, trapezoid 7 reso, pulse win
- *   8 reso, dbl saw  9 double sine    10 double pulse
+ *   4 reso, saw win  5 reso, tri win   6 reso, cosine    7 reso, trapezoid
+ *   8 reso, pulse    9 reso, dbl saw  10 double sine    11 double pulse
+ * The raised-cosine window (6) is described in Casio's patent US4658691
+ * (Fig. 24) but is not one of the CZ chip's windows. 
  * In between, with phase_morph on, the two neighbours' bent phases (and
  * windows) are interpolated: one single wave at every point. Where the
- * neighbours differ in cycle count (3->4, 8->9) or phase_morph is off,
+ * neighbours differ in cycle count (3->4, 9->10) or phase_morph is off,
  * their outputs are crossfaded at a shared phase. */
-#define CZ_MORPH_MAX 10.0f
+#define CZ_MORPH_MAX 11.0f
 
 /* Line modes as on the CZ: 1, 2, 1+1' (line 2 = detuned copy of line 1),
  * 1+2' (line 2 with its own waves, detuned). */
