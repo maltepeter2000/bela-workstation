@@ -101,7 +101,11 @@ static void apply_ctl(t_pdoly8 *x, int i, t_float v)
     case C_HAR1: e->har[0] = (float)v; break;
     case C_HAR2: e->har[1] = (float)v; break;
     case C_INTV: e->interval = (int)lroundf((float)v * 12.0f / 127.0f); p8_retune(e); return;
-    case C_DETN: e->detune_cents = (float)v * 20.0f / 127.0f; return;   /* 0..-20 cents */
+    case C_DETN: {                     /* Poly-800 II service manual: steps 0-3 = 0, 6.5, 13, 26 cents (down) */
+        static const float DET[4] = {0.0f, 6.5f, 13.0f, 26.0f};
+        float q = clampf_((float)v, 0.0f, 127.0f) * 3.0f / 127.0f; int a = q >= 3.0f ? 2 : (int)q;
+        e->detune_cents = DET[a] + (q - (float)a) * (DET[a + 1] - DET[a]); return;
+    }
     case C_LEV1: case C_LEV2: update_levels(x); break;
     }
     p8_update(e);

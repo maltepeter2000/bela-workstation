@@ -41,8 +41,8 @@ CONTROLS = [
                  "fades in or out: 16' alone, all feet at 64, 2' alone."),
     ("har2", 64, "Foot combination of DCO2, same path."),
     ("intv", 0, "Interval of DCO2 above DCO1, 0-12 semitones."),
-    ("detn", 0, "Detune of DCO2, 0 to -20 cents (the original's 4 steps "
-                "lie at 0, 42, 85, 127)."),
+    ("detn", 0, "Detune of DCO2 downwards: the original's 4 steps "
+                "0, 6.5, 13, 26 cents lie at 0, 42, 85, 127."),
     ("lev1", 127, "Level of DCO1."),
     ("lev2", 0, "Level of DCO2 (DOUBLE only). Above full scale "
                 "(lev1 + lev2 > 127) both are scaled down together."),

@@ -26,7 +26,7 @@ The messages follow the cz4~ / skandrums-pd conventions (`dump`, `params`, `defa
 | 2 | `har1` | 64 | foot combination of DCO1, continuous path through the 15 original combinations (see below) |
 | 3 | `har2` | 64 | foot combination of DCO2 |
 | 4 | `intv` | 0 | interval of DCO2, 0–12 semitones |
-| 5 | `detn` | 0 | detune of DCO2, 0 to −20 cents; the original's steps 0–3 lie at 0, 42, 85, 127 |
+| 5 | `detn` | 0 | detune of DCO2 downwards; the original's steps 0–3 (0, 6.5, 13, 26 cents, Poly-800 II service manual) lie at 0, 42, 85, 127, linear in between |
 | 6 | `lev1` | 127 | level of DCO1 |
 | 7 | `lev2` | 0 | level of DCO2 (DOUBLE only). When `lev1 + lev2` goes above 127 both are scaled down together |
 
