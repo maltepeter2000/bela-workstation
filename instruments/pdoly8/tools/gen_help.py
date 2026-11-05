@@ -64,8 +64,6 @@ SETTINGS = [
     "ch1 (0) MIDI channel for p v ch lists, 0 = any",
     "tone (1) 1: output response measured on a Poly-800 with the",
     "VCF (54 Hz high-pass, VCF, 1 pole at 5 kHz), 0: raw",
-    "norm (0) 0-1: hold the loudness constant over the morph",
-    "pfad (1) 1: a fading foot rises in power, not in amplitude",
     "pw1, pw2 (64) pulse width of DCO1 / DCO2: 0-127 = 3-97 %,",
     "64 = square; works on every foot at once (see PWM)",
     "sync (0) 1: DCO2 restarts at every period of DCO1",
@@ -101,7 +99,7 @@ SETTINGS = [
 ADV = [("oct1", -1, 4), ("oct2", -1, 4), ("nois", 0, 15),
        ("sprd", 0, 127), ("mrph", 0, 100), ("bnd", 0, 12), ("mgf", 0, 30),
        ("mgi", 0, 200), ("hsnp", 0, 4), ("ch1", 0, 16), ("tone", 0, 1),
-       ("norm", 0, 1), ("pfad", 0, 1), ("pw1", 0, 127),
+       ("pw1", 0, 127),
        ("pw2", 0, 127), ("sync", 0, 1), ("swp2", 0, 48),
        ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("wsh1", 0, 127),
        ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("leak", 0, 1), ("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
@@ -212,13 +210,13 @@ def build():
         "100: 16'4'2' / 109: all / 118: 16'8'2' / 127: 16'2'.",
         "One foot or the net per step. The combinations without 16'",
         "are the same waves higher: use oct1 / oct2 2-4.",
-        "norm 1 keeps the level constant, pfad 1 smooths the fades."]))
+        "A fading foot rises in power, so the morph has no dips."]))
     sections.append(("PWM", [
         "pw1 / pw2 turn every foot into a pulse: the AND of the foot",
         "with a copy shifted by part of its period, so the falling",
         "edge stays on the counter step and the rising edge moves.",
         "On the saw net this gives pulse staircases. All edges stay",
-        "band-limited; norm also evens out the level of narrow pulses."]))
+        "band-limited."]))
     sections.append(("Sync and FM", [
         "sync 1: DCO2's counter restarts at every 16' period of DCO1,",
         "at the exact sub-sample time. Sweep DCO2 with swp2 (or intv,",

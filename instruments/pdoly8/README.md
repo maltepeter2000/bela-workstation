@@ -40,12 +40,7 @@ The Poly-800 offers 2 nets × 15 foot combinations, but only 15 timbres are diff
 | feet | 16' | 16' 2' | 16' 4' 2' | 16' 4' | 16' 8' 4' | all | 16' 8' 2' | 16' 8' | 16' 8' | 16' 8' 4' | 16' 4' | 16' 4' 2' | all | 16' 8' 2' | 16' 2' |
 | brightness | 2.7 | 2.9 | 3.3 | 3.1 | 3.4 | 3.6 | 3.3 | 3.1 | 3.8 | 5.5 | 5.9 | 9.1 | 8.0 | 7.8 | 9.4 |
 
-The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the chip's HIGH the feet are taken one counter bit higher per octave, which is exactly what leaving out the 16' does (including the chip's clamp of the high feet in the top octave). `norm 1` keeps the loudness constant along it.
-
-Two settings help when `har` is swept:
-
-- `norm` (0–1): the feet are orthogonal (Rademacher functions), so the loudness is exactly √(Σ weight²); `norm 1` holds it at the level of the square net with all feet over the whole morph (and so also bounds the peaks), `norm 0` keeps the original level changes (up to 8 dB).
-- `pfad` (default 1): a fading foot follows √t, so its power, not its amplitude, rises linearly — no late "pop" at the end of a fade. The points themselves stay exact.
+The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the chip's HIGH the feet are taken one counter bit higher per octave, which is exactly what leaving out the 16' does (including the chip's clamp of the high feet in the top octave). A fading foot rises linearly in power, and the level changes between the timbres are the original's (up to 8 dB; the saw net is louder).
 
 ### Settings (raw values)
 
@@ -61,8 +56,6 @@ Two settings help when `har` is swept:
 | `mgr` | 0–15, −1 | −1 | MG frequency in original steps (81, measured: 0 = 0.29 Hz, 3 = 1.26, 6 = 3.39, 8 = 5.22, 9 = 6.49, 12 = 11.1, 15 = 19.1 Hz); sets `mgf`; −1 = use `mgf` |
 | `hsnp` | 0–4 | 1 | plateau around each foot combination, in `har` steps |
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
-| `norm` | 0–1 | 0 | hold the loudness constant over the morph |
-| `pfad` | 0/1 | 1 | 1: a fading foot rises in power (√), 0: in amplitude |
 | `pw1` / `pw2` | 0–127 | 64 | pulse width of DCO1 / DCO2: 3–97 %, 64 = square; acts on every foot (see PWM) |
 | `sync` | 0/1 | 0 | 1: DCO2 restarts at every 16' period of DCO1 (hard sync) |
 | `swp2` | 0–48 | 0 | DCO2 pitch offset in semitones, continuous (sync sweeps; also without sync) |
@@ -113,7 +106,7 @@ Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 0 440 
 
 ### PWM (`pw1`, `pw2`)
 
-Each foot becomes the AND of its square with a copy shifted by part of its period, a phase offset on the counter: the falling edge stays on the counter step, the rising edge moves, width 3–97 % of each foot's own period. With one foot this is classic PWM; with several feet the pulses stay locked, and on the saw net they form pulse staircases. The pulses are DC free, every edge is band-limited (a 10 % pulse on a 4.2 kHz 2' shows no component above −85 dB), and the width is smoothed like the other controls. `norm` also evens out the level of narrow pulses (pulse power 4w(1−w) of the square's). At 64 the output is the plain square (the pulse path differs by less than −74 dB).
+Each foot becomes the AND of its square with a copy shifted by part of its period, a phase offset on the counter: the falling edge stays on the counter step, the rising edge moves, width 3–97 % of each foot's own period. With one foot this is classic PWM; with several feet the pulses stay locked, and on the saw net they form pulse staircases. The pulses are DC free, every edge is band-limited (a 10 % pulse on a 4.2 kHz 2' shows no component above −85 dB), and the width is smoothed like the other controls. At 64 the output is the plain square (the pulse path differs by less than −74 dB).
 
 ### Sync and FM
 

@@ -27,25 +27,22 @@ static const float CTL_DEFAULT[NCTL] = {45, 45, 0, 0, 0, 0, 127, 0};
 /* Settings with raw values, in dump order after the controls. */
 enum {
        X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_MRPH, X_BND, X_MGF, X_MGI, X_HSNP, X_CH1,
-       X_TONE, X_NORM, X_PFAD, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS,
-       X_WSH1, X_WSH2, X_WMX1, X_WMX2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1,
-       X_R1, X_A2, X_D2, X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD, X_CUT,
-       X_RES, X_KBD, X_POL, X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3,
-       X_SU3, X_R3, X_MGD, X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF,
-       X_DMI, X_DLEV, NEXT };
+       X_TONE, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, X_WSH1, X_WSH2,
+       X_WMX1, X_WMX2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2,
+       X_D2, X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD, X_CUT, X_RES, X_KBD,
+       X_POL, X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3,
+       X_MGD, X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, NEXT };
 static const char *EXT_NAME[NEXT] = {
-    "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "norm",
-    "pfad", "pw1", "pw2", "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2",
-    "leak", "a1", "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2",
-    "r2", "port", "pmod", "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3",
-    "bp3", "sl3", "su3", "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf",
-    "dmi", "dlev"};
+    "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "pw1",
+    "pw2", "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1",
+    "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port",
+    "pmod", "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3",
+    "su3", "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev"};
 static const float EXT_DEFAULT[NEXT] = {
-    0, 0, 0, 0, 8, 2, 5, 0, 1, 0, 1, 0, 1, 64, 64,
-    0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31,
-    0, 0, 0, 31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2,
-    0, 0, 0, 31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0,
-    0, 0};
+    0, 0, 0, 0, 8, 2, 5, 0, 1, 0, 1, 64, 64, 0, 0,
+    0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0,
+    0, 31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0,
+    0, 31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0};
 
 static t_class *pdoly8_class;
 
@@ -144,8 +141,6 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_HSNP: v = clampf_((float)v, 0.0f, 4.0f); e->hsnap = (float)v; x->ext[i] = v; p8_update(e); return;
     case X_CH1:  v = (t_float)(int)clampf_((float)v, 0.0f, 16.0f); break;     /* 0 = any channel */
     case X_TONE: v = v != 0; e->tone = v != 0; break;                     /* measured output response */
-    case X_NORM: v = clampf_((float)v, 0.0f, 1.0f); e->norm = (float)v; x->ext[i] = v; p8_update(e); return;
-    case X_PFAD: v = v != 0; e->pfade = v != 0; x->ext[i] = v; p8_update(e); return;
     case X_PW1: case X_PW2: {                     /* 0..127: width 3 % .. 97 %, 64 = square */
         v = clampf_((float)v, 0.0f, 127.0f);
         float d = (float)v - 64.0f;
@@ -381,6 +376,7 @@ static void *pdoly8_new(void)
     p8_init(&x->e, sr > 0.0f ? sr : 44100.0f);
     x->e.mode = P8_DOUBLE;                       /* always 4 voices of DCO1 + DCO2; lev1 / lev2 set the mix */
     x->e.path = 3;                               /* one-knob timbre */
+    x->e.pfade = 1; x->e.norm = 0.0f;            /* fading foot linear in power; original level changes */
     x->e.level = 0.5f;                           /* fixed output level (headroom for 4 voices, both DCOs) */
     x->last = -1;
     set_defaults(x);
