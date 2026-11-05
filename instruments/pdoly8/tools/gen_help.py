@@ -33,7 +33,7 @@ SUBTITLE = "4-Voice Poly-800 tone generation - MSM5232 foot synthesis"
 # controls: name, default, description (index = position)
 CONTROLS = [
     ("har1", 45, "Timbre of DCO1, one knob through all 15 distinct original "
-                 "timbres, dark to bright (path 3): 0 16' / 9-64 saw net "
+                 "timbres, dark to bright: 0 16' / 9-64 saw net "
                  "(16'2', 16'4'2', 16'4', 16'8'4', all at 45, 16'8'2', 16'8') / "
                  "73-127 square net (16'8', 16'8'4', 16'4', 16'4'2', all, "
                  "16'8'2', 16'2'). One foot or the net per step, no jumps. "
@@ -48,20 +48,15 @@ CONTROLS = [
     ("detn", 0, "Detune of DCO2 downwards: the original's 4 steps "
                 "0, 6.5, 13, 26 cents lie at 0, 42, 85, 127."),
     ("lev1", 127, "Level of DCO1."),
-    ("lev2", 0, "Level of DCO2 (DOUBLE only). Above full scale "
+    ("lev2", 0, "Level of DCO2 (every voice has both DCOs). Above full scale "
                 "(lev1 + lev2 > 127) both are scaled down together."),
 ]
 
 SETTINGS = [
-    "mode (2) 1 = WHOLE: one DCO per voice, 2 = DOUBLE: two DCOs",
     "oct1, oct2 (0) octave -1 0 1 (LOW MID HIGH), 2-4 feet shifted",
     "nois (0) white noise level 0-15, sounds while a voice sounds",
-    "sprd (0.5) stereo spread of the 4 voices 0-1",
-    "levl (0.5) output level 0-2",
-    "mrph (8) smoothing of wav, har and lev changes in ms",
-    "hold (1) released voices keep sounding until the next phrase",
-    "a4 (440) tuning in Hz",
-    "tune (0) master tune +-50 cents",
+    "sprd (0) stereo spread of the 4 voices 0-127",
+    "mrph (8) smoothing of har and lev changes in ms",
     "bnd (2) pitch bend range in semitones (original: up to 7)",
     "mgf (5) MG rate in Hz; mgr (-1) the same in steps 0-15",
     "mgi (0) vibrato depth in cents (original: 12.4 per step)",
@@ -69,23 +64,17 @@ SETTINGS = [
     "ch1 (0) MIDI channel for p v ch lists, 0 = any",
     "tone (1) 1: output response measured on a Poly-800 with the",
     "VCF (54 Hz high-pass, VCF, 1 pole at 5 kHz), 0: raw",
-    "path (3) path of har: 3 = one-knob timbre (see har1),",
-    "0 = original (15 combinations, wav1/wav2 set the net),",
-    "1 = ring (8 combinations with 16' as root, wraps 127 -> 0),",
-    "2 = figure eight (ring in the square net, then in the saw net;",
-    "16 points, wraps; wav is not used)",
     "norm (0) 0-1: hold the loudness constant over the morph",
     "pfad (1) 1: a fading foot rises in power, not in amplitude",
     "pw1, pw2 (64) pulse width of DCO1 / DCO2: 0-127 = 3-97 %,",
     "64 = square; works on every foot at once (see PWM)",
-    "sync (0) 1: DCO2 restarts at every period of DCO1 (DOUBLE)",
+    "sync (0) 1: DCO2 restarts at every period of DCO1",
     "swp2 (0) DCO2 pitch offset 0-48 semitones, continuous",
     "fm (0) 0-127: FM index of DCO1, 0-8 (through zero above 45)",
     "fmr (1) FM ratio of the sine modulator to DCO1, 0.125-16",
     "fms (0) FM source: 0 internal sine, 1 DCO2 (cross FM)",
     "wsh1, wsh2 (0) Walsh loop position of DCO1 / DCO2, 0-127",
     "wmx1, wmx2 (0) mix from the feet (0) to the Walsh loop (127)",
-    "wav1, wav2 (127) net 0 square .. 127 saw for paths 0 and 1",
     "leak (0) 1: released voices stay at -55 dB, as on the original",
     "a1 d1 bp1 sl1 su1 r1 (0 0 31 0 31 0) DEG1 attack, decay,",
     "break point, slope, sustain, release 0-31 (env1 becomes -1)",
@@ -109,15 +98,13 @@ SETTINGS = [
 ]
 
 # number boxes in the bottom panel: name, min, max
-ADV = [("mode", 1, 2), ("oct1", -1, 4), ("oct2", -1, 4), ("nois", 0, 15),
-       ("sprd", 0, 1), ("levl", 0, 2), ("mrph", 0, 100), ("hold", 0, 1),
-       ("a4", 400, 480), ("tune", -50, 50), ("bnd", 0, 12), ("mgf", 0, 30),
+ADV = [("oct1", -1, 4), ("oct2", -1, 4), ("nois", 0, 15),
+       ("sprd", 0, 127), ("mrph", 0, 100), ("bnd", 0, 12), ("mgf", 0, 30),
        ("mgi", 0, 200), ("hsnp", 0, 4), ("ch1", 0, 16), ("tone", 0, 1),
-       ("path", 0, 3), ("norm", 0, 1), ("pfad", 0, 1), ("pw1", 0, 127),
+       ("norm", 0, 1), ("pfad", 0, 1), ("pw1", 0, 127),
        ("pw2", 0, 127), ("sync", 0, 1), ("swp2", 0, 48),
        ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("wsh1", 0, 127),
-       ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("wav1", 0, 127),
-       ("wav2", 0, 127), ("leak", 0, 1), ("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
+       ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("leak", 0, 1), ("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
        ("su1", 0, 31), ("r1", 0, 31), ("a2", 0, 31), ("d2", 0, 31), ("bp2", 0, 31), ("sl2", 0, 31),
        ("su2", 0, 31), ("r2", 0, 31), ("port", 0, 127), ("pmod", 0, 2), ("cut", 0, 99),
        ("res", 0, 15), ("kbd", 0, 2), ("pol", 1, 2), ("egi", 0, 15), ("trg", 1, 2), ("env3", -1, 127),
@@ -194,7 +181,7 @@ def build():
         "<p> <v> <channel>: from [notein], filtered by ch1",
         "<control> <0-127>: set a control by name, e.g. har1 64",
         "ctl <index> <0-127>, params v0 v1 ...: set by index",
-        "<setting> <value>: e.g. mode 1 (see Settings below)",
+        "<setting> <value>: e.g. cut 60 (see Settings below)",
         "bend <-1..1>: pitch bend of all voices (master clock)",
         "defaults, reset: default values, reset also stops all voices",
         "panic: all voices off",
@@ -214,22 +201,17 @@ def build():
         "integer divider from the chip's ROM, then a binary counter",
         "whose bits are the 16', 8', 4' and 2' squares, locked in",
         "phase. The four feet of a group are summed to a square or a",
-        "step saw. Tune, bend and vibrato move the master clock, so",
+        "step saw. Bend and vibrato move the master clock, so",
         "all voices move together. Detune thins out DCO2's clock.",
         "Every edge is band-limited: analog edges, no aliasing."]))
-    sections.append(("Foot path (har) - path 0", [
-        "0: 16' / 9: 16'8' / 18: 16'8'4' / 27: 16'4' / 36: 16'4'2'",
-        "45: 16'2' / 54: 16'8'2' / 64: all feet / 73: 8'4'2'",
-        "82: 8'2' / 91: 8' / 100: 8'4' / 109: 4' / 118: 4'2' / 127: 2'",
-        "On these values the sound is exactly the original. In",
-        "between one foot fades, so har can be modulated smoothly."]))
-    sections.append(("Ring and figure eight - path 1 and 2", [
-        "path 1, root stays: 0: 16' / 16: 16'4' / 32: 16'4'2' /",
-        "48: 16'2' / 64: 16'8'2' / 79: all / 95: 16'8'4' /",
-        "111: 16'8' / 127: 16' again. wav sets the net.",
-        "path 2, both nets: 0-56 the ring in the square net,",
-        "64-119 in the saw net backwards, 127: 16' square again.",
-        "Both loops close, so an LFO or ramp can turn endlessly.",
+    sections.append(("Timbre (har1 / har2)", [
+        "The 15 distinct timbres of the original, dark to bright:",
+        "0: 16' / saw net 9: 16'2' / 18: 16'4'2' / 27: 16'4' /",
+        "36: 16'8'4' / 45: all / 54: 16'8'2' / 64: 16'8' /",
+        "square net 73: 16'8' / 82: 16'8'4' / 91: 16'4' /",
+        "100: 16'4'2' / 109: all / 118: 16'8'2' / 127: 16'2'.",
+        "One foot or the net per step. The combinations without 16'",
+        "are the same waves higher: use oct1 / oct2 2-4.",
         "norm 1 keeps the level constant, pfad 1 smooths the fades."]))
     sections.append(("PWM", [
         "pw1 / pw2 turn every foot into a pulse: the AND of the foot",
@@ -273,8 +255,8 @@ def build():
         "release fall at a constant dB per second (31: about 18 s",
         "to -40 dB). env1 / env2 / env3 morph through settings:",
         "0 gate / 1 short pluck / 24 pluck / 48 piano / 72 long rel. /",
-        "92 swell / 108 pad / 127 long pad. A released voice",
-        "releases at once; hold 1 keeps it until the next phrase."]))
+        "92 swell / 108 pad / 127 long pad. Always 4 voices of",
+        "DCO1 + DCO2; lev1 / lev2 set the mix."]))
     sections.append(("Presets and steps", [
         "Per-step values: connect the voice to [skpreset name]",
         "(outlet 2 -> inlet 0, outlet 0 -> voice inlet). A slot",

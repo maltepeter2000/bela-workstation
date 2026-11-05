@@ -28,11 +28,11 @@ The messages follow the cz4~ / skandrums-pd conventions (`dump`, `params`, `defa
 | 4 | `intv` | 0 | interval of DCO2, 0–12 semitones |
 | 5 | `detn` | 0 | detune of DCO2 downwards; the original's steps 0–3 (0, 6.5, 13, 26 cents, Poly-800 II service manual) lie at 0, 42, 85, 127, linear in between |
 | 6 | `lev1` | 127 | level of DCO1 |
-| 7 | `lev2` | 0 | level of DCO2 (DOUBLE only). When `lev1 + lev2` goes above 127 both are scaled down together |
+| 7 | `lev2` | 0 | level of DCO2. Every voice always has both DCOs (the original's DOUBLE, 4 voices); the levels set the mix. When `lev1 + lev2` goes above 127 both are scaled down together |
 
-### One-knob timbre (`har`, `path 3`, default)
+### One-knob timbre (`har1`, `har2`)
 
-The Poly-800 offers 2 nets × 15 foot combinations, but only 15 timbres are different: a combination without the 16' is the same wave as one with it an octave or more higher (8' 4' 2' = 16' 8' 4' up an octave, 2' alone = 16' three octaves up, in both nets, since the weight ratios stay the same), and 16' alone sounds the same in both nets. `path 3` puts these 15 on one knob, ordered by brightness (spectral centroid with the measured weights) and with one foot or the net changing per step:
+The Poly-800 offers 2 nets × 15 foot combinations, but only 15 timbres are different: a combination without the 16' is the same wave as one with it an octave or more higher (8' 4' 2' = 16' 8' 4' up an octave, 2' alone = 16' three octaves up, in both nets, since the weight ratios stay the same), and 16' alone sounds the same in both nets. `har` puts these 15 on one knob, ordered by brightness (spectral centroid with the measured weights) and with one foot or the net changing per step:
 
 | `har` | 0 | 9 | 18 | 27 | 36 | 45 | 54 | 64 | 73 | 82 | 91 | 100 | 109 | 118 | 127 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
@@ -40,35 +40,9 @@ The Poly-800 offers 2 nets × 15 foot combinations, but only 15 timbres are diff
 | feet | 16' | 16' 2' | 16' 4' 2' | 16' 4' | 16' 8' 4' | all | 16' 8' 2' | 16' 8' | 16' 8' | 16' 8' 4' | 16' 4' | 16' 4' 2' | all | 16' 8' 2' | 16' 2' |
 | brightness | 2.7 | 2.9 | 3.3 | 3.1 | 3.4 | 3.6 | 3.3 | 3.1 | 3.8 | 5.5 | 5.9 | 9.1 | 8.0 | 7.8 | 9.4 |
 
-The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the chip's HIGH the feet are taken one counter bit higher per octave, which is exactly what leaving out the 16' does (including the chip's clamp of the high feet in the top octave). `wav` is not used on this path; `norm 1` keeps the loudness constant along it.
+The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the chip's HIGH the feet are taken one counter bit higher per octave, which is exactly what leaving out the 16' does (including the chip's clamp of the high feet in the top octave). `norm 1` keeps the loudness constant along it.
 
-### Foot path (`har`, `path 0`)
-
-On these values the sound is exactly the original foot combination. From one value to the next a single foot fades in or out, so `har` can be modulated without jumps. The lowest foot only ever moves up, and the order keeps the timbre changes small:
-
-| `har` | feet | `har` | feet | `har` | feet |
-|---|---|---|---|---|---|
-| 0 | 16' | 45 | 16' 2' | 91 | 8' |
-| 9 | 16' 8' | 54 | 16' 8' 2' | 100 | 8' 4' |
-| 18 | 16' 8' 4' | 64 | all four | 109 | 4' |
-| 27 | 16' 4' | 73 | 8' 4' 2' | 118 | 4' 2' |
-| 36 | 16' 4' 2' | 82 | 8' 2' | 127 | 2' |
-
-`hsnp` (default 1) holds the exact combination for ±1 step around each value, so a pot or CC lands on it reliably. `wav` and `har` are independent: at the ends of `wav` and on the `har` values every point is an original patch.
-
-### Musical paths (`path 1`, `path 2`)
-
-Above 64 the original path drops the lowest foot, so the pitch jumps by octaves, and its two ends are different sounds. For a morph that is swept or turned by an LFO there are two closed paths that keep the 16' as root. Without the 16' a combination is only a transposition (8' 4' 2' = 16' 8' 4' an octave up), so these hold every distinct timbre.
-
-`path 1`, ring (8 points, `wav` sets the net), dark → bright → dark, one foot per step, 127 joins 0:
-
-| `har` | 0 | 16 | 32 | 48 | 64 | 79 | 95 | 111 | 127 |
-|---|---|---|---|---|---|---|---|---|---|
-| feet | 16' | 16' 4' | 16' 4' 2' | 16' 2' | 16' 8' 2' | all | 16' 8' 4' | 16' 8' | 16' |
-
-`path 2`, figure eight (16 points, both nets, `wav` not used): the ring in the square net (0–56), at 16' 8' over to the saw net (64), the ring backwards in the saw net (64–119), and at 16' back to the square net (127 = 0); there square and saw differ only in level. Points every 7.9 steps: 0, 8, 16, 24, 32, 40, 48, 56 square; 64, 71, 79, 87, 95, 103, 111, 119 saw.
-
-Two settings make any path smooth to sweep:
+Two settings help when `har` is swept:
 
 - `norm` (0–1): the feet are orthogonal (Rademacher functions), so the loudness is exactly √(Σ weight²); `norm 1` holds it at the level of the square net with all feet over the whole morph (and so also bounds the peaks), `norm 0` keeps the original level changes (up to 8 dB).
 - `pfad` (default 1): a fading foot follows √t, so its power, not its amplitude, rises linearly — no late "pop" at the end of a fade. The points themselves stay exact.
@@ -77,27 +51,20 @@ Two settings make any path smooth to sweep:
 
 | Message | Range | Default | Function |
 |---|---|---|---|
-| `mode` | 1/2 | 2 | 1 = WHOLE: one DCO per voice (group 2 is not computed); 2 = DOUBLE: DCO1 on TG n, DCO2 on TG n+4. Both 4 voices |
 | `oct1` / `oct2` | −1…4 | 0 | octave of DCO1 / DCO2: −1/0/1 = Low, Mid, High; 2–4 = the feet one, two, three counter bits higher (the original combinations without 16') |
 | `nois` | 0–15 | 0 | white noise, sounds while a voice sounds |
-| `sprd` | 0–1 | 0.5 | stereo spread of the 4 voices |
-| `levl` | 0–2 | 0.5 | output level |
-| `mrph` | ms | 8 | smoothing of `wav`, `har`, `lev` |
-| `hold` | 0/1 | 0 | 1: released voices keep sounding until the next phrase (for an external VCA); 0: the envelope releases on note-off |
-| `a4` | 300–600 Hz | 440 | tuning |
-| `tune` | ±50 cents | 0 | master tune |
+| `sprd` | 0–127 | 0 | stereo spread of the 4 voices, continuous |
+| `mrph` | ms | 8 | smoothing of `har`, `lev` |
 | `bnd` | 0–12 | 2 | pitch bend range in semitones (original up to ±7) |
 | `mgf` | Hz | 5 | MG rate (also set by `mgr`) |
 | `mgi` | 0–200 cents | 0 | vibrato depth (triangle on the master clock, through a measured 14.5 Hz one-pole low-pass, so fast vibrato is shallower as on the original). Original 83: 12.4 cents per step, 186 at 15 |
 | `mgr` | 0–15, −1 | −1 | MG frequency in original steps (81, measured: 0 = 0.29 Hz, 3 = 1.26, 6 = 3.39, 8 = 5.22, 9 = 6.49, 12 = 11.1, 15 = 19.1 Hz); sets `mgf`; −1 = use `mgf` |
 | `hsnp` | 0–4 | 1 | plateau around each foot combination, in `har` steps |
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
-| `path` | 0–3 | 3 | path of `har`: 3 one-knob timbre (15, dark → bright, default), 0 original (15 combinations), 1 ring (8, root kept, wraps), 2 figure eight (16, both nets, wraps) |
-| `wav1` / `wav2` | 0–127 | 127 | net for paths 0 and 1: 0 square (feet about 1:1:1:1), 127 saw (1:½:¼:⅛, its 16' 7.9 dB stronger), continuous |
 | `norm` | 0–1 | 0 | hold the loudness constant over the morph |
 | `pfad` | 0/1 | 1 | 1: a fading foot rises in power (√), 0: in amplitude |
 | `pw1` / `pw2` | 0–127 | 64 | pulse width of DCO1 / DCO2: 3–97 %, 64 = square; acts on every foot (see PWM) |
-| `sync` | 0/1 | 0 | 1: DCO2 restarts at every 16' period of DCO1 (hard sync, DOUBLE) |
+| `sync` | 0/1 | 0 | 1: DCO2 restarts at every 16' period of DCO1 (hard sync) |
 | `swp2` | 0–48 | 0 | DCO2 pitch offset in semitones, continuous (sync sweeps; also without sync) |
 | `fm` | 0–127 | 0 | linear FM index of DCO1, 0–8 (quadratic; index 1 at about 45, through zero above) |
 | `fmr` | 0.125–16 | 1 | ratio of the sine modulator to DCO1's 16' frequency |
@@ -210,7 +177,7 @@ The filter sweep of DEG3 against the recording: `demos/vcf_deg3_vs_poly800.png`.
 - **Master clock.** One clock for all 8 tone generators. Tune, bend and vibrato act on it, so all voices move together, as on the original.
 - **MSM5232 dividers.** A key becomes a pitch code; the chip's 88 × 12 bit ROM gives an integer counter value and a binary divider. The counter steps at `2 × clock / counter`, and the 16', 8', 4', 2' squares are bits n, n−1, n−2, n−3 of a free-running binary counter: locked in phase, with shared edges, exactly 50 % duty. The scale is the chip's, up to 1.3 cents off equal temperament. The clock is about 1.06 MHz (A4 on 8' = code 0x2D): measured on a Poly-800, the 2' foot sticks to the 4' bit from 16' = 1 kHz up, which only this clock explains.
 - **Groups.** Group 1 (TG0–3) is DCO1, group 2 (TG4–7) is DCO2 with the interval added to the pitch code. Detune lowers group 2's clock (the original thins out CLK2 pulses).
-- **Waveform networks.** Per group the four foot buses are summed by the square net (BR5) or the saw net (BR6); `wav` moves between them, `har` sets a gain per foot. Weights measured on a Poly-800: square 1 : 1.057 : 1.083 : 1.098, saw 2.47 × (1 : 0.523 : 0.268 : 0.135) — binary within 1 dB, and the saw net's 16' 7.9 dB above the square net's, so both nets peak about alike.
+- **Waveform networks.** Per group the four foot buses are summed by the square net (BR5) or the saw net (BR6); `har` moves between them and sets a gain per foot. Weights measured on a Poly-800: square 1 : 1.057 : 1.083 : 1.098, saw 2.47 × (1 : 0.523 : 0.268 : 0.135) — binary within 1 dB, and the saw net's 16' 7.9 dB above the square net's, so both nets peak about alike.
 - **Band-limiting.** Each level step of a tone generator is placed with sub-sample accuracy as a Kaiser-windowed sinc impulse (32 taps, 64 phases) and integrated. Smooth changes (gate ramps, `wav`/`har`/`lev`) go in without an impulse. Output delay 16 samples.
 - **Output response (`tone 1`).** Fitted to the recording: one-pole high-pass at 54 Hz, two poles at 7.5 kHz (VCF fully open plus output stage). A moving VCF comes later.
 - **Envelopes.** Each tone generator has its own DEG (see above). The counters keep running, so a note-on does not restart the phase.
@@ -261,13 +228,12 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - Walsh: on all 15 loop points the zero crossings per 16' period equal the sequency; loudness along the loop constant within 0.0001 dB, the loop closes; a Walsh point on C5 is harmonic within −78 dB below 16 kHz; Walsh with PWM, FM and sync stays finite.
 - Sync and FM: off = sample-identical; sync and FM spectra harmonic within −75 dB below 16 kHz; index 4 through-zero FM with sync stays finite and below full scale.
 - PWM: measured duty equals the set width (10, 25, 75, 90 %) within 0.1 %; the pulse path at 50 % matches the square path within −74.9 dB; narrow pulses alias-free (−85 dB).
-- Paths 1 and 2: every point exact (±1 step), one change per step, both loops close (127 = 0), every 16'-rooted combination present (path 2: in both nets), largest gain change per 0.01 step 0.04; `norm 1` holds the loudness within 0.0001 dB.
+- Timbre path: all 15 points exact (±1 step), one foot or the net per step; octave 2 = the feet one counter bit up. (The core still has the earlier paths 0–2 for the tests.)
 - Foot path: all 15 knots exact (also ±1 step with `hsnp 1`), neighbours differ in exactly one foot, largest gain change per 0.01 `har` step 0.0014 (no jumps).
 - Aliasing: C6 square on 2' (4186 Hz) — strongest non-harmonic component −83 dB.
 - No clicks in a 42 s morph of `har` and `wav` (10 ms frame analysis).
-- Levels: worst case (4 voices, square, all feet, both DCOs) peaks at 0.92 with `levl 0.5`; one saw note with all feet at 0.36.
-- WHOLE: group 2 stays silent even with `lev2` up.
-- In Pd (libpd 0.56): object loads, notes, voice stealing, controls by name and number, mode switch, dump and recall round trip, `get`, `print`, `hold`, `bend`, `reset`, error on unknown messages; the help patch opens without errors.
+- Levels: worst case (4 voices, square, all feet, both DCOs) peaks at 0.92 (fixed output level 0.5); one saw note with all feet at 0.36.
+- In Pd (libpd 0.56): object loads, notes, voice stealing, controls by name and number, dump and recall round trip, `get`, `print`, `bend`, `reset`, error on unknown messages; the help patch opens without errors.
 - Not yet built or measured on the Bela.
 
 ## Credits
