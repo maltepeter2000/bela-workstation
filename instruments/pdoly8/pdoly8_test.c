@@ -175,6 +175,36 @@ static void test_clamp(void)
 /* paths 1 and 2: knots exact, one change per step, closed loops, no jumps
  * (also across 127 -> 0), every 16'-rooted combination in both nets, and
  * constant loudness with norm 1 */
+/* path 3 (one-knob timbre): 15 knots exact (+-1 step), one foot or the net
+ * per step, all 16'-rooted combinations in both nets except saw 16' alone;
+ * octave 2: the feet one counter bit above octave 1 */
+static void test_timbre(void)
+{
+    float g[4], net;
+    unsigned seen = 0, prev = 0;
+    for (int i = 0; i < 15; i++) {
+        float x = (float)i * 127.0f / 14.0f;
+        for (float dx = -1.0f; dx <= 1.0f; dx += 0.5f) {
+            float h = x + dx; if (h < 0.0f || h > 127.0f) continue;
+            p8_path_gains(3, h, 1.0f, 1, g, &net);
+            for (int f = 0; f < 4; f++) CHECK(g[f] == 0.0f || g[f] == 1.0f, "path 3 knot %d at %.1f not exact", i, (double)h);
+            CHECK(net == 0.0f || net == 1.0f, "path 3 knot %d net %g", i, (double)net);
+        }
+        p8_path_gains(3, x, 1.0f, 1, g, &net);
+        unsigned key = (net > 0.5f) << 4;
+        for (int f = 0; f < 4; f++) key |= (unsigned)(g[f] > 0.5f) << (3 - f);
+        CHECK(key & 8, "path 3 knot %d without 16'", i);
+        if (i) { unsigned d = key ^ prev; CHECK(d && !(d & (d - 1)), "path 3 knots %d/%d change more than one thing", i - 1, i); }
+        CHECK(!(seen >> (key & 31) & 1u), "path 3 knot %d repeats", i);
+        seen |= 1u << (key & 31); prev = key;
+    }
+    p8_engine_t e; p8_init(&e, FS);
+    e.octave[0] = 1; p8_voice_on(&e, 0, 48); int b1[4]; for (int f = 0; f < 4; f++) b1[f] = e.tg[0].bit[f];
+    e.octave[0] = 2; p8_retune(&e);
+    for (int f = 0; f < 3; f++) CHECK(e.tg[0].bit[f] == b1[f + 1], "octave 2 foot %d not one bit up", f);
+    printf("one-knob timbre: 15 knots exact, one change per step; octave 2 = feet one bit up\n");
+}
+
 static void test_paths(void)
 {
     float g[4], g0[4], net, net0;
@@ -896,7 +926,7 @@ int main(int argc, char **argv)
     test_knots();
     test_pitch();
     test_clamp();
-    test_paths();
+    test_paths(); test_timbre();
     test_pwm();
     test_sync_fm();
     test_walsh();

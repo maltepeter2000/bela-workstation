@@ -21,16 +21,28 @@ The messages follow the cz4~ / skandrums-pd conventions (`dump`, `params`, `defa
 
 | # | Name | Default | Function |
 |---|---|---|---|
-| 0 | `wav1` | 127 | waveform of DCO1: 0 = square net (feet about 1:1:1:1), 127 = saw net (1:½:¼:⅛, a step wave, its 16' 7.9 dB stronger); weights measured on a Poly-800, continuous in between |
-| 1 | `wav2` | 127 | waveform of DCO2 |
-| 2 | `har1` | 64 | foot combination of DCO1, continuous path through the 15 original combinations (see below) |
-| 3 | `har2` | 64 | foot combination of DCO2 |
+| 0 | `har1` | 45 | timbre of DCO1: one knob through all 15 distinct original timbres, dark to bright (see One-knob timbre); 45 = saw net, all feet |
+| 1 | `har2` | 45 | timbre of DCO2 |
+| 2 | `env1` | 0 | envelope of DCO1 (DEG1), one knob: gate … pluck … piano … long release … swell … pad … long pad (see Envelopes); −1 = own values `a1` … `r1` |
+| 3 | `env2` | 0 | envelope of DCO2 (DEG2), the same |
 | 4 | `intv` | 0 | interval of DCO2, 0–12 semitones |
 | 5 | `detn` | 0 | detune of DCO2 downwards; the original's steps 0–3 (0, 6.5, 13, 26 cents, Poly-800 II service manual) lie at 0, 42, 85, 127, linear in between |
 | 6 | `lev1` | 127 | level of DCO1 |
 | 7 | `lev2` | 0 | level of DCO2 (DOUBLE only). When `lev1 + lev2` goes above 127 both are scaled down together |
 
-### Foot path (`har`)
+### One-knob timbre (`har`, `path 3`, default)
+
+The Poly-800 offers 2 nets × 15 foot combinations, but only 15 timbres are different: a combination without the 16' is the same wave as one with it an octave or more higher (8' 4' 2' = 16' 8' 4' up an octave, 2' alone = 16' three octaves up, in both nets, since the weight ratios stay the same), and 16' alone sounds the same in both nets. `path 3` puts these 15 on one knob, ordered by brightness (spectral centroid with the measured weights) and with one foot or the net changing per step:
+
+| `har` | 0 | 9 | 18 | 27 | 36 | 45 | 54 | 64 | 73 | 82 | 91 | 100 | 109 | 118 | 127 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| net | – | saw | saw | saw | saw | saw | saw | saw | square | square | square | square | square | square | square |
+| feet | 16' | 16' 2' | 16' 4' 2' | 16' 4' | 16' 8' 4' | all | 16' 8' 2' | 16' 8' | 16' 8' | 16' 8' 4' | 16' 4' | 16' 4' 2' | all | 16' 8' 2' | 16' 2' |
+| brightness | 2.7 | 2.9 | 3.3 | 3.1 | 3.4 | 3.6 | 3.3 | 3.1 | 3.8 | 5.5 | 5.9 | 9.1 | 8.0 | 7.8 | 9.4 |
+
+The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the chip's HIGH the feet are taken one counter bit higher per octave, which is exactly what leaving out the 16' does (including the chip's clamp of the high feet in the top octave). `wav` is not used on this path; `norm 1` keeps the loudness constant along it.
+
+### Foot path (`har`, `path 0`)
 
 On these values the sound is exactly the original foot combination. From one value to the next a single foot fades in or out, so `har` can be modulated without jumps. The lowest foot only ever moves up, and the order keeps the timbre changes small:
 
@@ -66,7 +78,7 @@ Two settings make any path smooth to sweep:
 | Message | Range | Default | Function |
 |---|---|---|---|
 | `mode` | 1/2 | 2 | 1 = WHOLE: one DCO per voice (group 2 is not computed); 2 = DOUBLE: DCO1 on TG n, DCO2 on TG n+4. Both 4 voices |
-| `oct1` / `oct2` | −1/0/1 | 0 | octave of DCO1 / DCO2 (Low, Mid, High) |
+| `oct1` / `oct2` | −1…4 | 0 | octave of DCO1 / DCO2: −1/0/1 = Low, Mid, High; 2–4 = the feet one, two, three counter bits higher (the original combinations without 16') |
 | `nois` | 0–15 | 0 | white noise, sounds while a voice sounds |
 | `sprd` | 0–1 | 0.5 | stereo spread of the 4 voices |
 | `levl` | 0–2 | 0.5 | output level |
@@ -80,7 +92,8 @@ Two settings make any path smooth to sweep:
 | `mgr` | 0–15, −1 | −1 | MG frequency in original steps (81, measured: 0 = 0.29 Hz, 3 = 1.26, 6 = 3.39, 8 = 5.22, 9 = 6.49, 12 = 11.1, 15 = 19.1 Hz); sets `mgf`; −1 = use `mgf` |
 | `hsnp` | 0–4 | 1 | plateau around each foot combination, in `har` steps |
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
-| `path` | 0/1/2 | 0 | morph path of `har`: 0 original (15 combinations), 1 ring (8, root kept, wraps), 2 figure eight (16, both nets, wraps) |
+| `path` | 0–3 | 3 | path of `har`: 3 one-knob timbre (15, dark → bright, default), 0 original (15 combinations), 1 ring (8, root kept, wraps), 2 figure eight (16, both nets, wraps) |
+| `wav1` / `wav2` | 0–127 | 127 | net for paths 0 and 1: 0 square (feet about 1:1:1:1), 127 saw (1:½:¼:⅛, its 16' 7.9 dB stronger), continuous |
 | `norm` | 0–1 | 0 | hold the loudness constant over the morph |
 | `pfad` | 0/1 | 1 | 1: a fading foot rises in power (√), 0: in amplitude |
 | `pw1` / `pw2` | 0–127 | 64 | pulse width of DCO1 / DCO2: 3–97 %, 64 = square; acts on every foot (see PWM) |
@@ -91,7 +104,6 @@ Two settings make any path smooth to sweep:
 | `fms` | 0/1 | 0 | FM source: 0 internal sine, 1 DCO2 (cross FM) |
 | `wsh1` / `wsh2` | 0–127 | 0 | Walsh loop position of DCO1 / DCO2 (see Walsh morph) |
 | `wmx1` / `wmx2` | 0–127 | 0 | mix from the feet sum (0) to the Walsh loop (127) |
-| `env1` / `env2` | −1…127 | 0 | DEG1 / DEG2 morph position (see Envelopes); −1 = own values below |
 | `leak` | 0/1 | 0 | 1: released voices stay at −55 dB, as measured on the original |
 | `a1 d1 bp1 sl1 su1 r1` | 0–31 | 0 0 31 0 31 0 | DEG1 attack, decay, break point, slope, sustain, release; setting one makes `env1` −1 |
 | `a2 d2 bp2 sl2 su2 r2` | 0–31 | 0 0 31 0 31 0 | the same for DEG2 |

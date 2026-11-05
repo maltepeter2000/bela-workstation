@@ -32,14 +32,17 @@ SUBTITLE = "4-Voice Poly-800 tone generation - MSM5232 foot synthesis"
 
 # controls: name, default, description (index = position)
 CONTROLS = [
-    ("wav1", 127, "Waveform of DCO1: 0 = square net (feet about 1:1:1:1), "
-                  "127 = saw net (1:1/2:1/4:1/8, a step wave, 16' +8 dB). "
-                  "Weights measured on a Poly-800; continuous in between."),
-    ("wav2", 127, "Waveform of DCO2, same range."),
-    ("har1", 64, "Foot combination of DCO1. 15 original combinations at "
-                 "0, 9, 18 ... 127, from one to the next a single foot "
-                 "fades in or out: 16' alone, all feet at 64, 2' alone."),
-    ("har2", 64, "Foot combination of DCO2, same path."),
+    ("har1", 45, "Timbre of DCO1, one knob through all 15 distinct original "
+                 "timbres, dark to bright (path 3): 0 16' / 9-64 saw net "
+                 "(16'2', 16'4'2', 16'4', 16'8'4', all at 45, 16'8'2', 16'8') / "
+                 "73-127 square net (16'8', 16'8'4', 16'4', 16'4'2', all, "
+                 "16'8'2', 16'2'). One foot or the net per step, no jumps. "
+                 "Combinations without 16' = oct1 2-4."),
+    ("har2", 45, "Timbre of DCO2, same path."),
+    ("env1", 0, "Envelope of DCO1 (DEG1), one knob: 0 gate / 24 pluck / "
+                "48 piano / 72 long release / 92 swell / 108 pad / "
+                "127 long pad. -1 = own values a1 ... r1."),
+    ("env2", 0, "Envelope of DCO2 (DEG2), same; -1 = own values a2 ... r2."),
     ("intv", 0, "Interval of DCO2 above DCO1, 0-12 semitones."),
     ("detn", 0, "Detune of DCO2 downwards: the original's 4 steps "
                 "0, 6.5, 13, 26 cents lie at 0, 42, 85, 127."),
@@ -50,7 +53,7 @@ CONTROLS = [
 
 SETTINGS = [
     "mode (2) 1 = WHOLE: one DCO per voice, 2 = DOUBLE: two DCOs",
-    "oct1, oct2 (0) octave of DCO1 / DCO2 -1, 0, 1",
+    "oct1, oct2 (0) octave -1 0 1 (LOW MID HIGH), 2-4 feet shifted",
     "nois (0) white noise level 0-15, sounds while a voice sounds",
     "sprd (0.5) stereo spread of the 4 voices 0-1",
     "levl (0.5) output level 0-2",
@@ -65,7 +68,8 @@ SETTINGS = [
     "ch1 (0) MIDI channel for p v ch lists, 0 = any",
     "tone (1) 1: output response measured on a Poly-800 with the",
     "VCF (54 Hz high-pass, VCF, 1 pole at 5 kHz), 0: raw",
-    "path (0) morph path of har: 0 = original (15 combinations),",
+    "path (3) path of har: 3 = one-knob timbre (see har1),",
+    "0 = original (15 combinations, wav1/wav2 set the net),",
     "1 = ring (8 combinations with 16' as root, wraps 127 -> 0),",
     "2 = figure eight (ring in the square net, then in the saw net;",
     "16 points, wraps; wav is not used)",
@@ -80,11 +84,10 @@ SETTINGS = [
     "fms (0) FM source: 0 internal sine, 1 DCO2 (cross FM)",
     "wsh1, wsh2 (0) Walsh loop position of DCO1 / DCO2, 0-127",
     "wmx1, wmx2 (0) mix from the feet (0) to the Walsh loop (127)",
-    "env1, env2 (0) DEG1 / DEG2 morph 0-127 (see Envelopes),",
-    "-1 = own values a1 ... r2",
+    "wav1, wav2 (127) net 0 square .. 127 saw for paths 0 and 1",
     "leak (0) 1: released voices stay at -55 dB, as on the original",
     "a1 d1 bp1 sl1 su1 r1 (0 0 31 0 31 0) DEG1 attack, decay,",
-    "break point, slope, sustain, release 0-31 (sets env1 to -1)",
+    "break point, slope, sustain, release 0-31 (env1 becomes -1)",
     "a2 d2 bp2 sl2 su2 r2: the same for DEG2",
     "port (0) portamento 0-127 = off to 3 s (not on the Poly-800)",
     "pmod (0) glide from: 0 the last note, 1 the voice's own last",
@@ -105,15 +108,15 @@ SETTINGS = [
 ]
 
 # number boxes in the bottom panel: name, min, max
-ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
+ADV = [("mode", 1, 2), ("oct1", -1, 4), ("oct2", -1, 4), ("nois", 0, 15),
        ("sprd", 0, 1), ("levl", 0, 2), ("mrph", 0, 100), ("hold", 0, 1),
        ("a4", 400, 480), ("tune", -50, 50), ("bnd", 0, 12), ("mgf", 0, 30),
        ("mgi", 0, 200), ("hsnp", 0, 4), ("ch1", 0, 16), ("tone", 0, 1),
-       ("path", 0, 2), ("norm", 0, 1), ("pfad", 0, 1), ("pw1", 0, 127),
+       ("path", 0, 3), ("norm", 0, 1), ("pfad", 0, 1), ("pw1", 0, 127),
        ("pw2", 0, 127), ("sync", 0, 1), ("swp2", 0, 48),
        ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("wsh1", 0, 127),
-       ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("env1", -1, 127),
-       ("env2", -1, 127), ("leak", 0, 1), ("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
+       ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("wav1", 0, 127),
+       ("wav2", 0, 127), ("leak", 0, 1), ("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
        ("su1", 0, 31), ("r1", 0, 31), ("a2", 0, 31), ("d2", 0, 31), ("bp2", 0, 31), ("sl2", 0, 31),
        ("su2", 0, 31), ("r2", 0, 31), ("port", 0, 127), ("pmod", 0, 2), ("cut", 0, 99),
        ("res", 0, 15), ("kbd", 0, 2), ("pol", 1, 2), ("egi", 0, 15), ("trg", 1, 2), ("env3", -1, 127),

@@ -75,6 +75,16 @@ static const uint8_t P8_LOOP8[8] = {0x8, 0xA, 0xB, 0x9, 0xD, 0xF, 0xE, 0xC};
 static const uint8_t P8_FIG8[16] = {0x8, 0xA, 0xB, 0x9, 0xD, 0xF, 0xE, 0xC,
                                     0xC, 0xE, 0xF, 0xD, 0x9, 0xB, 0xA, 0x8};
 
+/* One-knob timbre (path 3): the 15 distinct original timbres from dark to
+ * bright. Without the 16' a combination is only a transposition (8' 4' 2' =
+ * 16' 8' 4' an octave up; reach those with the octave), and 16' alone is the
+ * same in both nets, so these are all of them. Saw net first (dark), at
+ * 16' 8' over to the square net; one foot or the net changes per step.
+ * Brightness (spectral centroid with the measured weights, harmonics of the
+ * 16'): 2.7 2.9 3.3 3.1 3.4 3.6 3.3 3.1 | 3.8 5.5 5.9 9.1 8.0 7.8 9.4. */
+static const uint8_t P8_TIMB[15] = {0x8, 0x9, 0xB, 0xA, 0xE, 0xF, 0xD, 0xC,     /* saw net */
+                                    0xC, 0xE, 0xA, 0xB, 0xF, 0xD, 0x9};         /* square net */
+
 /* position h (0..127) on a knot list: knot a, knot b, fraction t, with a
  * plateau of hsnap steps around each knot; cyclic lists wrap at 127 -> 0 */
 static void knot_pos(float h, float hsnap, int n, int cyclic, int *ka, int *kb, float *t)
@@ -99,18 +109,20 @@ const uint8_t P8_WALSH[15] = {0x8, 0x4, 0xA, 0x2, 0xB, 0x5, 0x9, 0x1, 0xD, 0x7, 
 
 void p8_path_gains(int path, float h, float hsnap, int pfade, float g[P8_FEET], float *net)
 {
-    const uint8_t *k = path == 1 ? P8_LOOP8 : path == 2 ? P8_FIG8 : P8_KNOT;
-    int n = path == 1 ? 8 : path == 2 ? 16 : P8_KNOTS, a, b;
+    const uint8_t *k = path == 1 ? P8_LOOP8 : path == 2 ? P8_FIG8 : path == 3 ? P8_TIMB : P8_KNOT;
+    int n = path == 1 ? 8 : path == 2 ? 16 : path == 3 ? 15 : P8_KNOTS, a, b;
     float t;
-    knot_pos(h, hsnap, n, path != 0, &a, &b, &t);
+    knot_pos(h, hsnap, n, path == 1 || path == 2, &a, &b, &t);
     for (int f = 0; f < P8_FEET; f++) {
         float fa = (float)((k[a] >> (3 - f)) & 1), fb = (float)((k[b] >> (3 - f)) & 1);
         float x = fa + t * (fb - fa);
         g[f] = pfade ? sqrtf(x) : x;                         /* sqrt: the fading foot's power is linear */
     }
-    if (net) {                                               /* path 2: the net is part of the path */
-        float na = (float)(a >= 8), nb = (float)(b >= 8);
-        *net = path == 2 ? na + t * (nb - na) : -1.0f;
+    if (net) {                                               /* paths 2, 3: the net is part of the path (1 = saw) */
+        float na, nb;
+        if (path == 3) { na = (float)(a < 8); nb = (float)(b < 8); }
+        else { na = (float)(a >= 8); nb = (float)(b >= 8); }
+        *net = path >= 2 ? na + t * (nb - na) : -1.0f;
     }
 }
 
@@ -454,13 +466,19 @@ static void tg_pitch(p8_engine_t *e, int t)
 {
     p8_tg_t *g = &e->tg[t];
     int grp = t >= 4;
-    int code = (int)lroundf(g->note) - 24 + 12 * e->octave[grp] + (grp ? e->interval : 0);
+    /* octaves -1..1 are the chip's LOW / MID / HIGH; above that the feet are
+     * taken one counter bit higher per octave, exactly what leaving out the
+     * 16' does on the original (8' 4' 2' = 16' 8' 4' an octave up), with the
+     * chip's clamp at bit 0 in the top octaves */
+    int oc = e->octave[grp], ex = oc > 1 ? oc - 1 : 0;
+    if (oc > 1) oc = 1;
+    int code = (int)lroundf(g->note) - 24 + 12 * oc + (grp ? e->interval : 0);
     while (code < 0) code += 12;
     while (code > P8_CODES - 1) code -= 12;
     g->code = code;
     int n;
     rom(code, &g->counter, &n);
-    for (int f = 0; f < P8_FEET; f++) g->bit[f] = n - f < 0 ? 0 : n - f;
+    for (int f = 0; f < P8_FEET; f++) g->bit[f] = n - f - ex < 0 ? 0 : n - f - ex;
 }
 
 void p8_voice_on(p8_engine_t *e, int k, float note)

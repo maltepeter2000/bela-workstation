@@ -72,14 +72,14 @@ typedef struct {
     float   mg_lp;               /* MG -> pitch low-pass state (measured: one pole, 14.5 Hz) */
     float   detune_cents;        /* group 2, 0..-20 cents (thinned CLK2) */
     int     interval;            /* group 2, semitones 0..12 */
-    int     octave[2];           /* per DCO, -1 / 0 / +1 */
+    int     octave[2];           /* per DCO, -1 / 0 / +1 (chip), +2..+4: feet one bit higher per octave */
     int     mode;                /* P8_WHOLE (4 voices, group 1) / P8_DOUBLE */
 
     float   wav[2];              /* 0 = square (1:1:1:1) .. 1 = saw (1:1/2:1/4:1/8) */
     float   har[2];              /* 0..127 on the foot path, see p8_foot_gains */
     float   lev[2];              /* group levels 0..1 */
     float   hsnap;               /* plateau around each knot, control steps */
-    int     path;                /* 0 original (15 knots), 1 ring (8, root kept), 2 figure eight (16, both nets) */
+    int     path;                /* 0 original (15 knots), 1 ring (8, root kept), 2 figure eight (16, both nets), 3 one-knob timbre (15, dark -> bright) */
     int     pfade;               /* 1: fading foot follows sqrt (linear power) */
     float   norm;                /* 0..1: hold the loudness constant over the morph */
     float   pw[2], pw_t[2];      /* pulse width per DCO, 0.5 = square (current, target) */
