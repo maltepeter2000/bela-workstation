@@ -21,7 +21,7 @@ The messages follow the cz4~ / skandrums-pd conventions (`dump`, `params`, `defa
 
 | # | Name | Default | Function |
 |---|---|---|---|
-| 0 | `wav1` | 127 | waveform of DCO1: 0 = square (feet added 1:1:1:1), 127 = saw (1:½:¼:⅛, a step wave); continuous in between |
+| 0 | `wav1` | 127 | waveform of DCO1: 0 = square net (feet about 1:1:1:1), 127 = saw net (1:½:¼:⅛, a step wave, its 16' 7.9 dB stronger); weights measured on a Poly-800, continuous in between |
 | 1 | `wav2` | 127 | waveform of DCO2 |
 | 2 | `har1` | 64 | foot combination of DCO1, continuous path through the 15 original combinations (see below) |
 | 3 | `har2` | 64 | foot combination of DCO2 |
@@ -62,6 +62,7 @@ On these values the sound is exactly the original foot combination. From one val
 | `mgi` | 0–100 cents | 0 | vibrato depth, triangle on the master clock |
 | `hsnp` | 0–4 | 1 | plateau around each foot combination, in `har` steps |
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
+| `tone` | 0/1 | 1 | 1: output response measured on a Poly-800 with the VCF fully open (54 Hz high-pass, two poles at 7.5 kHz); 0: off (5 Hz DC block only) |
 
 ### Other messages
 
@@ -75,19 +76,20 @@ On these values the sound is exactly the original foot combination. From one val
 | `panic` | all voices off |
 | `get <name>` | outlet 3 answers `value <name> <v>` |
 | `voice i p` / `voiceoff i` | play a voice directly |
-| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 15 settings |
+| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 16 settings |
 | `dump pdoly8 …` | restore such a line; lines of other voices are ignored |
 | `print` | voices, values and sample rate to the Pd window |
 
-Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 1 440 0 2 5 0 1 0`.
+Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 1 440 0 2 5 0 1 0 1`.
 
 ## How it works
 
 - **Master clock.** One clock for all 8 tone generators. Tune, bend and vibrato act on it, so all voices move together, as on the original.
-- **MSM5232 dividers.** A key becomes a pitch code; the chip's 88 × 12 bit ROM gives an integer counter value and a binary divider. The counter steps at `2 × clock / counter`, and the 16', 8', 4', 2' squares are bits n, n−1, n−2, n−3 of a free-running binary counter: locked in phase, with shared edges. The scale is the chip's, up to 1.3 cents off equal temperament. In the top octaves the high feet stick at bit 0, as on the chip.
+- **MSM5232 dividers.** A key becomes a pitch code; the chip's 88 × 12 bit ROM gives an integer counter value and a binary divider. The counter steps at `2 × clock / counter`, and the 16', 8', 4', 2' squares are bits n, n−1, n−2, n−3 of a free-running binary counter: locked in phase, with shared edges, exactly 50 % duty. The scale is the chip's, up to 1.3 cents off equal temperament. The clock is about 1.06 MHz (A4 on 8' = code 0x2D): measured on a Poly-800, the 2' foot sticks to the 4' bit from 16' = 1 kHz up, which only this clock explains.
 - **Groups.** Group 1 (TG0–3) is DCO1, group 2 (TG4–7) is DCO2 with the interval added to the pitch code. Detune lowers group 2's clock (the original thins out CLK2 pulses).
-- **Waveform networks.** Per group the four foot buses are summed with weights 1:1:1:1 (square, BR5) or 1:½:¼:⅛ (saw, BR6); `wav` moves between them, `har` sets a gain per foot.
-- **Band-limiting.** Each level step of a tone generator is placed with sub-sample accuracy as a Kaiser-windowed sinc impulse (32 taps, 64 phases) and integrated. Smooth changes (gate ramps, `wav`/`har`/`lev`) go in without an impulse. Output delay 16 samples. A 5 Hz high-pass stands for the coupling capacitors.
+- **Waveform networks.** Per group the four foot buses are summed by the square net (BR5) or the saw net (BR6); `wav` moves between them, `har` sets a gain per foot. Weights measured on a Poly-800: square 1 : 1.057 : 1.083 : 1.098, saw 2.47 × (1 : 0.523 : 0.268 : 0.135) — binary within 1 dB, and the saw net's 16' 7.9 dB above the square net's, so both nets peak about alike.
+- **Band-limiting.** Each level step of a tone generator is placed with sub-sample accuracy as a Kaiser-windowed sinc impulse (32 taps, 64 phases) and integrated. Smooth changes (gate ramps, `wav`/`har`/`lev`) go in without an impulse. Output delay 16 samples.
+- **Output response (`tone 1`).** Fitted to the recording: one-pole high-pass at 54 Hz, two poles at 7.5 kHz (VCF fully open plus output stage). A moving VCF comes later.
 - **Gate.** Without envelopes a key gates its tone generators with a 1.5 ms ramp. The counters keep running, so a note-on does not restart the phase.
 
 Not modelled yet: DEG1/2/3 (on the original they act per tone generator on the chip's CAP pins, before the foot buses), VCF, chorus, and the slight clock jitter that the pulse thinning of the detune adds.
@@ -124,6 +126,8 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 | `pdoly8_test.c` | desktop test of the core and demo renderer |
 
 ## Tested
+
+- Against a Poly-800 (one key C over five octaves, two octave settings; square and saw, 16' alone and all feet; line out, VCF open, chorus off): over all 40 notes the harmonics up to −45 dB match within 0.37 dB on average (90 % within 0.63 dB), note levels within 0.5 dB. Below 8 kHz the deviation stays under 0.5 dB, at 12–17 kHz about 1.5 dB.
 
 - ROM reference point: code 0x21 gives 440.00 Hz on 8'. A4 on 8' measures 440.00 Hz; DCO2 with interval 7 and detune −20 cents within 0.01 Hz of the expected value.
 - Foot path: all 15 knots exact (also ±1 step with `hsnp 1`), neighbours differ in exactly one foot, largest gain change per 0.01 `har` step 0.0014 (no jumps).

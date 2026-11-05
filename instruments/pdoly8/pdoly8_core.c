@@ -12,8 +12,18 @@
 
 #define P8_PI       3.14159265f
 #define P8_REF_CLK  2119040.0f    /* MSM5232 clock that gives 440 Hz on 8' for code 0x21 */
+#define P8_TG_CLK   1059520.0f    /* Poly-800 CLK1/CLK2, about 1 MHz (manual); A4 = code 0x2D.
+                                    Measured: 2' sticks to 4' from 16' = 1 kHz up, which pins
+                                    this clock, not the 2 MHz one */
 #define P8_CODES    85            /* pitch codes 0x00..0x54 */
-#define P8_OUT      0.65f         /* output scale before 'level' */
+#define P8_OUT      0.25f         /* output scale before 'level' */
+#define P8_HP_HZ    54.0f         /* measured output high-pass, one pole */
+#ifndef P8_LP_HZ
+#define P8_LP_HZ    7500.0f       /* measured: VCF fully open + output stage, two poles */
+#endif
+#ifndef P8_LP_POLES
+#define P8_LP_POLES 2
+#endif
 #define P8_GATE_MS  1.5f          /* de-click ramp of a voice gate */
 #define P8_D        (P8_TAPS / 2)
 
@@ -132,6 +142,9 @@ void p8_set_fs(p8_engine_t *e, float fs)
 {
     e->fs = fs > 1000.0f ? fs : 44100.0f;
     e->dc_k = 1.0f - 2.0f * P8_PI * 5.0f / e->fs;
+    e->hp_k = 1.0f / (1.0f + 2.0f * P8_PI * P8_HP_HZ / e->fs);
+    {   float lp = P8_LP_HZ < 0.45f * e->fs ? P8_LP_HZ : 0.45f * e->fs, g = tanf(P8_PI * lp / e->fs);
+        e->lp_g = g / (1.0f + g); }
     p8_set_smooth(e, e->smooth_ms);
 }
 
@@ -147,6 +160,7 @@ void p8_init(p8_engine_t *e, float fs)
     e->hsnap = 1.0f;
     e->smooth_ms = 8.0f;
     e->spread = 0.5f; e->level = 0.5f;
+    e->tone = 1;
     e->mg_hz = 5.0f;
     e->rng = 0x2545F491u;
     p8_set_fs(e, fs);
@@ -161,12 +175,17 @@ void p8_init(p8_engine_t *e, float fs)
 /* per-foot target gains of both groups: wave weights x foot gains x level */
 void p8_update(p8_engine_t *e)
 {
-    static const float SAW[P8_FEET] = {1.0f, 0.5f, 0.25f, 0.125f};
+    /* Foot weights measured on a Poly-800 (square / saw, one key over five
+     * octaves, response of the output removed): square net (BR5) a little
+     * stronger on the higher feet; saw net (BR6) binary within 1 dB and its
+     * 16' 2.47 x (+7.9 dB) the square net's, so both nets peak alike. */
+    static const float SQ[P8_FEET]  = {1.0f, 1.057f, 1.083f, 1.098f};
+    static const float SAW[P8_FEET] = {2.47f, 2.47f * 0.523f, 2.47f * 0.268f, 2.47f * 0.135f};
     for (int g = 0; g < 2; g++) {
         float gain[P8_FEET], wv = clampf(e->wav[g], 0.0f, 1.0f);
         p8_foot_gains(e->har[g], e->hsnap, gain);
         float lev = (g == 1 && e->mode != P8_DOUBLE) ? 0.0f : clampf(e->lev[g], 0.0f, 1.0f);
-        for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = (1.0f + wv * (SAW[f] - 1.0f)) * gain[f] * lev;
+        for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = (SQ[f] + wv * (SAW[f] - SQ[f])) * gain[f] * lev;
     }
     if (e->mode != P8_DOUBLE) for (int t = 4; t < P8_TG; t++) e->tg[t].amp_target = 0.0f;
     /* stereo position of the 4 voices (both DCOs of a voice together) */
@@ -187,7 +206,7 @@ static void tg_pitch(p8_engine_t *e, int t)
 {
     p8_tg_t *g = &e->tg[t];
     int grp = t >= 4;
-    int code = (int)lroundf(g->note) - 36 + 12 * e->octave[grp] + (grp ? e->interval : 0);
+    int code = (int)lroundf(g->note) - 24 + 12 * e->octave[grp] + (grp ? e->interval : 0);
     while (code < 0) code += 12;
     while (code > P8_CODES - 1) code -= 12;
     g->code = code;
@@ -232,7 +251,7 @@ static float tg_value(const p8_tg_t *g, const float W[P8_FEET])
 
 void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
 {
-    const float clk0 = P8_REF_CLK * e->a4 / 440.0f;
+    const float clk0 = P8_TG_CLK * e->a4 / 440.0f;
     const float det = exp2f(-clampf(e->detune_cents, 0.0f, 100.0f) / 1200.0f);
     const float gstep = 1.0f / (P8_GATE_MS * 0.001f * e->fs);
     const float inv_fs = 1.0f / e->fs;
@@ -291,8 +310,18 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             e->acc[c] += e->ring[c][e->rpos];
             e->ring[c][e->rpos] = 0.0f;
             float x = e->acc[c] + nz * 0.70710678f;
-            float y = x - e->dc_x[c] + e->dc_k * e->dc_y[c];
-            e->dc_x[c] = x; e->dc_y[c] = y;
+            float y;
+            if (e->tone) {                                   /* measured output: 54 Hz HP, 2 x 7.5 kHz LP */
+                y = e->hp_k * (e->dc_y[c] + x - e->dc_x[c]);
+                e->dc_x[c] = x; e->dc_y[c] = y;
+                for (int p = 0; p < P8_LP_POLES; p++) {
+                    float v = (y - e->lp_s[c][p]) * e->lp_g;
+                    y = v + e->lp_s[c][p]; e->lp_s[c][p] = y + v;
+                }
+            } else {
+                y = x - e->dc_x[c] + e->dc_k * e->dc_y[c];
+                e->dc_x[c] = x; e->dc_y[c] = y;
+            }
             y *= P8_OUT * e->level;
             /* safety: soft knee above 0.8, never beyond 1 */
             float a = fabsf(y);

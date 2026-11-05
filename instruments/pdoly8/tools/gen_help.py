@@ -32,9 +32,9 @@ SUBTITLE = "4-Voice Poly-800 tone generation - MSM5232 foot synthesis"
 
 # controls: name, default, description (index = position)
 CONTROLS = [
-    ("wav1", 127, "Waveform of DCO1: 0 = square (feet added 1:1:1:1), "
-                  "127 = saw (1:1/2:1/4:1/8, a step wave). In between the "
-                  "weights move continuously."),
+    ("wav1", 127, "Waveform of DCO1: 0 = square net (feet about 1:1:1:1), "
+                  "127 = saw net (1:1/2:1/4:1/8, a step wave, 16' +8 dB). "
+                  "Weights measured on a Poly-800; continuous in between."),
     ("wav2", 127, "Waveform of DCO2, same range."),
     ("har1", 64, "Foot combination of DCO1. 15 original combinations at "
                  "0, 9, 18 ... 127, from one to the next a single foot "
@@ -63,13 +63,16 @@ SETTINGS = [
     "mgi (0) vibrato depth in cents (triangle on the master clock)",
     "hsnp (1) plateau around each foot combination, in har steps",
     "ch1 (0) MIDI channel for p v ch lists, 0 = any",
+    "tone (1) 1: output response measured on a Poly-800 with the",
+    "VCF fully open (54 Hz high-pass, 2 poles at 7.5 kHz), 0: off",
 ]
 
 # number boxes in the bottom panel: name, min, max
 ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
        ("sprd", 0, 1), ("levl", 0, 2), ("mrph", 0, 100), ("hold", 0, 1),
        ("a4", 400, 480), ("tune", -50, 50), ("bnd", 0, 12), ("mgf", 0, 30),
-       ("mgi", 0, 100), ("hsnp", 0, 4), ("ch1", 0, 16), ("bend", -1, 1)]
+       ("mgi", 0, 100), ("hsnp", 0, 4), ("ch1", 0, 16), ("tone", 0, 1),
+       ("bend", -1, 1)]
 VINT = []
 
 

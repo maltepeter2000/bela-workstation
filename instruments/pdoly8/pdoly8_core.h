@@ -9,10 +9,13 @@
  *     becomes an integer divider from the chip's 88 x 12 bit ROM, followed by
  *     a binary counter whose bits are the 16', 8', 4', 2' squares;
  *   - detune thins out CLK2 pulses: group 2 a little lower (0..-20 cents);
- *   - per group the four foot buses are summed 1:1:1:1 (square, BR5) or
- *     1:1/2:1/4:1/8 (saw, BR6); here continuous, plus continuous foot gains;
+ *   - per group the four foot buses are summed by the square net (BR5) or
+ *     the saw net (BR6, binary weights); weights measured on a Poly-800,
+ *     continuous between the nets, plus continuous foot gains;
  *   - LEVEL1 / LEVEL2 (VCAs gm-1 / gm-2 of the NJM2069), white noise.
- * Envelopes, VCF and chorus are left out in this version.
+ * Output: measured response of a Poly-800 with the VCF fully open (54 Hz
+ * high-pass, two poles at 7.5 kHz). Envelopes, a moving VCF and chorus
+ * are left out in this version.
  *
  * Every level step is band-limited (windowed-sinc BLEP), so the output has
  * the analog square edges of the original without digital aliasing.
@@ -75,8 +78,10 @@ typedef struct {
     float   ring[2][P8_RING];    /* band-limited impulses L, R */
     unsigned rpos;
     float   acc[2];              /* integrator: the waveform itself */
-    float   dc_x[2], dc_y[2];    /* coupling capacitor, about 5 Hz */
-    float   dc_k;
+    float   dc_x[2], dc_y[2];    /* output high-pass state */
+    float   dc_k, hp_k;          /* 5 Hz (tone 0) / measured 54 Hz (tone 1) */
+    float   lp_s[2][4], lp_g;    /* open VCF + output: two poles at 7.5 kHz */
+    int     tone;                /* 1: measured Poly-800 output response */
 } p8_engine_t;
 
 /* knot table: foot combination of each knot, bits 16' 8' 4' 2' (MSB first) */
@@ -96,7 +101,8 @@ void  p8_retune(p8_engine_t *e);             /* after octave / interval change *
 
 /* foot gains of har position h (0..127) with a plateau of hsnap steps */
 void  p8_foot_gains(float h, float hsnap, float g[P8_FEET]);
-/* MSM5232 pitch: frequency of the 16' foot for a code at the given clock */
+/* MSM5232 pitch: frequency of the 16' foot for a code at the given clock
+ * (the Poly-800 runs the chip at about 1.06 MHz; A4 on 8' = code 0x2D) */
 float p8_code_hz16(int code, float clock_hz);
 
 void  p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n);

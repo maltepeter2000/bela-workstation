@@ -151,10 +151,24 @@ static void test_pitch(void)
     p8_voice_on(&e, 0, 69.0f);
     buf_render(&e, &b, 1.0f);
     f = freq(&b, 4410);
-    float expect = 2.0f * p8_code_hz16(0x21 + 7, 2119040.0f) * exp2f(-20.0f / 1200.0f);
+    float expect = 2.0f * p8_code_hz16(0x2D + 7, 1059520.0f) * exp2f(-20.0f / 1200.0f);
     printf("DCO2 +7, detune -20 ct: %.2f Hz (expected %.2f)\n", (double)f, (double)expect);
     CHECK(fabsf(f - expect) < 0.3f, "DCO2 at %.2f, expected %.2f", (double)f, (double)expect);
     buf_free(&b);
+}
+
+/* the chip's top octaves: from 16' = 1 kHz (C at 8' = MIDI 96) 2' sticks to
+ * 4', as measured on the Poly-800; one octave lower all four feet differ */
+static void test_clamp(void)
+{
+    p8_engine_t e;
+    p8_init(&e, FS);
+    p8_voice_on(&e, 0, 84.0f);
+    CHECK(e.tg[0].bit[3] != e.tg[0].bit[2], "C6: 2' should be its own bit");
+    p8_voice_on(&e, 0, 96.0f);
+    CHECK(e.tg[0].bit[3] == e.tg[0].bit[2], "C7: 2' should stick to 4'");
+    float f16 = p8_code_hz16(e.tg[0].code, 1059520.0f);
+    printf("clamp: C7 16' = %.1f Hz, 2' on the 4' bit (as measured from 1030 Hz up)\n", (double)f16);
 }
 
 static void test_modes_levels(void)
@@ -168,20 +182,21 @@ static void test_modes_levels(void)
     CHECK(peak(&b, 2205) < 1e-4f, "WHOLE: group 2 audible (%g)", (double)peak(&b, 2205));
     buf_free(&b);
 
-    /* worst case: 4 voices, square, all feet, both DCOs; lev scaled to sum 1 */
+    /* worst case: 4 low voices, all feet, square and saw, full level */
     float worst = 0.0f;
-    int chords[3][4] = {{48, 55, 60, 64}, {36, 48, 60, 72}, {60, 60, 60, 60}};
-    for (int c = 0; c < 3; c++) {
-        p8_init(&e, FS);
-        setup(&e, P8_DOUBLE, 0, 64, 0, 64, 64, 63);
-        for (int k = 0; k < 4; k++) p8_voice_on(&e, k, (float)chords[c][k]);
-        buf_render(&e, &b, 2.0f);
-        float p = peak(&b, 4410);
-        if (p > worst) worst = p;
-        buf_free(&b);
-    }
-    printf("worst-case peak, 4 voices square all feet, level 0.5: %.3f\n", (double)worst);
-    CHECK(worst <= 1.0f, "clips: %.3f", (double)worst);
+    int chords[4][4] = {{36, 43, 48, 52}, {36, 48, 60, 72}, {48, 55, 60, 64}, {60, 64, 67, 71}};
+    for (int wv = 0; wv <= 127; wv += 127)
+        for (int c = 0; c < 4; c++) {
+            p8_init(&e, FS);
+            setup(&e, P8_WHOLE, (float)wv, 64, 0, 64, 127, 0);
+            for (int k = 0; k < 4; k++) p8_voice_on(&e, k, (float)chords[c][k]);
+            buf_render(&e, &b, 2.0f);
+            float p = peak(&b, 4410);
+            if (p > worst) worst = p;
+            buf_free(&b);
+        }
+    printf("worst-case peak, 4 low voices all feet (square / saw), level 0.5: %.3f\n", (double)worst);
+    CHECK(worst <= 0.99f, "too loud: %.3f", (double)worst);
 
     /* single saw note all feet, as a level reference */
     p8_init(&e, FS);
@@ -302,6 +317,7 @@ int main(int argc, char **argv)
     test_rom();
     test_knots();
     test_pitch();
+    test_clamp();
     test_modes_levels();
     if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); }
     printf(fails ? "%d check(s) failed\n" : "all checks passed\n", fails);
