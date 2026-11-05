@@ -90,3 +90,11 @@ Square 8', key C3, line out. Pitch tracked on the 5th harmonic (Hilbert, 7.75 ms
 - **Depth (83)** at 5.2 Hz: 15 → ±157, 8 → ±89, 4 → ±46, 1 → ±11 cents → linear, 12.4 cents per step at DC (186 at 15).
 - **Delay (82):** the vibrato starts abruptly at full depth after 0.47 s (5), 0.95 s (10); 1.55 s (15) in the three M4 notes (the M3 note at 15 came in at about 1.2–1.3 s, unclear). Legato part not recorded.
 - **MG → VCF (84)**, saw all feet, cutoff 40, resonance 15: the resonance peak swings ±2.1 octaves at 4, about ±4.2 at 8 → 0.53 octaves per step, ±7.9 at 15 (the same scale as EG INT). The sweep is a sharp triangle (no low-pass on the VCF path).
+
+## EQ (Audio_36)
+
+Noise through the EQ, steady part of each note, spectra relative to the setting 0 (bass takes normalised at 5–16 kHz, treble takes at 60–200 Hz). The bass run has six notes (0, −6, −3, 0, +3, +6), the treble run five (−6, −3, 0, +3, +6).
+
+- Treble +6: +1.4 (500 Hz), +2.8 (1 kHz), +4.5 (2 kHz), +8.3 (5 kHz), +9.9 (12 kHz) dB; −6 mirrored (−9.8 at 16 kHz).
+- Bass +6: +9.8 (60 Hz), +7.3 (100), +4.7 (200), +3.2 (300), +0.6 (500) dB; −6: −11.8 at 40 Hz.
+- Joint fit, first-order shelves with fixed corners: treble 4256 Hz, bass 115 Hz (full boost reads +3 dB at 1.8 kHz / 316 Hz — the manual's "±3 dB point 2 kHz / 300 Hz"). Gain per step: treble −9.0 / −3.9 / +2.0 / +8.8, bass −11.7 / −6.3 / +4.1 / +9.8 dB at −6 / −3 / +3 / +6 → modelled as 1.10·k + 0.089·k² dB (4.1 at 3, 9.8 at 6). Model within about 1 dB.

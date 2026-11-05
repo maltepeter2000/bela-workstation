@@ -108,7 +108,7 @@ Two settings make any path smooth to sweep:
 | `tone` | 0/1 | 1 | 1: VCF and output stage (54 Hz high-pass, one pole at 5 kHz); 0: raw tone generators (5 Hz DC block only) |
 | `mgd` | 0–15 | 0 | MG delay (82) after the first key of a phrase, measured 0 / 0.47 / 0.95 / 1.55 s at 0 / 5 / 10 / 15; then the MG comes in at full depth (no fade, as measured) |
 | `mgv` | 0–15 | 0 | MG to VCF cutoff (84), measured ±0.53 octaves per step, ±7.9 at 15 (the same scale as EG INT) |
-| `treb` `bass` | −6…6 | 0 | EQ (76/77): ±10 dB, first-order shelves, full boost +3 dB at 2 kHz / 300 Hz (service manual; curve provisional) |
+| `treb` `bass` | −6…6 | 0 | EQ (76/77), measured: first-order shelves (corners 4.26 kHz / 115 Hz, full boost +3 dB at 1.8 kHz / 316 Hz), about ±4 dB at ±3 and ±10 dB at ±6 |
 | `dtim` | 0–99 | 30 | digital delay time (71): 4 … 1024 ms (curve provisional: exponential) |
 | `dfb` | 0–15 | 0 | delay feedback (72): 0 … 100 % |
 | `dmf` `dmi` | 0–31 | 0 | delay modulation rate (73, 0.1 … 10 Hz) and depth (74, up to a 1:5 swing of the time) |
@@ -203,7 +203,7 @@ The filter sweep of DEG3 against the recording: `demos/vcf_deg3_vs_poly800.png`.
 - **Output response (`tone 1`).** Fitted to the recording: one-pole high-pass at 54 Hz, two poles at 7.5 kHz (VCF fully open plus output stage). A moving VCF comes later.
 - **Envelopes.** Each tone generator has its own DEG (see above). The counters keep running, so a note-on does not restart the phase.
 
-Not modelled: the Poly-800 (Mk I) chorus, the joystick, and the slight clock jitter that the pulse thinning of the detune adds. The MG is measured on a Poly-800 II; EQ and delay curves are taken from the service manual and still to be calibrated against recordings.
+Not modelled: the Poly-800 (Mk I) chorus, the joystick, and the slight clock jitter that the pulse thinning of the detune adds. MG and EQ are measured on a Poly-800 II; the delay curves are taken from the service manual and still to be calibrated against recordings.
 
 ## Build
 

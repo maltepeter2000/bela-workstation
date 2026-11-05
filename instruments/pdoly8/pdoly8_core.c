@@ -25,8 +25,8 @@
 #define P8_FC99     20000.0f
 #endif
 #define P8_MG_LP    14.5f         /* MG -> pitch: one-pole low-pass (fitted: depth falls to 47 % at 19 Hz) */
-#define P8_EQ_TR_F0 5672.0f       /* treble shelf corner: full boost reads +3 dB at 2 kHz (provisional) */
-#define P8_EQ_BS_F0 106.0f        /* bass shelf corner: full boost reads +3 dB at 300 Hz (provisional) */
+#define P8_EQ_TR_F0 4256.0f       /* treble shelf corner, fitted (full boost +3 dB at 1.8 kHz; manual: 2 kHz) */
+#define P8_EQ_BS_F0 115.0f        /* bass shelf corner, fitted (full boost +3 dB at 316 Hz; manual: 300 Hz) */
 #define P8_DDL_LP   7000.0f       /* band limit of the delay path, 2 poles (provisional) */
 #define P8_NORM_REF 2.1203f       /* sqrt(sum w^2) of the square net, all feet */
 #define P8_GATE_MS  1.5f          /* de-click ramp of a voice gate */
@@ -199,10 +199,10 @@ void p8_set_fs(p8_engine_t *e, float fs)
 }
 
 /* ------------------------------------------------------ EQ and delay */
-/* EQ (Poly-800 II service manual): treble and bass -6..+6 in 13 steps,
- * +-10 dB, "+-3 dB point" 2 kHz / 300 Hz. Modelled as first-order shelves
- * whose corner is fixed (as a passive tone network) and placed so that the
- * full boost reads 3 dB at 2 kHz / 300 Hz. Provisional until measured. */
+/* EQ (Poly-800 II, 76/77): treble and bass -6..+6 in 13 steps. Measured
+ * (noise through the EQ): first-order shelves with fixed corners, gain per
+ * step not linear: about 4 dB at +-3 and 10 dB at +-6 (1.10 k + 0.089 k^2). */
+static float eq_db(float k) { float a = fabsf(k), g = 1.10f * a + 0.089f * a * a; return k < 0.0f ? -g : g; }
 static void shelf(float *c, float fs, float f0, float gdb, int high)
 {
     float G = powf(10.0f, gdb / 20.0f);
@@ -219,8 +219,8 @@ static void shelf(float *c, float fs, float f0, float gdb, int high)
 void p8_set_eq(p8_engine_t *e, float treble, float bass)
 {
     e->eq_tr = clampf(treble, -6.0f, 6.0f); e->eq_bs = clampf(bass, -6.0f, 6.0f);
-    shelf(e->eq_c[0], e->fs, P8_EQ_TR_F0, e->eq_tr * 10.0f / 6.0f, 1);
-    shelf(e->eq_c[1], e->fs, P8_EQ_BS_F0, e->eq_bs * 10.0f / 6.0f, 0);
+    shelf(e->eq_c[0], e->fs, P8_EQ_TR_F0, eq_db(e->eq_tr), 1);
+    shelf(e->eq_c[1], e->fs, P8_EQ_BS_F0, eq_db(e->eq_bs), 0);
 }
 
 /* DDL (service manual): time 0..99 = 4..1024 ms, feedback 0..15 = 0..100 %,
