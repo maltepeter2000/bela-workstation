@@ -110,3 +110,9 @@ Noise through the EQ, steady part of each note, spectra relative to the setting 
 - Time 99: echoes every 1.06–1.11 s (mean 1.08 s; manual 1024 ms). Time 70: echo period 216 ms. Both fit the exponential curve 4 · 256^(v/99) ms, 6 % longer → built in as 4.24 · 256^(v/99).
 - Feedback 15: −3.1 dB per echo (loop gain 0.70, not 100 %); the first echo is 2.6 dB under the note. After about 13 echoes, ~37 dB under the note, the train stops abruptly (gate) → modelled as an echo gate.
 - Times 40 … 0: no audible echo on Peter's unit; an amplitude ripple of about 100 ms (≈ 10 Hz) on every note, independent of the time. Unclear (unit fault, gate, or modulation); not modelled.
+
+## Delay modulation (Audio_0024: time 40, feedback 15, depth 31, rate 31 / 21 / 11 / 1)
+
+Echo pitch against the dry note (≈ 2057 Hz), per 10 ms frame:
+- Rate 21: the echo pitch swings −523 … +472 cents (2nd/98th percentile, several echoes) with 1.15 Hz; rate 11: 0.26 Hz; rate 1: too slow for the take; rate 31: chaotic.
+- A swing of ±3 ms (the first estimate) would give about ±25 cents; the manual's 1:5 time swing gives ±240 cents for the first echo and more for the recirculated ones. Model with 1:5 and rate 0.05 · 100^(v/31) Hz: −603 … +454 cents at 1.13 Hz. Built in (the rate is half the manual's 0.1–10 Hz).

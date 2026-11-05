@@ -31,7 +31,7 @@
 #define P8_DDL_T0   4.24f         /* delay time at 0, ms: 4 ms in the manual, 6 % longer measured */
 #define P8_DDL_FB15 0.70f         /* loop gain at feedback 15 (measured: -3.1 dB per echo) */
 #define P8_DDL_GATE 0.004f        /* echo gate threshold (about -48 dB re full scale) */
-#define P8_DDL_MOD_MS 3.0f        /* delay mod depth at 31: +-3 ms (first estimate from a recording, was a 1:5 swing) */
+#define P8_DDL_MF0   0.05f        /* delay mod rate at 0, Hz (measured: 11 -> 0.26 Hz, 21 -> 1.15 Hz; half the manual's 0.1-10 Hz) */
 #define P8_NORM_REF 2.1203f       /* sqrt(sum w^2) of the square net, all feet */
 #define P8_GATE_MS  1.5f          /* de-click ramp of a voice gate */
 #define P8_D        (P8_TAPS / 2)
@@ -851,11 +851,10 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             }
             float ms = e->ddl_ms_s;
             if (e->ddl_mi > 0.0f) {
-                e->ddl_ph += 0.1f * exp2f(6.644f * e->ddl_mf / 31.0f) * inv_fs;   /* 0.1 .. 10 Hz */
+                e->ddl_ph += P8_DDL_MF0 * exp2f(6.644f * e->ddl_mf / 31.0f) * inv_fs;   /* x100 over 0..31 */
                 if (e->ddl_ph >= 1.0f) e->ddl_ph -= 1.0f;
                 float tri = 4.0f * fabsf(e->ddl_ph - 0.5f) - 1.0f;
-                ms += P8_DDL_MOD_MS * (e->ddl_mi / 31.0f) * tri;      /* absolute swing, see P8_DDL_MOD_MS */
-                if (ms < 0.3f) ms = 0.3f;
+                ms *= exp2f(1.161f * (e->ddl_mi / 31.0f) * tri);      /* time swings 1:5 at 31 (manual, measured) */
             }
             float d = ms * 0.001f * e->fs;
             if (d < 1.0f) d = 1.0f;
