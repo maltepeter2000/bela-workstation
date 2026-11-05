@@ -13,9 +13,9 @@
 | EG INT | 0 to ±10 oct (±20 %) | 7.9 oct at 15 (measured) | measured value at the low edge of the tolerance |
 | Detune | 0, 6.5, 13, 26 cents | was 0 to 20 cents | **changed** to 0, 6.5, 13, 26 |
 | MG → DCO | 0 to ±160 cents | `mgi` 0–160 cents | **changed** (was 0–100) |
-| MG → VCF | 0 to ±10 2/3 oct | — | not built yet (param 84) |
+| MG → VCF | 0 to ±10 2/3 oct | `mgv` | built (depth curve to be measured) |
 | Bend (joystick) | about +7 semitones (+35 cents adjustment) | `bnd` in semitones, free | set `bnd 7` for the original range |
-| EQ | treble ±10 dB at 2 kHz, bass ±10 dB at 300 Hz, 13 steps | — | not built (recordings made with EQ 0) |
-| DDL | 4–1024 ms, feedback 0–100 %, mod 0.1–10 Hz | — | not built |
+| EQ | treble ±10 dB at 2 kHz, bass ±10 dB at 300 Hz, 13 steps | `treb` `bass` | built (provisional shelves) |
+| DDL | 4–1024 ms, feedback 0–100 %, mod 0.1–10 Hz | `dtim dfb dmf dmi dlev` | built (provisional curves) |
 | CV system | 8085 CPU, one D/A converter, time-shared S/H CVs, S/H clock 20 kHz; DEG clock on an interrupt | smooth per-sample control | CV stepping not modelled |
 | Keyboard | 49 keys C2–C6, MIDI notes 36–84; key C3 at octave MID sounds C3 | MIDI note = sounding pitch at MID | matches |

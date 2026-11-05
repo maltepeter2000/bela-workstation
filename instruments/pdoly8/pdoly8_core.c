@@ -24,6 +24,9 @@
 #ifndef P8_FC99
 #define P8_FC99     20000.0f
 #endif
+#define P8_EQ_TR_F0 5672.0f       /* treble shelf corner: full boost reads +3 dB at 2 kHz (provisional) */
+#define P8_EQ_BS_F0 106.0f        /* bass shelf corner: full boost reads +3 dB at 300 Hz (provisional) */
+#define P8_DDL_LP   7000.0f       /* band limit of the delay path, 2 poles (provisional) */
 #define P8_NORM_REF 2.1203f       /* sqrt(sum w^2) of the square net, all feet */
 #define P8_GATE_MS  1.5f          /* de-click ramp of a voice gate */
 #define P8_D        (P8_TAPS / 2)
@@ -189,6 +192,46 @@ void p8_set_fs(p8_engine_t *e, float fs)
     p8_set_smooth(e, e->smooth_ms);
     p8_set_port(e, e->port_s);
     for (int g = 0; g < 3; g++) deg_coeffs(e, g);
+    p8_set_eq(e, e->eq_tr, e->eq_bs);
+    {   float g = tanf(P8_PI * P8_DDL_LP / e->fs); e->ddl_lpg = g / (1.0f + g); }
+    p8_set_ddl(e, e->ddl_time, e->ddl_fb, e->ddl_mf, e->ddl_mi, e->ddl_lev);
+}
+
+/* ------------------------------------------------------ EQ and delay */
+/* EQ (Poly-800 II service manual): treble and bass -6..+6 in 13 steps,
+ * +-10 dB, "+-3 dB point" 2 kHz / 300 Hz. Modelled as first-order shelves
+ * whose corner is fixed (as a passive tone network) and placed so that the
+ * full boost reads 3 dB at 2 kHz / 300 Hz. Provisional until measured. */
+static void shelf(float *c, float fs, float f0, float gdb, int high)
+{
+    float G = powf(10.0f, gdb / 20.0f);
+    float K = tanf(P8_PI * f0 / fs);
+    /* high: H(s) = (G s + w0) / (s + w0); low: H(s) = (s + G w0) / (s + w0); cut = 1 / boost */
+    int cut = G < 1.0f; if (cut) G = 1.0f / G;
+    float b0, b1, a0, a1;
+    if (high) { b0 = G + K; b1 = K - G; } else { b0 = 1.0f + G * K; b1 = G * K - 1.0f; }
+    a0 = 1.0f + K; a1 = K - 1.0f;
+    if (cut) { float t0 = b0, t1 = b1; b0 = a0; b1 = a1; a0 = t0; a1 = t1; }
+    c[0] = b0 / a0; c[1] = b1 / a0; c[2] = a1 / a0;
+}
+
+void p8_set_eq(p8_engine_t *e, float treble, float bass)
+{
+    e->eq_tr = clampf(treble, -6.0f, 6.0f); e->eq_bs = clampf(bass, -6.0f, 6.0f);
+    shelf(e->eq_c[0], e->fs, P8_EQ_TR_F0, e->eq_tr * 10.0f / 6.0f, 1);
+    shelf(e->eq_c[1], e->fs, P8_EQ_BS_F0, e->eq_bs * 10.0f / 6.0f, 0);
+}
+
+/* DDL (service manual): time 0..99 = 4..1024 ms, feedback 0..15 = 0..100 %,
+ * mod frequency 0..31 = 0.1..10 Hz, mod intensity 0..31, effect level
+ * 0..15 (15 = as loud as the direct sound). Curves provisional (exponential
+ * in time and rate) until measured. */
+void p8_set_ddl(p8_engine_t *e, float time, float fb, float mf, float mi, float lev)
+{
+    e->ddl_time = clampf(time, 0.0f, 99.0f); e->ddl_fb = clampf(fb, 0.0f, 15.0f);
+    e->ddl_mf = clampf(mf, 0.0f, 31.0f); e->ddl_mi = clampf(mi, 0.0f, 31.0f); e->ddl_lev = clampf(lev, 0.0f, 15.0f);
+    e->ddl_ms = 4.0f * exp2f(8.0f * e->ddl_time / 99.0f);
+    e->ddl_mute = 0.0f;                    /* "delay sound output is momentarily interrupted" */
 }
 
 void p8_init(p8_engine_t *e, float fs)
@@ -203,6 +246,7 @@ void p8_init(p8_engine_t *e, float fs)
     e->hsnap = 1.0f;
     e->env[0] = e->env[1] = e->env[2] = 0.0f;
     e->trig3 = 2; e->vcf_c = 99.0f; e->kbd_note = 60.0f;
+    e->ddl_ms = e->ddl_ms_s = 4.0f;
     e->fm_ratio = 1.0f;
     e->pw[0] = e->pw[1] = e->pw_t[0] = e->pw_t[1] = 0.5f;
     e->pfade = 1;
@@ -631,12 +675,24 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     const int sync_on = e->sync && e->mode == P8_DOUBLE;
     const float fm_i = clampf(e->fm, 0.0f, 8.0f);
 
+    /* MG delay: counts from the first key of a phrase; the depth fades in
+     * over a second interval of the same length (provisional) */
+    if (any && !e->mg_any) e->mg_t = 0.0f;
+    e->mg_any = any;
+    const int mg_on = e->mg_cents > 0.0f || e->mg_vcf > 0.0f;
+    float mg_tri = 0.0f;
+
     for (unsigned i = 0; i < n; i++) {
-        if (e->mg_cents > 0.0f) {                            /* MG: triangle on the master clock */
+        if (mg_on) {                                         /* MG: one triangle for the instrument */
             e->mg_ph += e->mg_hz * inv_fs;
             if (e->mg_ph >= 1.0f) e->mg_ph -= 1.0f;
-            float tri = 4.0f * fabsf(e->mg_ph - 0.5f) - 1.0f;
-            cf = cf_static * exp2f(e->mg_cents * tri / 1200.0f);
+            float fade = 1.0f;
+            if (e->mg_delay > 0.0f) {
+                if (e->mg_t < 3.0f * e->mg_delay) e->mg_t += inv_fs;
+                fade = clampf((e->mg_t - e->mg_delay) / e->mg_delay, 0.0f, 1.0f);
+            }
+            mg_tri = (4.0f * fabsf(e->mg_ph - 0.5f) - 1.0f) * fade;
+            if (e->mg_cents > 0.0f) cf = cf_static * exp2f(e->mg_cents * mg_tri / 1200.0f);
         }
         for (int g = 0; g < 2; g++) {
             for (int f = 0; f < P8_FEET; f++) e->W[g][f] += e->ksm * (e->Wt[g][f] - e->W[g][f]);
@@ -713,7 +769,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
          * sets the noise VCA, both measured as linear in the DEG level */
         deg_tick(e, &e->deg3, 2);
         const float e3 = deg_level(e->deg3.amp);
-        float oct = cut_oct + eg_oct * e3 / 31.0f;
+        float oct = cut_oct + eg_oct * e3 / 31.0f + e->mg_vcf * mg_tri;
         float fc = exp2f(oct) ;
         fc = fc < 20.0f ? 20.0f : fc > fc_max ? fc_max : fc;
         const float vg = tanf(P8_PI * fc * inv_fs), VG = vg / (1.0f + vg), VB = 1.0f / (1.0f + vg);
@@ -722,6 +778,9 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         e->rng = e->rng * 1664525u + 1013904223u;
         float nz = ((float)(e->rng >> 8) * (1.0f / 8388608.0f) - 1.0f) * clampf(e->noise_level, 0.0f, 1.0f) * (e3 / 31.0f) * 0.5f;
         float o[2];
+        /* digital delay: mono input (sum), band-limited, feedback inside the loop */
+        float wet = 0.0f;
+        const int ddl_on = e->ddl_lev > 0.0f;
         for (int c = 0; c < 2; c++) {
             e->acc[c] += e->ring[c][e->rpos];
             e->ring[c][e->rpos] = 0.0f;
@@ -746,6 +805,43 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 y = x - e->dc_x[c] + e->dc_k * e->dc_y[c];
                 e->dc_x[c] = x; e->dc_y[c] = y;
             }
+            o[c] = y;
+        }
+        if (ddl_on || e->ddl_fb > 0.0f) {
+            if (e->ddl_mute < 1.0f) {                               /* muted while the time jumps */
+                if (e->ddl_mute < 0.5f) e->ddl_ms_s = e->ddl_ms;
+                e->ddl_mute += inv_fs / 0.04f; if (e->ddl_mute > 1.0f) e->ddl_mute = 1.0f;
+            }
+            float ms = e->ddl_ms_s;
+            if (e->ddl_mi > 0.0f) {
+                e->ddl_ph += 0.1f * exp2f(6.644f * e->ddl_mf / 31.0f) * inv_fs;   /* 0.1 .. 10 Hz */
+                if (e->ddl_ph >= 1.0f) e->ddl_ph -= 1.0f;
+                float tri = 4.0f * fabsf(e->ddl_ph - 0.5f) - 1.0f;
+                ms *= exp2f(1.16f * (e->ddl_mi / 31.0f) * tri);       /* up to a 1:5 swing */
+            }
+            float d = ms * 0.001f * e->fs;
+            if (d < 1.0f) d = 1.0f;
+            if (d > (float)(P8_DDL - 4)) d = (float)(P8_DDL - 4);
+            float rp = (float)e->ddl_w - d;
+            int i0 = (int)floorf(rp); float fr = rp - (float)i0;
+            float ym1 = e->ddl_buf[(unsigned)(i0 - 1) & (P8_DDL - 1)], y0 = e->ddl_buf[(unsigned)i0 & (P8_DDL - 1)];
+            float y1 = e->ddl_buf[(unsigned)(i0 + 1) & (P8_DDL - 1)], y2 = e->ddl_buf[(unsigned)(i0 + 2) & (P8_DDL - 1)];
+            float c1 = 0.5f * (y1 - ym1), c2 = ym1 - 2.5f * y0 + 2.0f * y1 - 0.5f * y2, c3 = 0.5f * (y2 - ym1) + 1.5f * (y0 - y1);
+            wet = ((c3 * fr + c2) * fr + c1) * fr + y0;
+            float in = 0.5f * (o[0] + o[1]) + wet * (e->ddl_fb / 15.0f) * 0.98f;
+            for (int p = 0; p < 2; p++) {                         /* band limit of the DDL */
+                float v = (in - e->ddl_lp[p]) * e->ddl_lpg; float yp = v + e->ddl_lp[p]; e->ddl_lp[p] = yp + v; in = yp;
+            }
+            e->ddl_buf[e->ddl_w & (P8_DDL - 1)] = in;
+            e->ddl_w++;
+            float mu = e->ddl_mute < 0.5f ? 0.0f : 2.0f * e->ddl_mute - 1.0f;
+            wet *= e->ddl_lev / 15.0f * mu;
+        }
+        for (int c = 0; c < 2; c++) {
+            float y = o[c] + wet;
+            /* EQ: treble and bass shelves */
+            if (e->eq_tr != 0.0f) { const float *q = e->eq_c[0]; float t = y; float out = q[0] * t + e->eq_s[c][0]; e->eq_s[c][0] = q[1] * t - q[2] * out; y = out; }
+            if (e->eq_bs != 0.0f) { const float *q = e->eq_c[1]; float t = y; float out = q[0] * t + e->eq_s[c][1]; e->eq_s[c][1] = q[1] * t - q[2] * out; y = out; }
             y *= P8_OUT * e->level;
             /* safety: soft knee above 0.8, never beyond 1 */
             float a = fabsf(y);

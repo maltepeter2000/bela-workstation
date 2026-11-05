@@ -64,7 +64,7 @@ SETTINGS = [
     "hsnp (1) plateau around each foot combination, in har steps",
     "ch1 (0) MIDI channel for p v ch lists, 0 = any",
     "tone (1) 1: output response measured on a Poly-800 with the",
-    "VCF fully open (54 Hz high-pass, 2 poles at 7.5 kHz), 0: off",
+    "VCF (54 Hz high-pass, VCF, 1 pole at 5 kHz), 0: raw",
     "path (0) morph path of har: 0 = original (15 combinations),",
     "1 = ring (8 combinations with 16' as root, wraps 127 -> 0),",
     "2 = figure eight (ring in the square net, then in the saw net;",
@@ -96,6 +96,12 @@ SETTINGS = [
     "trg (2) DEG3 trigger 1 single, 2 multi",
     "env3 (0) DEG3 morph (VCF and noise), -1 = own a3 ... r3",
     "a3 d3 bp3 sl3 su3 r3: DEG3 values 0-31",
+    "mgd (0) MG delay in s after the first key (fades in)",
+    "mgv (0) MG to VCF cutoff 0-10.67 octaves (original 84)",
+    "treb bass (0 0) EQ -6..6 = -10..+10 dB (2 kHz / 300 Hz)",
+    "dtim (30) delay time 0-99 = 4-1024 ms; dfb (0) feedback 0-15",
+    "dmf dmi (0 0) delay mod rate 0-31 = 0.1-10 Hz and depth 0-31",
+    "dlev (0) delay effect level 0-15 (0 = off)",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -112,6 +118,8 @@ ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
        ("su2", 0, 31), ("r2", 0, 31), ("port", 0, 127), ("pmod", 0, 2), ("cut", 0, 99),
        ("res", 0, 15), ("kbd", 0, 2), ("pol", 1, 2), ("egi", 0, 15), ("trg", 1, 2), ("env3", -1, 127),
        ("a3", 0, 31), ("d3", 0, 31), ("bp3", 0, 31), ("sl3", 0, 31), ("su3", 0, 31), ("r3", 0, 31),
+       ("mgd", 0, 10), ("mgv", 0, 10.67), ("treb", -6, 6), ("bass", -6, 6), ("dtim", 0, 99),
+       ("dfb", 0, 15), ("dmf", 0, 31), ("dmi", 0, 31), ("dlev", 0, 15),
        ("bend", -1, 1)]
 VINT = []
 

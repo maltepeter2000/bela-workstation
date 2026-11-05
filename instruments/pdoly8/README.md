@@ -105,6 +105,13 @@ Two settings make any path smooth to sweep:
 | `env3` | −1…127 | 0 | DEG3 morph position (same loop as `env1`); −1 = own values |
 | `a3 d3 bp3 sl3 su3 r3` | 0–31 | 0 0 31 0 31 0 | DEG3 values |
 | `tone` | 0/1 | 1 | 1: VCF and output stage (54 Hz high-pass, one pole at 5 kHz); 0: raw tone generators (5 Hz DC block only) |
+| `mgd` | s | 0 | MG delay after the first key of a phrase; the depth then fades in over the same time (provisional, to be measured) |
+| `mgv` | 0–10.67 oct | 0 | MG to VCF cutoff (Poly-800 II parameter 84: up to ±10⅔ octaves) |
+| `treb` `bass` | −6…6 | 0 | EQ (76/77): ±10 dB, first-order shelves, full boost +3 dB at 2 kHz / 300 Hz (service manual; curve provisional) |
+| `dtim` | 0–99 | 30 | digital delay time (71): 4 … 1024 ms (curve provisional: exponential) |
+| `dfb` | 0–15 | 0 | delay feedback (72): 0 … 100 % |
+| `dmf` `dmi` | 0–31 | 0 | delay modulation rate (73, 0.1 … 10 Hz) and depth (74, up to a 1:5 swing of the time) |
+| `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The delay is mono, added to both outputs, band-limited to 7 kHz; changing a delay value mutes the echo briefly, as on the original |
 
 ### Other messages
 
@@ -195,7 +202,7 @@ The filter sweep of DEG3 against the recording: `demos/vcf_deg3_vs_poly800.png`.
 - **Output response (`tone 1`).** Fitted to the recording: one-pole high-pass at 54 Hz, two poles at 7.5 kHz (VCF fully open plus output stage). A moving VCF comes later.
 - **Envelopes.** Each tone generator has its own DEG (see above). The counters keep running, so a note-on does not restart the phase.
 
-Not modelled yet: chorus, and the slight clock jitter that the pulse thinning of the detune adds.
+Not modelled yet: the Poly-800 (Mk I) chorus, the joystick, and the slight clock jitter that the pulse thinning of the detune adds. MG delay, EQ and delay curves are taken from the service manual and still to be calibrated against recordings.
 
 ## Build
 

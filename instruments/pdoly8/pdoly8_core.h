@@ -33,6 +33,7 @@
 #define P8_TAPS     32           /* band-limited impulse length (delay 16 samples) */
 #define P8_PHASES   64           /* sub-sample resolution of the impulse */
 #define P8_RING     64           /* ring buffer, power of two > P8_TAPS */
+#define P8_DDL      (1u << 17)   /* delay line: > 1.3 s at 96 kHz */
 
 enum { P8_WHOLE = 1, P8_DOUBLE = 2 };
 
@@ -62,8 +63,12 @@ typedef struct {
     float   a4;                  /* tuning reference, Hz */
     float   tune_cents;          /* front panel tune, +-50 */
     float   bend_semi;           /* current pitch bend in semitones */
-    float   mg_hz, mg_cents;     /* vibrato (MG on the master clock) */
+    float   mg_hz, mg_cents;     /* MG rate; depth on the master clock (vibrato), cents */
     float   mg_ph;
+    float   mg_vcf;              /* MG -> VCF cutoff, octaves (Poly-800 II: up to 10 2/3) */
+    float   mg_delay;            /* MG delay after the first key of a phrase, seconds */
+    float   mg_t;                /* time since the first key (MG delay), seconds */
+    int     mg_any;              /* a key was down in the last block */
     float   detune_cents;        /* group 2, 0..-20 cents (thinned CLK2) */
     int     interval;            /* group 2, semitones 0..12 */
     int     octave[2];           /* per DCO, -1 / 0 / +1 */
@@ -117,6 +122,20 @@ typedef struct {
     float   dc_k, hp_k;          /* 5 Hz (tone 0) / measured 54 Hz (tone 1) */
 
     int     tone;                /* 1: measured Poly-800 output response */
+
+    /* equalizer (Poly-800 II, 76/77): first-order shelves, -6..6 steps = -10..+10 dB */
+    float   eq_tr, eq_bs;        /* steps -6..6 */
+    float   eq_c[2][3];          /* treble / bass: b0 b1 a1 */
+    float   eq_s[2][2];          /* states per channel: treble, bass */
+
+    /* digital delay (Poly-800 II, 71-75), mono, added to both outputs */
+    float   ddl_time, ddl_fb, ddl_mf, ddl_mi, ddl_lev;   /* raw: 0..99, 0..15, 0..31, 0..31, 0..15 */
+    float   ddl_ms, ddl_ms_s;    /* delay time in ms (target, in use) */
+    float   ddl_mute;            /* 0..1: the original mutes the delay output briefly on changes */
+    float   ddl_ph;              /* mod LFO phase */
+    float   ddl_lp[2], ddl_lpg;  /* 2-pole low-pass in the delay path (band limit of the DDL) */
+    unsigned ddl_w;
+    float   ddl_buf[P8_DDL];
 } p8_engine_t;
 
 /* knot table: foot combination of each knot, bits 16' 8' 4' 2' (MSB first) */
@@ -136,6 +155,8 @@ void  p8_voice_off(p8_engine_t *e, int k);
 void  p8_set_port(p8_engine_t *e, float sec);
 int   p8_voice_sounding(const p8_engine_t *e, int k);
 void  p8_retune(p8_engine_t *e);             /* after octave / interval change */
+void  p8_set_eq(p8_engine_t *e, float treble, float bass);   /* steps -6..6 */
+void  p8_set_ddl(p8_engine_t *e, float time, float fb, float mf, float mi, float lev);   /* Poly-800 II units */
 
 /* foot gains of har position h (0..127) with a plateau of hsnap steps */
 void  p8_foot_gains(float h, float hsnap, float g[P8_FEET]);              /* path 0, linear */

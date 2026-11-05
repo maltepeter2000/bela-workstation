@@ -27,14 +27,17 @@ static const float CTL_DEFAULT[NCTL] = {127, 127, 64, 64, 0, 0, 127, 0};
 enum { X_MODE, X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_LEVL, X_MRPH, X_HOLD, X_A4, X_TUNE, X_BND,
        X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, X_WSH1, X_WSH2, X_WMX1, X_WMX2,
        X_ENV1, X_ENV2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2, X_D2, X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD,
-       X_CUT, X_RES, X_KBD, X_POL, X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, NEXT };
+       X_CUT, X_RES, X_KBD, X_POL, X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3,
+       X_MGD, X_MGV, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, NEXT };
 static const char *EXT_NAME[NEXT] = {"mode", "oct1", "oct2", "nois", "sprd", "levl", "mrph", "hold", "a4",
                                      "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad", "pw1", "pw2", "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2",
                                      "env1", "env2", "leak", "a1", "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port", "pmod",
-                                     "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3", "r3"};
+                                     "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3", "r3",
+                                     "mgd", "mgv", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev"};
 static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 0, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0,
                                        0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0, 31, 0, 31, 0, 0, 0,
-                                       99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0};
+                                       99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0,
+                                       0, 0, 0, 0, 30, 0, 0, 0, 0};
 
 static t_class *pdoly8_class;
 
@@ -184,6 +187,17 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
         if (x->restoring && e->env[g] >= 0.0f) return;          /* a dump with a morph position */
         e->deg[g][k] = (float)v; e->env[g] = -1.0f; x->ext[g == 2 ? X_ENV3 : g ? X_ENV2 : X_ENV1] = -1;
         p8_update(e);
+        return;
+    }
+    case X_MGD: v = clampf_((float)v, 0.0f, 10.0f); e->mg_delay = (float)v; break;      /* MG delay, s */
+    case X_MGV: v = clampf_((float)v, 0.0f, 10.6667f); e->mg_vcf = (float)v; break;    /* MG -> VCF, octaves */
+    case X_TREB: case X_BASS:                    /* EQ steps -6..6 (+-10 dB) */
+        v = (t_float)(int)lroundf(clampf_((float)v, -6.0f, 6.0f)); x->ext[i] = v;
+        p8_set_eq(e, (float)x->ext[X_TREB], (float)x->ext[X_BASS]); return;
+    case X_DTIM: case X_DFB: case X_DMF: case X_DMI: case X_DLEV: {   /* digital delay, Poly-800 II units */
+        static const float MX[5] = {99, 15, 31, 31, 15};
+        v = clampf_((float)v, 0.0f, MX[i - X_DTIM]); x->ext[i] = v;
+        p8_set_ddl(e, (float)x->ext[X_DTIM], (float)x->ext[X_DFB], (float)x->ext[X_DMF], (float)x->ext[X_DMI], (float)x->ext[X_DLEV]);
         return;
     }
     case X_WMX1: case X_WMX2:                    /* feet -> Walsh, 0..127 */
