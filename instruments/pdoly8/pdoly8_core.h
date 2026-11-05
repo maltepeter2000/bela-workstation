@@ -63,6 +63,9 @@ typedef struct {
     float   har[2];              /* 0..127 on the foot path, see p8_foot_gains */
     float   lev[2];              /* group levels 0..1 */
     float   hsnap;               /* plateau around each knot, control steps */
+    int     path;                /* 0 original (15 knots), 1 ring (8, root kept), 2 figure eight (16, both nets) */
+    int     pfade;               /* 1: fading foot follows sqrt (linear power) */
+    float   norm;                /* 0..1: hold the loudness constant over the morph */
     float   W[2][P8_FEET];       /* current per foot gain (wav x har x lev) */
     float   Wt[2][P8_FEET];      /* target */
     float   smooth_ms;
@@ -100,7 +103,9 @@ int   p8_voice_sounding(const p8_engine_t *e, int k);
 void  p8_retune(p8_engine_t *e);             /* after octave / interval change */
 
 /* foot gains of har position h (0..127) with a plateau of hsnap steps */
-void  p8_foot_gains(float h, float hsnap, float g[P8_FEET]);
+void  p8_foot_gains(float h, float hsnap, float g[P8_FEET]);              /* path 0, linear */
+/* any path: foot gains, and for path 2 the net (0 square .. 1 saw), else -1 */
+void  p8_path_gains(int path, float h, float hsnap, int pfade, float g[P8_FEET], float *net);
 /* MSM5232 pitch: frequency of the 16' foot for a code at the given clock
  * (the Poly-800 runs the chip at about 1.06 MHz; A4 on 8' = code 0x2D) */
 float p8_code_hz16(int code, float clock_hz);

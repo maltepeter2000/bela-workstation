@@ -24,6 +24,7 @@
 #ifndef P8_LP_POLES
 #define P8_LP_POLES 2
 #endif
+#define P8_NORM_REF 2.1203f       /* sqrt(sum w^2) of the square net, all feet */
 #define P8_GATE_MS  1.5f          /* de-click ramp of a voice gate */
 #define P8_D        (P8_TAPS / 2)
 
@@ -59,20 +60,53 @@ const uint8_t P8_KNOT[P8_KNOTS] = {0x8, 0xC, 0xE, 0xA, 0xB, 0x9, 0xD, 0xF, 0x7, 
 
 static float clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 
-void p8_foot_gains(float h, float hsnap, float g[P8_FEET])
+/* Musical ring (path 1): the 8 combinations that keep the 16' as root, a
+ * closed loop, one foot per step, brightness up and down again: 16', 16'4',
+ * 16'4'2', 16'2', 16'8'2', all, 16'8'4', 16'8', and back to 16'. */
+static const uint8_t P8_LOOP8[8] = {0x8, 0xA, 0xB, 0x9, 0xD, 0xF, 0xE, 0xC};
+
+/* Figure eight (path 2): the ring through the square net, at 16'8' over to
+ * the saw net (only the weights change), the ring backwards, and at 16'
+ * (square and saw differ only in level there) back to the start. */
+static const uint8_t P8_FIG8[16] = {0x8, 0xA, 0xB, 0x9, 0xD, 0xF, 0xE, 0xC,
+                                    0xC, 0xE, 0xF, 0xD, 0x9, 0xB, 0xA, 0x8};
+
+/* position h (0..127) on a knot list: knot a, knot b, fraction t, with a
+ * plateau of hsnap steps around each knot; cyclic lists wrap at 127 -> 0 */
+static void knot_pos(float h, float hsnap, int n, int cyclic, int *ka, int *kb, float *t)
 {
-    const float step = 127.0f / (float)(P8_KNOTS - 1);
+    const float step = 127.0f / (float)(cyclic ? n : n - 1);
     h = clampf(h, 0.0f, 127.0f);
     int seg = (int)(h / step);
-    if (seg > P8_KNOTS - 2) seg = P8_KNOTS - 2;
-    float x0 = (float)seg * step, x1 = x0 + step;
+    if (cyclic) { if (seg > n - 1) seg = n - 1; }
+    else if (seg > n - 2) seg = n - 2;
+    float x0 = (float)seg * step;
     float s = clampf(hsnap, 0.0f, step * 0.45f);
-    float lo = x0 + s, hi = x1 - s, t;
-    if (h <= lo + 1e-3f) t = 0.0f; else if (h >= hi - 1e-3f) t = 1.0f; else t = (h - lo) / (hi - lo);
+    float lo = x0 + s, hi = x0 + step - s;
+    if (h <= lo + 1e-3f) *t = 0.0f; else if (h >= hi - 1e-3f) *t = 1.0f; else *t = (h - lo) / (hi - lo);
+    *ka = seg; *kb = cyclic ? (seg + 1) % n : seg + 1;
+}
+
+void p8_path_gains(int path, float h, float hsnap, int pfade, float g[P8_FEET], float *net)
+{
+    const uint8_t *k = path == 1 ? P8_LOOP8 : path == 2 ? P8_FIG8 : P8_KNOT;
+    int n = path == 1 ? 8 : path == 2 ? 16 : P8_KNOTS, a, b;
+    float t;
+    knot_pos(h, hsnap, n, path != 0, &a, &b, &t);
     for (int f = 0; f < P8_FEET; f++) {
-        float a = (float)((P8_KNOT[seg] >> (3 - f)) & 1), b = (float)((P8_KNOT[seg + 1] >> (3 - f)) & 1);
-        g[f] = a + t * (b - a);
+        float fa = (float)((k[a] >> (3 - f)) & 1), fb = (float)((k[b] >> (3 - f)) & 1);
+        float x = fa + t * (fb - fa);
+        g[f] = pfade ? sqrtf(x) : x;                         /* sqrt: the fading foot's power is linear */
     }
+    if (net) {                                               /* path 2: the net is part of the path */
+        float na = (float)(a >= 8), nb = (float)(b >= 8);
+        *net = path == 2 ? na + t * (nb - na) : -1.0f;
+    }
+}
+
+void p8_foot_gains(float h, float hsnap, float g[P8_FEET])
+{
+    p8_path_gains(0, h, hsnap, 0, g, 0);
 }
 
 /* ------------------------------------------------ band-limited impulses */
@@ -158,6 +192,7 @@ void p8_init(p8_engine_t *e, float fs)
     e->har[0] = e->har[1] = 64.0f;
     e->lev[0] = 1.0f;
     e->hsnap = 1.0f;
+    e->pfade = 1;
     e->smooth_ms = 8.0f;
     e->spread = 0.5f; e->level = 0.5f;
     e->tone = 1;
@@ -182,10 +217,18 @@ void p8_update(p8_engine_t *e)
     static const float SQ[P8_FEET]  = {1.0f, 1.057f, 1.083f, 1.098f};
     static const float SAW[P8_FEET] = {2.47f, 2.47f * 0.523f, 2.47f * 0.268f, 2.47f * 0.135f};
     for (int g = 0; g < 2; g++) {
-        float gain[P8_FEET], wv = clampf(e->wav[g], 0.0f, 1.0f);
-        p8_foot_gains(e->har[g], e->hsnap, gain);
+        float gain[P8_FEET], net, wv = clampf(e->wav[g], 0.0f, 1.0f);
+        p8_path_gains(e->path, e->har[g], e->hsnap, e->pfade, gain, &net);
+        if (net >= 0.0f) wv = net;
         float lev = (g == 1 && e->mode != P8_DOUBLE) ? 0.0f : clampf(e->lev[g], 0.0f, 1.0f);
-        for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = (SQ[f] + wv * (SAW[f] - SQ[f])) * gain[f] * lev;
+        float w[P8_FEET], pw = 0.0f;
+        for (int f = 0; f < P8_FEET; f++) { w[f] = (SQ[f] + wv * (SAW[f] - SQ[f])) * gain[f]; pw += w[f] * w[f]; }
+        /* loudness: the feet are orthogonal (Rademacher functions), so the
+         * RMS is exactly sqrt(sum w^2) / 2; norm 1 holds it at the level of
+         * the square net with all feet, which also bounds the peak there */
+        float k = 1.0f;
+        if (e->norm > 0.0f && pw > 1e-9f) k = powf(P8_NORM_REF / sqrtf(pw), clampf(e->norm, 0.0f, 1.0f));
+        for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = w[f] * k * lev;
     }
     if (e->mode != P8_DOUBLE) for (int t = 4; t < P8_TG; t++) e->tg[t].amp_target = 0.0f;
     /* stereo position of the 4 voices (both DCOs of a voice together) */

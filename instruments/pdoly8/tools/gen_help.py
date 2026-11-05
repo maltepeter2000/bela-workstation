@@ -65,6 +65,12 @@ SETTINGS = [
     "ch1 (0) MIDI channel for p v ch lists, 0 = any",
     "tone (1) 1: output response measured on a Poly-800 with the",
     "VCF fully open (54 Hz high-pass, 2 poles at 7.5 kHz), 0: off",
+    "path (0) morph path of har: 0 = original (15 combinations),",
+    "1 = ring (8 combinations with 16' as root, wraps 127 -> 0),",
+    "2 = figure eight (ring in the square net, then in the saw net;",
+    "16 points, wraps; wav is not used)",
+    "norm (0) 0-1: hold the loudness constant over the morph",
+    "pfad (1) 1: a fading foot rises in power, not in amplitude",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -72,7 +78,7 @@ ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
        ("sprd", 0, 1), ("levl", 0, 2), ("mrph", 0, 100), ("hold", 0, 1),
        ("a4", 400, 480), ("tune", -50, 50), ("bnd", 0, 12), ("mgf", 0, 30),
        ("mgi", 0, 100), ("hsnp", 0, 4), ("ch1", 0, 16), ("tone", 0, 1),
-       ("bend", -1, 1)]
+       ("path", 0, 2), ("norm", 0, 1), ("pfad", 0, 1), ("bend", -1, 1)]
 VINT = []
 
 
@@ -165,12 +171,20 @@ def build():
         "step saw. Tune, bend and vibrato move the master clock, so",
         "all voices move together. Detune thins out DCO2's clock.",
         "Every edge is band-limited: analog edges, no aliasing."]))
-    sections.append(("Foot path (har)", [
+    sections.append(("Foot path (har) - path 0", [
         "0: 16' / 9: 16'8' / 18: 16'8'4' / 27: 16'4' / 36: 16'4'2'",
         "45: 16'2' / 54: 16'8'2' / 64: all feet / 73: 8'4'2'",
         "82: 8'2' / 91: 8' / 100: 8'4' / 109: 4' / 118: 4'2' / 127: 2'",
         "On these values the sound is exactly the original. In",
         "between one foot fades, so har can be modulated smoothly."]))
+    sections.append(("Ring and figure eight - path 1 and 2", [
+        "path 1, root stays: 0: 16' / 16: 16'4' / 32: 16'4'2' /",
+        "48: 16'2' / 64: 16'8'2' / 79: all / 95: 16'8'4' /",
+        "111: 16'8' / 127: 16' again. wav sets the net.",
+        "path 2, both nets: 0-56 the ring in the square net,",
+        "64-119 in the saw net backwards, 127: 16' square again.",
+        "Both loops close, so an LFO or ramp can turn endlessly.",
+        "norm 1 keeps the level constant, pfad 1 smooths the fades."]))
     sections.append(("Envelopes", [
         "pdoly8~ has no envelopes and no filter yet. A key gates its",
         "voice with a short de-click ramp; shape the level with an",

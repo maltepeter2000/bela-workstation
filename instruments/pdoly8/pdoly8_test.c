@@ -171,6 +171,68 @@ static void test_clamp(void)
     printf("clamp: C7 16' = %.1f Hz, 2' on the 4' bit (as measured from 1030 Hz up)\n", (double)f16);
 }
 
+/* paths 1 and 2: knots exact, one change per step, closed loops, no jumps
+ * (also across 127 -> 0), every 16'-rooted combination in both nets, and
+ * constant loudness with norm 1 */
+static void test_paths(void)
+{
+    float g[4], g0[4], net, net0;
+    for (int path = 1; path <= 2; path++) {
+        int n = path == 1 ? 8 : 16;
+        float step = 127.0f / (float)n;
+        unsigned seen = 0, prevkey = 0, firstkey = 0;
+        for (int i = 0; i < n; i++) {
+            float x = (float)i * step;
+            for (float dx = -1.0f; dx <= 1.0f; dx += 0.5f) {
+                float h = x + dx;
+                if (h < 0.0f) h += 127.0f;
+                p8_path_gains(path, h, 1.0f, 1, g, &net);
+                for (int f = 0; f < 4; f++) CHECK(g[f] == 0.0f || g[f] == 1.0f, "path %d knot %d at %.1f not exact", path, i, (double)h);
+                if (path == 2) CHECK(net == 0.0f || net == 1.0f, "path 2 knot %d net %g", i, (double)net);
+            }
+            p8_path_gains(path, x, 1.0f, 1, g, &net);
+            unsigned key = 0;
+            for (int f = 0; f < 4; f++) key = key << 1 | (g[f] > 0.5f);
+            CHECK(key & 8, "path %d knot %d without 16'", path, i);
+            if (path == 2) key |= (net > 0.5f) << 4;
+            if (i) { unsigned d = key ^ prevkey; CHECK(d && !(d & (d - 1)), "path %d knots %d/%d change more than one thing", path, i - 1, i); }
+            else firstkey = key;
+            seen |= 1u << ((key & 7) | ((key >> 4) << 3));
+            prevkey = key;
+        }
+        { unsigned d = prevkey ^ firstkey; CHECK(d && !(d & (d - 1)), "path %d does not close", path); }
+        CHECK(seen == (path == 1 ? 0xFFu : 0xFFFFu), "path %d misses combinations (%x)", path, seen);
+        /* continuity, including the wrap */
+        float worst = 0.0f;
+        p8_path_gains(path, 0.0f, 1.0f, 1, g0, &net0);
+        float prev[4]; float pn = net0;
+        for (int f = 0; f < 4; f++) prev[f] = g0[f];
+        for (float h = 0.01f; h <= 127.0f; h += 0.01f) {
+            p8_path_gains(path, h, 1.0f, 1, g, &net);
+            for (int f = 0; f < 4; f++) { float d = fabsf(g[f] - prev[f]); if (d > worst) worst = d; prev[f] = g[f]; }
+            if (path == 2) { float d = fabsf(net - pn); if (d > worst) worst = d; pn = net; }
+        }
+        p8_path_gains(path, 127.0f, 1.0f, 1, g, &net);
+        for (int f = 0; f < 4; f++) CHECK(g[f] == g0[f], "path %d: 127 differs from 0", path);
+        printf("path %d: %d knots exact, closed loop, largest change per 0.01 step %.3f\n", path, n, (double)worst);
+        CHECK(worst < 0.06f, "path %d jumps by %g", path, (double)worst);
+    }
+    /* norm 1: same loudness everywhere on path 2 (and on path 0) */
+    for (int path = 0; path <= 2; path += 2) {
+        p8_engine_t e; p8_init(&e, FS);
+        e.path = path; e.norm = 1.0f; e.mode = P8_WHOLE; e.lev[0] = 1.0f; e.wav[0] = 0.4f;
+        float lo = 1e9f, hi = 0.0f;
+        for (float h = 0.0f; h <= 127.0f; h += 0.25f) {
+            e.har[0] = h; p8_update(&e);
+            float pw = 0.0f;
+            for (int f = 0; f < 4; f++) pw += e.Wt[0][f] * e.Wt[0][f];
+            pw = sqrtf(pw); if (pw < lo) lo = pw; if (pw > hi) hi = pw;
+        }
+        printf("norm 1, path %d: loudness range %.4f dB\n", path, (double)(20.0f * log10f(hi / lo)));
+        CHECK(hi / lo < 1.001f, "norm 1 path %d not constant", path);
+    }
+}
+
 static void test_modes_levels(void)
 {
     p8_engine_t e; buf_t b = {0};
@@ -312,14 +374,59 @@ static void demo_morph(void)
     buf_free(&b);
 }
 
+/* the musical paths: endless rotation over the wrap at 127 -> 0 */
+static void rotate(p8_engine_t *e, buf_t *b, float sec, float turns, float start)
+{
+    const float dt = 0.005f;
+    for (float t = 0.0f; t < sec; t += dt) {
+        float h = fmodf(start + t / sec * turns * 127.0f, 127.0f);
+        e->har[0] = e->har[1] = h; p8_update(e); buf_render(e, b, dt);
+    }
+}
+
+static void demo_ring(void)
+{
+    p8_engine_t e; buf_t b = {0};
+    static const int am7[4] = {45, 52, 55, 60};
+    p8_init(&e, FS);
+    /* 1: path 1 (ring, root kept), saw net, original levels, 2 turns in 16 s */
+    setup(&e, P8_WHOLE, 127, 0, 0, 64, 127, 0);
+    e.path = 1; p8_update(&e); p8_settle(&e);
+    chord(&e, am7, 4); rotate(&e, &b, 16.0f, 2.0f, 0.0f);
+    /* 2: same ring in the square net, norm 1, 1 turn in 8 s */
+    e.wav[0] = 0.0f; e.norm = 1.0f; rotate(&e, &b, 8.0f, 1.0f, 0.0f);
+    all_off(&e); buf_render(&e, &b, 0.4f);
+    /* 3: path 2 (figure eight through both nets), norm 1, 2 loops in 24 s */
+    setup(&e, P8_WHOLE, 0, 0, 0, 0, 127, 0);
+    e.path = 2; e.norm = 1.0f; p8_update(&e); p8_settle(&e);
+    chord(&e, am7, 4); rotate(&e, &b, 24.0f, 2.0f, 0.0f);
+    all_off(&e); buf_render(&e, &b, 0.4f);
+    /* 4: path 2 as a fast LFO (one loop per 0.8 s), DOUBLE with detune, bass line */
+    setup(&e, P8_DOUBLE, 0, 0, 0, 0, 64, 63);
+    e.path = 2; e.norm = 1.0f; e.detune_cents = 20.0f; p8_update(&e); p8_retune(&e); p8_settle(&e);
+    static const int bass[8] = {33, 33, 45, 33, 36, 33, 40, 43};
+    float ph = 0.0f;
+    for (int r = 0; r < 4; r++)
+        for (int i = 0; i < 8; i++) {
+            p8_voice_on(&e, 0, (float)bass[i]);
+            rotate(&e, &b, 0.25f, 0.3125f, ph); ph = fmodf(ph + 0.3125f * 127.0f, 127.0f);
+            p8_voice_off(&e, 0);
+            rotate(&e, &b, 0.05f, 0.0625f, ph); ph = fmodf(ph + 0.0625f * 127.0f, 127.0f);
+        }
+    buf_render(&e, &b, 0.6f);
+    wav_write("demos/pdoly8_ring.wav", &b);
+    buf_free(&b);
+}
+
 int main(int argc, char **argv)
 {
     test_rom();
     test_knots();
     test_pitch();
     test_clamp();
+    test_paths();
     test_modes_levels();
-    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); }
+    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); }
     printf(fails ? "%d check(s) failed\n" : "all checks passed\n", fails);
     return fails != 0;
 }

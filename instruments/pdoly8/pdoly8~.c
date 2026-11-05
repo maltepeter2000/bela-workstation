@@ -25,10 +25,10 @@ static const float CTL_DEFAULT[NCTL] = {127, 127, 64, 64, 0, 0, 127, 0};
 
 /* Settings with raw values, in dump order after the controls. */
 enum { X_MODE, X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_LEVL, X_MRPH, X_HOLD, X_A4, X_TUNE, X_BND,
-       X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, NEXT };
+       X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, NEXT };
 static const char *EXT_NAME[NEXT] = {"mode", "oct1", "oct2", "nois", "sprd", "levl", "mrph", "hold", "a4",
-                                     "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone"};
-static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 1, 440, 0, 2, 5, 0, 1, 0, 1};
+                                     "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad"};
+static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 1, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1};
 
 static t_class *pdoly8_class;
 
@@ -125,6 +125,9 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_HSNP: v = clampf_((float)v, 0.0f, 4.0f); e->hsnap = (float)v; x->ext[i] = v; p8_update(e); return;
     case X_CH1:  v = (t_float)(int)clampf_((float)v, 0.0f, 16.0f); break;     /* 0 = any channel */
     case X_TONE: v = v != 0; e->tone = v != 0; break;                     /* measured output response */
+    case X_PATH: v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); e->path = (int)v; x->ext[i] = v; p8_update(e); return;
+    case X_NORM: v = clampf_((float)v, 0.0f, 1.0f); e->norm = (float)v; x->ext[i] = v; p8_update(e); return;
+    case X_PFAD: v = v != 0; e->pfade = v != 0; x->ext[i] = v; p8_update(e); return;
     default: return;
     }
     x->ext[i] = v;
