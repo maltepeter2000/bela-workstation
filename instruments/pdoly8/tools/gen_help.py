@@ -255,20 +255,20 @@ def build():
         "0 gate / 1 short pluck / 24 pluck / 48 piano / 72 long rel. /",
         "92 swell / 108 pad / 127 long pad. Always 4 voices of",
         "DCO1 + DCO2; lev1 / lev2 set the mix."]))
-    sections.append(("Presets: text bank and skpreset", [
-        "As in skandrums-pd: a [text define -k name] holds one line",
-        "per slot ('pdoly8 v0 v1 ...', the values of a dump), saved",
-        "with the patch; [skpreset name] steps through it. Wiring:",
-        "outlet 2 -> skpreset inlet 0, skpreset outlet 0 -> inlet.",
-        "A slot number (0-95) stores the current sound in the old slot",
-        "and loads the new one; an empty slot ('-') keeps the sound.",
-        "Slots 0-31 are free for your own sounds; 32-95 hold the 64",
-        "Poly-800 II factory programs 11-88 (slot 32 = 11, 33 = 12,",
-        "... 39 = 18, 40 = 21 ... 95 = 88) once the bank is read.",
-        "'write file' / 'read file' on [text define] save and load",
-        "banks. tools/p8sysex.py converts Poly-800 II sysex dumps to",
-        "such a bank and back (DEG values, levels, MG, delay, EQ).",
-        "Below: read the factory bank, pick a slot."], 210))
+    sections.append(("Presets", [
+        "Two read-only lists send presets to the object; changing",
+        "slots never writes anything back. Both send 'dump pdoly8 ...'",
+        "messages (here via [s], nothing is wired across the patch).",
+        "[p8factory]: the 64 Poly-800 II factory programs, slot 0-63",
+        "(0 = program 11, 7 = 18, 8 = 21 ... 63 = 88), read from",
+        "presets/poly800mk2-factory.txt next to the abstraction.",
+        "[p8user name]: your own sounds in a [text define -k name]",
+        "(saved with the patch). A slot number recalls; only",
+        "'store N' writes: it stores the current sound in slot N",
+        "(it needs outlet 2 of pdoly8~ at its right inlet, here",
+        "via [s]/[r]). 'write file' / 'read file' on the text",
+        "define save and load banks. tools/p8sysex.py converts",
+        "Poly-800 II sysex dumps to preset text and back."], 200))
 
     placed = []
     for sec in sections:
@@ -337,6 +337,8 @@ def build():
     p.conn(o, 0, mull, 0); p.conn(o, 1, mulr, 0)
     p.conn(mull, 0, dac, 0); p.conn(mulr, 0, dac, 1)
     p.conn(o, 2, pr, 0)
+    sev = p.add(f"#X obj {CX + 330} {mul_y + 30} s {DOLLAR}0-{SHORT}-out;")
+    p.conn(o, 2, sev, 0)
 
     for title, lines, sy, extra in placed:
         p.heading(CX, sy, title, 14)
@@ -344,16 +346,21 @@ def build():
         if extra:
             ly = sy + 24 + LINE * len(lines) + 10
             if title.startswith("Presets"):
-                rd = p.add(f"#X msg {TX} {ly} read presets/poly800mk2-factory.txt;")
-                td = p.add(f"#X obj {TX} {ly + 30} text define -k p8bank;")
-                p.conn(rd, 0, td, 0)
-                nb = p.add(f"#X floatatom {TX + 260} {ly} 4 0 95 0 slot - -;")
-                sk = p.add(f"#X obj {TX + 260} {ly + 30} skpreset p8bank;")
-                p.conn(nb, 0, sk, 1)
-                p.conn(o, 2, sk, 0)
-                sb = p.add(f"#X obj {TX + 260} {ly + 60} s {bus};")
-                p.conn(sk, 0, sb, 0)
-                p.add(f"#X text {TX + 330} {ly} <- slot 0-95, f 20;")
+                ev = DOLLAR + "0-" + SHORT + "-out"
+                f1 = p.add(f"#X floatatom {TX} {ly} 4 0 63 0 factory - -;")
+                pf = p.add(f"#X obj {TX} {ly + 30} p8factory;")
+                s1 = p.add(f"#X obj {TX} {ly + 60} s {bus};")
+                p.conn(f1, 0, pf, 0); p.conn(pf, 0, s1, 0)
+                f2 = p.add(f"#X floatatom {TX + 170} {ly} 4 0 0 0 user - -;")
+                f3 = p.add(f"#X floatatom {TX + 250} {ly} 4 0 0 0 store - -;")
+                m3 = p.add(f"#X msg {TX + 250} {ly + 26} store {DOLLAR}1;")
+                p.conn(f3, 0, m3, 0)
+                rv = p.add(f"#X obj {TX + 340} {ly + 26} r {ev};")
+                pu = p.add(f"#X obj {TX + 170} {ly + 56} p8user {DOLLAR}0-mine;")
+                p.conn(f2, 0, pu, 0); p.conn(m3, 0, pu, 0); p.conn(rv, 0, pu, 1)
+                s2 = p.add(f"#X obj {TX + 170} {ly + 86} s {bus};")
+                p.conn(pu, 0, s2, 0)
+                p.add(f"#X obj {TX + 170} {ly + 116} text define -k {DOLLAR}0-mine;")
                 continue
             m1 = p.add(f"#X msg {TX} {ly} dir;")
             pc = p.add(f"#X obj {TX} {ly + 26} pdcontrol;")

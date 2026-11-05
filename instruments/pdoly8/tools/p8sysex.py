@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
 """Korg Poly-800 II sysex <-> pdoly8~ preset text.
 
-  p8sysex.py syx2txt dump.syx bank.txt        64 programs -> [text define] bank (lines 32-95)
+  p8sysex.py syx2txt dump.syx bank.txt        64 programs -> preset text
   p8sysex.py txt2syx bank.txt dump.syx [--template orig.syx]
   p8sysex.py show dump.syx                    the programs as Poly-800 values
 
-The text file has 32 free lines (`-;`, for your own sounds), then one line per
-program, `pdoly8 v0 v1 ...;`: line 32 + n = program 11 + 10 * (n // 8) + n % 8
-(line 32 = 11, line 95 = 88). --offset N changes the 32. It is the line format
-of [skpreset] (skandrums-pd): read it into a [text define -k name] and step
-through it with [skpreset name]; a line is a `dump pdoly8 ...` without `dump`.
+The text file has one line per program, `pdoly8 v0 v1 ...;` (a `dump pdoly8
+...` without `dump`): line n = program 11 + 10 * (n // 8) + n % 8 (line 0 =
+11, line 63 = 88). --offset N puts N empty lines (`-;`) in front. It is read
+by [p8factory] (and is the format of [p8user]'s text).
 
 Sysex format (Poly-800 II service manual, MIDI implementation): F0 42 21 0C,
 then the RAM (2688 bytes) as 5376 nibbles, low nibble first, then the 8-bit
@@ -241,7 +240,7 @@ def fmt(x):
     return str(int(x)) if float(x).is_integer() else f"{x:g}"
 
 
-OFFSET = 32
+OFFSET = 0
 
 
 def syx2txt(src, dst, offset=OFFSET):

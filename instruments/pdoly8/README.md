@@ -15,7 +15,7 @@ Modelled on the Poly-800 service manual (circuits 19, 22, 27, 28, 31, 32): one m
 | Outlet 2 | signal | right |
 | Outlet 3 | messages | events: `dump pdoly8 <values>`, `value <name> <v>` |
 
-The messages follow the cz4~ / skandrums-pd conventions (`dump`, `params`, `defaults`, `get`), so `[skpreset]` works unchanged.
+The messages follow the cz4~ / skandrums-pd conventions (`dump`, `params`, `defaults`, `get`).
 
 ### Controls (0–127, one per pot or MIDI CC)
 
@@ -167,17 +167,14 @@ The filter sweep of DEG3 against the recording: `demos/vcf_deg3_vs_poly800.png`.
 
 ## Presets
 
-As in skandrums-pd, presets are lines of text: a `[text define -k name]` in your patch holds one line per slot, `pdoly8 v0 v1 …` (the values of a `dump`, controls then settings), and is saved with the patch. `[skpreset name]` (included, from skandrums-pd, CC0) steps through it:
+Two read-only preset lists send `dump pdoly8 …` messages to the object (connect their outlet to the inlet of `pdoly8~`, or to its `[s]`). Changing a slot never writes anything back; slots start at 0.
 
-    [pdoly8~] outlet 2  ->  [skpreset name] inlet 0
-    [skpreset name] outlet 0  ->  inlet [pdoly8~]
-    slot number 0-95  ->  [skpreset name] inlet 1
+- **`[p8factory]`** — the 64 Poly-800 II factory programs, slot 0–63 (0 = program 11, 7 = 18, 8 = 21, … 63 = 88), read on load from `presets/poly800mk2-factory.txt` next to the abstraction (an argument names another file).
+- **`[p8user name]`** — your own sounds, in a `[text define -k name]` in your patch (saved with it; `write file` / `read file` on the text define save and load banks). A slot number recalls; only `store N` writes: it asks `pdoly8~` for a dump and stores the answer in slot N, so it needs outlet 2 of `pdoly8~` at its right inlet (e.g. via `[s]`/`[r]`). Empty slots (`-`) and slots past the end send nothing.
 
-A new slot number first stores the current sound in the old slot, then loads the new one; an empty line (`-`) keeps the current sound. This copy has 96 slots and does not store on the very first selection, so a bank read into the text is not overwritten in slot 0. `write file` / `read file` on `[text define]` save and load banks.
+A preset line is `pdoly8 v0 v1 …` (the values of a `dump`, controls then settings).
 
-**Poly-800 II factory bank:** `presets/poly800mk2-factory.txt` keeps slots 0–31 free for your own sounds and holds the 64 factory programs in slots 32–95 (slot 32 = program 11, 39 = 18, 40 = 21, … 95 = 88). The help patch reads it with `[read presets/poly800mk2-factory.txt(`.
-
-**Sysex converter:** `tools/p8sysex.py` converts a Poly-800 II data dump (`F0 42 21 0C`, all 64 programs) into such a bank and back:
+**Sysex converter:** `tools/p8sysex.py` converts a Poly-800 II data dump (`F0 42 21 0C`, all 64 programs) into preset text and back:
 
     python3 tools/p8sysex.py syx2txt dump.syx bank.txt
     python3 tools/p8sysex.py txt2syx bank.txt dump.syx --template dump.syx
