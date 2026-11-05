@@ -76,7 +76,7 @@ Two settings make any path smooth to sweep:
 | `tune` | ±50 cents | 0 | master tune |
 | `bnd` | 0–12 | 2 | pitch bend range in semitones (original up to ±7) |
 | `mgf` | Hz | 5 | vibrato rate |
-| `mgi` | 0–100 cents | 0 | vibrato depth, triangle on the master clock |
+| `mgi` | 0–160 cents | 0 | vibrato depth, triangle on the master clock (Poly-800 II maximum ±160 cents) |
 | `hsnp` | 0–4 | 1 | plateau around each foot combination, in `har` steps |
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
 | `path` | 0/1/2 | 0 | morph path of `har`: 0 original (15 combinations), 1 ring (8, root kept, wraps), 2 figure eight (16, both nets, wraps) |

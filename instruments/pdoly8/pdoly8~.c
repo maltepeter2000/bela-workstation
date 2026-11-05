@@ -133,7 +133,7 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_TUNE: v = clampf_((float)v, -50.0f, 50.0f); e->tune_cents = (float)v; break;
     case X_BND:  v = clampf_((float)v, 0.0f, 12.0f); e->bend_semi = (float)(x->bend * v); break;
     case X_MGF:  v = clampf_((float)v, 0.05f, 30.0f); e->mg_hz = (float)v; break;
-    case X_MGI:  v = clampf_((float)v, 0.0f, 100.0f); e->mg_cents = (float)v; break;
+    case X_MGI:  v = clampf_((float)v, 0.0f, 160.0f);   /* Mk II: up to ±160 cents */ e->mg_cents = (float)v; break;
     case X_HSNP: v = clampf_((float)v, 0.0f, 4.0f); e->hsnap = (float)v; x->ext[i] = v; p8_update(e); return;
     case X_CH1:  v = (t_float)(int)clampf_((float)v, 0.0f, 16.0f); break;     /* 0 = any channel */
     case X_TONE: v = v != 0; e->tone = v != 0; break;                     /* measured output response */
