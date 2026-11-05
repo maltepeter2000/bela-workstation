@@ -207,6 +207,8 @@ Not modelled: the Poly-800 (Mk I) chorus, the joystick, and the slight clock jit
 
 ## Build
 
+A test build for macOS (universal arm64 + x86_64, macOS 11+) is in `bin/macos/`, cross-built with `make mac-zig` (zig cc + llvm-lipo). If macOS blocks it, run `xattr -dr com.apple.quarantine` on the folder.
+
 **Bela, on the board itself:**
 
 ```sh

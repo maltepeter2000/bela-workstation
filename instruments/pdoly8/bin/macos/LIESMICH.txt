@@ -1,0 +1,13 @@
+pdoly8~ – Testversion für Pure Data auf dem Mac (Apple Silicon und Intel)
+
+1. Den Ordner "pdoly8" (mit pdoly8~.pd_darwin und pdoly8~-help.pd) z. B. nach
+   ~/Documents/Pd/externals kopieren.
+2. In Pd: Datei > Einstellungen > Pfad: diesen Ordner hinzufügen (oder den
+   Hilfe-Patch direkt aus dem Ordner öffnen).
+3. pdoly8~-help.pd öffnen, DSP einschalten.
+
+Falls macOS das Laden blockiert ("kann nicht geöffnet werden" / "beschädigt"),
+einmal im Terminal ausführen:
+   xattr -dr com.apple.quarantine ~/Documents/Pd/externals/pdoly8
+
+Gebaut mit zig cc (macOS 11 und neuer, universal arm64 + x86_64, ad-hoc signiert).
