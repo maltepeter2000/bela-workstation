@@ -116,3 +116,7 @@ Noise through the EQ, steady part of each note, spectra relative to the setting 
 Echo pitch against the dry note (≈ 2057 Hz), per 10 ms frame:
 - Rate 21: the echo pitch swings −523 … +472 cents (2nd/98th percentile, several echoes) with 1.15 Hz; rate 11: 0.26 Hz; rate 1: too slow for the take; rate 31: chaotic.
 - A swing of ±3 ms (the first estimate) would give about ±25 cents; the manual's 1:5 time swing gives ±240 cents for the first echo and more for the recirculated ones. Model with 1:5 and rate 0.05 · 100^(v/31) Hz: −603 … +454 cents at 1.13 Hz. Built in (the rate is half the manual's 0.1–10 Hz).
+
+## Delay modulation depth (Audio_0025: time 40, feedback 15, rate 31, depth 31 / 21 / 11 / 1)
+
+Spread of the echo pitch around the dry note (spectrum within 20 dB of the note line): 31 chaotic (broadband), 21 ±150 cents, 11 ±25 cents, 1 none. With the 1:5 swing at 31 confirmed before, ln(swing) falls about 10 dB per 10 steps: modelled as ln 5 · (10^((d − 31)/10) − 10^−3.1) / (1 − 10^−3.1). Model: 21 ±220, 11 ±22 cents.

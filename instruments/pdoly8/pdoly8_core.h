@@ -134,6 +134,7 @@ typedef struct {
     float   ddl_ms, ddl_ms_s;    /* delay time in ms (target, in use) */
     float   ddl_mute;            /* 0..1: the original mutes the delay output briefly on changes */
     float   ddl_env, ddl_rel, ddl_gate;   /* echo gate */
+    float   ddl_g;               /* mod depth factor 0..1 */
     float   ddl_ph;              /* mod LFO phase */
     float   ddl_lp[2], ddl_lpg;  /* 2-pole low-pass in the delay path (band limit of the DDL) */
     unsigned ddl_w;

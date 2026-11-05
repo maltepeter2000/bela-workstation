@@ -83,7 +83,7 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 | `treb` `bass` | −6…6 | 0 | EQ (76/77), measured: first-order shelves (corners 4.26 kHz / 115 Hz, full boost +3 dB at 1.8 kHz / 316 Hz), about ±4 dB at ±3 and ±10 dB at ±6 |
 | `dtim` | 0–99 | 30 | digital delay time (71): exponential, 4.2 ms … 1.08 s (measured: 70 → 216 ms, 99 → 1.08 s) |
 | `dfb` | 0–15 | 0 | delay feedback (72): at 15 each echo is 3.1 dB quieter (measured); a gate ends the echo train about 48 dB under full scale, as on the original |
-| `dmf` `dmi` | 0–31 | 0 | delay modulation rate (73, measured: 0.05 … 5 Hz, 11 → 0.26 Hz, 21 → 1.15 Hz) and depth (74: the delay time swings up to 1:5 at 31, as in the manual and measured) |
+| `dmf` `dmi` | 0–31 | 0 | delay modulation rate (73, measured: 0.05 … 5 Hz, 11 → 0.26 Hz, 21 → 1.15 Hz) and depth (74: the delay time swings 1:5 at 31, as in the manual; the swing falls about 10 dB per 10 steps below that, measured) |
 | `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The echo goes to the left output in phase and to the right one inverted (measured: L = dry + echo, R = dry − echo, so a mono sum of both cancels it), band-limited to 7 kHz; changing a delay value mutes the echo briefly, as on the original |
 
 ### Other messages

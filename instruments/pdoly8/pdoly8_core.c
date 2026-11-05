@@ -249,6 +249,9 @@ void p8_set_ddl(p8_engine_t *e, float time, float fb, float mf, float mi, float 
     e->ddl_time = clampf(time, 0.0f, 99.0f); e->ddl_fb = clampf(fb, 0.0f, 15.0f);
     e->ddl_mf = clampf(mf, 0.0f, 31.0f); e->ddl_mi = clampf(mi, 0.0f, 31.0f); e->ddl_lev = clampf(lev, 0.0f, 15.0f);
     e->ddl_ms = P8_DDL_T0 * exp2f(8.0f * e->ddl_time / 99.0f);      /* measured: 70 -> 216 ms, 99 -> 1.08 s */
+    /* mod depth: the time swings 1:5 at 31 (manual, measured); below that the
+     * swing falls by about 10 dB per 10 steps (measured at 21 and 11); 0 = none */
+    e->ddl_g = (exp2f((e->ddl_mi - 31.0f) * 0.33219f) - 0.000794f) * (1.0f / 0.999206f);
     e->ddl_mute = 0.0f;                    /* "delay sound output is momentarily interrupted" */
 }
 
@@ -854,7 +857,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 e->ddl_ph += P8_DDL_MF0 * exp2f(6.644f * e->ddl_mf / 31.0f) * inv_fs;   /* x100 over 0..31 */
                 if (e->ddl_ph >= 1.0f) e->ddl_ph -= 1.0f;
                 float tri = 4.0f * fabsf(e->ddl_ph - 0.5f) - 1.0f;
-                ms *= exp2f(1.161f * (e->ddl_mi / 31.0f) * tri);      /* time swings 1:5 at 31 (manual, measured) */
+                ms *= exp2f(1.161f * e->ddl_g * tri);                /* see p8_set_ddl */
             }
             float d = ms * 0.001f * e->fs;
             if (d < 1.0f) d = 1.0f;
