@@ -28,6 +28,7 @@
 #define P8_EQ_TR_F0 4256.0f       /* treble shelf corner, fitted (full boost +3 dB at 1.8 kHz; manual: 2 kHz) */
 #define P8_EQ_BS_F0 115.0f        /* bass shelf corner, fitted (full boost +3 dB at 316 Hz; manual: 300 Hz) */
 #define P8_DDL_LP   7000.0f       /* band limit of the delay path, 2 poles (provisional) */
+#define P8_DDL_MOD_MS 3.0f        /* delay mod depth at 31: +-3 ms (first estimate from a recording, was a 1:5 swing) */
 #define P8_NORM_REF 2.1203f       /* sqrt(sum w^2) of the square net, all feet */
 #define P8_GATE_MS  1.5f          /* de-click ramp of a voice gate */
 #define P8_D        (P8_TAPS / 2)
@@ -849,7 +850,8 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 e->ddl_ph += 0.1f * exp2f(6.644f * e->ddl_mf / 31.0f) * inv_fs;   /* 0.1 .. 10 Hz */
                 if (e->ddl_ph >= 1.0f) e->ddl_ph -= 1.0f;
                 float tri = 4.0f * fabsf(e->ddl_ph - 0.5f) - 1.0f;
-                ms *= exp2f(1.16f * (e->ddl_mi / 31.0f) * tri);       /* up to a 1:5 swing */
+                ms += P8_DDL_MOD_MS * (e->ddl_mi / 31.0f) * tri;      /* absolute swing, see P8_DDL_MOD_MS */
+                if (ms < 0.3f) ms = 0.3f;
             }
             float d = ms * 0.001f * e->fs;
             if (d < 1.0f) d = 1.0f;
