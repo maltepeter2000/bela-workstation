@@ -58,6 +58,7 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
 | `pw1` / `pw2` | 0–127 | 64 | pulse width of DCO1 / DCO2: 3–97 %, 64 = square; acts on every foot (see PWM) |
 | `sync` | 0/1 | 0 | 1: DCO2 restarts at every 16' period of DCO1 (hard sync) |
+| `swp2` | 0–48 | 0 | DCO2 pitch offset in semitones, continuous (sync sweeps; also without sync) |
 | `fm` | 0–127 | 0 | linear FM index of DCO1, 0–8 (quadratic; index 1 at about 45, through zero above) |
 | `fmr` | 0.125–16 | 1 | ratio of the sine modulator to DCO1's 16' frequency |
 | `fms` | 0/1 | 0 | FM source: 0 internal sine, 1 DCO2 (cross FM) |
@@ -109,7 +110,7 @@ Each foot becomes the AND of its square with a copy shifted by part of its perio
 
 ### Sync and FM
 
-- **Hard sync (`sync 1`):** DCO2's counter restarts at every 16' period of DCO1, at the exact sub-sample time, with a band-limited step. Sweep DCO2 with `intv`/`oct2`; `lev1 0` lets DCO2 be heard alone. Feet, nets and PWM of DCO2 all go through the sync.
+- **Hard sync (`sync 1`):** DCO2's counter restarts at every 16' period of DCO1, at the exact sub-sample time, with a band-limited step. Sweep DCO2 with `swp2` (continuous, 0–48 semitones) or `intv`/`oct2`; `lev1 0` lets DCO2 be heard alone. Feet, nets and PWM of DCO2 all go through the sync.
 - **Linear FM (`fm`, `fmr`, `fms`):** DCO1's counter rate is modulated by a sine at `fmr` times its 16' frequency, or by DCO2 (cross FM). Above index 1 the counter runs backwards for a moment (through-zero FM), so integer ratios stay harmonic; the edges of every foot are found in both directions and stay band-limited.
 - Measured: sync (DCO2 at +7.3 semitones) and FM (ratio 1, index 1 and 3) keep every component below 16 kHz harmonic within −75 dB; deep through-zero FM with sync on 4 low voices peaks at 0.72. With `fm 0` and `sync 0` the output is sample-identical to before.
 
