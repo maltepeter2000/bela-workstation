@@ -91,7 +91,7 @@ SETTINGS = [
     "note, 2 the last note only while another key is held",
     "cut (99) VCF cutoff 0-99 (66 Hz - 20 kHz, 4 poles, measured)",
     "res (0) resonance 0-15 (no self-oscillation, as the original)",
-    "kbd (0) key tracking 0 off, 1 half (ref C5), 2 full (ref C3)",
+    "kbd (0) key tracking 0 off, 1 half (ref C6), 2 full (ref C4)",
     "pol (2) DEG3 polarity 2 up, 1 down; egi (0) EG INT 0-15",
     "trg (2) DEG3 trigger 1 single, 2 multi",
     "env3 (0) DEG3 morph (VCF and noise), -1 = own a3 ... r3",
@@ -252,7 +252,7 @@ def build():
         "cutoff by up to 7.9 octaves (EG INT 15) and sets the noise",
         "level, both linear in its level. Single trigger: only the",
         "first key starts DEG3; multi: every key. Full tracking follows",
-        "the highest key 1:1 (C3 nominal), half by 1/2 (C5 nominal)."]))
+        "the highest key 1:1 (C4 nominal), half by 1/2 (C6 nominal)."]))
     sections.append(("Envelopes (DEG1 / DEG2)", [
         "Each tone generator has its own 6-stage DEG as on the",
         "Poly-800 (attack, decay, break point, slope, sustain, release",

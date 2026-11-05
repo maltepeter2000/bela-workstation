@@ -54,16 +54,17 @@ Same 6 stages and ranges as DEG1/2 (manual), same CPU routine → reuse the meas
 - **F3b:** OFF constant (peak ~480 Hz); FULL C2..C6 peaks 153, 261, 466, 905, 1836 Hz — superseded by Audio_0049 below (the key names of the noise runs were one octave too high).
 - **F7 not usable:** the peak sits at ~14 kHz for every note — cutoff apparently still 99 (resonance 15 at the top of the range).
 - **F7:** level 31 (Audio_32) and level 8 (Audio_0048 16:32, 23 dB quieter as the (L/31)² law predicts) give the same filter shape: ladder fit fc 1825–1880 Hz (table: 1916), k 3.84–3.95 (table 3.90), rms 2.4–2.7 dB at C2–C4, the same for both levels. No measurable saturation → VCF stays linear. (The note-dependent "bass loss" seen first came from the open reference take, not from drive.) After key-off a ~1.82 kHz ring at about −47 dB lasts ~0.8 s (leak through the resonant filter).
-- **Tracking, final (Audio_0049: saw all feet, cutoff 40, resonance 15, keys C2–C5 by sounding pitch, passes 0, 0, 1, 2):** resonance peak
+- **Tracking, final (Audio_0049: saw all feet, cutoff 40, resonance 15, octave 2, all five C keys C2–C6; passes 0, 0, 1, 2).** Note: with the 16' foot the lowest audible line is an octave below the key (key C2 → 32.3 Hz); the keys are identified by that. Resonance peak in Hz, Poly-800 / model:
 
-  | KBD | C2 | C3 | C4 | C5 |
-  |---|---|---|---|---|
-  | 0 | 613 | 617 | 475* | 516* |
-  | 1 | 232 | 259 | 394 | 516* |
-  | 2 | 313 | 616 | 1175 | 2061* |
+  | KBD | C2 | C3 | C4 | C5 | C6 |
+  |---|---|---|---|---|---|
+  | 0 | 610 / 617 | 612 / 596 | 615 / 614 | 454* / 457 | 516* / 523 |
+  | 1 | 158 / 154 | 224 / 188 | 238 / 228 | 394 / 382 | 516* / 523 |
+  | 2 | 158 / 154 | 313 / 307 | 616 / 614 | 1177 / 1227 | 2099* / 2454 |
 
-  (* few harmonics near the peak, coarse.) Full: 1 oct/oct, nominal at C3. Half: 0.5 oct/oct, nominal at C5 (= half of full minus one octave); Audio_0048 (cutoff 60) gives the same. The earlier noise runs named the keys one octave too high (no pitch to check), which is why C4 appeared as reference before. Built in; model within 0.06 oct except the half low end (C2/C3 0.2–0.3 oct higher on the Poly-800) and the coarse C5 values.
-- **EQ:** the earlier recordings (feet/open filter, F1–F5) may have had treble/bass EQ on. F1/F2/F4 are spectral ratios against an open-filter take of the same session, so EQ cancels there; the output stage (20 kHz top + 5 kHz pole) was checked against an EQ-0 open-filter take (saw, all feet, C2–C5): model and Poly-800 agree within 1.0 dB mean (90 % within 1.8 dB) up to 20 kHz, no tilt — the output stage stands.
+  (* few harmonics near the peak, coarse.) Full: 1 oct/oct, nominal at key C4 (note 60). Half: 0.5 oct/oct, nominal at the top key C6 (note 84) — half never makes it brighter than the setting. Agrees with the noise run (Audio_27) and Audio_0048. Built in.
+- **Correction:** in the F7 and open-filter takes the first (short) note is key C2; earlier comparisons had labelled key C3 as C2. Redone with the correct keys: open filter (Audio_0044, saw all feet, EQ 0) vs model, keys C2–C6 up to 20 kHz: mean 0.56 dB, 90 % within 1.16 dB. The F7 conclusions (no saturation, fc/k) are ratios within the Poly-800 takes and stand.
+- **EQ:** the earlier recordings (feet/open filter, F1–F5) may have had treble/bass EQ on. F1/F2/F4 are spectral ratios against an open-filter take of the same session, so EQ cancels there; the output stage (20 kHz top + 5 kHz pole) was checked against an EQ-0 open-filter take: 0.56 dB mean, no tilt — it stands.
 
 ## Still to record (Mk II parameter numbers)
 
@@ -75,7 +76,7 @@ Base setup: 18 DCO = 1 (WHOLE); 11 octave = 2; 12 waveform = 1; 13/14/15/16 = 0/
 
 ## Implementation (built)
 
-- VCF: zero-delay-feedback 4-pole ladder per output channel, feedback solved exactly; fc from the table (log interpolation) × keyboard tracking (highest key; full nominal at C3, half at C5) × 2^(7.9 oct · EG INT/15 · DEG3 level/31); k from the resonance table (held below 4). No saturation yet (F7).
+- VCF: zero-delay-feedback 4-pole ladder per output channel, feedback solved exactly; fc from the table (log interpolation) × keyboard tracking (highest key; full nominal at C4, half at C6) × 2^(7.9 oct · EG INT/15 · DEG3 level/31); k from the resonance table (held below 4). No saturation yet (F7).
 - DEG3: one instance of the DEG code; single trigger = only the first key of a phrase, multi = every key; drives cutoff and noise VCA (both linear in the DEG level).
 - Output: 54 Hz high-pass + VCF + one pole at 5 kHz (replaces the 2-pole 7.5 kHz stage).
 - Not yet: MG to VCF (param 84).
