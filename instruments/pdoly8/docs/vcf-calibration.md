@@ -53,7 +53,7 @@ Same 6 stages and ranges as DEG1/2 (manual), same CPU routine → reuse the meas
 - **F6 confirmed:** single trigger: C3 + E3 + G3 legato gives one DEG3 sweep only; after all keys are released the next key restarts it. Multi: every new key restarts DEG3 from its current level (no drop to 0). Matches the implementation.
 - **F3b:** OFF constant (peak ~480 Hz); FULL C2..C6 peaks 153, 261, 466, 905, 1836 Hz (model 118, 240, 515, 1016, 1810 — C4 nominal confirmed, low end compressed). HALF pass: 153, 162, 261, 392, 466 Hz — not the expected 0.5 oct/oct around C4 (model 236, 370, 493, 688, 1016); keys of that pass to be confirmed, re-record.
 - **F7 not usable:** the peak sits at ~14 kHz for every note — cutoff apparently still 99 (resonance 15 at the top of the range).
-- **EQ:** the earlier recordings (feet/open filter, F1–F5) may have had treble/bass EQ on. F1/F2/F4 are spectral ratios against an open-filter take of the same session, so EQ cancels there; the output stage (20 kHz top + 5 kHz pole), fitted from the first open-filter recording, is suspect and needs an EQ-0 open-filter take.
+- **EQ:** the earlier recordings (feet/open filter, F1–F5) may have had treble/bass EQ on. F1/F2/F4 are spectral ratios against an open-filter take of the same session, so EQ cancels there; the output stage (20 kHz top + 5 kHz pole) was checked against an EQ-0 open-filter take (saw, all feet, C2–C5): model and Poly-800 agree within 1.0 dB mean (90 % within 1.8 dB) up to 20 kHz, no tilt — the output stage stands.
 
 ## Still to record (Mk II parameter numbers)
 
