@@ -48,6 +48,13 @@ Same 6 stages and ranges as DEG1/2 (manual), same CPU routine → reuse the meas
 - The top of the cutoff table: the first recording (open filter, 40 notes) fits much better with 4 poles at about 20 kHz plus one output pole at 5 kHz (0.32 dB) than with 12.8 kHz (0.87 dB); F1 is nearly indifferent to the top value (1.23 vs 1.31 dB), so the table was refitted with 20 kHz at 99: 66, 128, 218, 364, 617, 1083, 1916, 3492, 6384, 11774, 20000 Hz.
 - Resonance 0: k = 0 (the fit gave 0.12, within its noise).
 
+## Recordings of 2026-11-05 afternoon (EQ 76/77 = 0)
+
+- **F6 confirmed:** single trigger: C3 + E3 + G3 legato gives one DEG3 sweep only; after all keys are released the next key restarts it. Multi: every new key restarts DEG3 from its current level (no drop to 0). Matches the implementation.
+- **F3b:** OFF constant (peak ~480 Hz); FULL C2..C6 peaks 153, 261, 466, 905, 1836 Hz (model 118, 240, 515, 1016, 1810 — C4 nominal confirmed, low end compressed). HALF pass: 153, 162, 261, 392, 466 Hz — not the expected 0.5 oct/oct around C4 (model 236, 370, 493, 688, 1016); keys of that pass to be confirmed, re-record.
+- **F7 not usable:** the peak sits at ~14 kHz for every note — cutoff apparently still 99 (resonance 15 at the top of the range).
+- **EQ:** the earlier recordings (feet/open filter, F1–F5) may have had treble/bass EQ on. F1/F2/F4 are spectral ratios against an open-filter take of the same session, so EQ cancels there; the output stage (20 kHz top + 5 kHz pole), fitted from the first open-filter recording, is suspect and needs an EQ-0 open-filter take.
+
 ## Still to record (Mk II parameter numbers)
 
 Base setup: 18 DCO = 1 (WHOLE); 11 octave = 2; 12 waveform = 1; 13/14/15/16 = 0/1/0/0 (only 8'); 17 level = 0; 37 noise = 15; 31 cutoff = 99, 32 resonance = 0, 33 KBD track = 0, 34 polarity = 2, 35 EG INT = 0, 36 trigger = 2; DEG1 41–46 = 0 0 31 0 31 0; DEG3 61–66 = 0 0 31 0 31 0; 75 delay effect level = 0; 76 treble = 0, 77 bass = 0; 83 MG DCO = 0, 84 MG VCF = 0; joystick centred.
