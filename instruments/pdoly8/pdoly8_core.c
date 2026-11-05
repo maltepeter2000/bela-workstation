@@ -780,7 +780,8 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         e->rng = e->rng * 1664525u + 1013904223u;
         float nz = ((float)(e->rng >> 8) * (1.0f / 8388608.0f) - 1.0f) * clampf(e->noise_level, 0.0f, 1.0f) * (e3 / 31.0f) * 0.5f;
         float o[2];
-        /* digital delay: mono input (sum), band-limited, feedback inside the loop */
+        /* digital delay: mono input (sum), band-limited, feedback inside the loop;
+         * the echo goes to L in phase and to R inverted (measured on a Poly-800 II) */
         float wet = 0.0f;
         const int ddl_on = e->ddl_lev > 0.0f;
         for (int c = 0; c < 2; c++) {
@@ -840,7 +841,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             wet *= e->ddl_lev / 15.0f * mu;
         }
         for (int c = 0; c < 2; c++) {
-            float y = o[c] + wet;
+            float y = c == 0 ? o[c] + wet : o[c] - wet;     /* measured: L = dry + echo, R = dry - echo */
             /* EQ: treble and bass shelves */
             if (e->eq_tr != 0.0f) { const float *q = e->eq_c[0]; float t = y; float out = q[0] * t + e->eq_s[c][0]; e->eq_s[c][0] = q[1] * t - q[2] * out; y = out; }
             if (e->eq_bs != 0.0f) { const float *q = e->eq_c[1]; float t = y; float out = q[0] * t + e->eq_s[c][1]; e->eq_s[c][1] = q[1] * t - q[2] * out; y = out; }

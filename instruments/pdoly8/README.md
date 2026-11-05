@@ -112,7 +112,7 @@ Two settings make any path smooth to sweep:
 | `dtim` | 0–99 | 30 | digital delay time (71): 4 … 1024 ms (curve provisional: exponential) |
 | `dfb` | 0–15 | 0 | delay feedback (72): 0 … 100 % |
 | `dmf` `dmi` | 0–31 | 0 | delay modulation rate (73, 0.1 … 10 Hz) and depth (74, up to a 1:5 swing of the time) |
-| `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The delay is mono, added to both outputs, band-limited to 7 kHz; changing a delay value mutes the echo briefly, as on the original |
+| `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The echo goes to the left output in phase and to the right one inverted (measured: L = dry + echo, R = dry − echo, so a mono sum of both cancels it), band-limited to 7 kHz; changing a delay value mutes the echo briefly, as on the original |
 
 ### Other messages
 

@@ -98,3 +98,9 @@ Noise through the EQ, steady part of each note, spectra relative to the setting 
 - Treble +6: +1.4 (500 Hz), +2.8 (1 kHz), +4.5 (2 kHz), +8.3 (5 kHz), +9.9 (12 kHz) dB; −6 mirrored (−9.8 at 16 kHz).
 - Bass +6: +9.8 (60 Hz), +7.3 (100), +4.7 (200), +3.2 (300), +0.6 (500) dB; −6: −11.8 at 40 Hz.
 - Joint fit, first-order shelves with fixed corners: treble 4256 Hz, bass 115 Hz (full boost reads +3 dB at 1.8 kHz / 316 Hz — the manual's "±3 dB point 2 kHz / 300 Hz"). Gain per step: treble −9.0 / −3.9 / +2.0 / +8.8, bass −11.7 / −6.3 / +4.1 / +9.8 dB at −6 / −3 / +3 / +6 → modelled as 1.10·k + 0.089·k² dB (4.1 at 3, 9.8 at 6). Model within about 1 dB.
+
+## Digital delay, first take (Audio_4, 17:19, stereo L/MONO + R)
+
+- Only two of the plucks carry an echo (at 10.7 s: about 43 ms; at 103.8 s: about 30 ms); in all others L and R are identical (no echo). Which settings belong to which note is still to be clarified.
+- Where there is an echo, sum and difference separate it cleanly: (L+R)/2 is the dry pluck alone, (L−R)/2 the echo alone, at about the level of the dry sound (effect level 15). → L = dry + echo, R = dry − echo. Built in.
+- After each pluck both outputs carry a noise floor about 10 dB above the idle floor for roughly 1.3 s, then it drops (a gate on the delay path, see the service manual's "gate on / off" noise figures). Not modelled.
