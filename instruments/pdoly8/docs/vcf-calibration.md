@@ -48,15 +48,13 @@ Same 6 stages and ranges as DEG1/2 (manual), same CPU routine → reuse the meas
 - The top of the cutoff table: the first recording (open filter, 40 notes) fits much better with 4 poles at about 20 kHz plus one output pole at 5 kHz (0.32 dB) than with 12.8 kHz (0.87 dB); F1 is nearly indifferent to the top value (1.23 vs 1.31 dB), so the table was refitted with 20 kHz at 99: 66, 128, 218, 364, 617, 1083, 1916, 3492, 6384, 11774, 20000 Hz.
 - Resonance 0: k = 0 (the fit gave 0.12, within its noise).
 
-## Still to record (F6–F7, and half tracking)
+## Still to record (Mk II parameter numbers)
 
-Base setup: Mode 1; DCO1 octave 2, square, only 8', level 0; noise 15; VCF cutoff 99, resonance 0, KBD 0, polarity 2, EG INT 0, trigger 2; DEG3 and DEG1 A0 D0 BP31 SL0 SU31 R0; chorus/delay off; MG intensities 0; key C3; hold each setting about 3 s.
+Base setup: 18 DCO = 1 (WHOLE); 11 octave = 2; 12 waveform = 1; 13/14/15/16 = 0/1/0/0 (only 8'); 17 level = 0; 37 noise = 15; 31 cutoff = 99, 32 resonance = 0, 33 KBD track = 0, 34 polarity = 2, 35 EG INT = 0, 36 trigger = 2; DEG1 41–46 = 0 0 31 0 31 0; DEG3 61–66 = 0 0 31 0 31 0; 75 delay effect level = 0; 76 treble = 0, 77 bass = 0; 83 MG DCO = 0, 84 MG VCF = 0; joystick centred.
 
-- **F3b again, half only** — cutoff 40, resonance 8, KBD 1: keys C2, C3, C4, C5 single, 2 s each.
-- ~~**F4** — cutoff 0, resonance 8, DEG3 A24 D0 BP31 SL0 SU31 R24. (1) EG INT 15, polarity 2: hold 5 s, release, let it fade. (2) EG INT 8: same. (3) cutoff 99, EG INT 15, polarity 1: same.~~ (done)
-- ~~**F5**~~ (done)
-- **F6** — noise 0, DCO1 level 31 (square 8'), cutoff 20, resonance 8, EG INT 15, DEG3 A16 D20 BP10 SL0 SU10 R16. Trigger 1 (single): C3, E3, G3 overlapping (legato), then three staccato notes. Trigger 2 (multi): same.
-- **F7** — noise 0, DCO1 level 31, saw, all four feet, cutoff 60, resonance 15: keys C2, C3, C4, 2 s each.
+- **F3b again** — 31 = 40, 32 = 8; keys C2, C3, C4, C5, 2 s each, three passes in one take: 33 = 0, 33 = 1, 33 = 2 (the off and full passes are the reference for the half pass).
+- **F6** — 37 = 0, 17 = 31; 31 = 20, 32 = 8, 35 = 15; DEG3 61–66 = 16 20 10 0 10 16. 36 = 1: C3, add E3, add G3 (hold all), release all; then C3, E3, G3 staccato. Then 36 = 2: the same.
+- **F7** — 37 = 0, 17 = 31, 12 = 2, 13–16 = 1; 31 = 60, 32 = 15; keys C2, C3, C4, 2 s each. Repeat with 17 = 8 (level dependence shows saturation).
 
 ## Implementation (built)
 
