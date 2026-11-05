@@ -13,9 +13,10 @@
  *     the saw net (BR6, binary weights); weights measured on a Poly-800,
  *     continuous between the nets, plus continuous foot gains;
  *   - LEVEL1 / LEVEL2 (VCAs gm-1 / gm-2 of the NJM2069), white noise.
- * Output: measured response of a Poly-800 with the VCF fully open (54 Hz
- * high-pass, two poles at 7.5 kHz). Envelopes, a moving VCF and chorus
- * are left out in this version.
+ * VCF (NJM2069): 4-pole ladder measured on a Poly-800 (cutoff 66 Hz ..
+ * 12.8 kHz, resonance as uncompensated feedback up to k 3.9), DEG3 on cutoff
+ * and noise, keyboard tracking. Output: 54 Hz high-pass, one pole at 10 kHz.
+ * Chorus is left out in this version.
  *
  * Every level step is band-limited (windowed-sinc BLEP), so the output has
  * the analog square edges of the original without digital aliasing.
@@ -84,9 +85,17 @@ typedef struct {
     float   wpos[2], wmix[2];    /* Walsh morph per DCO: position 0..127 on the loop, mix 0..1 */
     float   Wc[2][16], Wct[2][16];   /* Walsh coefficients by foot subset (current, target) */
     int     wal[2];              /* Walsh part active */
-    float   env[2];              /* DEG morph position 0..127 per DCO, < 0: raw values in deg */
-    float   deg[2][6];           /* DEG1 / DEG2: attack, decay, break point, slope, sustain, release (0..31) */
-    p8_deg_t dc[2];
+    float   env[3];              /* DEG morph position 0..127 (DEG1, DEG2, DEG3), < 0: raw values in deg */
+    float   deg[3][6];           /* DEG1 / DEG2 / DEG3: attack, decay, break point, slope, sustain, release (0..31) */
+    p8_deg_t dc[3];
+    p8_tg_t deg3;                /* DEG3 state (one for the instrument: VCF and noise) */
+    int     trig3;               /* DEG3 trigger: 1 single (first key only), 2 multi (every key) */
+    float   vcf_c, vcf_r;        /* VCF cutoff 0..99, resonance 0..15 */
+    int     kbd;                 /* keyboard tracking: 0 off, 1 half, 2 full (highest key, C4 = nominal) */
+    float   egint;               /* DEG3 -> cutoff, 0..15, sign = polarity (negative: inverted) */
+    float   kbd_note;            /* highest key held (kept while released) */
+    float   vcf_s[2][4];         /* ladder states L / R */
+    float   op_s[2], op_g;       /* output pole (about 10 kHz) */
     int     leak;                /* 1: released voices stay at -55 dB, as measured */
     float   port_s, port_k;      /* portamento time (s) and per-sample factor */
     float   W[2][P8_FEET];       /* current per foot gain (wav x har x lev) */
@@ -106,7 +115,7 @@ typedef struct {
     float   acc[2];              /* integrator: the waveform itself */
     float   dc_x[2], dc_y[2];    /* output high-pass state */
     float   dc_k, hp_k;          /* 5 Hz (tone 0) / measured 54 Hz (tone 1) */
-    float   lp_s[2][4], lp_g;    /* open VCF + output: two poles at 7.5 kHz */
+
     int     tone;                /* 1: measured Poly-800 output response */
 } p8_engine_t;
 

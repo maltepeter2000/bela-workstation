@@ -18,11 +18,11 @@
 #define P8_CODES    85            /* pitch codes 0x00..0x54 */
 #define P8_OUT      0.25f         /* output scale before 'level' */
 #define P8_HP_HZ    54.0f         /* measured output high-pass, one pole */
-#ifndef P8_LP_HZ
-#define P8_LP_HZ    7500.0f       /* measured: VCF fully open + output stage, two poles */
+#ifndef P8_OUTPOLE
+#define P8_OUTPOLE  5000.0f       /* output stage behind the VCF, one pole (fitted to the first recording) */
 #endif
-#ifndef P8_LP_POLES
-#define P8_LP_POLES 2
+#ifndef P8_FC99
+#define P8_FC99     20000.0f
 #endif
 #define P8_NORM_REF 2.1203f       /* sqrt(sum w^2) of the square net, all feet */
 #define P8_GATE_MS  1.5f          /* de-click ramp of a voice gate */
@@ -185,11 +185,10 @@ void p8_set_fs(p8_engine_t *e, float fs)
     e->fs = fs > 1000.0f ? fs : 44100.0f;
     e->dc_k = 1.0f - 2.0f * P8_PI * 5.0f / e->fs;
     e->hp_k = 1.0f / (1.0f + 2.0f * P8_PI * P8_HP_HZ / e->fs);
-    {   float lp = P8_LP_HZ < 0.45f * e->fs ? P8_LP_HZ : 0.45f * e->fs, g = tanf(P8_PI * lp / e->fs);
-        e->lp_g = g / (1.0f + g); }
+    {   float g = tanf(P8_PI * P8_OUTPOLE / e->fs); e->op_g = g / (1.0f + g); }
     p8_set_smooth(e, e->smooth_ms);
     p8_set_port(e, e->port_s);
-    for (int g = 0; g < 2; g++) deg_coeffs(e, g);
+    for (int g = 0; g < 3; g++) deg_coeffs(e, g);
 }
 
 void p8_init(p8_engine_t *e, float fs)
@@ -202,7 +201,8 @@ void p8_init(p8_engine_t *e, float fs)
     e->har[0] = e->har[1] = 64.0f;
     e->lev[0] = 1.0f;
     e->hsnap = 1.0f;
-    e->env[0] = e->env[1] = 0.0f;
+    e->env[0] = e->env[1] = e->env[2] = 0.0f;
+    e->trig3 = 2; e->vcf_c = 99.0f; e->kbd_note = 60.0f;
     e->fm_ratio = 1.0f;
     e->pw[0] = e->pw[1] = e->pw_t[0] = e->pw_t[1] = 0.5f;
     e->pfade = 1;
@@ -378,7 +378,7 @@ void p8_update(p8_engine_t *e)
         }
     }
     if (e->mode != P8_DOUBLE) for (int t = 4; t < P8_TG; t++) e->tg[t].amp_target = 0.0f;
-    for (int g = 0; g < 2; g++) {
+    for (int g = 0; g < 3; g++) {
         if (e->env[g] >= 0.0f) p8_env_morph(e->env[g], e->hsnap, e->deg[g]);
         deg_coeffs(e, g);
     }
@@ -435,6 +435,7 @@ void p8_voice_glide(p8_engine_t *e, int k, float note, float from)
     e->tg[k].amp_target = 1.0f; e->tg[k].trig = 1;
     e->tg[k + 4].amp_target = e->mode == P8_DOUBLE ? 1.0f : 0.0f;
     e->tg[k + 4].trig = e->mode == P8_DOUBLE;
+    if (e->trig3 == 2) e->deg3.trig = 1;                    /* multi: every key restarts DEG3 */
 }
 
 void p8_set_port(p8_engine_t *e, float sec)
@@ -573,15 +574,54 @@ static float tg_run(p8_engine_t *e, p8_tg_t *g, const shape_t *sh, int generic,
     return wrap;
 }
 
+/* VCF, measured on a Poly-800 (noise through the filter, see
+ * docs/vcf-calibration.md): corner of the 4-pole low-pass per cutoff value
+ * 0, 10, ... 90, 99, and the ladder feedback per resonance 0, 4, 8, 12, 15.
+ * The top value (99) is set by the first recording (open filter), where
+ * a softer top fits: 4 poles at about 20 kHz plus the output pole at 5 kHz.
+ * DEG3 at EG INT 15 and full level moves the cutoff up 7.9 octaves. */
+static const float VCF_FC[11] = {66.0f, 128.0f, 218.0f, 364.0f, 617.0f, 1083.0f, 1916.0f, 3492.0f, 6384.0f, 11774.0f, P8_FC99};
+static const float VCF_K[5] = {0.0f, 0.53f, 1.84f, 3.07f, 3.90f};
+#ifndef P8_EG_OCT
+#define P8_EG_OCT 7.9f
+#endif
+
+static float vcf_cut_oct(float c)
+{
+    c = clampf(c, 0.0f, 99.0f);
+    int i = c >= 90.0f ? 9 : (int)(c / 10.0f);
+    float t = i == 9 ? (c - 90.0f) / 9.0f : (c - 10.0f * (float)i) / 10.0f;
+    return log2f(VCF_FC[i]) + t * (log2f(VCF_FC[i + 1]) - log2f(VCF_FC[i]));
+}
+
+static float vcf_k(float r)
+{
+    r = clampf(r, 0.0f, 15.0f);
+    int i = r >= 12.0f ? 3 : (int)(r / 4.0f);
+    float t = i == 3 ? (r - 12.0f) / 3.0f : (r - 4.0f * (float)i) / 4.0f;
+    float k = VCF_K[i] + t * (VCF_K[i + 1] - VCF_K[i]);
+    return k > 3.95f ? 3.95f : k;
+}
+
 void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
 {
     const float clk0 = P8_TG_CLK * e->a4 / 440.0f;
     const float det = exp2f(-clampf(e->detune_cents, 0.0f, 100.0f) / 1200.0f);
-    const float gstep = 1.0f / (P8_GATE_MS * 0.001f * e->fs);
     const float inv_fs = 1.0f / e->fs;
     int any = 0;
     for (int t = 0; t < P8_TG; t++) if (e->tg[t].amp_target > 0.0f) any = 1;
-    const float noise_t = any ? clampf(e->noise_level, 0.0f, 1.0f) : 0.0f;
+    /* DEG3 gate: any key down; keyboard tracking follows the highest key */
+    e->deg3.amp_target = any ? 1.0f : 0.0f;
+    {
+        float hi = -1.0f;
+        for (int t = 0; t < P8_VOICES; t++) if (e->tg[t].amp_target > 0.0f && e->tg[t].note > hi) hi = e->tg[t].note;
+        if (hi >= 0.0f) e->kbd_note = hi;
+    }
+    const float kbd_oct = (e->kbd_note - 60.0f) / 12.0f * (e->kbd == 2 ? 1.0f : e->kbd == 1 ? 0.5f : 0.0f);
+    const float cut_oct = vcf_cut_oct(e->vcf_c) + kbd_oct;
+    const float vk = vcf_k(e->vcf_r);
+    const float eg_oct = P8_EG_OCT * clampf(e->egint, -15.0f, 15.0f) / 15.0f;
+    const float fc_max = 0.42f * e->fs;
     float cf = exp2f((e->tune_cents + e->bend_semi * 100.0f) / 1200.0f);
     const float cf_static = cf;
     const float swp = exp2f(clampf(e->swp2, 0.0f, 48.0f) / 12.0f);        /* DCO2 offset, semitones */
@@ -666,23 +706,39 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             }
         }
 
-        /* integrate, coupling capacitor, noise, output */
-        e->noise_amp += (noise_t - e->noise_amp) * (gstep * 0.5f);
+        /* DEG3: its level (0..31, linear) moves the cutoff in octaves and
+         * sets the noise VCA, both measured as linear in the DEG level */
+        deg_tick(e, &e->deg3, 2);
+        const float e3 = deg_level(e->deg3.amp);
+        float oct = cut_oct + eg_oct * e3 / 31.0f;
+        float fc = exp2f(oct) ;
+        fc = fc < 20.0f ? 20.0f : fc > fc_max ? fc_max : fc;
+        const float vg = tanf(P8_PI * fc * inv_fs), VG = vg / (1.0f + vg), VB = 1.0f / (1.0f + vg);
+        const float G4 = VG * VG * VG * VG;
+        /* integrate, noise, VCF, output stage */
         e->rng = e->rng * 1664525u + 1013904223u;
-        float nz = ((float)(e->rng >> 8) * (1.0f / 8388608.0f) - 1.0f) * e->noise_amp * 0.5f;
+        float nz = ((float)(e->rng >> 8) * (1.0f / 8388608.0f) - 1.0f) * clampf(e->noise_level, 0.0f, 1.0f) * (e3 / 31.0f) * 0.5f;
         float o[2];
         for (int c = 0; c < 2; c++) {
             e->acc[c] += e->ring[c][e->rpos];
             e->ring[c][e->rpos] = 0.0f;
             float x = e->acc[c] + nz * 0.70710678f;
             float y;
-            if (e->tone) {                                   /* measured output: 54 Hz HP, 2 x 7.5 kHz LP */
-                y = e->hp_k * (e->dc_y[c] + x - e->dc_x[c]);
-                e->dc_x[c] = x; e->dc_y[c] = y;
-                for (int p = 0; p < P8_LP_POLES; p++) {
-                    float v = (y - e->lp_s[c][p]) * e->lp_g;
-                    y = v + e->lp_s[c][p]; e->lp_s[c][p] = y + v;
+            if (e->tone) {
+                /* VCF: zero-delay-feedback 4-pole ladder, feedback k solved
+                 * exactly; no level compensation (bass falls 1/(1+k)) */
+                float *st = e->vcf_s[c];
+                float S = VB * (VG * VG * VG * st[0] + VG * VG * st[1] + VG * st[2] + st[3]);
+                float y4 = (G4 * x + S) / (1.0f + vk * G4);
+                float u = x - vk * y4;
+                for (int p = 0; p < 4; p++) {
+                    float v = (u - st[p]) * VG;
+                    float yp = v + st[p]; st[p] = yp + v; u = yp;
                 }
+                /* output stage: 54 Hz high-pass, one pole at about 10 kHz */
+                y = e->hp_k * (e->dc_y[c] + u - e->dc_x[c]);
+                e->dc_x[c] = u; e->dc_y[c] = y;
+                { float v = (y - e->op_s[c]) * e->op_g; y = v + e->op_s[c]; e->op_s[c] = y + v; }
             } else {
                 y = x - e->dc_x[c] + e->dc_k * e->dc_y[c];
                 e->dc_x[c] = x; e->dc_y[c] = y;

@@ -26,12 +26,15 @@ static const float CTL_DEFAULT[NCTL] = {127, 127, 64, 64, 0, 0, 127, 0};
 /* Settings with raw values, in dump order after the controls. */
 enum { X_MODE, X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_LEVL, X_MRPH, X_HOLD, X_A4, X_TUNE, X_BND,
        X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, X_WSH1, X_WSH2, X_WMX1, X_WMX2,
-       X_ENV1, X_ENV2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2, X_D2, X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD, NEXT };
+       X_ENV1, X_ENV2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2, X_D2, X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD,
+       X_CUT, X_RES, X_KBD, X_POL, X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, NEXT };
 static const char *EXT_NAME[NEXT] = {"mode", "oct1", "oct2", "nois", "sprd", "levl", "mrph", "hold", "a4",
                                      "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad", "pw1", "pw2", "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2",
-                                     "env1", "env2", "leak", "a1", "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port", "pmod"};
+                                     "env1", "env2", "leak", "a1", "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port", "pmod",
+                                     "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3", "r3"};
 static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 0, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-                                       0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0, 31, 0, 31, 0, 0, 0};
+                                       0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0, 31, 0, 31, 0, 0, 0,
+                                       99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0};
 
 static t_class *pdoly8_class;
 
@@ -147,24 +150,35 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_FMS:  v = v != 0; e->fm_src = v != 0; break;
     case X_WSH1: case X_WSH2:                    /* Walsh loop position 0..127 */
         v = clampf_((float)v, 0.0f, 127.0f); e->wpos[i == X_WSH2] = (float)v; x->ext[i] = v; p8_update(e); return;
-    case X_ENV1: case X_ENV2: {                  /* DEG morph 0..127, -1 = own values (a1 ...) */
-        int g = i == X_ENV2;
+    case X_ENV1: case X_ENV2: case X_ENV3: {     /* DEG morph 0..127, -1 = own values (a1 ...) */
+        int g = i == X_ENV3 ? 2 : i == X_ENV2;
         v = v < 0 ? -1 : clampf_((float)v, 0.0f, 127.0f);
         e->env[g] = (float)v; x->ext[i] = v; p8_update(e);
-        for (int k = 0; k < 6; k++) x->ext[(g ? X_A2 : X_A1) + k] = e->deg[g][k];
+        for (int k = 0; k < 6; k++) x->ext[(g == 2 ? X_A3 : g ? X_A2 : X_A1) + k] = e->deg[g][k];
         return;
     }
     case X_LEAK: v = v != 0; e->leak = v != 0; break;          /* released voices at -55 dB */
     case X_PORT: v = clampf_((float)v, 0.0f, 127.0f);              /* 0 off .. 127 = 3 s */
         p8_set_port(e, 3.0f * ((float)v / 127.0f) * ((float)v / 127.0f)); break;
     case X_PMOD: v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); break;   /* 0 last note, 1 own, 2 legato */
+    case X_CUT: v = clampf_((float)v, 0.0f, 99.0f); e->vcf_c = (float)v; break;      /* VCF cutoff 0..99 */
+    case X_RES: v = clampf_((float)v, 0.0f, 15.0f); e->vcf_r = (float)v; break;      /* resonance 0..15 */
+    case X_KBD: v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); e->kbd = (int)v; break;   /* off, half, full */
+    case X_POL: case X_EGI: {                    /* polarity 1 / 2 and EG INT 0..15 -> signed depth */
+        if (i == X_POL) v = v < 1.5f ? 1 : 2; else v = clampf_((float)v, 0.0f, 15.0f);
+        x->ext[i] = v;
+        e->egint = (float)x->ext[X_EGI] * (x->ext[X_POL] < 1.5f ? -1.0f : 1.0f);
+        return;
+    }
+    case X_TRG: v = v < 1.5f ? 1 : 2; e->trig3 = (int)v; break;                     /* DEG3 single / multi */
     case X_A1: case X_D1: case X_BP1: case X_SL1: case X_SU1: case X_R1:
-    case X_A2: case X_D2: case X_BP2: case X_SL2: case X_SU2: case X_R2: {   /* own DEG values 0..31 */
-        int g = i >= X_A2, k = i - (g ? X_A2 : X_A1);
+    case X_A2: case X_D2: case X_BP2: case X_SL2: case X_SU2: case X_R2:
+    case X_A3: case X_D3: case X_BP3: case X_SL3: case X_SU3: case X_R3: {   /* own DEG values 0..31 */
+        int g = i >= X_A3 ? 2 : i >= X_A2, k = i - (g == 2 ? X_A3 : g ? X_A2 : X_A1);
         v = clampf_((float)v, 0.0f, 31.0f);
         x->ext[i] = v;
         if (x->restoring && e->env[g] >= 0.0f) return;          /* a dump with a morph position */
-        e->deg[g][k] = (float)v; e->env[g] = -1.0f; x->ext[g ? X_ENV2 : X_ENV1] = -1;
+        e->deg[g][k] = (float)v; e->env[g] = -1.0f; x->ext[g == 2 ? X_ENV3 : g ? X_ENV2 : X_ENV1] = -1;
         p8_update(e);
         return;
     }

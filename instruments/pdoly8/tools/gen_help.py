@@ -89,6 +89,13 @@ SETTINGS = [
     "port (0) portamento 0-127 = off to 3 s (not on the Poly-800)",
     "pmod (0) glide from: 0 the last note, 1 the voice's own last",
     "note, 2 the last note only while another key is held",
+    "cut (99) VCF cutoff 0-99 (66 Hz - 20 kHz, 4 poles, measured)",
+    "res (0) resonance 0-15 (no self-oscillation, as the original)",
+    "kbd (0) keyboard tracking 0 off, 1 half, 2 full (C4 = nominal)",
+    "pol (2) DEG3 polarity 2 up, 1 down; egi (0) EG INT 0-15",
+    "trg (2) DEG3 trigger 1 single, 2 multi",
+    "env3 (0) DEG3 morph (VCF and noise), -1 = own a3 ... r3",
+    "a3 d3 bp3 sl3 su3 r3: DEG3 values 0-31",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -102,7 +109,10 @@ ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
        ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("env1", -1, 127),
        ("env2", -1, 127), ("leak", 0, 1), ("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
        ("su1", 0, 31), ("r1", 0, 31), ("a2", 0, 31), ("d2", 0, 31), ("bp2", 0, 31), ("sl2", 0, 31),
-       ("su2", 0, 31), ("r2", 0, 31), ("port", 0, 127), ("pmod", 0, 2), ("bend", -1, 1)]
+       ("su2", 0, 31), ("r2", 0, 31), ("port", 0, 127), ("pmod", 0, 2), ("cut", 0, 99),
+       ("res", 0, 15), ("kbd", 0, 2), ("pol", 1, 2), ("egi", 0, 15), ("trg", 1, 2), ("env3", -1, 127),
+       ("a3", 0, 31), ("d3", 0, 31), ("bp3", 0, 31), ("sl3", 0, 31), ("su3", 0, 31), ("r3", 0, 31),
+       ("bend", -1, 1)]
 VINT = []
 
 
@@ -234,6 +244,15 @@ def build():
         "59: 2' / 68: 16'x8'x2' / 76: 8'x4'x2' / 85: all / 93: 4'x2' /",
         "102: 16'x8'x4' / 110: 8'x4' / 119: 16'x8' / 127 = 0.",
         "wmx fades from the feet sum to the Walsh loop."]))
+    sections.append(("VCF and DEG3", [
+        "One 4-pole VCF for the instrument, as the NJM2069, measured",
+        "on a Poly-800: cutoff 0-99 = 66 Hz ... 20 kHz (13 steps per",
+        "octave), resonance an uncompensated ladder (bass falls as it",
+        "rises, no self-oscillation). DEG3 (one, paraphonic) moves the",
+        "cutoff by up to 7.9 octaves (EG INT 15) and sets the noise",
+        "level, both linear in its level. Single trigger: only the",
+        "first key starts DEG3; multi: every key. Full tracking follows",
+        "the highest key 1:1 (C4 = nominal), half by 1/2."]))
     sections.append(("Envelopes (DEG1 / DEG2)", [
         "Each tone generator has its own 6-stage DEG as on the",
         "Poly-800 (attack, decay, break point, slope, sustain, release",

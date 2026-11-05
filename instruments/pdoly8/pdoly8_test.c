@@ -3,6 +3,7 @@
  *   ./pdoly8_test           run the checks
  *   ./pdoly8_test demos     checks, then demo WAVs into demos/
  */
+#define _DEFAULT_SOURCE
 #include "pdoly8_core.h"
 #include <math.h>
 #include <stdio.h>
@@ -410,6 +411,59 @@ static void test_port(void)
     CHECK(e.tg[0].glide == 0.0f, "glide does not end");
 }
 
+/* VCF and DEG3: resonance peak at the measured cutoff, single trigger does
+ * not restart DEG3 while keys are held (multi does), noise VCA linear in
+ * the DEG3 level */
+static void test_vcf(void)
+{
+    p8_engine_t e; buf_t b = {0};
+    p8_init(&e, FS);
+    setup(&e, P8_WHOLE, 0, 91, 0, 64, 0, 0);                 /* DCO silent, noise only */
+    e.noise_level = 1.0f; e.vcf_c = 50.0f; e.vcf_r = 15.0f; e.spread = 0.0f; p8_update(&e);
+    p8_voice_on(&e, 0, 60.0f); buf_render(&e, &b, 1.0f);
+    /* resonance peak by a bank of Goertzel filters, 600 .. 2000 Hz */
+    float best = 0.0f, bf = 0.0f;
+    for (float fq = 600.0f; fq <= 2000.0f; fq *= 1.01f) {
+        double s1 = 0, s2 = 0, c = 2.0 * cos(2.0 * M_PI * (double)fq / (double)FS), pw = 0;
+        for (size_t i = 4410; i < b.n; i++) {
+            double s0 = (double)b.l[i] + c * s1 - s2; s2 = s1; s1 = s0;
+            if (((i - 4410) & 2047) == 2047) { pw += s1 * s1 + s2 * s2 - c * s1 * s2; s1 = s2 = 0; }
+        }
+        if (pw > best) { best = (float)pw; bf = fq; }
+    }
+    printf("VCF cutoff 50, resonance 15: peak at %.0f Hz (Poly-800: about 1.05-1.1 kHz)\n", (double)bf);
+    CHECK(bf > 900.0f && bf < 1250.0f, "resonance peak at %g Hz", (double)bf);
+    buf_free(&b);
+
+    for (int trg = 1; trg <= 2; trg++) {
+        p8_init(&e, FS);
+        setup(&e, P8_WHOLE, 0, 91, 0, 64, 127, 0);
+        e.trig3 = trg; e.env[2] = -1.0f; { float d[6] = {16, 20, 10, 0, 10, 16}; memcpy(e.deg[2], d, sizeof d); } p8_update(&e);
+        float L[64], R[64];
+        p8_voice_on(&e, 0, 48.0f);
+        for (int i = 0; i < (int)(1.5f * FS / 64); i++) p8_render(&e, L, R, 64);
+        int st0 = e.deg3.stage;
+        p8_voice_on(&e, 1, 52.0f);
+        for (int i = 0; i < 4; i++) p8_render(&e, L, R, 64);
+        printf("DEG3 %s trigger: stage before second key %d, after %d\n", trg == 1 ? "single" : "multi", st0, e.deg3.stage);
+        CHECK(trg == 1 ? e.deg3.stage == st0 : e.deg3.stage == 1, "trigger %d", trg);
+    }
+
+    p8_init(&e, FS);
+    setup(&e, P8_WHOLE, 0, 91, 0, 64, 0, 0);
+    e.noise_level = 1.0f; e.tone = 0; e.env[2] = -1.0f;
+    float lv[2];
+    for (int k = 0; k < 2; k++) {
+        float d[6] = {0, 0, 31, 0, k ? 16.0f : 31.0f, 0}; memcpy(e.deg[2], d, sizeof d); p8_update(&e);
+        p8_voice_on(&e, 0, 60.0f); buf_render(&e, &b, 1.0f);
+        double sq = 0; for (size_t i = 22050; i < b.n; i++) sq += (double)(b.l[i] * b.l[i]);
+        lv[k] = (float)sqrt(sq / (double)(b.n - 22050)); buf_free(&b); p8_voice_off(&e, 0);
+    }
+    float rdb = 20.0f * log10f(lv[1] / lv[0]);
+    printf("noise at DEG3 sustain 16 vs 31: %.1f dB (linear in level: %.1f dB)\n", (double)rdb, (double)(20.0f * log10f(16.0f / 31.0f)));
+    CHECK(fabsf(rdb - 20.0f * log10f(16.0f / 31.0f)) < 0.5f, "noise VCA law %g", (double)rdb);
+}
+
 static void test_modes_levels(void)
 {
     p8_engine_t e; buf_t b = {0};
@@ -793,6 +847,44 @@ static void demo_port(void)
     buf_free(&b);
 }
 
+static void demo_vcf(void)
+{
+    p8_engine_t e; buf_t b = {0};
+    const float dt = 0.005f;
+    p8_init(&e, FS);
+    /* 1: pluck bass: saw all feet, DEG3 decays the cutoff (multi trigger) */
+    setup(&e, P8_WHOLE, 127, 64, 0, 64, 127, 0);
+    e.vcf_c = 18.0f; e.vcf_r = 10.0f; e.egint = 12.0f; e.trig3 = 2; e.kbd = 1;
+    e.env[0] = 0.0f; e.env[2] = -1.0f; { float d[6] = {0, 17, 0, 0, 0, 10}; memcpy(e.deg[2], d, sizeof d); } p8_update(&e);
+    static const int bass[16] = {33, 33, 45, 33, 36, 33, 40, 43, 33, 33, 45, 33, 31, 31, 43, 38};
+    for (int r = 0; r < 2; r++)
+        for (int i = 0; i < 16; i++) { p8_voice_on(&e, 0, (float)bass[i]); buf_render(&e, &b, 0.16f); p8_voice_off(&e, 0); buf_render(&e, &b, 0.05f); }
+    buf_render(&e, &b, 0.6f);
+    /* 2: pad, DOUBLE, slow filter envelope, single trigger: legato chords keep one sweep */
+    setup(&e, P8_DOUBLE, 127, 9, 0, 18, 64, 63);
+    e.detune_cents = 10.0f; e.vcf_c = 28.0f; e.vcf_r = 7.0f; e.egint = 9.0f; e.trig3 = 1; e.kbd = 0;
+    e.env[0] = e.env[1] = 79.0f; e.env[2] = -1.0f; { float d[6] = {22, 22, 20, 0, 20, 24}; memcpy(e.deg[2], d, sizeof d); }
+    p8_update(&e); p8_retune(&e);
+    static const int ch[4][4] = {{45, 52, 57, 60}, {41, 48, 57, 64}, {43, 50, 55, 62}, {40, 47, 55, 59}};
+    for (int c = 0; c < 4; c++) { for (int k = 0; k < 4; k++) p8_voice_on(&e, k, (float)ch[c][k]); buf_render(&e, &b, 2.4f); }
+    all_off(&e); buf_render(&e, &b, 3.5f);
+    /* 3: resonance sweep over a square chord (all feet), cutoff as an LFO */
+    setup(&e, P8_WHOLE, 0, 64, 0, 64, 127, 0);
+    e.vcf_r = 14.0f; e.egint = 0.0f; e.env[0] = 16.0f; e.env[2] = 0.0f; p8_update(&e);
+    chord(&e, ch[0], 4);
+    for (float t = 0.0f; t < 8.0f; t += dt) { e.vcf_c = 45.0f - 35.0f * cosf(t / 8.0f * 6.2831853f * 2.0f); buf_render(&e, &b, dt); }
+    all_off(&e); buf_render(&e, &b, 0.6f);
+    /* 4: breath: noise with the tone, DEG3 opens filter and noise together, full tracking */
+    setup(&e, P8_WHOLE, 0, 91, 0, 64, 110, 0);
+    e.noise_level = 0.4f; e.vcf_c = 30.0f; e.vcf_r = 4.0f; e.egint = 8.0f; e.kbd = 2; e.trig3 = 2;
+    e.env[0] = 79.0f; e.env[2] = -1.0f; { float d[6] = {18, 20, 18, 0, 18, 22}; memcpy(e.deg[2], d, sizeof d); } p8_update(&e);
+    static const int mel[8] = {69, 72, 76, 74, 72, 71, 67, 69};
+    for (int i = 0; i < 8; i++) { p8_voice_on(&e, 0, (float)mel[i]); buf_render(&e, &b, 0.7f); p8_voice_off(&e, 0); buf_render(&e, &b, 0.15f); }
+    buf_render(&e, &b, 2.0f);
+    wav_write("demos/pdoly8_vcf.wav", &b);
+    buf_free(&b);
+}
+
 int main(int argc, char **argv)
 {
     test_rom();
@@ -805,8 +897,9 @@ int main(int argc, char **argv)
     test_walsh();
     test_deg();
     test_port();
+    test_vcf();
     test_modes_levels();
-    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); demo_sync_fm(); demo_walsh(); demo_env(); demo_port(); }
+    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); demo_sync_fm(); demo_walsh(); demo_env(); demo_port(); demo_vcf(); }
     printf(fails ? "%d check(s) failed\n" : "all checks passed\n", fails);
     return fails != 0;
 }

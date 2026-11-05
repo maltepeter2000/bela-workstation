@@ -1,6 +1,6 @@
-# VCF / DEG3 calibration — status 2026-11-05
+# VCF / DEG3 calibration — status 2026-11-05 (evening)
 
-Measurements on Peter's Poly-800 Mk II (line out, 48 kHz). Analysed, **not yet built into pdoly8~**. Next step: record F3b–F7 (below), then implement VCF + DEG3 + tracking + noise VCA together and compare against the recordings.
+Measurements on Peter's Poly-800 Mk II (line out, 48 kHz). F1–F5 are **built into pdoly8~** (see README, VCF and DEG3). Still open: F3b half tracking (both runs came out identical, i.e. full), F6 (single/multi trigger, implemented after the manual) and F7 (saturation).
 
 ## Done and analysed
 
@@ -37,19 +37,30 @@ A chromatic/scale run over three octaves with a DCO: the resonance peak stays on
 
 Same 6 stages and ranges as DEG1/2 (manual), same CPU routine → reuse the measured DEG timing tables. Differences: one global DEG3 (paraphonic VCF and noise), single/multi trigger applies only here, target is the VCF cutoff (via EG INT 0–15, polarity) and the noise VCA — mappings still to be measured.
 
-## Still to record (F3b–F7)
+## F3b, F4, F5 (analysed and built in)
+
+- **F3b:** cutoff 40, resonance 8, keys C2–C5: resonance peak about 290, 540, 1050 Hz for C3, C4, C5 → full tracking 1:1, nominal cutoff (617 Hz, peak ~0.9·fc) at C4. The second run (meant as half) came out identical — half tracking still unconfirmed; modelled as 1/2.
+- **F4:** fitted cutoff per 0.1 s frame (ladder fit to the noise spectrum). Attack (A24): cutoff rises linearly in octaves with the DEG level, about 0.25 octave per level step; plateau at EG INT 15 = 7.9 octaves above cutoff 0 (≈ 15.7 kHz); EG INT 8 about half (0.54×). Release (R24): matches an exponential fall of the DEG level (amplitude law (L/31)² → level falls at half the dB rate), the same as DEG1/2. Polarity 1 mirrors it. Model vs recording: best fit at 7.9 octaves.
+- **F5:** noise level linear in amplitude (12: −1.8, 8: −5.3, 4: −11.5, 1: −24.7 dB). The DEG3 note (recorded with A16 D20 BP10 SU10 R16) shows the noise VCA linear in the DEG level: sustain 10 → −10 dB, release about 35 dB/s for R16 (DEG1 amplitude 64 dB/s → half).
+
+## Corrections after the build
+
+- The top of the cutoff table: the first recording (open filter, 40 notes) fits much better with 4 poles at about 20 kHz plus one output pole at 5 kHz (0.32 dB) than with 12.8 kHz (0.87 dB); F1 is nearly indifferent to the top value (1.23 vs 1.31 dB), so the table was refitted with 20 kHz at 99: 66, 128, 218, 364, 617, 1083, 1916, 3492, 6384, 11774, 20000 Hz.
+- Resonance 0: k = 0 (the fit gave 0.12, within its noise).
+
+## Still to record (F6–F7, and half tracking)
 
 Base setup: Mode 1; DCO1 octave 2, square, only 8', level 0; noise 15; VCF cutoff 99, resonance 0, KBD 0, polarity 2, EG INT 0, trigger 2; DEG3 and DEG1 A0 D0 BP31 SL0 SU31 R0; chorus/delay off; MG intensities 0; key C3; hold each setting about 3 s.
 
-- **F3b** — cutoff 40, resonance 8. KBD 2: keys C2, C3, C4, C5 single, 2 s each; then KBD 1: same.
-- **F4** — cutoff 0, resonance 8, DEG3 A24 D0 BP31 SL0 SU31 R24. (1) EG INT 15, polarity 2: hold 5 s, release, let it fade. (2) EG INT 8: same. (3) cutoff 99, EG INT 15, polarity 1: same.
-- **F5** — (1) noise 15, 12, 8, 4, 1, 3 s each. (2) noise 15, DEG3 A24 R24: hold 5 s, release, let it fade.
+- **F3b again, half only** — cutoff 40, resonance 8, KBD 1: keys C2, C3, C4, C5 single, 2 s each.
+- ~~**F4** — cutoff 0, resonance 8, DEG3 A24 D0 BP31 SL0 SU31 R24. (1) EG INT 15, polarity 2: hold 5 s, release, let it fade. (2) EG INT 8: same. (3) cutoff 99, EG INT 15, polarity 1: same.~~ (done)
+- ~~**F5**~~ (done)
 - **F6** — noise 0, DCO1 level 31 (square 8'), cutoff 20, resonance 8, EG INT 15, DEG3 A16 D20 BP10 SL0 SU10 R16. Trigger 1 (single): C3, E3, G3 overlapping (legato), then three staccato notes. Trigger 2 (multi): same.
 - **F7** — noise 0, DCO1 level 31, saw, all four feet, cutoff 60, resonance 15: keys C2, C3, C4, 2 s each.
 
-## Implementation plan
+## Implementation (built)
 
-- VCF: zero-delay-feedback 4-pole ladder per output channel, fc from the F1 table (log interpolation) × keyboard tracking × 2^(DEG3·EG INT·depth) × MG, k from the F2 table (clamped 3.95), saturation if F7 shows any.
-- DEG3: one global instance of the existing DEG code with single/multi trigger; drives cutoff and the noise VCA.
-- Output: 54 Hz high-pass + VCF + one pole at ~10 kHz (replaces the 2-pole 7.5 kHz stage).
-- Validate like the feet and DEG1/2: render the recorded protocol and compare spectra/envelopes.
+- VCF: zero-delay-feedback 4-pole ladder per output channel, feedback solved exactly; fc from the table (log interpolation) × keyboard tracking (highest key, C4 nominal) × 2^(7.9 oct · EG INT/15 · DEG3 level/31); k from the resonance table (held below 4). No saturation yet (F7).
+- DEG3: one instance of the DEG code; single trigger = only the first key of a phrase, multi = every key; drives cutoff and noise VCA (both linear in the DEG level).
+- Output: 54 Hz high-pass + VCF + one pole at 5 kHz (replaces the 2-pole 7.5 kHz stage).
+- Not yet: MG to VCF (param 84).
