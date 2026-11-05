@@ -188,6 +188,7 @@ void p8_set_fs(p8_engine_t *e, float fs)
     {   float lp = P8_LP_HZ < 0.45f * e->fs ? P8_LP_HZ : 0.45f * e->fs, g = tanf(P8_PI * lp / e->fs);
         e->lp_g = g / (1.0f + g); }
     p8_set_smooth(e, e->smooth_ms);
+    p8_set_port(e, e->port_s);
     for (int g = 0; g < 2; g++) deg_coeffs(e, g);
 }
 
@@ -412,11 +413,35 @@ static void tg_pitch(p8_engine_t *e, int t)
 
 void p8_voice_on(p8_engine_t *e, int k, float note)
 {
+    p8_voice_glide(e, k, note, -1.0f);
+}
+
+/* Portamento (not on the Poly-800): the counters jump to the new divider at
+ * once, as on the chip, and a pitch offset in cents from the old note to
+ * the new one fades out exponentially on top of the clock, so the glide
+ * ends exactly on the chip's own pitch. from < 0: no glide. */
+void p8_voice_glide(p8_engine_t *e, int k, float note, float from)
+{
     if (k < 0 || k >= P8_VOICES) return;
-    e->tg[k].note = note; tg_pitch(e, k); e->tg[k].amp_target = 1.0f; e->tg[k].trig = 1;
-    e->tg[k + 4].note = note; tg_pitch(e, k + 4);
+    for (int t = k; t < P8_TG; t += 4) {
+        p8_tg_t *g = &e->tg[t];
+        float c_old = 0.0f;
+        int glide = from >= 0.0f && e->port_k < 1.0f;
+        if (glide) { g->note = from; tg_pitch(e, t); c_old = (float)g->bit[0] + log2f(g->counter); }
+        g->note = note; tg_pitch(e, t);
+        /* 16' frequency ~ 1 / (counter * 2^n): the offset in cents from the old pitch */
+        g->glide = glide ? 1200.0f * (((float)g->bit[0] + log2f(g->counter)) - c_old) : 0.0f;
+    }
+    e->tg[k].amp_target = 1.0f; e->tg[k].trig = 1;
     e->tg[k + 4].amp_target = e->mode == P8_DOUBLE ? 1.0f : 0.0f;
     e->tg[k + 4].trig = e->mode == P8_DOUBLE;
+}
+
+void p8_set_port(p8_engine_t *e, float sec)
+{
+    e->port_s = sec < 0.0f ? 0.0f : sec;
+    /* exponential, about 95 % of the way after sec */
+    e->port_k = e->port_s <= 0.0f ? 1.0f : expf(-3.0f / (e->port_s * e->fs));
 }
 
 void p8_voice_off(p8_engine_t *e, int k)
@@ -606,6 +631,11 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             const int k = t & 3, slave = t >= 4;
             float clk = clk0 * cf * (slave ? det * swp : 1.0f);
             float inc = 2.0f * clk / g->counter * inv_fs;
+            if (g->glide != 0.0f) {                          /* portamento */
+                inc *= exp2f(g->glide / 1200.0f);
+                g->glide *= e->port_k;
+                if (fabsf(g->glide) < 0.01f) g->glide = 0.0f;
+            }
             int generic = pwm;
             if (!slave && fm_i > 0.0f) {                     /* linear FM of DCO1, through zero */
                 float m;

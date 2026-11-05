@@ -26,12 +26,12 @@ static const float CTL_DEFAULT[NCTL] = {127, 127, 64, 64, 0, 0, 127, 0};
 /* Settings with raw values, in dump order after the controls. */
 enum { X_MODE, X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_LEVL, X_MRPH, X_HOLD, X_A4, X_TUNE, X_BND,
        X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, X_WSH1, X_WSH2, X_WMX1, X_WMX2,
-       X_ENV1, X_ENV2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2, X_D2, X_BP2, X_SL2, X_SU2, X_R2, NEXT };
+       X_ENV1, X_ENV2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2, X_D2, X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD, NEXT };
 static const char *EXT_NAME[NEXT] = {"mode", "oct1", "oct2", "nois", "sprd", "levl", "mrph", "hold", "a4",
                                      "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad", "pw1", "pw2", "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2",
-                                     "env1", "env2", "leak", "a1", "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2"};
+                                     "env1", "env2", "leak", "a1", "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port", "pmod"};
 static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 0, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0,
-                                       0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0, 31, 0, 31, 0};
+                                       0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0, 31, 0, 31, 0, 0, 0};
 
 static t_class *pdoly8_class;
 
@@ -43,6 +43,7 @@ typedef struct _pdoly8 {
     t_float  bend;                 /* -1..1 */
     int      held[P8_VOICES]; t_float key[P8_VOICES]; unsigned age[P8_VOICES]; int keys;
     unsigned clock;
+    t_float  last;                 /* last note played, -1 none */
     int      restoring;
     float   *buf; int bufn;
 } t_pdoly8;
@@ -154,6 +155,9 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
         return;
     }
     case X_LEAK: v = v != 0; e->leak = v != 0; break;          /* released voices at -55 dB */
+    case X_PORT: v = clampf_((float)v, 0.0f, 127.0f);              /* 0 off .. 127 = 3 s */
+        p8_set_port(e, 3.0f * ((float)v / 127.0f) * ((float)v / 127.0f)); break;
+    case X_PMOD: v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); break;   /* 0 last note, 1 own, 2 legato */
     case X_A1: case X_D1: case X_BP1: case X_SL1: case X_SU1: case X_R1:
     case X_A2: case X_D2: case X_BP2: case X_SL2: case X_SU2: case X_R2: {   /* own DEG values 0..31 */
         int g = i >= X_A2, k = i - (g ? X_A2 : X_A1);
@@ -188,8 +192,14 @@ static void note_on(t_pdoly8 *x, t_float pitch)
         for (v = 0; v < P8_VOICES; v++) if (pick < 0 || x->age[v] < x->age[pick]) pick = v;
         x->keys--;
     }
+    /* portamento source: the last note played (pmod 0), this voice's own
+     * last note (1), or the last note only while another key is held (2) */
+    int pm = (int)x->ext[X_PMOD];
+    t_float from = pm == 1 ? (x->e.tg[pick].note > 0 ? x->e.tg[pick].note : -1) :
+                   (pm == 2 && x->keys == 0) ? -1 : x->last;
     x->held[pick] = 1; x->key[pick] = pitch; x->age[pick] = ++x->clock; x->keys++;
-    p8_voice_on(&x->e, pick, (float)pitch);
+    p8_voice_glide(&x->e, pick, (float)pitch, (float)from);
+    x->last = pitch;
 }
 
 static void note_off(t_pdoly8 *x, t_float pitch)
@@ -322,6 +332,7 @@ static void *pdoly8_new(void)
     t_pdoly8 *x = (t_pdoly8 *)pd_new(pdoly8_class);
     float sr = (float)sys_getsr();
     p8_init(&x->e, sr > 0.0f ? sr : 44100.0f);
+    x->last = -1;
     set_defaults(x);
     p8_settle(&x->e);
     x->bufn = 2 * 64;

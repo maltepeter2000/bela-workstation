@@ -86,6 +86,9 @@ SETTINGS = [
     "a1 d1 bp1 sl1 su1 r1 (0 0 31 0 31 0) DEG1 attack, decay,",
     "break point, slope, sustain, release 0-31 (sets env1 to -1)",
     "a2 d2 bp2 sl2 su2 r2: the same for DEG2",
+    "port (0) portamento 0-127 = off to 3 s (not on the Poly-800)",
+    "pmod (0) glide from: 0 the last note, 1 the voice's own last",
+    "note, 2 the last note only while another key is held",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -99,7 +102,7 @@ ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
        ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("env1", -1, 127),
        ("env2", -1, 127), ("leak", 0, 1), ("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
        ("su1", 0, 31), ("r1", 0, 31), ("a2", 0, 31), ("d2", 0, 31), ("bp2", 0, 31), ("sl2", 0, 31),
-       ("su2", 0, 31), ("r2", 0, 31), ("bend", -1, 1)]
+       ("su2", 0, 31), ("r2", 0, 31), ("port", 0, 127), ("pmod", 0, 2), ("bend", -1, 1)]
 VINT = []
 
 

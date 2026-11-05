@@ -46,6 +46,7 @@ typedef struct {
     float   amp, amp_target;     /* envelope output; gate (1 key down, 0 released) */
     float   elv;                 /* envelope level 0..31 during attack / rising slope */
     int     stage, gate, trig;   /* DEG stage 0 idle 1 A 2 D 3 slope 4 S 5 R 6 leak */
+    float   glide;               /* portamento: pitch offset in cents, fading to 0 */
     float   v;                   /* last output value, before panning */
     float   pan_l, pan_r;
 } p8_tg_t;
@@ -87,6 +88,7 @@ typedef struct {
     float   deg[2][6];           /* DEG1 / DEG2: attack, decay, break point, slope, sustain, release (0..31) */
     p8_deg_t dc[2];
     int     leak;                /* 1: released voices stay at -55 dB, as measured */
+    float   port_s, port_k;      /* portamento time (s) and per-sample factor */
     float   W[2][P8_FEET];       /* current per foot gain (wav x har x lev) */
     float   Wt[2][P8_FEET];      /* target */
     float   smooth_ms;
@@ -120,7 +122,9 @@ void  p8_settle(p8_engine_t *e);             /* jump gain smoothing to the targe
 
 /* voice k (0..3): DCO1 on TG k, DCO2 on TG k+4 (DOUBLE) */
 void  p8_voice_on(p8_engine_t *e, int k, float note);
+void  p8_voice_glide(p8_engine_t *e, int k, float note, float from);   /* portamento from a note */
 void  p8_voice_off(p8_engine_t *e, int k);
+void  p8_set_port(p8_engine_t *e, float sec);
 int   p8_voice_sounding(const p8_engine_t *e, int k);
 void  p8_retune(p8_engine_t *e);             /* after octave / interval change */
 

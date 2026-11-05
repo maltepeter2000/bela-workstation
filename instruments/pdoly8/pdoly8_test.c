@@ -390,6 +390,26 @@ static void test_deg(void)
     buf_free(&b);
 }
 
+/* portamento: starts on the old pitch, about 95 % there after the set time,
+ * and ends exactly on the chip's own divider pitch */
+static void test_port(void)
+{
+    p8_engine_t e; float L[64], R[64];
+    p8_init(&e, FS);
+    setup(&e, P8_WHOLE, 0, 91, 0, 64, 127, 0);
+    p8_set_port(&e, 0.3f);
+    p8_voice_on(&e, 0, 45.0f);
+    p8_voice_glide(&e, 0, 57.0f, 45.0f);
+    float g0 = e.tg[0].glide;
+    for (int i = 0; i < (int)(0.3f * FS / 64); i++) p8_render(&e, L, R, 64);
+    float g1 = e.tg[0].glide;
+    for (int i = 0; i < (int)(1.0f * FS / 64); i++) p8_render(&e, L, R, 64);
+    printf("portamento 0.3 s, A2 -> A3: start %.1f cents, after 0.3 s %.1f cents, after 1.3 s %.2f\n", (double)g0, (double)g1, (double)e.tg[0].glide);
+    CHECK(fabsf(g0 + 1200.0f) < 1.0f, "glide start %g", (double)g0);
+    CHECK(fabsf(g1) < 0.06f * 1200.0f && fabsf(g1) > 0.04f * 1200.0f, "glide after 0.3 s %g", (double)g1);
+    CHECK(e.tg[0].glide == 0.0f, "glide does not end");
+}
+
 static void test_modes_levels(void)
 {
     p8_engine_t e; buf_t b = {0};
@@ -745,6 +765,34 @@ static void demo_env(void)
     buf_free(&b);
 }
 
+static void demo_port(void)
+{
+    p8_engine_t e; buf_t b = {0};
+    p8_init(&e, FS);
+    /* saw 16'8', pluck-ish envelope, a line with glides (from the last note) */
+    setup(&e, P8_WHOLE, 127, 9, 0, 64, 127, 0);
+    e.env[0] = 111.0f; p8_update(&e); p8_set_port(&e, 0.12f);
+    static const int line[16] = {45, 57, 52, 55, 45, 60, 59, 55, 43, 55, 50, 53, 43, 62, 60, 57};
+    float last = -1.0f;
+    for (int r = 0; r < 2; r++)
+        for (int i = 0; i < 16; i++) {
+            p8_voice_glide(&e, 0, (float)line[i], last); last = (float)line[i];
+            buf_render(&e, &b, 0.2f);
+        }
+    p8_voice_off(&e, 0); buf_render(&e, &b, 0.8f);
+    /* slow glides between chords, each voice from its own last note, pad */
+    setup(&e, P8_DOUBLE, 127, 9, 0, 18, 64, 63);
+    e.env[0] = e.env[1] = 79.0f; e.detune_cents = 10.0f; p8_update(&e); p8_retune(&e); p8_set_port(&e, 0.9f);
+    static const int ch[4][4] = {{45, 52, 57, 60}, {41, 48, 57, 64}, {43, 50, 55, 62}, {40, 47, 55, 59}};
+    for (int c = 0; c < 4; c++) {
+        for (int k = 0; k < 4; k++) p8_voice_glide(&e, k, (float)ch[c][k], c ? (float)ch[c - 1][k] : -1.0f);
+        buf_render(&e, &b, 2.2f);
+    }
+    all_off(&e); buf_render(&e, &b, 3.0f);
+    wav_write("demos/pdoly8_port.wav", &b);
+    buf_free(&b);
+}
+
 int main(int argc, char **argv)
 {
     test_rom();
@@ -756,8 +804,9 @@ int main(int argc, char **argv)
     test_sync_fm();
     test_walsh();
     test_deg();
+    test_port();
     test_modes_levels();
-    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); demo_sync_fm(); demo_walsh(); demo_env(); }
+    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); demo_sync_fm(); demo_walsh(); demo_env(); demo_port(); }
     printf(fails ? "%d check(s) failed\n" : "all checks passed\n", fails);
     return fails != 0;
 }

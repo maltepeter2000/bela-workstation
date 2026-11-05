@@ -94,6 +94,8 @@ Two settings make any path smooth to sweep:
 | `leak` | 0/1 | 0 | 1: released voices stay at −55 dB, as measured on the original |
 | `a1 d1 bp1 sl1 su1 r1` | 0–31 | 0 0 31 0 31 0 | DEG1 attack, decay, break point, slope, sustain, release; setting one makes `env1` −1 |
 | `a2 d2 bp2 sl2 su2 r2` | 0–31 | 0 0 31 0 31 0 | the same for DEG2 |
+| `port` | 0–127 | 0 | portamento, off … 3 s (quadratic; not on the Poly-800) |
+| `pmod` | 0/1/2 | 0 | glide from: 0 the last note played, 1 the voice's own last note, 2 the last note only while another key is held (legato) |
 | `tone` | 0/1 | 1 | 1: output response measured on a Poly-800 with the VCF fully open (54 Hz high-pass, two poles at 7.5 kHz); 0: off (5 Hz DC block only) |
 
 ### Other messages
@@ -108,11 +110,11 @@ Two settings make any path smooth to sweep:
 | `panic` | all voices off |
 | `get <name>` | outlet 3 answers `value <name> <v>` |
 | `voice i p` / `voiceoff i` | play a voice directly |
-| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 45 settings |
+| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 47 settings |
 | `dump pdoly8 …` | restore such a line; lines of other voices are ignored |
 | `print` | voices, values and sample rate to the Pd window |
 
-Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 0 440 0 2 5 0 1 0 1 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0`.
+Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 0 440 0 2 5 0 1 0 1 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0`.
 
 ### PWM (`pw1`, `pw2`)
 
@@ -155,7 +157,13 @@ Against the recording, the model's level curves of all 34 measured notes match w
 | sound | gate | organ | pluck | piano | long release | pad | swell | brass |
 | A D BP SL SU R | 0 0 31 0 31 0 | 4 0 31 0 31 10 | 0 14 0 0 0 12 | 0 10 20 24 0 14 | 2 16 24 0 24 26 | 20 22 26 0 26 26 | 26 0 31 0 31 29 | 10 16 24 0 24 14 |
 
+Measured once more on a Poly-800 Mk II: in both single and multi trigger a new note does not retrigger the held ones; every voice keeps its own envelope (as the manual says, the trigger mode concerns DEG3). Decay 16 on its own reaches −40 dB after 0.64 s, as release 16 (0.63 s).
+
 The own values `a1` … `r2` override the loop (`env` −1). Changing the envelope while a note sounds changes the rates of the running stage, without jumps. The counters keep running on a new note, and a retriggered voice starts its attack from the level it is at.
+
+### Portamento (`port`, `pmod`)
+
+Not on the Poly-800, added here. On a new note the counters jump to the new divider at once, as on the chip; a pitch offset from the old note fades out exponentially on top of the clock (about 95 % after the set time), so every glide ends exactly on the chip's own pitch. The source is the last note played (`pmod 0`, good for lines over the 4 voices), the voice's own last note (`pmod 1`, chords glide voice by voice), or the last note only while another key is held (`pmod 2`, legato).
 
 ## How it works
 
@@ -205,6 +213,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - Against a Poly-800 (one key C over five octaves, two octave settings; square and saw, 16' alone and all feet; line out, VCF open, chorus off): over all 40 notes the harmonics up to −45 dB match within 0.37 dB on average (90 % within 0.63 dB), note levels within 0.5 dB. Below 8 kHz the deviation stays under 0.5 dB, at 12–17 kHz about 1.5 dB.
 
 - ROM reference point: code 0x21 gives 440.00 Hz on 8'. A4 on 8' measures 440.00 Hz; DCO2 with interval 7 and detune −20 cents within 0.01 Hz of the expected value.
+- Portamento: starts exactly on the old pitch (−1200 cents for an octave), 5 % left after the set time, ends at 0.
 - DEG: attack times (A16, A24, A31 to level 30) within 1 % of the recording, decay 31 at 2.17 dB/s (measured 2.1–2.2), morph loop closes; level curves of 34 recorded notes within 0.82 dB on average.
 - Walsh: on all 15 loop points the zero crossings per 16' period equal the sequency; loudness along the loop constant within 0.0001 dB, the loop closes; a Walsh point on C5 is harmonic within −78 dB below 16 kHz; Walsh with PWM, FM and sync stays finite.
 - Sync and FM: off = sample-identical; sync and FM spectra harmonic within −75 dB below 16 kHz; index 4 through-zero FM with sync stays finite and below full scale.
