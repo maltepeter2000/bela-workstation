@@ -98,7 +98,7 @@ Two settings make any path smooth to sweep:
 | `pmod` | 0/1/2 | 0 | glide from: 0 the last note played, 1 the voice's own last note, 2 the last note only while another key is held (legato) |
 | `cut` | 0–99 | 99 | VCF cutoff (66 Hz … 20 kHz, measured) |
 | `res` | 0–15 | 0 | VCF resonance (ladder feedback k 0 … 3.9, no self-oscillation) |
-| `kbd` | 0/1/2 | 0 | keyboard tracking off / half / full (highest key, C4 = nominal) |
+| `kbd` | 0/1/2 | 0 | keyboard tracking off / half / full (highest key; full: 1 oct/oct, nominal at C3; half: 0.5 oct/oct, nominal at C5 — measured) |
 | `pol` | 1/2 | 2 | DEG3 polarity: 2 opens the filter, 1 closes it |
 | `egi` | 0–15 | 0 | EG INT: DEG3 depth on the cutoff (15 = 7.9 octaves) |
 | `trg` | 1/2 | 2 | DEG3 trigger: 1 single (first key only), 2 multi (every key) |
@@ -181,7 +181,7 @@ One VCF for the whole instrument, as on the Poly-800 (NJM2069), measured on a re
 - **Resonance:** an uncompensated ladder: feedback k = 0, 0.53, 1.84, 3.07, 3.9 at 0, 4, 8, 12, 15, the bass falls by 1/(1+k) (−13.7 dB at 15), the cutoff does not move, no self-oscillation (k held below 4). Zero-delay-feedback ladder, solved exactly per sample.
 - **DEG3:** one envelope for the instrument (paraphonic, as the original), same stages, ranges and timing as DEG1/2. Its level moves the cutoff linearly in octaves: EG INT 15 at full level = +7.9 octaves (cutoff 0 opens to about 15.7 kHz), EG INT 8 about half; polarity 1 inverts. It also sets the noise level, linearly (DEG3 sustain 10 ≈ −10 dB). Single trigger: only the first key of a phrase starts DEG3; multi: every key.
 - **Noise:** level 0–15 linear in amplitude (12 = −1.8 dB, 8 = −5.3, 4 = −11.5, 1 = −24.7 dB, measured), through the VCF.
-- **Keyboard tracking:** full follows the highest key 1:1 (the resonance peak stays on the same harmonic over three octaves), C4 = nominal cutoff; half by 1/2 (not yet confirmed by a recording).
+- **Keyboard tracking:** full follows the highest key 1:1 (the resonance peak stays on the same harmonic over three octaves), C3 = nominal cutoff; half by 1/2 with the nominal cutoff at C5 (half of full minus one octave), both measured.
 
 The filter sweep of DEG3 against the recording: `demos/vcf_deg3_vs_poly800.png`.
 

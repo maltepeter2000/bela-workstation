@@ -617,7 +617,10 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         for (int t = 0; t < P8_VOICES; t++) if (e->tg[t].amp_target > 0.0f && e->tg[t].note > hi) hi = e->tg[t].note;
         if (hi >= 0.0f) e->kbd_note = hi;
     }
-    const float kbd_oct = (e->kbd_note - 60.0f) / 12.0f * (e->kbd == 2 ? 1.0f : e->kbd == 1 ? 0.5f : 0.0f);
+    /* measured on a Poly-800 II: full = 1 oct/oct with the nominal cutoff at C3,
+     * half = 0.5 oct/oct with the nominal cutoff at C5 (i.e. half of full minus one octave) */
+    const float kbd_oct = e->kbd == 2 ? (e->kbd_note - 48.0f) / 12.0f
+                        : e->kbd == 1 ? 0.5f * (e->kbd_note - 72.0f) / 12.0f : 0.0f;
     const float cut_oct = vcf_cut_oct(e->vcf_c) + kbd_oct;
     const float vk = vcf_k(e->vcf_r);
     const float eg_oct = P8_EG_OCT * clampf(e->egint, -15.0f, 15.0f) / 15.0f;
