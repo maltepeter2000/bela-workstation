@@ -12,8 +12,8 @@
 | KBD track | 0 / 50 / 100 % | 0 / 0.5 / 1 oct/oct | matches; reference keys measured |
 | EG INT | 0 to ±10 oct (±20 %) | 7.9 oct at 15 (measured) | measured value at the low edge of the tolerance |
 | Detune | 0, 6.5, 13, 26 cents | was 0 to 20 cents | **changed** to 0, 6.5, 13, 26 |
-| MG → DCO | 0 to ±160 cents | `mgi` 0–160 cents | **changed** (was 0–100) |
-| MG → VCF | 0 to ±10 2/3 oct | `mgv` | built (depth curve to be measured) |
+| MG → DCO | 0 to ±160 cents (±40) | `mgi` | measured 186 cents at 15 (12.4 per step), 14.5 Hz low-pass on the pitch CV |
+| MG → VCF | 0 to ±10 2/3 oct (±10 %) | `mgv` | measured ±7.9 oct at 15 (0.53 per step) |
 | Bend (joystick) | about +7 semitones (+35 cents adjustment) | `bnd` in semitones, free | set `bnd 7` for the original range |
 | EQ | treble ±10 dB at 2 kHz, bass ±10 dB at 300 Hz, 13 steps | `treb` `bass` | built (provisional shelves) |
 | DDL | 4–1024 ms, feedback 0–100 %, mod 0.1–10 Hz | `dtim dfb dmf dmi dlev` | built (provisional curves) |

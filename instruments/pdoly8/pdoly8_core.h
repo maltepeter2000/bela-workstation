@@ -69,6 +69,7 @@ typedef struct {
     float   mg_delay;            /* MG delay after the first key of a phrase, seconds */
     float   mg_t;                /* time since the first key (MG delay), seconds */
     int     mg_any;              /* a key was down in the last block */
+    float   mg_lp;               /* MG -> pitch low-pass state (measured: one pole, 14.5 Hz) */
     float   detune_cents;        /* group 2, 0..-20 cents (thinned CLK2) */
     int     interval;            /* group 2, semitones 0..12 */
     int     octave[2];           /* per DCO, -1 / 0 / +1 */

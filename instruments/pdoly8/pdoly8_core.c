@@ -24,6 +24,7 @@
 #ifndef P8_FC99
 #define P8_FC99     20000.0f
 #endif
+#define P8_MG_LP    14.5f         /* MG -> pitch: one-pole low-pass (fitted: depth falls to 47 % at 19 Hz) */
 #define P8_EQ_TR_F0 5672.0f       /* treble shelf corner: full boost reads +3 dB at 2 kHz (provisional) */
 #define P8_EQ_BS_F0 106.0f        /* bass shelf corner: full boost reads +3 dB at 300 Hz (provisional) */
 #define P8_DDL_LP   7000.0f       /* band limit of the delay path, 2 poles (provisional) */
@@ -675,8 +676,8 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     const int sync_on = e->sync && e->mode == P8_DOUBLE;
     const float fm_i = clampf(e->fm, 0.0f, 8.0f);
 
-    /* MG delay: counts from the first key of a phrase; the depth fades in
-     * over a second interval of the same length (provisional) */
+    /* MG delay: counts from the first key of a phrase; then the MG comes in
+     * at full depth (measured: no fade-in, a 10 ms ramp avoids a click) */
     if (any && !e->mg_any) e->mg_t = 0.0f;
     e->mg_any = any;
     const int mg_on = e->mg_cents > 0.0f || e->mg_vcf > 0.0f;
@@ -688,11 +689,12 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             if (e->mg_ph >= 1.0f) e->mg_ph -= 1.0f;
             float fade = 1.0f;
             if (e->mg_delay > 0.0f) {
-                if (e->mg_t < 3.0f * e->mg_delay) e->mg_t += inv_fs;
-                fade = clampf((e->mg_t - e->mg_delay) / e->mg_delay, 0.0f, 1.0f);
+                if (e->mg_t < e->mg_delay + 0.02f) e->mg_t += inv_fs;
+                fade = clampf((e->mg_t - e->mg_delay) / 0.01f, 0.0f, 1.0f);
             }
             mg_tri = (4.0f * fabsf(e->mg_ph - 0.5f) - 1.0f) * fade;
-            if (e->mg_cents > 0.0f) cf = cf_static * exp2f(e->mg_cents * mg_tri / 1200.0f);
+            e->mg_lp += (mg_tri - e->mg_lp) * (1.0f - expf(-2.0f * P8_PI * P8_MG_LP * inv_fs));
+            if (e->mg_cents > 0.0f) cf = cf_static * exp2f(e->mg_cents * e->mg_lp / 1200.0f);
         }
         for (int g = 0; g < 2; g++) {
             for (int f = 0; f < P8_FEET; f++) e->W[g][f] += e->ksm * (e->Wt[g][f] - e->W[g][f]);

@@ -75,8 +75,9 @@ Two settings make any path smooth to sweep:
 | `a4` | 300–600 Hz | 440 | tuning |
 | `tune` | ±50 cents | 0 | master tune |
 | `bnd` | 0–12 | 2 | pitch bend range in semitones (original up to ±7) |
-| `mgf` | Hz | 5 | vibrato rate |
-| `mgi` | 0–160 cents | 0 | vibrato depth, triangle on the master clock (Poly-800 II maximum ±160 cents) |
+| `mgf` | Hz | 5 | MG rate (also set by `mgr`) |
+| `mgi` | 0–200 cents | 0 | vibrato depth (triangle on the master clock, through a measured 14.5 Hz one-pole low-pass, so fast vibrato is shallower as on the original). Original 83: 12.4 cents per step, 186 at 15 |
+| `mgr` | 0–15, −1 | −1 | MG frequency in original steps (81, measured: 0 = 0.29 Hz, 3 = 1.26, 6 = 3.39, 8 = 5.22, 9 = 6.49, 12 = 11.1, 15 = 19.1 Hz); sets `mgf`; −1 = use `mgf` |
 | `hsnp` | 0–4 | 1 | plateau around each foot combination, in `har` steps |
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
 | `path` | 0/1/2 | 0 | morph path of `har`: 0 original (15 combinations), 1 ring (8, root kept, wraps), 2 figure eight (16, both nets, wraps) |
@@ -105,8 +106,8 @@ Two settings make any path smooth to sweep:
 | `env3` | −1…127 | 0 | DEG3 morph position (same loop as `env1`); −1 = own values |
 | `a3 d3 bp3 sl3 su3 r3` | 0–31 | 0 0 31 0 31 0 | DEG3 values |
 | `tone` | 0/1 | 1 | 1: VCF and output stage (54 Hz high-pass, one pole at 5 kHz); 0: raw tone generators (5 Hz DC block only) |
-| `mgd` | s | 0 | MG delay after the first key of a phrase; the depth then fades in over the same time (provisional, to be measured) |
-| `mgv` | 0–10.67 oct | 0 | MG to VCF cutoff (Poly-800 II parameter 84: up to ±10⅔ octaves) |
+| `mgd` | 0–15 | 0 | MG delay (82) after the first key of a phrase, measured 0 / 0.47 / 0.95 / 1.55 s at 0 / 5 / 10 / 15; then the MG comes in at full depth (no fade, as measured) |
+| `mgv` | 0–15 | 0 | MG to VCF cutoff (84), measured ±0.53 octaves per step, ±7.9 at 15 (the same scale as EG INT) |
 | `treb` `bass` | −6…6 | 0 | EQ (76/77): ±10 dB, first-order shelves, full boost +3 dB at 2 kHz / 300 Hz (service manual; curve provisional) |
 | `dtim` | 0–99 | 30 | digital delay time (71): 4 … 1024 ms (curve provisional: exponential) |
 | `dfb` | 0–15 | 0 | delay feedback (72): 0 … 100 % |
@@ -202,7 +203,7 @@ The filter sweep of DEG3 against the recording: `demos/vcf_deg3_vs_poly800.png`.
 - **Output response (`tone 1`).** Fitted to the recording: one-pole high-pass at 54 Hz, two poles at 7.5 kHz (VCF fully open plus output stage). A moving VCF comes later.
 - **Envelopes.** Each tone generator has its own DEG (see above). The counters keep running, so a note-on does not restart the phase.
 
-Not modelled yet: the Poly-800 (Mk I) chorus, the joystick, and the slight clock jitter that the pulse thinning of the detune adds. MG delay, EQ and delay curves are taken from the service manual and still to be calibrated against recordings.
+Not modelled: the Poly-800 (Mk I) chorus, the joystick, and the slight clock jitter that the pulse thinning of the detune adds. The MG is measured on a Poly-800 II; EQ and delay curves are taken from the service manual and still to be calibrated against recordings.
 
 ## Build
 

@@ -80,3 +80,13 @@ Base setup: 18 DCO = 1 (WHOLE); 11 octave = 2; 12 waveform = 1; 13/14/15/16 = 0/
 - DEG3: one instance of the DEG code; single trigger = only the first key of a phrase, multi = every key; drives cutoff and noise VCA (both linear in the DEG level).
 - Output: 54 Hz high-pass + VCF + one pole at 5 kHz (replaces the 2-pole 7.5 kHz stage).
 - Not yet: MG to VCF (param 84).
+
+## MG (Audio_34, 2026-11-05)
+
+Square 8', key C3, line out. Pitch tracked on the 5th harmonic (Hilbert, 7.75 ms smoothing).
+
+- **Rate (81)**, depth 83 = 15: 0 → 0.291 Hz, 3 → 1.262, 6 → 3.39, 8 → 5.22, 9 → 6.493, 12 → 11.09, 15 → 19.08 Hz. Waveform triangle (3rd harmonic −21 dB at slow rates).
+- **Depth falls with rate:** ±186, 182, 169, 149, 122, 87 cents at the rates above; the 3rd harmonic of the vibrato drops too → a low-pass on the pitch CV: one pole at 14.5 Hz fits within 1 %. Model after the build: ±179, 169, 150, 124, 89 cents.
+- **Depth (83)** at 5.2 Hz: 15 → ±157, 8 → ±89, 4 → ±46, 1 → ±11 cents → linear, 12.4 cents per step at DC (186 at 15).
+- **Delay (82):** the vibrato starts abruptly at full depth after 0.47 s (5), 0.95 s (10); 1.55 s (15) in the three M4 notes (the M3 note at 15 came in at about 1.2–1.3 s, unclear). Legato part not recorded.
+- **MG → VCF (84)**, saw all feet, cutoff 40, resonance 15: the resonance peak swings ±2.1 octaves at 4, about ±4.2 at 8 → 0.53 octaves per step, ±7.9 at 15 (the same scale as EG INT). The sweep is a sharp triangle (no low-pass on the VCF path).

@@ -28,16 +28,16 @@ enum { X_MODE, X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_LEVL, X_MRPH, X_HOLD, X_A4, X_T
        X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, X_WSH1, X_WSH2, X_WMX1, X_WMX2,
        X_ENV1, X_ENV2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2, X_D2, X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD,
        X_CUT, X_RES, X_KBD, X_POL, X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3,
-       X_MGD, X_MGV, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, NEXT };
+       X_MGD, X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, NEXT };
 static const char *EXT_NAME[NEXT] = {"mode", "oct1", "oct2", "nois", "sprd", "levl", "mrph", "hold", "a4",
                                      "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad", "pw1", "pw2", "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2",
                                      "env1", "env2", "leak", "a1", "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port", "pmod",
                                      "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3", "r3",
-                                     "mgd", "mgv", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev"};
+                                     "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev"};
 static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 0, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0,
                                        0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0, 31, 0, 31, 0, 0, 0,
                                        99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0,
-                                       0, 0, 0, 0, 30, 0, 0, 0, 0};
+                                       0, 0, -1, 0, 0, 30, 0, 0, 0, 0};
 
 static t_class *pdoly8_class;
 
@@ -136,7 +136,7 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_TUNE: v = clampf_((float)v, -50.0f, 50.0f); e->tune_cents = (float)v; break;
     case X_BND:  v = clampf_((float)v, 0.0f, 12.0f); e->bend_semi = (float)(x->bend * v); break;
     case X_MGF:  v = clampf_((float)v, 0.05f, 30.0f); e->mg_hz = (float)v; break;
-    case X_MGI:  v = clampf_((float)v, 0.0f, 160.0f);   /* Mk II: up to ±160 cents */ e->mg_cents = (float)v; break;
+    case X_MGI:  v = clampf_((float)v, 0.0f, 200.0f);   /* cents; measured 12.4 per step of 83, 186 at 15 */ e->mg_cents = (float)v; break;
     case X_HSNP: v = clampf_((float)v, 0.0f, 4.0f); e->hsnap = (float)v; x->ext[i] = v; p8_update(e); return;
     case X_CH1:  v = (t_float)(int)clampf_((float)v, 0.0f, 16.0f); break;     /* 0 = any channel */
     case X_TONE: v = v != 0; e->tone = v != 0; break;                     /* measured output response */
@@ -189,8 +189,20 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
         p8_update(e);
         return;
     }
-    case X_MGD: v = clampf_((float)v, 0.0f, 10.0f); e->mg_delay = (float)v; break;      /* MG delay, s */
-    case X_MGV: v = clampf_((float)v, 0.0f, 10.6667f); e->mg_vcf = (float)v; break;    /* MG -> VCF, octaves */
+    case X_MGD: {                                /* MG delay 0..15 (82), measured: 0, 0.47, 0.95, 1.55 s at 0/5/10/15 */
+        static const float T[4] = {0.0f, 0.47f, 0.95f, 1.55f};
+        v = clampf_((float)v, 0.0f, 15.0f); float q = (float)v / 5.0f; int a = q >= 3.0f ? 2 : (int)q;
+        e->mg_delay = T[a] + (q - (float)a) * (T[a + 1] - T[a]); break;
+    }
+    case X_MGV: v = clampf_((float)v, 0.0f, 15.0f); e->mg_vcf = 7.9f * (float)v / 15.0f; break;   /* MG -> VCF (84): +-7.9 oct at 15, measured */
+    case X_MGR: {                                /* MG frequency 0..15 (81), measured; sets mgf. -1 = leave mgf */
+        static const float S[7] = {0, 3, 6, 8, 9, 12, 15}, HZ[7] = {0.291f, 1.262f, 3.39f, 5.22f, 6.493f, 11.09f, 19.08f};
+        if (v < 0) { v = -1; break; }
+        v = clampf_((float)v, 0.0f, 15.0f);
+        int a = 0; while (a < 5 && (float)v > S[a + 1]) a++;
+        float t = ((float)v - S[a]) / (S[a + 1] - S[a]);
+        e->mg_hz = HZ[a] * powf(HZ[a + 1] / HZ[a], t); x->ext[X_MGF] = e->mg_hz; break;
+    }
     case X_TREB: case X_BASS:                    /* EQ steps -6..6 (+-10 dB) */
         v = (t_float)(int)lroundf(clampf_((float)v, -6.0f, 6.0f)); x->ext[i] = v;
         p8_set_eq(e, (float)x->ext[X_TREB], (float)x->ext[X_BASS]); return;
