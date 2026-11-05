@@ -25,10 +25,10 @@ static const float CTL_DEFAULT[NCTL] = {127, 127, 64, 64, 0, 0, 127, 0};
 
 /* Settings with raw values, in dump order after the controls. */
 enum { X_MODE, X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_LEVL, X_MRPH, X_HOLD, X_A4, X_TUNE, X_BND,
-       X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, X_PW1, X_PW2, NEXT };
+       X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, NEXT };
 static const char *EXT_NAME[NEXT] = {"mode", "oct1", "oct2", "nois", "sprd", "levl", "mrph", "hold", "a4",
-                                     "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad", "pw1", "pw2"};
-static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 1, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1, 64, 64};
+                                     "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad", "pw1", "pw2", "sync", "swp2", "fm", "fmr", "fms"};
+static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 1, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0};
 
 static t_class *pdoly8_class;
 
@@ -134,6 +134,12 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
         e->pw_t[i == X_PW2] = 0.5f + 0.47f * (d >= 0.0f ? d / 63.0f : d / 64.0f);
         x->ext[i] = v; p8_update(e); return;
     }
+    case X_SYNC: v = v != 0; e->sync = v != 0; break;                     /* DCO2 restarts with DCO1 */
+    case X_SWP2: v = clampf_((float)v, 0.0f, 48.0f); e->swp2 = (float)v; break;   /* semitones */
+    case X_FM:   v = clampf_((float)v, 0.0f, 127.0f);                    /* index 0..8, 1 at about 45 */
+        e->fm = 8.0f * ((float)v / 127.0f) * ((float)v / 127.0f); break;
+    case X_FMR:  v = clampf_((float)v, 0.125f, 16.0f); e->fm_ratio = (float)v; break;
+    case X_FMS:  v = v != 0; e->fm_src = v != 0; break;
     default: return;
     }
     x->ext[i] = v;

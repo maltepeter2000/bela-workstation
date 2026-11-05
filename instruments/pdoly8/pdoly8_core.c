@@ -192,6 +192,7 @@ void p8_init(p8_engine_t *e, float fs)
     e->har[0] = e->har[1] = 64.0f;
     e->lev[0] = 1.0f;
     e->hsnap = 1.0f;
+    e->fm_ratio = 1.0f;
     e->pw[0] = e->pw[1] = e->pw_t[0] = e->pw_t[1] = 0.5f;
     e->pfade = 1;
     e->smooth_ms = 8.0f;
@@ -311,6 +312,60 @@ static float tg_value_pw(const p8_tg_t *g, const float W[P8_FEET], float w)
     return s * g->amp;
 }
 
+/* Advance a tone generator by span samples, ending tend samples before the
+ * end of the current sample, and place every edge as a band-limited step.
+ * generic 0: the plain counter (inc > 0, square feet); generic 1: every foot
+ * as a pulse of width w, either direction (through-zero FM). Returns the time
+ * (tau) of the first forward wrap of the 16' period, or -1. */
+static float tg_run(p8_engine_t *e, p8_tg_t *g, const float W[P8_FEET], float w, int generic,
+                    float inc, float span, float tend)
+{
+    float wrap = -1.0f;
+    const float d = inc * span;
+    if (span <= 0.0f) return wrap;
+    if (!generic) {
+        const uint32_t P16 = 2u << g->bit[0];
+        g->ph += d;
+        while (g->ph >= 1.0f) {
+            g->ph -= 1.0f;
+            g->cnt++;
+            float tau = tend + g->ph / inc;
+            if (tau > tend + span) tau = tend + span;
+            if (wrap < 0.0f && (g->cnt & (P16 - 1u)) == 0u) wrap = tau;
+            float vn = tg_value(g, W);
+            if (vn != g->v) { float dv = vn - g->v; step_sharp(e, dv * g->pan_l, dv * g->pan_r, tau); g->v = vn; }
+        }
+        return wrap;
+    }
+    if (d == 0.0f) return wrap;
+    float dsum = 0.0f;
+    for (int f = 0; f < P8_FEET; f++) {
+        const uint32_t P = 2u << g->bit[f];
+        const float Pf = (float)P, x0 = (float)(g->cnt & (P - 1u)) + g->ph, x1 = x0 + d;
+        const float r = (1.0f - w) * Pf, a = W[f] * g->amp;
+        const float lo = d > 0.0f ? x0 : x1, hi = d > 0.0f ? x1 : x0;
+        const float dir = d > 0.0f ? 1.0f : -1.0f;
+        for (int kk = (int)floorf(lo / Pf) - 1; (float)kk * Pf <= hi + Pf; kk++) {
+            float pr = (float)kk * Pf + r, pf = (float)kk * Pf;
+            if (pr > lo && pr <= hi) {                       /* rising edge forward */
+                float tau = tend + span * (1.0f - (pr - x0) / d);
+                step_sharp(e, dir * a * g->pan_l, dir * a * g->pan_r, tau); dsum += dir * a;
+            }
+            if (pf > lo && pf <= hi) {                       /* falling edge forward */
+                float tau = tend + span * (1.0f - (pf - x0) / d);
+                step_sharp(e, -dir * a * g->pan_l, -dir * a * g->pan_r, tau); dsum -= dir * a;
+                if (f == 0 && d > 0.0f && tau > wrap) wrap = tau;
+            }
+        }
+    }
+    g->v += dsum;
+    float total = g->ph + d, fl = floorf(total);
+    g->cnt += (uint32_t)(int32_t)fl;
+    g->ph = total - fl;
+    if (g->ph >= 1.0f) { g->ph -= 1.0f; g->cnt++; }
+    return wrap;
+}
+
 void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
 {
     const float clk0 = P8_TG_CLK * e->a4 / 440.0f;
@@ -322,6 +377,9 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     const float noise_t = any ? clampf(e->noise_level, 0.0f, 1.0f) : 0.0f;
     float cf = exp2f((e->tune_cents + e->bend_semi * 100.0f) / 1200.0f);
     const float cf_static = cf;
+    const float swp = exp2f(clampf(e->swp2, 0.0f, 48.0f) / 12.0f);        /* DCO2 offset, semitones */
+    const int sync_on = e->sync && e->mode == P8_DOUBLE;
+    const float fm_i = clampf(e->fm, 0.0f, 8.0f);
 
     for (unsigned i = 0; i < n; i++) {
         if (e->mg_cents > 0.0f) {                            /* MG: triangle on the master clock */
@@ -336,6 +394,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             if (fabsf(e->pw[g] - e->pw_t[g]) < 1e-6f) e->pw[g] = e->pw_t[g];
         }
 
+        float sync_tau[P8_VOICES] = {-1.0f, -1.0f, -1.0f, -1.0f};
         for (int t = 0; t < P8_TG; t++) {
             p8_tg_t *g = &e->tg[t];
             if (g->amp_target <= 0.0f && g->amp <= 0.0f && g->v == 0.0f) continue;
@@ -353,33 +412,35 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 continue;
             }
             /* counter steps: band-limited edges */
-            float clk = clk0 * cf * (t >= 4 ? det : 1.0f);
+            const int k = t & 3, slave = t >= 4;
+            float clk = clk0 * cf * (slave ? det * swp : 1.0f);
             float inc = 2.0f * clk / g->counter * inv_fs;
-            if (pwm) {                                       /* edges of every foot pulse */
-                float dsum = 0.0f;
-                for (int f = 0; f < P8_FEET; f++) {
-                    uint32_t P = 2u << g->bit[f];
-                    float Pf = (float)P, a0 = (float)(g->cnt & (P - 1u)) + g->ph, b0 = a0 + inc;
-                    float r = (1.0f - w) * Pf, d = W[f] * g->amp;
-                    if (a0 < r && r <= b0)           { float tau = (b0 - r) / inc;        step_sharp(e, d * g->pan_l, d * g->pan_r, tau); dsum += d; }
-                    if (a0 < Pf && Pf <= b0)         { float tau = (b0 - Pf) / inc;       step_sharp(e, -d * g->pan_l, -d * g->pan_r, tau); dsum -= d; }
-                    if (a0 < r + Pf && r + Pf <= b0) { float tau = (b0 - r - Pf) / inc;   step_sharp(e, d * g->pan_l, d * g->pan_r, tau); dsum += d; }
+            int generic = pwm;
+            if (!slave && fm_i > 0.0f) {                     /* linear FM of DCO1, through zero */
+                float m;
+                if (e->fm_src == 1) {                        /* DCO2 as modulator (last sample) */
+                    const p8_tg_t *s2 = &e->tg[k + 4];
+                    float full = 0.0f;
+                    for (int f = 0; f < P8_FEET; f++) full += 0.5f * e->W[1][f];
+                    m = (full > 1e-6f && s2->amp > 0.0f) ? s2->v / (full * s2->amp) : 0.0f;
+                } else {                                     /* sine at fmr x the 16' frequency */
+                    g->mph += e->fm_ratio * inc / (float)(2u << g->bit[0]);
+                    g->mph -= floorf(g->mph);
+                    m = sinf(2.0f * P8_PI * g->mph);
                 }
-                g->v += dsum;
-                g->ph += inc;
-                while (g->ph >= 1.0f) { g->ph -= 1.0f; g->cnt++; }
-                continue;
+                inc *= 1.0f + fm_i * m;
+                generic = 1;
             }
-            g->ph += inc;
-            while (g->ph >= 1.0f) {
-                g->ph -= 1.0f;
-                g->cnt++;
-                vn = tg_value(g, W);
-                if (vn != g->v) {
-                    float d = vn - g->v, tau = g->ph / inc;
-                    step_sharp(e, d * g->pan_l, d * g->pan_r, tau > 1.0f ? 1.0f : tau);
-                    g->v = vn;
-                }
+            if (slave && sync_tau[k] >= 0.0f) {              /* hard sync: reset at DCO1's wrap */
+                float tau = sync_tau[k];
+                tg_run(e, g, W, w, 1, inc, 1.0f - tau, tau);
+                g->cnt = 0; g->ph = 0.0f;
+                vn = tg_value_pw(g, W, w);
+                if (vn != g->v) { float d = vn - g->v; step_sharp(e, d * g->pan_l, d * g->pan_r, tau); g->v = vn; }
+                tg_run(e, g, W, w, 1, inc, tau, 0.0f);
+            } else {
+                float wrap = tg_run(e, g, W, w, generic, inc, 1.0f, 0.0f);
+                if (!slave && sync_on) sync_tau[k] = wrap;
             }
         }
 

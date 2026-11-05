@@ -73,6 +73,11 @@ SETTINGS = [
     "pfad (1) 1: a fading foot rises in power, not in amplitude",
     "pw1, pw2 (64) pulse width of DCO1 / DCO2: 0-127 = 3-97 %,",
     "64 = square; works on every foot at once (see PWM)",
+    "sync (0) 1: DCO2 restarts at every period of DCO1 (DOUBLE)",
+    "swp2 (0) DCO2 pitch offset 0-48 semitones, continuous",
+    "fm (0) 0-127: FM index of DCO1, 0-8 (through zero above 45)",
+    "fmr (1) FM ratio of the sine modulator to DCO1, 0.125-16",
+    "fms (0) FM source: 0 internal sine, 1 DCO2 (cross FM)",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -81,7 +86,8 @@ ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
        ("a4", 400, 480), ("tune", -50, 50), ("bnd", 0, 12), ("mgf", 0, 30),
        ("mgi", 0, 100), ("hsnp", 0, 4), ("ch1", 0, 16), ("tone", 0, 1),
        ("path", 0, 2), ("norm", 0, 1), ("pfad", 0, 1), ("pw1", 0, 127),
-       ("pw2", 0, 127), ("bend", -1, 1)]
+       ("pw2", 0, 127), ("sync", 0, 1), ("swp2", 0, 48),
+       ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("bend", -1, 1)]
 VINT = []
 
 
@@ -194,6 +200,14 @@ def build():
         "edge stays on the counter step and the rising edge moves.",
         "On the saw net this gives pulse staircases. All edges stay",
         "band-limited; norm also evens out the level of narrow pulses."]))
+    sections.append(("Sync and FM", [
+        "sync 1: DCO2's counter restarts at every 16' period of DCO1,",
+        "at the exact sub-sample time. Sweep DCO2 with swp2 (or intv,",
+        "oct2) for the classic sync sound; lev1 0 to hear DCO2 alone.",
+        "fm: linear FM of DCO1's counter rate by a sine at fmr times",
+        "its 16' frequency (fms 0) or by DCO2 (fms 1). Above index 1",
+        "the counter runs backwards for a moment (through zero), so",
+        "integer ratios stay harmonic. All edges stay band-limited."]))
     sections.append(("Envelopes", [
         "pdoly8~ has no envelopes and no filter yet. A key gates its",
         "voice with a short de-click ramp; shape the level with an",

@@ -42,6 +42,7 @@ typedef struct {
     int     bit[P8_FEET];        /* counter bit per foot (16', 8', 4', 2') */
     uint32_t cnt;                /* binary counter (free running, never reset) */
     float   ph;                  /* fraction of the next count, 0..1 */
+    float   mph;                 /* FM sine phase (DCO1 TGs) */
     float   amp, amp_target;     /* gate with a short de-click ramp */
     float   v;                   /* last output value, before panning */
     float   pan_l, pan_r;
@@ -67,6 +68,11 @@ typedef struct {
     int     pfade;               /* 1: fading foot follows sqrt (linear power) */
     float   norm;                /* 0..1: hold the loudness constant over the morph */
     float   pw[2], pw_t[2];      /* pulse width per DCO, 0.5 = square (current, target) */
+    int     sync;                /* 1: DCO2 restarts at every 16' period of DCO1 (DOUBLE) */
+    float   swp2;                /* DCO2 pitch offset 0..48 semitones, continuous (sync sweep) */
+    float   fm;                  /* linear FM index of DCO1, 0..8, through zero above 1 */
+    float   fm_ratio;            /* sine modulator: ratio to DCO1's 16' frequency */
+    int     fm_src;              /* 0 internal sine, 1 DCO2 */
     float   W[2][P8_FEET];       /* current per foot gain (wav x har x lev) */
     float   Wt[2][P8_FEET];      /* target */
     float   smooth_ms;

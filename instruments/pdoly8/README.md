@@ -83,6 +83,11 @@ Two settings make any path smooth to sweep:
 | `norm` | 0–1 | 0 | hold the loudness constant over the morph |
 | `pfad` | 0/1 | 1 | 1: a fading foot rises in power (√), 0: in amplitude |
 | `pw1` / `pw2` | 0–127 | 64 | pulse width of DCO1 / DCO2: 3–97 %, 64 = square; acts on every foot (see PWM) |
+| `sync` | 0/1 | 0 | 1: DCO2 restarts at every 16' period of DCO1 (hard sync, DOUBLE) |
+| `swp2` | 0–48 | 0 | DCO2 pitch offset in semitones, continuous (sync sweeps; also without sync) |
+| `fm` | 0–127 | 0 | linear FM index of DCO1, 0–8 (quadratic; index 1 at about 45, through zero above) |
+| `fmr` | 0.125–16 | 1 | ratio of the sine modulator to DCO1's 16' frequency |
+| `fms` | 0/1 | 0 | FM source: 0 internal sine, 1 DCO2 (cross FM) |
 | `tone` | 0/1 | 1 | 1: output response measured on a Poly-800 with the VCF fully open (54 Hz high-pass, two poles at 7.5 kHz); 0: off (5 Hz DC block only) |
 
 ### Other messages
@@ -97,15 +102,21 @@ Two settings make any path smooth to sweep:
 | `panic` | all voices off |
 | `get <name>` | outlet 3 answers `value <name> <v>` |
 | `voice i p` / `voiceoff i` | play a voice directly |
-| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 21 settings |
+| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 26 settings |
 | `dump pdoly8 …` | restore such a line; lines of other voices are ignored |
 | `print` | voices, values and sample rate to the Pd window |
 
-Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 1 440 0 2 5 0 1 0 1 0 0 1 64 64`.
+Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 1 440 0 2 5 0 1 0 1 0 0 1 64 64 0 0 0 1 0`.
 
 ### PWM (`pw1`, `pw2`)
 
 Each foot becomes the AND of its square with a copy shifted by part of its period, a phase offset on the counter: the falling edge stays on the counter step, the rising edge moves, width 3–97 % of each foot's own period. With one foot this is classic PWM; with several feet the pulses stay locked, and on the saw net they form pulse staircases. The pulses are DC free, every edge is band-limited (a 10 % pulse on a 4.2 kHz 2' shows no component above −85 dB), and the width is smoothed like the other controls. `norm` also evens out the level of narrow pulses (pulse power 4w(1−w) of the square's). At 64 the output is the plain square (the pulse path differs by less than −74 dB).
+
+### Sync and FM
+
+- **Hard sync (`sync 1`):** DCO2's counter restarts at every 16' period of DCO1, at the exact sub-sample time, with a band-limited step. Sweep DCO2 with `swp2` (continuous, 0–48 semitones) or `intv`/`oct2`; `lev1 0` lets DCO2 be heard alone. Feet, nets and PWM of DCO2 all go through the sync.
+- **Linear FM (`fm`, `fmr`, `fms`):** DCO1's counter rate is modulated by a sine at `fmr` times its 16' frequency, or by DCO2 (cross FM). Above index 1 the counter runs backwards for a moment (through-zero FM), so integer ratios stay harmonic; the edges of every foot are found in both directions and stay band-limited.
+- Measured: sync (DCO2 at +7.3 semitones) and FM (ratio 1, index 1 and 3) keep every component below 16 kHz harmonic within −75 dB; deep through-zero FM with sync on 4 low voices peaks at 0.72. With `fm 0` and `sync 0` the output is sample-identical to before.
 
 ## How it works
 
@@ -155,6 +166,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - Against a Poly-800 (one key C over five octaves, two octave settings; square and saw, 16' alone and all feet; line out, VCF open, chorus off): over all 40 notes the harmonics up to −45 dB match within 0.37 dB on average (90 % within 0.63 dB), note levels within 0.5 dB. Below 8 kHz the deviation stays under 0.5 dB, at 12–17 kHz about 1.5 dB.
 
 - ROM reference point: code 0x21 gives 440.00 Hz on 8'. A4 on 8' measures 440.00 Hz; DCO2 with interval 7 and detune −20 cents within 0.01 Hz of the expected value.
+- Sync and FM: off = sample-identical; sync and FM spectra harmonic within −75 dB below 16 kHz; index 4 through-zero FM with sync stays finite and below full scale.
 - PWM: measured duty equals the set width (10, 25, 75, 90 %) within 0.1 %; the pulse path at 50 % matches the square path within −74.9 dB; narrow pulses alias-free (−85 dB).
 - Paths 1 and 2: every point exact (±1 step), one change per step, both loops close (127 = 0), every 16'-rooted combination present (path 2: in both nets), largest gain change per 0.01 step 0.04; `norm 1` holds the loudness within 0.0001 dB.
 - Foot path: all 15 knots exact (also ±1 step with `hsnp 1`), neighbours differ in exactly one foot, largest gain change per 0.01 `har` step 0.0014 (no jumps).

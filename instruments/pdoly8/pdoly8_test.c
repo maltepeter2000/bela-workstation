@@ -271,6 +271,42 @@ static void test_pwm(void)
     }
 }
 
+/* sync and FM: index 0 and sync off leave the sound unchanged; deep
+ * through-zero FM stays bounded; analysis WAVs for the spectra */
+static void test_sync_fm(void)
+{
+    p8_engine_t e; buf_t a = {0}, b = {0};
+    p8_init(&e, FS);
+    setup(&e, P8_DOUBLE, 127, 64, 0, 9, 64, 63);
+    p8_voice_on(&e, 0, 57.0f); buf_render(&e, &a, 0.5f);
+    p8_init(&e, FS);
+    setup(&e, P8_DOUBLE, 127, 64, 0, 9, 64, 63);
+    e.fm = 0.0f; e.fm_ratio = 2.0f; e.swp2 = 0.0f; e.sync = 0;
+    p8_voice_on(&e, 0, 57.0f); buf_render(&e, &b, 0.5f);
+    float d = 0.0f;
+    for (size_t i = 0; i < a.n; i++) { float x = fabsf(a.l[i] - b.l[i]); if (x > d) d = x; }
+    CHECK(d == 0.0f, "FM 0 / sync 0 changes the sound (%g)", (double)d);
+    buf_free(&a); buf_free(&b);
+
+    float worst = 0.0f;
+    for (int src = 0; src <= 1; src++) {
+        p8_init(&e, FS);
+        setup(&e, P8_DOUBLE, 64, 64, 127, 64, 64, 63);
+        e.fm = 4.0f; e.fm_ratio = 1.5f; e.fm_src = src; e.sync = 1; e.swp2 = 7.3f;
+        static const int ch[4] = {36, 43, 48, 52};
+        for (int k = 0; k < 4; k++) p8_voice_on(&e, k, (float)ch[k]);
+        buf_render(&e, &a, 2.0f);
+        float p = peak(&a, 2205);
+        int bad = 0;
+        for (size_t i = 0; i < a.n; i++) if (!isfinite(a.l[i])) bad = 1;
+        CHECK(!bad, "FM src %d: not finite", src);
+        if (p > worst) worst = p;
+        buf_free(&a);
+    }
+    printf("deep through-zero FM (index 4) with sync, 4 voices: peak %.3f, finite\n", (double)worst);
+    CHECK(worst <= 1.0f, "FM too loud (%g)", (double)worst);
+}
+
 static void test_modes_levels(void)
 {
     p8_engine_t e; buf_t b = {0};
@@ -502,6 +538,57 @@ static void demo_pwm(void)
     buf_free(&b);
 }
 
+static void demo_sync_fm(void)
+{
+    p8_engine_t e; buf_t b = {0};
+    static const int am7[4] = {45, 52, 55, 60};
+    const float dt = 0.005f;
+    p8_init(&e, FS);
+    /* 1: hard sync sweep, DCO2 alone (saw, all feet) synced to DCO1, offset 0 -> 36 -> 0 st */
+    setup(&e, P8_DOUBLE, 127, 64, 127, 64, 0, 127);
+    e.sync = 1; p8_update(&e);
+    p8_voice_on(&e, 0, 40.0f);
+    for (float t = 0.0f; t < 8.0f; t += dt) { e.swp2 = 18.0f - 18.0f * cosf(t / 8.0f * 6.2831853f); buf_render(&e, &b, dt); }
+    p8_voice_off(&e, 0); buf_render(&e, &b, 0.3f);
+    /* 2: sync chord, both DCOs, square 16'8' + synced saw, slow sweep */
+    setup(&e, P8_DOUBLE, 0, 9, 127, 64, 64, 63);
+    chord(&e, am7, 4);
+    for (float t = 0.0f; t < 8.0f; t += dt) { e.swp2 = 6.0f + 12.0f * (0.5f - 0.5f * cosf(t / 4.0f * 6.2831853f)); buf_render(&e, &b, dt); }
+    all_off(&e); buf_render(&e, &b, 0.3f);
+    e.sync = 0; e.swp2 = 0.0f;
+    /* 3: FM, sine ratio 1, index 0 -> 3 -> 0 on square 16' (WHOLE), bass */
+    setup(&e, P8_WHOLE, 0, 0, 0, 0, 127, 0);
+    e.fm_ratio = 1.0f; e.fm_src = 0;
+    p8_voice_on(&e, 0, 40.0f);
+    for (float t = 0.0f; t < 8.0f; t += dt) { e.fm = 1.5f - 1.5f * cosf(t / 8.0f * 6.2831853f); buf_render(&e, &b, dt); }
+    p8_voice_off(&e, 0); buf_render(&e, &b, 0.3f);
+    /* 4: FM ratio 3.5 (bell-like, inharmonic) on saw 8'4', chord */
+    setup(&e, P8_WHOLE, 127, 100, 0, 0, 127, 0);
+    e.fm_ratio = 3.5f; e.fm = 0.0f;
+    chord(&e, am7, 4);
+    for (float t = 0.0f; t < 6.0f; t += dt) { e.fm = 2.0f * expf(-t * 0.8f); buf_render(&e, &b, dt); }
+    all_off(&e); buf_render(&e, &b, 0.3f);
+    /* 5: DOUBLE, DCO2 modulates DCO1 (cross FM), intv 7, index sweep */
+    setup(&e, P8_DOUBLE, 0, 0, 127, 9, 64, 63);
+    e.fm_src = 1; e.interval = 7; p8_retune(&e);
+    p8_voice_on(&e, 0, 40.0f);
+    for (float t = 0.0f; t < 8.0f; t += dt) { e.fm = 1.2f - 1.2f * cosf(t / 8.0f * 6.2831853f); buf_render(&e, &b, dt); }
+    p8_voice_off(&e, 0); buf_render(&e, &b, 0.5f);
+    wav_write("demos/pdoly8_syncfm.wav", &b);
+    buf_free(&b);
+
+    /* analysis: static sync (DCO2 alone, +7.3 st) and FM (ratio 1, index 1 and 3), mono, tone 0 */
+    const float idx[3] = {-1.0f, 1.0f, 3.0f};
+    const char *nm[3] = {"demos/an_sync.wav", "demos/an_fm1.wav", "demos/an_fm3.wav"};
+    for (int k = 0; k < 3; k++) {
+        p8_init(&e, FS); e.tone = 0; e.spread = 0.0f;
+        if (k == 0) { setup(&e, P8_DOUBLE, 127, 64, 127, 64, 0, 127); e.sync = 1; e.swp2 = 7.3f; }
+        else { setup(&e, P8_WHOLE, 0, 0, 0, 0, 127, 0); e.fm = idx[k]; e.fm_ratio = 1.0f; }
+        p8_update(&e); p8_voice_on(&e, 0, 57.0f); buf_render(&e, &b, 2.0f);
+        wav_write(nm[k], &b); buf_free(&b);
+    }
+}
+
 int main(int argc, char **argv)
 {
     test_rom();
@@ -510,8 +597,9 @@ int main(int argc, char **argv)
     test_clamp();
     test_paths();
     test_pwm();
+    test_sync_fm();
     test_modes_levels();
-    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); }
+    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); demo_sync_fm(); }
     printf(fails ? "%d check(s) failed\n" : "all checks passed\n", fails);
     return fails != 0;
 }
