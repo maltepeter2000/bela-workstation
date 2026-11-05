@@ -307,6 +307,51 @@ static void test_sync_fm(void)
     CHECK(worst <= 1.0f, "FM too loud (%g)", (double)worst);
 }
 
+/* Walsh morph: on every loop point the output is that Walsh function (its
+ * zero crossings per 16' period = its sequency), equal loudness along the
+ * loop, the loop closes, and Walsh + PWM + FM + sync stays finite */
+static void test_walsh(void)
+{
+    static const int SEQ[15] = {2, 4, 6, 8, 10, 12, 14, 16, 14, 12, 10, 8, 6, 4, 2};
+    p8_engine_t e; buf_t b = {0};
+    for (int i = 0; i < 15; i++) {
+        p8_init(&e, FS); e.tone = 0;
+        setup(&e, P8_WHOLE, 0, 64, 0, 64, 127, 0);
+        e.wmix[0] = 1.0f; e.wpos[0] = (float)i * 127.0f / 15.0f; p8_update(&e); p8_settle(&e);
+        p8_voice_on(&e, 0, 45.0f);                           /* 16' = 55 Hz */
+        buf_render(&e, &b, 1.0f);
+        int zc = 0;
+        for (size_t k = 22051; k < b.n; k++) zc += (b.l[k - 1] < 0.0f) != (b.l[k] < 0.0f);
+        float per = (float)zc / ((float)(b.n - 22051) / FS * 55.0f);
+        CHECK(fabsf(per - (float)SEQ[i]) < 0.6f, "Walsh point %d: %.2f crossings per period, expected %d", i, (double)per, SEQ[i]);
+        buf_free(&b);
+    }
+    float lo = 1e9f, hi = 0.0f;
+    p8_init(&e, FS); e.wmix[0] = 1.0f; e.lev[0] = 1.0f;
+    for (float p = 0.0f; p <= 127.0f; p += 0.25f) {
+        e.wpos[0] = p; p8_update(&e);
+        float pw = 0.0f;
+        for (int S = 0; S < 16; S++) pw += e.Wct[0][S] * e.Wct[0][S];
+        if (pw < lo) lo = pw;
+        if (pw > hi) hi = pw;
+    }
+    printf("Walsh loop: 15 points exact (zero crossings = sequency), loudness range %.4f dB\n", (double)(10.0f * log10f(hi / lo)));
+    CHECK(hi / lo < 1.001f, "Walsh loudness not constant");
+    e.wpos[0] = 0.0f; p8_update(&e); float a0[16]; memcpy(a0, e.Wct[0], sizeof a0);
+    e.wpos[0] = 127.0f; p8_update(&e);
+    for (int S = 0; S < 16; S++) CHECK(a0[S] == e.Wct[0][S], "Walsh loop does not close");
+    p8_init(&e, FS);
+    setup(&e, P8_DOUBLE, 64, 64, 127, 64, 64, 63);
+    e.wmix[0] = 0.7f; e.wmix[1] = 1.0f; e.wpos[0] = 40.0f; e.wpos[1] = 90.0f;
+    e.pw_t[0] = 0.2f; e.fm = 3.0f; e.fm_ratio = 2.0f; e.sync = 1; e.swp2 = 5.0f; p8_update(&e);
+    static const int ch[4] = {36, 43, 48, 52};
+    for (int k = 0; k < 4; k++) p8_voice_on(&e, k, (float)ch[k]);
+    buf_render(&e, &b, 1.0f);
+    int bad = 0; for (size_t k = 0; k < b.n; k++) if (!isfinite(b.l[k])) bad = 1;
+    CHECK(!bad && peak(&b, 2205) <= 1.0f, "Walsh + PWM + FM + sync not finite or too loud");
+    buf_free(&b);
+}
+
 static void test_modes_levels(void)
 {
     p8_engine_t e; buf_t b = {0};
@@ -589,6 +634,50 @@ static void demo_sync_fm(void)
     }
 }
 
+static void demo_walsh(void)
+{
+    p8_engine_t e; buf_t b = {0};
+    static const int am7[4] = {45, 52, 55, 60};
+    const float dt = 0.005f;
+    p8_init(&e, FS);
+    /* 1: one note, the Walsh loop once around in 15 s (each point 1 s) */
+    setup(&e, P8_WHOLE, 0, 64, 0, 64, 127, 0);
+    e.wmix[0] = 1.0f; p8_update(&e); p8_settle(&e);
+    p8_voice_on(&e, 0, 40.0f);
+    for (float t = 0.0f; t < 15.0f; t += dt) { e.wpos[0] = fmodf(t / 15.0f * 127.0f, 127.0f); p8_update(&e); buf_render(&e, &b, dt); }
+    p8_voice_off(&e, 0); buf_render(&e, &b, 0.3f);
+    /* 2: chord, Walsh position as a slow LFO */
+    chord(&e, am7, 4);
+    for (float t = 0.0f; t < 10.0f; t += dt) { e.wpos[0] = 63.5f - 63.5f * cosf(t * 0.7f); p8_update(&e); buf_render(&e, &b, dt); }
+    all_off(&e); buf_render(&e, &b, 0.3f);
+    /* 3: saw net all feet -> Walsh (16'x4', harmonic 3) and back */
+    setup(&e, P8_WHOLE, 127, 64, 0, 64, 127, 0);
+    e.wpos[0] = 17.0f; e.wmix[0] = 0.0f; p8_update(&e); p8_settle(&e);
+    chord(&e, am7, 4);
+    for (float t = 0.0f; t < 8.0f; t += dt) { e.wmix[0] = 0.5f - 0.5f * cosf(t / 8.0f * 6.2831853f); p8_update(&e); buf_render(&e, &b, dt); }
+    all_off(&e); buf_render(&e, &b, 0.3f);
+    /* 4: DOUBLE, DCO1 saw 16'8', DCO2 Walsh turning, detune, bass line */
+    setup(&e, P8_DOUBLE, 127, 9, 0, 64, 64, 63);
+    e.wmix[1] = 1.0f; e.detune_cents = 13.0f; p8_update(&e); p8_retune(&e); p8_settle(&e);
+    static const int bass[8] = {33, 33, 45, 33, 36, 33, 40, 43};
+    float ph = 0.0f;
+    for (int r = 0; r < 4; r++)
+        for (int i = 0; i < 8; i++) {
+            p8_voice_on(&e, 0, (float)bass[i]);
+            for (float t = 0.0f; t < 0.3f; t += dt) { ph = fmodf(ph + 127.0f * dt / 2.4f, 127.0f); e.wpos[1] = ph; p8_update(&e); buf_render(&e, &b, dt); }
+            p8_voice_off(&e, 0); buf_render(&e, &b, 0.05f);
+        }
+    buf_render(&e, &b, 0.5f);
+    wav_write("demos/pdoly8_walsh.wav", &b);
+    buf_free(&b);
+    /* analysis: Walsh 16'x4' on a high note, mono */
+    p8_init(&e, FS); e.tone = 0; e.spread = 0.0f;
+    setup(&e, P8_WHOLE, 0, 64, 0, 64, 127, 0);
+    e.wmix[0] = 1.0f; e.wpos[0] = 127.0f * 6.0f / 15.0f; p8_update(&e); p8_settle(&e);   /* 16'x2', energy at harmonic 7 */
+    p8_voice_on(&e, 0, 72.0f); buf_render(&e, &b, 2.0f);
+    wav_write("demos/an_walsh.wav", &b); buf_free(&b);
+}
+
 int main(int argc, char **argv)
 {
     test_rom();
@@ -598,8 +687,9 @@ int main(int argc, char **argv)
     test_paths();
     test_pwm();
     test_sync_fm();
+    test_walsh();
     test_modes_levels();
-    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); demo_sync_fm(); }
+    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); demo_sync_fm(); demo_walsh(); }
     printf(fails ? "%d check(s) failed\n" : "all checks passed\n", fails);
     return fails != 0;
 }

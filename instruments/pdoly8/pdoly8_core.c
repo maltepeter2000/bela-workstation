@@ -87,6 +87,12 @@ static void knot_pos(float h, float hsnap, int n, int cyclic, int *ka, int *kb, 
     *ka = seg; *kb = cyclic ? (seg + 1) % n : seg + 1;
 }
 
+/* Walsh morph: the 15 products of the feet (Walsh functions, foot subsets
+ * as in P8_KNOT) on a closed loop by sequency, i.e. by where their energy
+ * lies (harmonic 1 ... 8 of the 16'): up through one of each pair, down
+ * through the other, neighbours one harmonic apart. */
+const uint8_t P8_WALSH[15] = {0x8, 0x4, 0xA, 0x2, 0xB, 0x5, 0x9, 0x1, 0xD, 0x7, 0xF, 0x3, 0xE, 0x6, 0xC};
+
 void p8_path_gains(int path, float h, float hsnap, int pfade, float g[P8_FEET], float *net)
 {
     const uint8_t *k = path == 1 ? P8_LOOP8 : path == 2 ? P8_FIG8 : P8_KNOT;
@@ -233,7 +239,20 @@ void p8_update(p8_engine_t *e)
             float wd = clampf(e->pw_t[g], 0.03f, 0.97f), duty = 4.0f * wd * (1.0f - wd);   /* pulse power / square power */
             k = powf(P8_NORM_REF / sqrtf(pw * duty), clampf(e->norm, 0.0f, 1.0f));
         }
-        for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = w[f] * k * lev;
+        float mix = clampf(e->wmix[g], 0.0f, 1.0f);
+        for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = w[f] * k * lev * (1.0f - mix);
+        /* Walsh morph: two neighbours on the sequency loop, equal power
+         * (Walsh functions are orthonormal), at the RMS of the square net
+         * with all feet */
+        for (int S = 0; S < 16; S++) e->Wct[g][S] = 0.0f;
+        if (mix > 0.0f) {
+            int wa, wb; float wt;
+            knot_pos(e->wpos[g], e->hsnap, 15, 1, &wa, &wb, &wt);
+            float A = 0.5f * P8_NORM_REF * mix * lev;
+            e->Wct[g][P8_WALSH[wa]] += A * sqrtf(1.0f - wt);
+            e->Wct[g][P8_WALSH[wb]] += A * sqrtf(wt);
+            e->wal[g] = 1;
+        }
     }
     if (e->mode != P8_DOUBLE) for (int t = 4; t < P8_TG; t++) e->tg[t].amp_target = 0.0f;
     /* stereo position of the 4 voices (both DCOs of a voice together) */
@@ -248,6 +267,8 @@ void p8_update(p8_engine_t *e)
 void p8_settle(p8_engine_t *e)
 {
     for (int g = 0; g < 2; g++) for (int f = 0; f < P8_FEET; f++) e->W[g][f] = e->Wt[g][f];
+    for (int g = 0; g < 2; g++) for (int S = 0; S < 16; S++) e->Wc[g][S] = e->Wct[g][S];
+    for (int g = 0; g < 2; g++) e->pw[g] = e->pw_t[g];
 }
 
 static void tg_pitch(p8_engine_t *e, int t)
@@ -290,34 +311,61 @@ void p8_retune(p8_engine_t *e)
 }
 
 /* ------------------------------------------------------------ render */
-static float tg_value(const p8_tg_t *g, const float W[P8_FEET])
-{
-    float s = 0.0f;
-    for (int f = 0; f < P8_FEET; f++) s += ((g->cnt >> g->bit[f]) & 1u) ? 0.5f * W[f] : -0.5f * W[f];
-    return s * g->amp;
-}
+/* How a tone generator's foot states become its output: the foot sum
+ * (square or pulse levels, weights W) plus, with the Walsh morph, a sum of
+ * Walsh functions (products of the feet, coefficients Wc). */
+typedef struct {
+    const float *W;              /* foot weights */
+    const float *Wc;             /* Walsh coefficients by foot subset, 16 */
+    int wal;                     /* Walsh part active */
+    float w;                     /* pulse width, 0.5 = square */
+} shape_t;
 
-/* PWM: each foot is the AND of its square with a copy shifted by a part of
- * its period (a phase offset on the counter), i.e. a pulse whose falling edge
- * stays on the counter step and whose rising edge moves. Width w is the high
- * part, w = 0.5 is the plain square. Values are DC free: high 1-w, low -w. */
-static float tg_value_pw(const p8_tg_t *g, const float W[P8_FEET], float w)
+/* h: foot states, bit (3 - f) set = foot f high (16' = 0x8 ... 2' = 0x1) */
+static float tg_eval(const p8_tg_t *g, const shape_t *sh, unsigned h)
 {
+    const float hi = 1.0f - sh->w, lo = -sh->w;
     float s = 0.0f;
-    for (int f = 0; f < P8_FEET; f++) {
-        uint32_t P = 2u << g->bit[f];
-        float local = (float)(g->cnt & (P - 1u)) + g->ph;
-        s += local >= (1.0f - w) * (float)P ? (1.0f - w) * W[f] : -w * W[f];
+    for (int f = 0; f < P8_FEET; f++) s += sh->W[f] * (((h >> (3 - f)) & 1u) ? hi : lo);
+    if (sh->wal) {
+        /* product over subset S of +-1 = (-1)^(number of low feet in S) */
+        unsigned low = ~h & 0xFu;
+        for (unsigned S = 1; S < 16; S++) {
+            float c = sh->Wc[S];
+            if (c != 0.0f) s += (__builtin_popcount(S & low) & 1) ? -c : c;
+        }
     }
     return s * g->amp;
 }
 
+/* foot states from the counter: square feet are its bits; pulse feet are
+ * high in the last w of their period (the falling edge stays on the
+ * counter step: the AND of the foot with a shifted copy) */
+static unsigned tg_states(const p8_tg_t *g, float w)
+{
+    unsigned h = 0;
+    for (int f = 0; f < P8_FEET; f++) {
+        uint32_t P = 2u << g->bit[f];
+        float local = (float)(g->cnt & (P - 1u)) + g->ph;
+        h |= (unsigned)(local >= (1.0f - w) * (float)P) << (3 - f);
+    }
+    return h;
+}
+
+static unsigned tg_bits(const p8_tg_t *g)
+{
+    unsigned h = 0;
+    for (int f = 0; f < P8_FEET; f++) h |= ((g->cnt >> g->bit[f]) & 1u) << (3 - f);
+    return h;
+}
+
 /* Advance a tone generator by span samples, ending tend samples before the
- * end of the current sample, and place every edge as a band-limited step.
+ * end of the current sample, and place every change as a band-limited step.
  * generic 0: the plain counter (inc > 0, square feet); generic 1: every foot
- * as a pulse of width w, either direction (through-zero FM). Returns the time
- * (tau) of the first forward wrap of the 16' period, or -1. */
-static float tg_run(p8_engine_t *e, p8_tg_t *g, const float W[P8_FEET], float w, int generic,
+ * as a pulse of width w, either direction (through-zero FM); foot edges are
+ * sorted in time, so products of feet (Walsh) change correctly. Returns the
+ * time (tau) of the first forward wrap of the 16' period, or -1. */
+static float tg_run(p8_engine_t *e, p8_tg_t *g, const shape_t *sh, int generic,
                     float inc, float span, float tend)
 {
     float wrap = -1.0f;
@@ -332,33 +380,40 @@ static float tg_run(p8_engine_t *e, p8_tg_t *g, const float W[P8_FEET], float w,
             float tau = tend + g->ph / inc;
             if (tau > tend + span) tau = tend + span;
             if (wrap < 0.0f && (g->cnt & (P16 - 1u)) == 0u) wrap = tau;
-            float vn = tg_value(g, W);
+            float vn = tg_eval(g, sh, tg_bits(g));
             if (vn != g->v) { float dv = vn - g->v; step_sharp(e, dv * g->pan_l, dv * g->pan_r, tau); g->v = vn; }
         }
         return wrap;
     }
     if (d == 0.0f) return wrap;
-    float dsum = 0.0f;
+    /* collect the foot edges of this span */
+    struct { float tau; int f, up; } ev[24];
+    int nev = 0;
+    unsigned h = tg_states(g, sh->w);
     for (int f = 0; f < P8_FEET; f++) {
         const uint32_t P = 2u << g->bit[f];
         const float Pf = (float)P, x0 = (float)(g->cnt & (P - 1u)) + g->ph, x1 = x0 + d;
-        const float r = (1.0f - w) * Pf, a = W[f] * g->amp;
+        const float r = (1.0f - sh->w) * Pf;
         const float lo = d > 0.0f ? x0 : x1, hi = d > 0.0f ? x1 : x0;
-        const float dir = d > 0.0f ? 1.0f : -1.0f;
-        for (int kk = (int)floorf(lo / Pf) - 1; (float)kk * Pf <= hi + Pf; kk++) {
+        for (int kk = (int)floorf(lo / Pf) - 1; (float)kk * Pf <= hi + Pf && nev < 22; kk++) {
             float pr = (float)kk * Pf + r, pf = (float)kk * Pf;
-            if (pr > lo && pr <= hi) {                       /* rising edge forward */
-                float tau = tend + span * (1.0f - (pr - x0) / d);
-                step_sharp(e, dir * a * g->pan_l, dir * a * g->pan_r, tau); dsum += dir * a;
-            }
-            if (pf > lo && pf <= hi) {                       /* falling edge forward */
+            if (pr > lo && pr <= hi) { ev[nev].tau = tend + span * (1.0f - (pr - x0) / d); ev[nev].f = f; ev[nev].up = d > 0.0f; nev++; }
+            if (pf > lo && pf <= hi) {
                 float tau = tend + span * (1.0f - (pf - x0) / d);
-                step_sharp(e, -dir * a * g->pan_l, -dir * a * g->pan_r, tau); dsum -= dir * a;
+                ev[nev].tau = tau; ev[nev].f = f; ev[nev].up = d < 0.0f; nev++;
                 if (f == 0 && d > 0.0f && tau > wrap) wrap = tau;
             }
         }
     }
-    g->v += dsum;
+    /* in time order (largest tau first), each edge sets its foot */
+    for (int i = 1; i < nev; i++)
+        for (int j = i; j > 0 && ev[j].tau > ev[j - 1].tau; j--) { __typeof__(ev[0]) tmp = ev[j]; ev[j] = ev[j - 1]; ev[j - 1] = tmp; }
+    for (int i = 0; i < nev; i++) {
+        unsigned bit = 1u << (3 - ev[i].f);
+        h = ev[i].up ? (h | bit) : (h & ~bit);
+        float vn = tg_eval(g, sh, h);
+        if (vn != g->v) { float dv = vn - g->v; step_sharp(e, dv * g->pan_l, dv * g->pan_r, ev[i].tau); g->v = vn; }
+    }
     float total = g->ph + d, fl = floorf(total);
     g->cnt += (uint32_t)(int32_t)fl;
     g->ph = total - fl;
@@ -391,6 +446,15 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         for (int g = 0; g < 2; g++) {
             for (int f = 0; f < P8_FEET; f++) e->W[g][f] += e->ksm * (e->Wt[g][f] - e->W[g][f]);
             e->pw[g] += e->ksm * (e->pw_t[g] - e->pw[g]);
+            if (e->wal[g]) {
+                float mx = 0.0f;
+                for (int S = 1; S < 16; S++) {
+                    e->Wc[g][S] += e->ksm * (e->Wct[g][S] - e->Wc[g][S]);
+                    float m = fabsf(e->Wc[g][S]) + fabsf(e->Wct[g][S]);
+                    if (m > mx) mx = m;
+                }
+                if (mx < 1e-7f) { for (int S = 0; S < 16; S++) e->Wc[g][S] = 0.0f; e->wal[g] = 0; }
+            }
             if (fabsf(e->pw[g] - e->pw_t[g]) < 1e-6f) e->pw[g] = e->pw_t[g];
         }
 
@@ -404,8 +468,9 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             else if (g->amp > g->amp_target) { g->amp -= gstep; if (g->amp < g->amp_target) g->amp = g->amp_target; }
             const float w = e->pw[t >= 4];
             const int pwm = fabsf(w - 0.5f) > 1e-5f;
+            const shape_t sh = {W, e->Wc[t >= 4], e->wal[t >= 4], w};
             /* smooth changes of gains, gate and width */
-            float vn = pwm ? tg_value_pw(g, W, w) : tg_value(g, W);
+            float vn = tg_eval(g, &sh, pwm ? tg_states(g, w) : tg_bits(g));
             if (vn != g->v) { float d = vn - g->v; step_smooth(e, d * g->pan_l, d * g->pan_r); g->v = vn; }
             if (g->amp <= 0.0f && g->amp_target <= 0.0f) {   /* silent: park exactly at 0 */
                 if (g->v != 0.0f) { step_smooth(e, -g->v * g->pan_l, -g->v * g->pan_r); g->v = 0.0f; }
@@ -422,6 +487,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                     const p8_tg_t *s2 = &e->tg[k + 4];
                     float full = 0.0f;
                     for (int f = 0; f < P8_FEET; f++) full += 0.5f * e->W[1][f];
+                    for (int S2 = 1; S2 < 16; S2++) full += fabsf(e->Wc[1][S2]);
                     m = (full > 1e-6f && s2->amp > 0.0f) ? s2->v / (full * s2->amp) : 0.0f;
                 } else {                                     /* sine at fmr x the 16' frequency */
                     g->mph += e->fm_ratio * inc / (float)(2u << g->bit[0]);
@@ -433,13 +499,13 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             }
             if (slave && sync_tau[k] >= 0.0f) {              /* hard sync: reset at DCO1's wrap */
                 float tau = sync_tau[k];
-                tg_run(e, g, W, w, 1, inc, 1.0f - tau, tau);
+                tg_run(e, g, &sh, 1, inc, 1.0f - tau, tau);
                 g->cnt = 0; g->ph = 0.0f;
-                vn = tg_value_pw(g, W, w);
+                vn = tg_eval(g, &sh, tg_states(g, w));
                 if (vn != g->v) { float d = vn - g->v; step_sharp(e, d * g->pan_l, d * g->pan_r, tau); g->v = vn; }
-                tg_run(e, g, W, w, 1, inc, tau, 0.0f);
+                tg_run(e, g, &sh, 1, inc, tau, 0.0f);
             } else {
-                float wrap = tg_run(e, g, W, w, generic, inc, 1.0f, 0.0f);
+                float wrap = tg_run(e, g, &sh, generic, inc, 1.0f, 0.0f);
                 if (!slave && sync_on) sync_tau[k] = wrap;
             }
         }

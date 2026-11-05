@@ -73,6 +73,9 @@ typedef struct {
     float   fm;                  /* linear FM index of DCO1, 0..8, through zero above 1 */
     float   fm_ratio;            /* sine modulator: ratio to DCO1's 16' frequency */
     int     fm_src;              /* 0 internal sine, 1 DCO2 */
+    float   wpos[2], wmix[2];    /* Walsh morph per DCO: position 0..127 on the loop, mix 0..1 */
+    float   Wc[2][16], Wct[2][16];   /* Walsh coefficients by foot subset (current, target) */
+    int     wal[2];              /* Walsh part active */
     float   W[2][P8_FEET];       /* current per foot gain (wav x har x lev) */
     float   Wt[2][P8_FEET];      /* target */
     float   smooth_ms;
@@ -96,6 +99,7 @@ typedef struct {
 
 /* knot table: foot combination of each knot, bits 16' 8' 4' 2' (MSB first) */
 extern const uint8_t P8_KNOT[P8_KNOTS];
+extern const uint8_t P8_WALSH[15];       /* Walsh loop by sequency, foot subsets */
 
 void  p8_init(p8_engine_t *e, float fs);
 void  p8_set_fs(p8_engine_t *e, float fs);

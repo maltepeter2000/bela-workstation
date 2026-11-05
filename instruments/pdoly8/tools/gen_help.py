@@ -78,6 +78,8 @@ SETTINGS = [
     "fm (0) 0-127: FM index of DCO1, 0-8 (through zero above 45)",
     "fmr (1) FM ratio of the sine modulator to DCO1, 0.125-16",
     "fms (0) FM source: 0 internal sine, 1 DCO2 (cross FM)",
+    "wsh1, wsh2 (0) Walsh loop position of DCO1 / DCO2, 0-127",
+    "wmx1, wmx2 (0) mix from the feet (0) to the Walsh loop (127)",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -87,7 +89,8 @@ ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
        ("mgi", 0, 100), ("hsnp", 0, 4), ("ch1", 0, 16), ("tone", 0, 1),
        ("path", 0, 2), ("norm", 0, 1), ("pfad", 0, 1), ("pw1", 0, 127),
        ("pw2", 0, 127), ("sync", 0, 1), ("swp2", 0, 48),
-       ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("bend", -1, 1)]
+       ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("wsh1", 0, 127),
+       ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("bend", -1, 1)]
 VINT = []
 
 
@@ -208,6 +211,17 @@ def build():
         "its 16' frequency (fms 0) or by DCO2 (fms 1). Above index 1",
         "the counter runs backwards for a moment (through zero), so",
         "integer ratios stay harmonic. All edges stay band-limited."]))
+    sections.append(("Walsh morph", [
+        "The feet are Rademacher functions; their products (XOR of",
+        "the foot squares) are the 15 Walsh functions: two-level waves",
+        "whose energy sits around harmonic 1 ... 8 of the 16'. wsh",
+        "moves along a closed loop of them by sequency, up through",
+        "one of each pair and down through the other; neighbours fade",
+        "at equal power, so the level stays. 0: 16' / 8: 8' /",
+        "17: 16'x4' / 25: 4' / 34: 16'x4'x2' / 42: 8'x2' / 51: 16'x2' /",
+        "59: 2' / 68: 16'x8'x2' / 76: 8'x4'x2' / 85: all / 93: 4'x2' /",
+        "102: 16'x8'x4' / 110: 8'x4' / 119: 16'x8' / 127 = 0.",
+        "wmx fades from the feet sum to the Walsh loop."]))
     sections.append(("Envelopes", [
         "pdoly8~ has no envelopes and no filter yet. A key gates its",
         "voice with a short de-click ramp; shape the level with an",

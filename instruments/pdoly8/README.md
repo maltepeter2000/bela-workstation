@@ -88,6 +88,8 @@ Two settings make any path smooth to sweep:
 | `fm` | 0–127 | 0 | linear FM index of DCO1, 0–8 (quadratic; index 1 at about 45, through zero above) |
 | `fmr` | 0.125–16 | 1 | ratio of the sine modulator to DCO1's 16' frequency |
 | `fms` | 0/1 | 0 | FM source: 0 internal sine, 1 DCO2 (cross FM) |
+| `wsh1` / `wsh2` | 0–127 | 0 | Walsh loop position of DCO1 / DCO2 (see Walsh morph) |
+| `wmx1` / `wmx2` | 0–127 | 0 | mix from the feet sum (0) to the Walsh loop (127) |
 | `tone` | 0/1 | 1 | 1: output response measured on a Poly-800 with the VCF fully open (54 Hz high-pass, two poles at 7.5 kHz); 0: off (5 Hz DC block only) |
 
 ### Other messages
@@ -102,11 +104,11 @@ Two settings make any path smooth to sweep:
 | `panic` | all voices off |
 | `get <name>` | outlet 3 answers `value <name> <v>` |
 | `voice i p` / `voiceoff i` | play a voice directly |
-| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 26 settings |
+| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 30 settings |
 | `dump pdoly8 …` | restore such a line; lines of other voices are ignored |
 | `print` | voices, values and sample rate to the Pd window |
 
-Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 1 440 0 2 5 0 1 0 1 0 0 1 64 64 0 0 0 1 0`.
+Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 1 440 0 2 5 0 1 0 1 0 0 1 64 64 0 0 0 1 0 0 0 0 0`.
 
 ### PWM (`pw1`, `pw2`)
 
@@ -117,6 +119,17 @@ Each foot becomes the AND of its square with a copy shifted by part of its perio
 - **Hard sync (`sync 1`):** DCO2's counter restarts at every 16' period of DCO1, at the exact sub-sample time, with a band-limited step. Sweep DCO2 with `swp2` (continuous, 0–48 semitones) or `intv`/`oct2`; `lev1 0` lets DCO2 be heard alone. Feet, nets and PWM of DCO2 all go through the sync.
 - **Linear FM (`fm`, `fmr`, `fms`):** DCO1's counter rate is modulated by a sine at `fmr` times its 16' frequency, or by DCO2 (cross FM). Above index 1 the counter runs backwards for a moment (through-zero FM), so integer ratios stay harmonic; the edges of every foot are found in both directions and stay band-limited.
 - Measured: sync (DCO2 at +7.3 semitones) and FM (ratio 1, index 1 and 3) keep every component below 16 kHz harmonic within −75 dB; deep through-zero FM with sync on 4 low voices peaks at 0.72. With `fm 0` and `sync 0` the output is sample-identical to before.
+
+### Walsh morph (`wsh`, `wmx`)
+
+The four feet are Rademacher functions. Their products (the XOR of foot squares) are the 15 Walsh functions: two-level waves on the same counter edges, with their energy around harmonic 1 … 8 of the 16' (the sequency). They come in pairs of equal sequency; `wsh` moves along a closed loop that rises through one of each pair and falls through the other, so neighbours lie one harmonic apart and 127 joins 0. Neighbours fade at equal power (Walsh functions are orthonormal), at the loudness of the square net with all feet, so the level stays constant. Besides the octave squares this reaches energy at harmonics 3, 5, 6 and 7 — formant-like timbres that adding feet cannot make.
+
+| `wsh` | 0 | 8 | 17 | 25 | 34 | 42 | 51 | 59 | 68 | 76 | 85 | 93 | 102 | 110 | 119 |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| feet multiplied | 16' | 8' | 16'·4' | 4' | 16'·4'·2' | 8'·2' | 16'·2' | 2' | 16'·8'·2' | 8'·4'·2' | all | 4'·2' | 16'·8'·4' | 8'·4' | 16'·8' |
+| energy at harmonic | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 7 | 6 | 5 | 4 | 3 | 2 | 1 |
+
+`wmx` fades from the feet sum (nets, `har`, PWM) to the Walsh loop. Walsh works with PWM (products of the pulses), sync and FM: foot edges are sorted in time inside each sample, so every product changes at the right moment and stays band-limited.
 
 ## How it works
 
@@ -166,6 +179,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - Against a Poly-800 (one key C over five octaves, two octave settings; square and saw, 16' alone and all feet; line out, VCF open, chorus off): over all 40 notes the harmonics up to −45 dB match within 0.37 dB on average (90 % within 0.63 dB), note levels within 0.5 dB. Below 8 kHz the deviation stays under 0.5 dB, at 12–17 kHz about 1.5 dB.
 
 - ROM reference point: code 0x21 gives 440.00 Hz on 8'. A4 on 8' measures 440.00 Hz; DCO2 with interval 7 and detune −20 cents within 0.01 Hz of the expected value.
+- Walsh: on all 15 loop points the zero crossings per 16' period equal the sequency; loudness along the loop constant within 0.0001 dB, the loop closes; a Walsh point on C5 is harmonic within −78 dB below 16 kHz; Walsh with PWM, FM and sync stays finite.
 - Sync and FM: off = sample-identical; sync and FM spectra harmonic within −75 dB below 16 kHz; index 4 through-zero FM with sync stays finite and below full scale.
 - PWM: measured duty equals the set width (10, 25, 75, 90 %) within 0.1 %; the pulse path at 50 % matches the square path within −74.9 dB; narrow pulses alias-free (−85 dB).
 - Paths 1 and 2: every point exact (±1 step), one change per step, both loops close (127 = 0), every 16'-rooted combination present (path 2: in both nets), largest gain change per 0.01 step 0.04; `norm 1` holds the loudness within 0.0001 dB.
