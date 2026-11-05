@@ -39,7 +39,8 @@ CONTROLS = [
                  "16'8'2', 16'2'). One foot or the net per step, no jumps. "
                  "Combinations without 16' = oct1 2-4."),
     ("har2", 45, "Timbre of DCO2, same path."),
-    ("env1", 0, "Envelope of DCO1 (DEG1), one knob: 0 gate / 24 pluck / "
+    ("env1", 0, "Envelope of DCO1 (DEG1), one knob: 0 gate / 1 very short "
+                "pluck (no fade from the gate) / 24 pluck / "
                 "48 piano / 72 long release / 92 swell / 108 pad / "
                 "127 long pad. -1 = own values a1 ... r1."),
     ("env2", 0, "Envelope of DCO2 (DEG2), same; -1 = own values a2 ... r2."),
@@ -271,8 +272,8 @@ def build():
         "attack rises linearly (A31 about 9 s), decay, slope and",
         "release fall at a constant dB per second (31: about 18 s",
         "to -40 dB). env1 / env2 / env3 morph through settings:",
-        "0 gate / 24 pluck / 48 piano / 72 long release / 92 swell /",
-        "108 pad / 127 long pad. A released voice",
+        "0 gate / 1 short pluck / 24 pluck / 48 piano / 72 long rel. /",
+        "92 swell / 108 pad / 127 long pad. A released voice",
         "releases at once; hold 1 keeps it until the next phrase."]))
     sections.append(("Presets and steps", [
         "Per-step values: connect the voice to [skpreset name]",

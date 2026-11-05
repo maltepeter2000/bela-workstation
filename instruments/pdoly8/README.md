@@ -23,7 +23,7 @@ The messages follow the cz4~ / skandrums-pd conventions (`dump`, `params`, `defa
 |---|---|---|---|
 | 0 | `har1` | 45 | timbre of DCO1: one knob through all 15 distinct original timbres, dark to bright (see One-knob timbre); 45 = saw net, all feet |
 | 1 | `har2` | 45 | timbre of DCO2 |
-| 2 | `env1` | 0 | envelope of DCO1 (DEG1), one knob: gate … pluck … piano … long release … swell … pad … long pad (see Envelopes); −1 = own values `a1` … `r1` |
+| 2 | `env1` | 0 | envelope of DCO1 (DEG1), one knob: 0 gate, from 1 very short pluck … pluck … piano … long release … swell … pad … long pad (see Envelopes); −1 = own values `a1` … `r1` |
 | 3 | `env2` | 0 | envelope of DCO2 (DEG2), the same |
 | 4 | `intv` | 0 | interval of DCO2, 0–12 semitones |
 | 5 | `detn` | 0 | detune of DCO2 downwards; the original's steps 0–3 (0, 6.5, 13, 26 cents, Poly-800 II service manual) lie at 0, 42, 85, 127, linear in between |
@@ -178,12 +178,12 @@ Every tone generator has its own 6-stage DEG as on the Poly-800 — attack, deca
 
 Against the recording, the model's level curves of all 34 measured notes match within 0.82 dB on average (90 % within 1.6 dB); see `demos/deg_vs_poly800.png`.
 
-**One knob (`env1`, `env2`, `env3`):** a line through seven DEG settings, interpolated value by value (times therefore move logarithmically). Pluck, piano and long release have the widest stretches; from swell on attack and release only grow:
+**One knob (`env1`, `env2`, `env3`):** 0 is a plain gate; from 1 on a line through DEG settings, starting with a very short pluck (no fade from the gate), interpolated value by value (times therefore move logarithmically). Pluck, piano and long release have the widest stretches; from swell on attack and release only grow:
 
-| `env` | 0 | 24 | 48 | 72 | 92 | 108 | 127 |
-|---|---|---|---|---|---|---|---|
-| sound | gate | pluck | piano | long release | swell | pad | long pad |
-| A D BP SL SU R | 0 0 31 0 31 0 | 0 14 0 0 0 12 | 0 10 20 24 0 14 | 2 16 24 0 24 26 | 16 0 31 0 31 18 | 20 22 26 0 26 24 | 30 26 26 0 26 31 |
+| `env` | 0 | 1 | 24 | 48 | 72 | 92 | 108 | 127 |
+|---|---|---|---|---|---|---|---|---|
+| sound | gate | very short pluck | pluck | piano | long release | swell | pad | long pad |
+| A D BP SL SU R | 0 0 31 0 31 0 | 0 3 0 0 0 3 | 0 14 0 0 0 12 | 0 10 20 24 0 14 | 2 16 24 0 24 26 | 16 0 31 0 31 18 | 20 22 26 0 26 24 | 30 26 26 0 26 31 |
 
 Measured once more on a Poly-800 Mk II: in both single and multi trigger a new note does not retrigger the held ones; every voice keeps its own envelope (as the manual says, the trigger mode concerns DEG3). Decay 16 on its own reaches −40 dB after 0.64 s, as release 16 (0.63 s).
 

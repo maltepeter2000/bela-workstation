@@ -317,15 +317,17 @@ static float deg_time(const float *tab, float v)             /* log interpolatio
     return tab[i] * powf(tab[i + 1] / tab[i], t);
 }
 
-/* One-knob morph: a line through 7 Poly-800 DEG settings (attack, decay,
- * break point, slope, sustain, release, 0..31), interpolated parameter by
- * parameter: gate -> pluck -> piano -> long release -> swell -> pad -> long
- * pad. Pluck, piano and long release get the widest stretches; from swell on
- * attack and release only grow. */
-#define DEG_KNOTS 7
-static const float DEG_KPOS[DEG_KNOTS] = {0, 24, 48, 72, 92, 108, 127};
+/* One-knob morph: 0 is a plain gate; from 1 on a line through Poly-800 DEG
+ * settings (attack, decay, break point, slope, sustain, release, 0..31),
+ * interpolated parameter by parameter: very short pluck -> pluck -> piano ->
+ * long release -> swell -> pad -> long pad. No fade between gate and the
+ * short pluck. Pluck, piano and long release get the widest stretches; from
+ * swell on attack and release only grow. */
+#define DEG_KNOTS 8
+static const float DEG_KPOS[DEG_KNOTS] = {0, 1, 24, 48, 72, 92, 108, 127};
 static const float DEG_KNOT[DEG_KNOTS][6] = {
-    { 0,  0, 31,  0, 31,  0},                                /* 0   gate */
+    { 0,  0, 31,  0, 31,  0},                                /* 0   gate (alone) */
+    { 0,  3,  0,  0,  0,  3},                                /* 1   very short pluck */
     { 0, 14,  0,  0,  0, 12},                                /* 24  pluck */
     { 0, 10, 20, 24,  0, 14},                                /* 48  piano: fast to 20, slow slope */
     { 2, 16, 24,  0, 24, 26},                                /* 72  long release */
@@ -337,11 +339,13 @@ static const float DEG_KNOT[DEG_KNOTS][6] = {
 void p8_env_morph(float pos, float hsnap, float deg[6])
 {
     pos = clampf(pos, 0.0f, 127.0f);
-    int a = 0;
+    if (pos < 0.5f) { for (int k = 0; k < 6; k++) deg[k] = DEG_KNOT[0][k]; return; }   /* gate, no fade */
+    if (pos < 1.0f) pos = 1.0f;
+    int a = 1;
     while (a < DEG_KNOTS - 2 && pos > DEG_KPOS[a + 1]) a++;
     float x0 = DEG_KPOS[a], x1 = DEG_KPOS[a + 1];
     float sn = clampf(hsnap, 0.0f, 0.45f * (x1 - x0));
-    float lo = a == 0 ? x0 : x0 + sn, hi = a + 1 == DEG_KNOTS - 1 ? x1 : x1 - sn;   /* plateau around each knot */
+    float lo = a == 1 ? x0 : x0 + sn, hi = a + 1 == DEG_KNOTS - 1 ? x1 : x1 - sn;   /* plateau around each knot */
     float t = pos <= lo ? 0.0f : pos >= hi ? 1.0f : (pos - lo) / (hi - lo);
     for (int k = 0; k < 6; k++) deg[k] = DEG_KNOT[a][k] + t * (DEG_KNOT[a + 1][k] - DEG_KNOT[a][k]);
 }
