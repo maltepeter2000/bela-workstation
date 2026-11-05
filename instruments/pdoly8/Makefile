@@ -51,7 +51,8 @@ mac-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	done
 	$(LIPO) -create bin/macos/pdoly8~.aarch64 bin/macos/pdoly8~.x86_64 -output 'bin/macos/pdoly8~.pd_darwin'
 	rm -f bin/macos/pdoly8~.aarch64 bin/macos/pdoly8~.x86_64
-	cp 'pdoly8~-help.pd' bin/macos/
+	cp 'pdoly8~-help.pd' skpreset.pd bin/macos/
+	mkdir -p bin/macos/presets && cp presets/poly800mk2-factory.txt bin/macos/presets/
 
 test: pdoly8_test
 pdoly8_core.o: pdoly8_core.c pdoly8_core.h
@@ -64,9 +65,13 @@ demos: pdoly8_test
 
 help:
 	python3 tools/gen_help.py 'pdoly8~-help.pd'
+	python3 tools/gen_skpreset.py skpreset.pd
+
+presets: presets/poly800mk2-factory.syx
+	python3 tools/p8sysex.py syx2txt presets/poly800mk2-factory.syx presets/poly800mk2-factory.txt
 
 clean:
 	rm -f pdoly8_test pdoly8_core.o 'pdoly8~.pd_linux' 'pdoly8~.pd_darwin'
 	rm -rf demos
 
-.PHONY: external bela mac-zig test demos help clean
+.PHONY: external bela mac-zig test demos help presets clean

@@ -1,10 +1,12 @@
 pdoly8~ – Testversion für Pure Data auf dem Mac (Apple Silicon und Intel)
 
-1. Den Ordner "pdoly8" (mit pdoly8~.pd_darwin und pdoly8~-help.pd) z. B. nach
+1. Den Ordner "pdoly8" (mit pdoly8~.pd_darwin, pdoly8~-help.pd, skpreset.pd und
+   presets/) z. B. nach
    ~/Documents/Pd/externals kopieren.
 2. In Pd: Datei > Einstellungen > Pfad: diesen Ordner hinzufügen (oder den
    Hilfe-Patch direkt aus dem Ordner öffnen).
-3. pdoly8~-help.pd öffnen, DSP einschalten.
+3. pdoly8~-help.pd öffnen, DSP einschalten. Unter "Presets" die Werksbank
+   lesen (read presets/poly800mk2-factory.txt) und einen Slot 32-95 wählen.
 
 Falls macOS das Laden blockiert ("kann nicht geöffnet werden" / "beschädigt"),
 einmal im Terminal ausführen:

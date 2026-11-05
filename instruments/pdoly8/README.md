@@ -165,6 +165,26 @@ One VCF for the whole instrument, as on the Poly-800 (NJM2069), measured on a re
 
 The filter sweep of DEG3 against the recording: `demos/vcf_deg3_vs_poly800.png`.
 
+## Presets
+
+As in skandrums-pd, presets are lines of text: a `[text define -k name]` in your patch holds one line per slot, `pdoly8 v0 v1 …` (the values of a `dump`, controls then settings), and is saved with the patch. `[skpreset name]` (included, from skandrums-pd, CC0) steps through it:
+
+    [pdoly8~] outlet 2  ->  [skpreset name] inlet 0
+    [skpreset name] outlet 0  ->  inlet [pdoly8~]
+    slot number 0-95  ->  [skpreset name] inlet 1
+
+A new slot number first stores the current sound in the old slot, then loads the new one; an empty line (`-`) keeps the current sound. This copy has 96 slots and does not store on the very first selection, so a bank read into the text is not overwritten in slot 0. `write file` / `read file` on `[text define]` save and load banks.
+
+**Poly-800 II factory bank:** `presets/poly800mk2-factory.txt` keeps slots 0–31 free for your own sounds and holds the 64 factory programs in slots 32–95 (slot 32 = program 11, 39 = 18, 40 = 21, … 95 = 88). The help patch reads it with `[read presets/poly800mk2-factory.txt(`.
+
+**Sysex converter:** `tools/p8sysex.py` converts a Poly-800 II data dump (`F0 42 21 0C`, all 64 programs) into such a bank and back:
+
+    python3 tools/p8sysex.py syx2txt dump.syx bank.txt
+    python3 tools/p8sysex.py txt2syx bank.txt dump.syx --template dump.syx
+    python3 tools/p8sysex.py show dump.syx
+
+It takes the value order from `pdoly8~.c`, so it follows the object. Waveform and feet become the one-knob timbre plus octave (a combination without 16' is the 16'-rooted one 1–3 octaves up; 16' alone in the square net is the same wave 7.9 dB quieter); levels 0–31 → 0–127; WHOLE → `lev2 0`; DEG1–3 as their own values; noise, VCF, DEG3, MG, delay and EQ step for step. Back to sysex the nearest Poly-800 values are taken and pdoly8~'s own extensions are dropped; `--template` keeps the sequencer, chord memory and MIDI settings of an existing dump. A round trip of the factory dump gives the same 64 programs, except that equivalent settings come back in one form (e.g. 8' 4' 2' at MID as 16' 8' 4' at HIGH, 16' alone square as saw at a lower level). The level law of the DCO levels is assumed linear (not measured).
+
 ## How it works
 
 - **Master clock.** One clock for all 8 tone generators. Tune, bend and vibrato act on it, so all voices move together, as on the original.

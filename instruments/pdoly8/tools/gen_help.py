@@ -255,11 +255,20 @@ def build():
         "0 gate / 1 short pluck / 24 pluck / 48 piano / 72 long rel. /",
         "92 swell / 108 pad / 127 long pad. Always 4 voices of",
         "DCO1 + DCO2; lev1 / lev2 set the mix."]))
-    sections.append(("Presets and steps", [
-        "Per-step values: connect the voice to [skpreset name]",
-        "(outlet 2 -> inlet 0, outlet 0 -> voice inlet). A slot",
-        "number 0-15 then recalls and keeps the values for a step.",
-        "More in skpreset-help.pd (click to open)."], 110))
+    sections.append(("Presets: text bank and skpreset", [
+        "As in skandrums-pd: a [text define -k name] holds one line",
+        "per slot ('pdoly8 v0 v1 ...', the values of a dump), saved",
+        "with the patch; [skpreset name] steps through it. Wiring:",
+        "outlet 2 -> skpreset inlet 0, skpreset outlet 0 -> inlet.",
+        "A slot number (0-95) stores the current sound in the old slot",
+        "and loads the new one; an empty slot ('-') keeps the sound.",
+        "Slots 0-31 are free for your own sounds; 32-95 hold the 64",
+        "Poly-800 II factory programs 11-88 (slot 32 = 11, 33 = 12,",
+        "... 39 = 18, 40 = 21 ... 95 = 88) once the bank is read.",
+        "'write file' / 'read file' on [text define] save and load",
+        "banks. tools/p8sysex.py converts Poly-800 II sysex dumps to",
+        "such a bank and back (DEG values, levels, MG, delay, EQ).",
+        "Below: read the factory bank, pick a slot."], 210))
 
     placed = []
     for sec in sections:
@@ -334,6 +343,18 @@ def build():
         p.comment(TX, sy + 24, lines)
         if extra:
             ly = sy + 24 + LINE * len(lines) + 10
+            if title.startswith("Presets"):
+                rd = p.add(f"#X msg {TX} {ly} read presets/poly800mk2-factory.txt;")
+                td = p.add(f"#X obj {TX} {ly + 30} text define -k p8bank;")
+                p.conn(rd, 0, td, 0)
+                nb = p.add(f"#X floatatom {TX + 260} {ly} 4 0 95 0 slot - -;")
+                sk = p.add(f"#X obj {TX + 260} {ly + 30} skpreset p8bank;")
+                p.conn(nb, 0, sk, 1)
+                p.conn(o, 2, sk, 0)
+                sb = p.add(f"#X obj {TX + 260} {ly + 60} s {bus};")
+                p.conn(sk, 0, sb, 0)
+                p.add(f"#X text {TX + 330} {ly} <- slot 0-95, f 20;")
+                continue
             m1 = p.add(f"#X msg {TX} {ly} dir;")
             pc = p.add(f"#X obj {TX} {ly + 26} pdcontrol;")
             lp = p.add(f"#X obj {TX} {ly + 52} list prepend skpreset-help.pd;")
