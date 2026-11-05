@@ -172,6 +172,8 @@ static void step_smooth(p8_engine_t *e, float dl, float dr)
 }
 
 /* ------------------------------------------------------------- setup */
+static void deg_coeffs(p8_engine_t *e, int g);
+
 void p8_set_smooth(p8_engine_t *e, float ms)
 {
     e->smooth_ms = ms < 0.0f ? 0.0f : ms;
@@ -186,6 +188,7 @@ void p8_set_fs(p8_engine_t *e, float fs)
     {   float lp = P8_LP_HZ < 0.45f * e->fs ? P8_LP_HZ : 0.45f * e->fs, g = tanf(P8_PI * lp / e->fs);
         e->lp_g = g / (1.0f + g); }
     p8_set_smooth(e, e->smooth_ms);
+    for (int g = 0; g < 2; g++) deg_coeffs(e, g);
 }
 
 void p8_init(p8_engine_t *e, float fs)
@@ -198,6 +201,7 @@ void p8_init(p8_engine_t *e, float fs)
     e->har[0] = e->har[1] = 64.0f;
     e->lev[0] = 1.0f;
     e->hsnap = 1.0f;
+    e->env[0] = e->env[1] = 0.0f;
     e->fm_ratio = 1.0f;
     e->pw[0] = e->pw[1] = e->pw_t[0] = e->pw_t[1] = 0.5f;
     e->pfade = 1;
@@ -213,6 +217,124 @@ void p8_init(p8_engine_t *e, float fs)
     }
     p8_update(e);
     p8_settle(e);
+}
+
+/* ------------------------------------------------------- DEG (envelopes) */
+/* Measured on a Poly-800 (one DCO, one key, line out; see README):
+ * - level 0..31 -> amplitude: the square root of the amplitude is close to
+ *   linear in the level (amplitude about (L/31)^2, a little lower below 12);
+ * - attack: the level rises linearly; time for 0 -> 31 per attack value;
+ * - decay, slope (down) and release: exponential, a constant dB per second;
+ *   time for -40 dB per value; decay and release share one table;
+ * - a released voice does not close completely: it stays about -55 dB
+ *   (the 'leak' setting). */
+static const float DEG_SQ[9] = {0.0f, 0.095f, 0.2356f, 0.3764f, 0.5133f, 0.6477f, 0.778f, 0.9056f, 1.0f};
+static const float DEG_TA[9] = {0.010f, 0.031f, 0.078f, 0.20f, 0.465f, 1.06f, 2.30f, 4.92f, 8.98f};
+static const float DEG_T40[9] = {0.06f, 0.085f, 0.135f, 0.29f, 0.625f, 1.39f, 3.3f, 6.9f, 18.5f};
+#define DEG_LEAK 0.00178f                                    /* -55 dB */
+
+static float deg_pos(float v, int *i)                        /* table points at 0,4,...,28,31 */
+{
+    v = clampf(v, 0.0f, 31.0f);
+    if (v >= 28.0f) { *i = 7; return (v - 28.0f) / 3.0f; }
+    *i = (int)(v / 4.0f);
+    return (v - 4.0f * (float)*i) / 4.0f;
+}
+static float deg_sqrt(float L) { int i; float t = deg_pos(L, &i); return DEG_SQ[i] + t * (DEG_SQ[i + 1] - DEG_SQ[i]); }
+static float deg_amp(float L) { float q = deg_sqrt(L); return q * q; }
+static float deg_level(float a)                              /* inverse of deg_amp */
+{
+    float q = sqrtf(a > 0.0f ? a : 0.0f);
+    if (q >= 1.0f) return 31.0f;
+    for (int i = 0; i < 8; i++)
+        if (q <= DEG_SQ[i + 1]) {
+            float x0 = (float)(4 * i), x1 = i == 7 ? 31.0f : (float)(4 * i + 4);
+            return x0 + (q - DEG_SQ[i]) / (DEG_SQ[i + 1] - DEG_SQ[i]) * (x1 - x0);
+        }
+    return 31.0f;
+}
+static float deg_time(const float *tab, float v)             /* log interpolation */
+{
+    int i; float t = deg_pos(v, &i);
+    return tab[i] * powf(tab[i + 1] / tab[i], t);
+}
+
+/* One-knob morph: a closed loop of 8 Poly-800 DEG settings (attack, decay,
+ * break point, slope, sustain, release, 0..31), interpolated parameter by
+ * parameter: gate -> organ -> pluck -> piano -> long release -> pad ->
+ * swell -> brass -> gate. */
+static const float DEG_KNOT[8][6] = {
+    { 0,  0, 31,  0, 31,  0},                                /* 0   gate */
+    { 4,  0, 31,  0, 31, 10},                                /* 16  organ */
+    { 0, 14,  0,  0,  0, 12},                                /* 32  pluck */
+    { 0, 10, 20, 24,  0, 14},                                /* 48  piano: fast to 20, slow slope */
+    { 2, 16, 24,  0, 24, 26},                                /* 64  long release */
+    {20, 22, 26,  0, 26, 26},                                /* 79  pad */
+    {26,  0, 31,  0, 31, 29},                                /* 95  swell */
+    {10, 16, 24,  0, 24, 14},                                /* 111 brass */
+};
+
+void p8_env_morph(float pos, float hsnap, float deg[6])
+{
+    int a, b; float t;
+    knot_pos(pos, hsnap, 8, 1, &a, &b, &t);
+    for (int k = 0; k < 6; k++) deg[k] = DEG_KNOT[a][k] + t * (DEG_KNOT[b][k] - DEG_KNOT[a][k]);
+}
+
+/* per-sample coefficients of a group from its six DEG values */
+static void deg_coeffs(p8_engine_t *e, int g)
+{
+    const float *d = e->deg[g];
+    p8_deg_t *c = &e->dc[g];
+    float fs = e->fs;
+    c->att = 31.0f / (deg_time(DEG_TA, d[0]) * fs);
+    c->dec = powf(10.0f, -2.0f / (deg_time(DEG_T40, d[1]) * fs));      /* -40 dB in T40 */
+    c->sl_dn = powf(10.0f, -2.0f / (deg_time(DEG_T40, d[3]) * fs));
+    c->sl_up = 31.0f / (deg_time(DEG_TA, d[3]) * fs);
+    c->rel = powf(10.0f, -2.0f / (deg_time(DEG_T40, d[5]) * fs));
+    c->bp = deg_amp(d[2]); c->su = deg_amp(d[4]);
+    c->bp_off = d[2] >= 30.999f;                             /* break point 31: plain ADSR via slope */
+}
+
+/* one sample of a tone generator's envelope; returns the amplitude */
+static float deg_tick(p8_engine_t *e, p8_tg_t *g, int grp)
+{
+    const p8_deg_t *c = &e->dc[grp];
+    int gate = g->amp_target > 0.0f;
+    if (g->trig || (gate && !g->gate)) { g->stage = 1; g->elv = deg_level(g->amp); g->trig = 0; }
+    else if (!gate && g->gate) g->stage = 5;
+    g->gate = gate;
+    float a = g->amp;
+    switch (g->stage) {
+    case 1:                                                  /* attack: level rises linearly */
+        g->elv += c->att;
+        if (g->elv >= 31.0f) { g->elv = 31.0f; g->stage = c->bp_off ? 3 : 2; }
+        a = deg_amp(g->elv);
+        break;
+    case 2:                                                  /* decay to the break point */
+        a *= c->dec;
+        if (a <= c->bp) { a = c->bp; g->stage = 3; }
+        break;
+    case 3:                                                  /* slope to the sustain level */
+        if (c->su < a) { a *= c->sl_dn; if (a <= c->su) { a = c->su; g->stage = 4; } }
+        else if (c->su > a) {
+            float L = deg_level(a) + c->sl_up, Ls = deg_level(c->su);
+            if (L >= Ls) { a = c->su; g->stage = 4; } else a = deg_amp(L);
+        } else g->stage = 4;
+        break;
+    case 4:                                                  /* sustain: follows changes smoothly */
+        a += 0.002f * (c->su - a);
+        break;
+    case 5: {                                                /* release, exponential */
+        float floor_ = e->leak ? DEG_LEAK : 0.0f;
+        a *= c->rel;
+        if (a <= floor_ || a < 1e-6f) { a = floor_; g->stage = floor_ > 0.0f ? 6 : 0; }
+        break;
+    }
+    default: break;                                          /* 0 idle, 6 leaking */
+    }
+    g->amp = a;
+    return a;
 }
 
 /* per-foot target gains of both groups: wave weights x foot gains x level */
@@ -255,6 +377,10 @@ void p8_update(p8_engine_t *e)
         }
     }
     if (e->mode != P8_DOUBLE) for (int t = 4; t < P8_TG; t++) e->tg[t].amp_target = 0.0f;
+    for (int g = 0; g < 2; g++) {
+        if (e->env[g] >= 0.0f) p8_env_morph(e->env[g], e->hsnap, e->deg[g]);
+        deg_coeffs(e, g);
+    }
     /* stereo position of the 4 voices (both DCOs of a voice together) */
     static const float POS[P8_VOICES] = {-1.0f, -0.3333333f, 0.3333333f, 1.0f};
     for (int k = 0; k < P8_VOICES; k++) {
@@ -287,9 +413,10 @@ static void tg_pitch(p8_engine_t *e, int t)
 void p8_voice_on(p8_engine_t *e, int k, float note)
 {
     if (k < 0 || k >= P8_VOICES) return;
-    e->tg[k].note = note; tg_pitch(e, k); e->tg[k].amp_target = 1.0f;
+    e->tg[k].note = note; tg_pitch(e, k); e->tg[k].amp_target = 1.0f; e->tg[k].trig = 1;
     e->tg[k + 4].note = note; tg_pitch(e, k + 4);
     e->tg[k + 4].amp_target = e->mode == P8_DOUBLE ? 1.0f : 0.0f;
+    e->tg[k + 4].trig = e->mode == P8_DOUBLE;
 }
 
 void p8_voice_off(p8_engine_t *e, int k)
@@ -461,18 +588,17 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         float sync_tau[P8_VOICES] = {-1.0f, -1.0f, -1.0f, -1.0f};
         for (int t = 0; t < P8_TG; t++) {
             p8_tg_t *g = &e->tg[t];
-            if (g->amp_target <= 0.0f && g->amp <= 0.0f && g->v == 0.0f) continue;
+            if (g->amp_target <= 0.0f && g->amp <= 0.0f && g->v == 0.0f && !g->trig) continue;
             const float *W = e->W[t >= 4];
             /* gate ramp */
-            if (g->amp < g->amp_target) { g->amp += gstep; if (g->amp > g->amp_target) g->amp = g->amp_target; }
-            else if (g->amp > g->amp_target) { g->amp -= gstep; if (g->amp < g->amp_target) g->amp = g->amp_target; }
+            deg_tick(e, g, t >= 4);                          /* DEG1 / DEG2 */
             const float w = e->pw[t >= 4];
             const int pwm = fabsf(w - 0.5f) > 1e-5f;
             const shape_t sh = {W, e->Wc[t >= 4], e->wal[t >= 4], w};
             /* smooth changes of gains, gate and width */
             float vn = tg_eval(g, &sh, pwm ? tg_states(g, w) : tg_bits(g));
             if (vn != g->v) { float d = vn - g->v; step_smooth(e, d * g->pan_l, d * g->pan_r); g->v = vn; }
-            if (g->amp <= 0.0f && g->amp_target <= 0.0f) {   /* silent: park exactly at 0 */
+            if (g->amp <= 0.0f && g->amp_target <= 0.0f && g->stage == 0) {   /* silent: park at 0 */
                 if (g->v != 0.0f) { step_smooth(e, -g->v * g->pan_l, -g->v * g->pan_r); g->v = 0.0f; }
                 continue;
             }

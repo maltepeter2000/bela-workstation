@@ -1,6 +1,6 @@
 # pdoly8~
 
-The tone generation of the Korg Poly-800 for Pure Data: 4 voices, one or two DCOs per voice, MIDI control. Built for the Bela Pepper (Eurorack) and running in any Pd (macOS, Linux, Bela). Envelopes, filter and chorus are not in this version; the level is shaped outside the object.
+The tone generation of the Korg Poly-800 for Pure Data: 4 voices, one or two DCOs per voice, MIDI control. Built for the Bela Pepper (Eurorack) and running in any Pd (macOS, Linux, Bela). Envelopes are built in (DEG1/DEG2, measured on a Poly-800); filter and chorus are not in this version.
 
 Modelled on the Poly-800 service manual (circuits 19, 22, 27, 28, 31, 32): one master clock, the OKI MSM5232 with its integer divider ROM and binary foot counters, two tone generator groups, the square and saw resistor networks, and LEVEL1/LEVEL2 of the NJM2069. Every edge is band-limited, so the output has the analog edges of the original and no digital aliasing.
 
@@ -71,7 +71,7 @@ Two settings make any path smooth to sweep:
 | `sprd` | 0–1 | 0.5 | stereo spread of the 4 voices |
 | `levl` | 0–2 | 0.5 | output level |
 | `mrph` | ms | 8 | smoothing of `wav`, `har`, `lev` |
-| `hold` | 0/1 | 1 | 1: released voices keep sounding until the next phrase (for an external VCA release); 0: off on note-off |
+| `hold` | 0/1 | 0 | 1: released voices keep sounding until the next phrase (for an external VCA); 0: the envelope releases on note-off |
 | `a4` | 300–600 Hz | 440 | tuning |
 | `tune` | ±50 cents | 0 | master tune |
 | `bnd` | 0–12 | 2 | pitch bend range in semitones (original up to ±7) |
@@ -90,6 +90,10 @@ Two settings make any path smooth to sweep:
 | `fms` | 0/1 | 0 | FM source: 0 internal sine, 1 DCO2 (cross FM) |
 | `wsh1` / `wsh2` | 0–127 | 0 | Walsh loop position of DCO1 / DCO2 (see Walsh morph) |
 | `wmx1` / `wmx2` | 0–127 | 0 | mix from the feet sum (0) to the Walsh loop (127) |
+| `env1` / `env2` | −1…127 | 0 | DEG1 / DEG2 morph position (see Envelopes); −1 = own values below |
+| `leak` | 0/1 | 0 | 1: released voices stay at −55 dB, as measured on the original |
+| `a1 d1 bp1 sl1 su1 r1` | 0–31 | 0 0 31 0 31 0 | DEG1 attack, decay, break point, slope, sustain, release; setting one makes `env1` −1 |
+| `a2 d2 bp2 sl2 su2 r2` | 0–31 | 0 0 31 0 31 0 | the same for DEG2 |
 | `tone` | 0/1 | 1 | 1: output response measured on a Poly-800 with the VCF fully open (54 Hz high-pass, two poles at 7.5 kHz); 0: off (5 Hz DC block only) |
 
 ### Other messages
@@ -104,11 +108,11 @@ Two settings make any path smooth to sweep:
 | `panic` | all voices off |
 | `get <name>` | outlet 3 answers `value <name> <v>` |
 | `voice i p` / `voiceoff i` | play a voice directly |
-| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 30 settings |
+| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 45 settings |
 | `dump pdoly8 …` | restore such a line; lines of other voices are ignored |
 | `print` | voices, values and sample rate to the Pd window |
 
-Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 1 440 0 2 5 0 1 0 1 0 0 1 64 64 0 0 0 1 0 0 0 0 0`.
+Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 0 440 0 2 5 0 1 0 1 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0`.
 
 ### PWM (`pw1`, `pw2`)
 
@@ -131,6 +135,28 @@ The four feet are Rademacher functions. Their products (the XOR of foot squares)
 
 `wmx` fades from the feet sum (nets, `har`, PWM) to the Walsh loop. Walsh works with PWM (products of the pulses), sync and FM: foot edges are sorted in time inside each sample, so every product changes at the right moment and stays band-limited.
 
+### Envelopes (DEG1 / DEG2)
+
+Every tone generator has its own 6-stage DEG as on the Poly-800 — attack, decay, break point, slope, sustain, release, 0–31 — acting on the tone generator before the foot buses, so the envelopes are truly polyphonic. Measured on a Poly-800 (one DCO, one key, line out, 35 notes):
+
+- **Level 0–31:** the square root of the amplitude is close to linear in the level (amplitude ≈ (L/31)², a little lower below 12): 28 = −1.7 dB, 24 = −4.4, 20 = −7.5, 16 = −11.6, 12 = −17.0, 8 = −25.1, 4 = −40.9 dB.
+- **Attack:** the level rises linearly; time from 0 to level 30: A16 0.45 s, A20 1.0 s, A24 2.2 s, A28 4.8 s, A31 8.7 s (about ×1.22 per step).
+- **Decay, slope (down), release:** exponential, a constant dB per second; decay and release use the same table; time to −40 dB: 0 0.06 s, 8 0.14 s, 16 0.63 s, 20 1.4 s, 24 3.3 s, 28 6.9 s, 31 18.5 s (decay 31: 2.2 dB/s). Like the original, the time of a stage grows with the level difference it covers.
+- **Break point 31** turns the DEG into a plain ADSR (slope from the peak to sustain); a rising slope (break point below sustain) is a second attack.
+- **Release from anywhere:** a key released during attack or decay falls from the current level.
+- **Leak:** a released voice does not close completely, it stays at about −55 dB until the voice is used again (`leak 1`).
+
+Against the recording, the model's level curves of all 34 measured notes match within 0.82 dB on average (90 % within 1.6 dB); see `demos/deg_vs_poly800.png`.
+
+**One knob (`env1`, `env2`):** a closed loop of eight real DEG settings, interpolated value by value (times therefore move logarithmically), 127 = 0:
+
+| `env` | 0 | 16 | 32 | 48 | 64 | 79 | 95 | 111 |
+|---|---|---|---|---|---|---|---|---|
+| sound | gate | organ | pluck | piano | long release | pad | swell | brass |
+| A D BP SL SU R | 0 0 31 0 31 0 | 4 0 31 0 31 10 | 0 14 0 0 0 12 | 0 10 20 24 0 14 | 2 16 24 0 24 26 | 20 22 26 0 26 26 | 26 0 31 0 31 29 | 10 16 24 0 24 14 |
+
+The own values `a1` … `r2` override the loop (`env` −1). Changing the envelope while a note sounds changes the rates of the running stage, without jumps. The counters keep running on a new note, and a retriggered voice starts its attack from the level it is at.
+
 ## How it works
 
 - **Master clock.** One clock for all 8 tone generators. Tune, bend and vibrato act on it, so all voices move together, as on the original.
@@ -139,9 +165,9 @@ The four feet are Rademacher functions. Their products (the XOR of foot squares)
 - **Waveform networks.** Per group the four foot buses are summed by the square net (BR5) or the saw net (BR6); `wav` moves between them, `har` sets a gain per foot. Weights measured on a Poly-800: square 1 : 1.057 : 1.083 : 1.098, saw 2.47 × (1 : 0.523 : 0.268 : 0.135) — binary within 1 dB, and the saw net's 16' 7.9 dB above the square net's, so both nets peak about alike.
 - **Band-limiting.** Each level step of a tone generator is placed with sub-sample accuracy as a Kaiser-windowed sinc impulse (32 taps, 64 phases) and integrated. Smooth changes (gate ramps, `wav`/`har`/`lev`) go in without an impulse. Output delay 16 samples.
 - **Output response (`tone 1`).** Fitted to the recording: one-pole high-pass at 54 Hz, two poles at 7.5 kHz (VCF fully open plus output stage). A moving VCF comes later.
-- **Gate.** Without envelopes a key gates its tone generators with a 1.5 ms ramp. The counters keep running, so a note-on does not restart the phase.
+- **Envelopes.** Each tone generator has its own DEG (see above). The counters keep running, so a note-on does not restart the phase.
 
-Not modelled yet: DEG1/2/3 (on the original they act per tone generator on the chip's CAP pins, before the foot buses), VCF, chorus, and the slight clock jitter that the pulse thinning of the detune adds.
+Not modelled yet: DEG3, the VCF, chorus, and the slight clock jitter that the pulse thinning of the detune adds.
 
 ## Build
 
@@ -179,6 +205,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - Against a Poly-800 (one key C over five octaves, two octave settings; square and saw, 16' alone and all feet; line out, VCF open, chorus off): over all 40 notes the harmonics up to −45 dB match within 0.37 dB on average (90 % within 0.63 dB), note levels within 0.5 dB. Below 8 kHz the deviation stays under 0.5 dB, at 12–17 kHz about 1.5 dB.
 
 - ROM reference point: code 0x21 gives 440.00 Hz on 8'. A4 on 8' measures 440.00 Hz; DCO2 with interval 7 and detune −20 cents within 0.01 Hz of the expected value.
+- DEG: attack times (A16, A24, A31 to level 30) within 1 % of the recording, decay 31 at 2.17 dB/s (measured 2.1–2.2), morph loop closes; level curves of 34 recorded notes within 0.82 dB on average.
 - Walsh: on all 15 loop points the zero crossings per 16' period equal the sequency; loudness along the loop constant within 0.0001 dB, the loop closes; a Walsh point on C5 is harmonic within −78 dB below 16 kHz; Walsh with PWM, FM and sync stays finite.
 - Sync and FM: off = sample-identical; sync and FM spectra harmonic within −75 dB below 16 kHz; index 4 through-zero FM with sync stays finite and below full scale.
 - PWM: measured duty equals the set width (10, 25, 75, 90 %) within 0.1 %; the pulse path at 50 % matches the square path within −74.9 dB; narrow pulses alias-free (−85 dB).

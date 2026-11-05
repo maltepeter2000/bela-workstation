@@ -352,6 +352,44 @@ static void test_walsh(void)
     buf_free(&b);
 }
 
+/* DEG: morph points exact and the loop closes; attack and release times
+ * follow the measured tables (A31: level 30 after about 8.7 s, R31: -40 dB
+ * after about 18.5 s); decay 31 falls about 2.2 dB/s */
+static void test_deg(void)
+{
+    float d0[6], d1[6];
+    p8_env_morph(0.0f, 1.0f, d0); p8_env_morph(127.0f, 1.0f, d1);
+    for (int k = 0; k < 6; k++) CHECK(d0[k] == d1[k], "DEG loop does not close");
+    p8_env_morph(79.375f, 1.0f, d0);
+    CHECK(d0[0] == 20.0f && d0[5] == 26.0f, "DEG pad point not exact");
+
+    p8_engine_t e; buf_t b = {0};
+    const float A[3] = {16.0f, 24.0f, 31.0f}, expA[3] = {0.45f, 2.23f, 8.70f};
+    for (int k = 0; k < 3; k++) {
+        p8_init(&e, FS); e.tone = 0;
+        setup(&e, P8_WHOLE, 0, 91, 0, 64, 127, 0);
+        e.env[0] = -1.0f; float d[6] = {A[k], 0, 31, 0, 31, 0}; memcpy(e.deg[0], d, sizeof d); p8_update(&e);
+        p8_voice_on(&e, 0, 57.0f);
+        float t30 = -1.0f, tt = 0.0f, target = 0.0f;
+        { float q = 0.9056f + 2.0f / 3.0f * (1.0f - 0.9056f); target = q * q; }   /* level 30 */
+        while (tt < 12.0f && t30 < 0.0f) { p8_render(&e, (float[64]){0}, (float[64]){0}, 64); tt += 64.0f / FS; if (e.tg[0].amp >= target) t30 = tt; }
+        printf("DEG attack %2.0f: level 30 after %.3f s (measured on the Poly-800 %.3f s)\n", (double)A[k], (double)t30, (double)expA[k]);
+        CHECK(fabsf(t30 - expA[k]) < 0.1f * expA[k] + 0.01f, "attack %g time %g", (double)A[k], (double)t30);
+    }
+    p8_init(&e, FS); e.tone = 0;
+    setup(&e, P8_WHOLE, 0, 91, 0, 64, 127, 0);
+    e.env[0] = -1.0f; { float d[6] = {0, 31, 0, 0, 0, 0}; memcpy(e.deg[0], d, sizeof d); } p8_update(&e);
+    p8_voice_on(&e, 0, 57.0f);
+    float L[64], R[64];
+    for (int i = 0; i < (int)(1.0f * FS / 64); i++) p8_render(&e, L, R, 64);
+    float a1 = e.tg[0].amp;
+    for (int i = 0; i < (int)(4.0f * FS / 64); i++) p8_render(&e, L, R, 64);
+    float rate = 20.0f * log10f(a1 / e.tg[0].amp) / 4.0f;
+    printf("DEG decay 31: %.2f dB/s (measured 2.1-2.2)\n", (double)rate);
+    CHECK(rate > 1.9f && rate < 2.4f, "decay 31 rate %g", (double)rate);
+    buf_free(&b);
+}
+
 static void test_modes_levels(void)
 {
     p8_engine_t e; buf_t b = {0};
@@ -678,6 +716,35 @@ static void demo_walsh(void)
     wav_write("demos/an_walsh.wav", &b); buf_free(&b);
 }
 
+static void demo_env(void)
+{
+    p8_engine_t e; buf_t b = {0};
+    static const int prog[4][4] = {{45, 52, 55, 60}, {41, 48, 52, 57}, {43, 50, 53, 59}, {40, 47, 52, 55}};
+    p8_init(&e, FS);
+    /* 1: the eight morph points, a short phrase each */
+    setup(&e, P8_WHOLE, 127, 9, 0, 64, 127, 0);
+    for (int k = 0; k < 8; k++) {
+        e.env[0] = (float)k * 127.0f / 8.0f; p8_update(&e);
+        float hold = k >= 5 ? 1.6f : 0.6f;
+        for (int c = 0; c < 2; c++) { chord(&e, prog[c], 4); buf_render(&e, &b, hold); all_off(&e); buf_render(&e, &b, 0.25f); }
+        buf_render(&e, &b, k >= 4 ? 2.0f : 0.6f);
+    }
+    /* 2: arpeggio while env turns once around the loop */
+    static const int arp[8] = {57, 60, 64, 67, 72, 67, 64, 60};
+    for (int i = 0; i < 64; i++) {
+        e.env[0] = fmodf((float)i / 64.0f * 127.0f, 127.0f); p8_update(&e);
+        p8_voice_on(&e, i & 3, (float)arp[i & 7]); buf_render(&e, &b, 0.16f); p8_voice_off(&e, i & 3); buf_render(&e, &b, 0.06f);
+    }
+    buf_render(&e, &b, 2.0f);
+    /* 3: DOUBLE layer: DCO1 pluck, DCO2 pad an octave lower (saw), chords */
+    setup(&e, P8_DOUBLE, 0, 18, 127, 9, 70, 57);
+    e.octave[1] = -1; e.env[0] = 32.0f; e.env[1] = 79.0f; e.detune_cents = 7.0f; p8_update(&e); p8_retune(&e);
+    for (int c = 0; c < 4; c++) { chord(&e, prog[c], 4); buf_render(&e, &b, 1.8f); all_off(&e); buf_render(&e, &b, 0.2f); }
+    buf_render(&e, &b, 2.5f);
+    wav_write("demos/pdoly8_env.wav", &b);
+    buf_free(&b);
+}
+
 int main(int argc, char **argv)
 {
     test_rom();
@@ -688,8 +755,9 @@ int main(int argc, char **argv)
     test_pwm();
     test_sync_fm();
     test_walsh();
+    test_deg();
     test_modes_levels();
-    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); demo_sync_fm(); demo_walsh(); }
+    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); demo_sync_fm(); demo_walsh(); demo_env(); }
     printf(fails ? "%d check(s) failed\n" : "all checks passed\n", fails);
     return fails != 0;
 }

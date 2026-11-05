@@ -43,10 +43,17 @@ typedef struct {
     uint32_t cnt;                /* binary counter (free running, never reset) */
     float   ph;                  /* fraction of the next count, 0..1 */
     float   mph;                 /* FM sine phase (DCO1 TGs) */
-    float   amp, amp_target;     /* gate with a short de-click ramp */
+    float   amp, amp_target;     /* envelope output; gate (1 key down, 0 released) */
+    float   elv;                 /* envelope level 0..31 during attack / rising slope */
+    int     stage, gate, trig;   /* DEG stage 0 idle 1 A 2 D 3 slope 4 S 5 R 6 leak */
     float   v;                   /* last output value, before panning */
     float   pan_l, pan_r;
 } p8_tg_t;
+
+typedef struct {                 /* DEG per-sample coefficients of a group */
+    float   att, dec, sl_dn, sl_up, rel, bp, su;
+    int     bp_off;
+} p8_deg_t;
 
 typedef struct {
     float   fs;
@@ -76,6 +83,10 @@ typedef struct {
     float   wpos[2], wmix[2];    /* Walsh morph per DCO: position 0..127 on the loop, mix 0..1 */
     float   Wc[2][16], Wct[2][16];   /* Walsh coefficients by foot subset (current, target) */
     int     wal[2];              /* Walsh part active */
+    float   env[2];              /* DEG morph position 0..127 per DCO, < 0: raw values in deg */
+    float   deg[2][6];           /* DEG1 / DEG2: attack, decay, break point, slope, sustain, release (0..31) */
+    p8_deg_t dc[2];
+    int     leak;                /* 1: released voices stay at -55 dB, as measured */
     float   W[2][P8_FEET];       /* current per foot gain (wav x har x lev) */
     float   Wt[2][P8_FEET];      /* target */
     float   smooth_ms;
@@ -115,6 +126,8 @@ void  p8_retune(p8_engine_t *e);             /* after octave / interval change *
 
 /* foot gains of har position h (0..127) with a plateau of hsnap steps */
 void  p8_foot_gains(float h, float hsnap, float g[P8_FEET]);              /* path 0, linear */
+/* DEG morph: the six values at loop position pos (0..127) */
+void  p8_env_morph(float pos, float hsnap, float deg[6]);
 /* any path: foot gains, and for path 2 the net (0 square .. 1 saw), else -1 */
 void  p8_path_gains(int path, float h, float hsnap, int pfade, float g[P8_FEET], float *net);
 /* MSM5232 pitch: frequency of the 16' foot for a code at the given clock

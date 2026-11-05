@@ -25,10 +25,13 @@ static const float CTL_DEFAULT[NCTL] = {127, 127, 64, 64, 0, 0, 127, 0};
 
 /* Settings with raw values, in dump order after the controls. */
 enum { X_MODE, X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_LEVL, X_MRPH, X_HOLD, X_A4, X_TUNE, X_BND,
-       X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, X_WSH1, X_WSH2, X_WMX1, X_WMX2, NEXT };
+       X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, X_WSH1, X_WSH2, X_WMX1, X_WMX2,
+       X_ENV1, X_ENV2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2, X_D2, X_BP2, X_SL2, X_SU2, X_R2, NEXT };
 static const char *EXT_NAME[NEXT] = {"mode", "oct1", "oct2", "nois", "sprd", "levl", "mrph", "hold", "a4",
-                                     "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad", "pw1", "pw2", "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2"};
-static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 1, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0};
+                                     "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad", "pw1", "pw2", "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2",
+                                     "env1", "env2", "leak", "a1", "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2"};
+static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 0, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0,
+                                       0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0, 31, 0, 31, 0};
 
 static t_class *pdoly8_class;
 
@@ -40,6 +43,7 @@ typedef struct _pdoly8 {
     t_float  bend;                 /* -1..1 */
     int      held[P8_VOICES]; t_float key[P8_VOICES]; unsigned age[P8_VOICES]; int keys;
     unsigned clock;
+    int      restoring;
     float   *buf; int bufn;
 } t_pdoly8;
 
@@ -142,6 +146,24 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_FMS:  v = v != 0; e->fm_src = v != 0; break;
     case X_WSH1: case X_WSH2:                    /* Walsh loop position 0..127 */
         v = clampf_((float)v, 0.0f, 127.0f); e->wpos[i == X_WSH2] = (float)v; x->ext[i] = v; p8_update(e); return;
+    case X_ENV1: case X_ENV2: {                  /* DEG morph 0..127, -1 = own values (a1 ...) */
+        int g = i == X_ENV2;
+        v = v < 0 ? -1 : clampf_((float)v, 0.0f, 127.0f);
+        e->env[g] = (float)v; x->ext[i] = v; p8_update(e);
+        for (int k = 0; k < 6; k++) x->ext[(g ? X_A2 : X_A1) + k] = e->deg[g][k];
+        return;
+    }
+    case X_LEAK: v = v != 0; e->leak = v != 0; break;          /* released voices at -55 dB */
+    case X_A1: case X_D1: case X_BP1: case X_SL1: case X_SU1: case X_R1:
+    case X_A2: case X_D2: case X_BP2: case X_SL2: case X_SU2: case X_R2: {   /* own DEG values 0..31 */
+        int g = i >= X_A2, k = i - (g ? X_A2 : X_A1);
+        v = clampf_((float)v, 0.0f, 31.0f);
+        x->ext[i] = v;
+        if (x->restoring && e->env[g] >= 0.0f) return;          /* a dump with a morph position */
+        e->deg[g][k] = (float)v; e->env[g] = -1.0f; x->ext[g ? X_ENV2 : X_ENV1] = -1;
+        p8_update(e);
+        return;
+    }
     case X_WMX1: case X_WMX2:                    /* feet -> Walsh, 0..127 */
         v = clampf_((float)v, 0.0f, 127.0f); e->wmix[i == X_WMX2] = (float)v / 127.0f; x->ext[i] = v; p8_update(e); return;
     default: return;
@@ -238,7 +260,9 @@ static void pdoly8_params(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 
 static void set_defaults(t_pdoly8 *x)
 {
+    x->restoring = 1;
     for (int i = 0; i < NEXT; i++) apply_ext(x, i, EXT_DEFAULT[i]);
+    x->restoring = 0;
     for (int i = 0; i < NCTL; i++) apply_ctl(x, i, CTL_DEFAULT[i]);
 }
 static void pdoly8_defaults(t_pdoly8 *x) { set_defaults(x); }
@@ -272,13 +296,15 @@ static void pdoly8_dump(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
     }
     if (argv[0].a_type != A_SYMBOL || argv[0].a_w.w_symbol != gensym("pdoly8")) return;
     /* settings first (mode decides the levels), then the controls */
+    x->restoring = 1;
     for (int i = 1 + NCTL; i < argc && i <= NCTL + NEXT; i++) apply_ext(x, i - 1 - NCTL, atom_getfloatarg(i, argc, argv));
+    x->restoring = 0;
     for (int i = 1; i < argc && i <= NCTL; i++) apply_ctl(x, i - 1, atom_getfloatarg(i, argc, argv));
 }
 
 static void pdoly8_print(t_pdoly8 *x)
 {
-    char line[512]; int n = 0;
+    char line[1024]; int n = 0;
     post("pdoly8~: sample rate %g, %s, 4 voices", x->e.fs, x->e.mode == P8_DOUBLE ? "DOUBLE" : "WHOLE");
     for (int i = 0; i < NCTL; i++) n += snprintf(line + n, sizeof line - (size_t)n, "%s %g  ", CTL_NAME[i], x->ctl[i]);
     post("pdoly8~: %s", line);

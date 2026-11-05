@@ -80,6 +80,12 @@ SETTINGS = [
     "fms (0) FM source: 0 internal sine, 1 DCO2 (cross FM)",
     "wsh1, wsh2 (0) Walsh loop position of DCO1 / DCO2, 0-127",
     "wmx1, wmx2 (0) mix from the feet (0) to the Walsh loop (127)",
+    "env1, env2 (0) DEG1 / DEG2 morph 0-127 (see Envelopes),",
+    "-1 = own values a1 ... r2",
+    "leak (0) 1: released voices stay at -55 dB, as on the original",
+    "a1 d1 bp1 sl1 su1 r1 (0 0 31 0 31 0) DEG1 attack, decay,",
+    "break point, slope, sustain, release 0-31 (sets env1 to -1)",
+    "a2 d2 bp2 sl2 su2 r2: the same for DEG2",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -90,7 +96,10 @@ ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
        ("path", 0, 2), ("norm", 0, 1), ("pfad", 0, 1), ("pw1", 0, 127),
        ("pw2", 0, 127), ("sync", 0, 1), ("swp2", 0, 48),
        ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("wsh1", 0, 127),
-       ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("bend", -1, 1)]
+       ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("env1", -1, 127),
+       ("env2", -1, 127), ("leak", 0, 1), ("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
+       ("su1", 0, 31), ("r1", 0, 31), ("a2", 0, 31), ("d2", 0, 31), ("bp2", 0, 31), ("sl2", 0, 31),
+       ("su2", 0, 31), ("r2", 0, 31), ("bend", -1, 1)]
 VINT = []
 
 
@@ -222,12 +231,16 @@ def build():
         "59: 2' / 68: 16'x8'x2' / 76: 8'x4'x2' / 85: all / 93: 4'x2' /",
         "102: 16'x8'x4' / 110: 8'x4' / 119: 16'x8' / 127 = 0.",
         "wmx fades from the feet sum to the Walsh loop."]))
-    sections.append(("Envelopes", [
-        "pdoly8~ has no envelopes and no filter yet. A key gates its",
-        "voice with a short de-click ramp; shape the level with an",
-        "external VCA. With hold 1 a released chord keeps sounding",
-        "until the next phrase. The chip's counters run freely, so",
-        "a note-on does not restart the phase (as on the original)."]))
+    sections.append(("Envelopes (DEG1 / DEG2)", [
+        "Each tone generator has its own 6-stage DEG as on the",
+        "Poly-800 (attack, decay, break point, slope, sustain, release",
+        "0-31), measured on a real one: level 0-31 is about (L/31)^2,",
+        "attack rises linearly (A31 about 9 s), decay, slope and",
+        "release fall at a constant dB per second (31: about 18 s",
+        "to -40 dB). env1 / env2 morph through a loop of settings:",
+        "0 gate / 16 organ / 32 pluck / 48 piano / 64 long release /",
+        "79 pad / 95 swell / 111 brass / 127 = gate. A released voice",
+        "releases at once; hold 1 keeps it until the next phrase."]))
     sections.append(("Presets and steps", [
         "Per-step values: connect the voice to [skpreset name]",
         "(outlet 2 -> inlet 0, outlet 0 -> voice inlet). A slot",
