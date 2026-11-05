@@ -28,6 +28,9 @@
 #define P8_EQ_TR_F0 4256.0f       /* treble shelf corner, fitted (full boost +3 dB at 1.8 kHz; manual: 2 kHz) */
 #define P8_EQ_BS_F0 115.0f        /* bass shelf corner, fitted (full boost +3 dB at 316 Hz; manual: 300 Hz) */
 #define P8_DDL_LP   7000.0f       /* band limit of the delay path, 2 poles (provisional) */
+#define P8_DDL_T0   4.24f         /* delay time at 0, ms: 4 ms in the manual, 6 % longer measured */
+#define P8_DDL_FB15 0.70f         /* loop gain at feedback 15 (measured: -3.1 dB per echo) */
+#define P8_DDL_GATE 0.004f        /* echo gate threshold (about -48 dB re full scale) */
 #define P8_DDL_MOD_MS 3.0f        /* delay mod depth at 31: +-3 ms (first estimate from a recording, was a 1:5 swing) */
 #define P8_NORM_REF 2.1203f       /* sqrt(sum w^2) of the square net, all feet */
 #define P8_GATE_MS  1.5f          /* de-click ramp of a voice gate */
@@ -208,6 +211,7 @@ void p8_set_fs(p8_engine_t *e, float fs)
     for (int g = 0; g < 3; g++) deg_coeffs(e, g);
     p8_set_eq(e, e->eq_tr, e->eq_bs);
     {   float g = tanf(P8_PI * P8_DDL_LP / e->fs); e->ddl_lpg = g / (1.0f + g); }
+    e->ddl_rel = expf(-1.0f / (0.02f * e->fs));                    /* gate envelope: 20 ms release */
     p8_set_ddl(e, e->ddl_time, e->ddl_fb, e->ddl_mf, e->ddl_mi, e->ddl_lev);
 }
 
@@ -244,7 +248,7 @@ void p8_set_ddl(p8_engine_t *e, float time, float fb, float mf, float mi, float 
 {
     e->ddl_time = clampf(time, 0.0f, 99.0f); e->ddl_fb = clampf(fb, 0.0f, 15.0f);
     e->ddl_mf = clampf(mf, 0.0f, 31.0f); e->ddl_mi = clampf(mi, 0.0f, 31.0f); e->ddl_lev = clampf(lev, 0.0f, 15.0f);
-    e->ddl_ms = 4.0f * exp2f(8.0f * e->ddl_time / 99.0f);
+    e->ddl_ms = P8_DDL_T0 * exp2f(8.0f * e->ddl_time / 99.0f);      /* measured: 70 -> 216 ms, 99 -> 1.08 s */
     e->ddl_mute = 0.0f;                    /* "delay sound output is momentarily interrupted" */
 }
 
@@ -862,13 +866,20 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             float y1 = e->ddl_buf[(unsigned)(i0 + 1) & (P8_DDL - 1)], y2 = e->ddl_buf[(unsigned)(i0 + 2) & (P8_DDL - 1)];
             float c1 = 0.5f * (y1 - ym1), c2 = ym1 - 2.5f * y0 + 2.0f * y1 - 0.5f * y2, c3 = 0.5f * (y2 - ym1) + 1.5f * (y0 - y1);
             wet = ((c3 * fr + c2) * fr + c1) * fr + y0;
-            float in = 0.5f * (o[0] + o[1]) + wet * (e->ddl_fb / 15.0f) * 0.98f;
+            float in = 0.5f * (o[0] + o[1]) + wet * (e->ddl_fb / 15.0f) * P8_DDL_FB15;
             for (int p = 0; p < 2; p++) {                         /* band limit of the DDL */
                 float v = (in - e->ddl_lp[p]) * e->ddl_lpg; float yp = v + e->ddl_lp[p]; e->ddl_lp[p] = yp + v; in = yp;
             }
             e->ddl_buf[e->ddl_w & (P8_DDL - 1)] = in;
             e->ddl_w++;
             float mu = e->ddl_mute < 0.5f ? 0.0f : 2.0f * e->ddl_mute - 1.0f;
+            /* gate: the echo stops when it has fallen below a threshold (measured: an
+             * echo train ends abruptly about 37 dB under the note) */
+            {   float a = fabsf(wet);
+                e->ddl_env = a > e->ddl_env ? a : e->ddl_env * e->ddl_rel;
+                float tgt = e->ddl_env > P8_DDL_GATE ? 1.0f : 0.0f;
+                e->ddl_gate += (tgt - e->ddl_gate) * 0.002f;
+                mu *= e->ddl_gate; }
             wet *= e->ddl_lev / 15.0f * mu;
         }
         for (int c = 0; c < 2; c++) {

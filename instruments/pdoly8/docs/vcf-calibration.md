@@ -104,3 +104,9 @@ Noise through the EQ, steady part of each note, spectra relative to the setting 
 - Only two of the plucks carry an echo (at 10.7 s: about 43 ms; at 103.8 s: about 30 ms); in all others L and R are identical (no echo). Which settings belong to which note is still to be clarified.
 - Where there is an echo, sum and difference separate it cleanly: (L+R)/2 is the dry pluck alone, (L−R)/2 the echo alone, at about the level of the dry sound (effect level 15). → L = dry + echo, R = dry − echo. Built in.
 - After each pluck both outputs carry a noise floor about 10 dB above the idle floor for roughly 1.3 s, then it drops (a gate on the delay path, see the service manual's "gate on / off" noise figures). Not modelled.
+
+## Digital delay (Audio_0023, mono, feedback 15, time 99 … 0)
+
+- Time 99: echoes every 1.06–1.11 s (mean 1.08 s; manual 1024 ms). Time 70: echo period 216 ms. Both fit the exponential curve 4 · 256^(v/99) ms, 6 % longer → built in as 4.24 · 256^(v/99).
+- Feedback 15: −3.1 dB per echo (loop gain 0.70, not 100 %); the first echo is 2.6 dB under the note. After about 13 echoes, ~37 dB under the note, the train stops abruptly (gate) → modelled as an echo gate.
+- Times 40 … 0: no audible echo on Peter's unit; an amplitude ripple of about 100 ms (≈ 10 Hz) on every note, independent of the time. Unclear (unit fault, gate, or modulation); not modelled.

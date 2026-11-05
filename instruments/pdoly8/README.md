@@ -81,8 +81,8 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 | `mgd` | 0–15 | 0 | MG delay (82) after the first key of a phrase, measured 0 / 0.47 / 0.95 / 1.55 s at 0 / 5 / 10 / 15; then the MG comes in at full depth (no fade, as measured) |
 | `mgv` | 0–15 | 0 | MG to VCF cutoff (84), measured ±0.53 octaves per step, ±7.9 at 15 (the same scale as EG INT) |
 | `treb` `bass` | −6…6 | 0 | EQ (76/77), measured: first-order shelves (corners 4.26 kHz / 115 Hz, full boost +3 dB at 1.8 kHz / 316 Hz), about ±4 dB at ±3 and ±10 dB at ±6 |
-| `dtim` | 0–99 | 30 | digital delay time (71): 4 … 1024 ms (curve provisional: exponential) |
-| `dfb` | 0–15 | 0 | delay feedback (72): 0 … 100 % |
+| `dtim` | 0–99 | 30 | digital delay time (71): exponential, 4.2 ms … 1.08 s (measured: 70 → 216 ms, 99 → 1.08 s) |
+| `dfb` | 0–15 | 0 | delay feedback (72): at 15 each echo is 3.1 dB quieter (measured); a gate ends the echo train about 48 dB under full scale, as on the original |
 | `dmf` `dmi` | 0–31 | 0 | delay modulation rate (73, 0.1 … 10 Hz) and depth (74, up to ±3 ms of delay time — first estimate) |
 | `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The echo goes to the left output in phase and to the right one inverted (measured: L = dry + echo, R = dry − echo, so a mono sum of both cancels it), band-limited to 7 kHz; changing a delay value mutes the echo briefly, as on the original |
 
