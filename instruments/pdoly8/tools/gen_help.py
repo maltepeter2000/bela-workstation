@@ -71,6 +71,8 @@ SETTINGS = [
     "16 points, wraps; wav is not used)",
     "norm (0) 0-1: hold the loudness constant over the morph",
     "pfad (1) 1: a fading foot rises in power, not in amplitude",
+    "pw1, pw2 (64) pulse width of DCO1 / DCO2: 0-127 = 3-97 %,",
+    "64 = square; works on every foot at once (see PWM)",
 ]
 
 # number boxes in the bottom panel: name, min, max
@@ -78,7 +80,8 @@ ADV = [("mode", 1, 2), ("oct1", -1, 1), ("oct2", -1, 1), ("nois", 0, 15),
        ("sprd", 0, 1), ("levl", 0, 2), ("mrph", 0, 100), ("hold", 0, 1),
        ("a4", 400, 480), ("tune", -50, 50), ("bnd", 0, 12), ("mgf", 0, 30),
        ("mgi", 0, 100), ("hsnp", 0, 4), ("ch1", 0, 16), ("tone", 0, 1),
-       ("path", 0, 2), ("norm", 0, 1), ("pfad", 0, 1), ("bend", -1, 1)]
+       ("path", 0, 2), ("norm", 0, 1), ("pfad", 0, 1), ("pw1", 0, 127),
+       ("pw2", 0, 127), ("bend", -1, 1)]
 VINT = []
 
 
@@ -185,6 +188,12 @@ def build():
         "64-119 in the saw net backwards, 127: 16' square again.",
         "Both loops close, so an LFO or ramp can turn endlessly.",
         "norm 1 keeps the level constant, pfad 1 smooths the fades."]))
+    sections.append(("PWM", [
+        "pw1 / pw2 turn every foot into a pulse: the AND of the foot",
+        "with a copy shifted by part of its period, so the falling",
+        "edge stays on the counter step and the rising edge moves.",
+        "On the saw net this gives pulse staircases. All edges stay",
+        "band-limited; norm also evens out the level of narrow pulses."]))
     sections.append(("Envelopes", [
         "pdoly8~ has no envelopes and no filter yet. A key gates its",
         "voice with a short de-click ramp; shape the level with an",

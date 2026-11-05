@@ -233,6 +233,44 @@ static void test_paths(void)
     }
 }
 
+/* PWM: at width 0.5 the pulse path equals the plain square; the measured
+ * duty follows the width; DOUBLE groups keep their own width */
+static void test_pwm(void)
+{
+    p8_engine_t e; buf_t a = {0}, b = {0};
+    p8_init(&e, FS);
+    setup(&e, P8_WHOLE, 64, 64, 0, 64, 127, 0);
+    p8_voice_on(&e, 0, 57.0f); buf_render(&e, &a, 0.5f);
+    p8_init(&e, FS);
+    setup(&e, P8_WHOLE, 64, 64, 0, 64, 127, 0);
+    e.pw[0] = e.pw_t[0] = 0.50001f;                          /* forces the pulse path */
+    p8_voice_on(&e, 0, 57.0f); buf_render(&e, &b, 0.5f);
+    double d = 0.0, r = 0.0;
+    for (size_t i = 0; i < a.n; i++) { d += (double)((a.l[i] - b.l[i]) * (a.l[i] - b.l[i])); r += (double)(a.l[i] * a.l[i]); }
+    float diff_db = (float)(10.0 * log10(d / r + 1e-30));
+    printf("PWM path at width 0.5 vs square path: difference %.1f dB\n", (double)diff_db);
+    CHECK(diff_db < -60.0f, "pulse path differs from square at 0.5 (%.1f dB)", (double)diff_db);
+    buf_free(&a); buf_free(&b);
+
+    float widths[4] = {0.1f, 0.25f, 0.75f, 0.9f};
+    for (int k = 0; k < 4; k++) {
+        p8_init(&e, FS);
+        e.tone = 0;
+        setup(&e, P8_WHOLE, 0, 91, 0, 64, 127, 0);           /* 8' alone */
+        e.pw[0] = e.pw_t[0] = widths[k];
+        p8_voice_on(&e, 0, 45.0f); buf_render(&e, &a, 1.0f);
+        /* duty: share of samples above the middle of min and max */
+        float lo = 1e9f, hi = -1e9f;
+        for (size_t i = 22050; i < a.n; i++) { if (a.l[i] < lo) lo = a.l[i]; if (a.l[i] > hi) hi = a.l[i]; }
+        size_t up = 0;
+        for (size_t i = 22050; i < a.n; i++) up += a.l[i] > 0.5f * (lo + hi);
+        float duty = (float)up / (float)(a.n - 22050);
+        printf("PWM width %.2f: measured duty %.3f\n", (double)widths[k], (double)duty);
+        CHECK(fabsf(duty - widths[k]) < 0.01f, "duty %.3f for width %.2f", (double)duty, (double)widths[k]);
+        buf_free(&a);
+    }
+}
+
 static void test_modes_levels(void)
 {
     p8_engine_t e; buf_t b = {0};
@@ -418,6 +456,52 @@ static void demo_ring(void)
     buf_free(&b);
 }
 
+static void pw_lfo(p8_engine_t *e, buf_t *b, float sec, float hz, float lo, float hi, int both, float h_turns)
+{
+    const float dt = 0.005f;
+    for (float t = 0.0f; t < sec; t += dt) {
+        float l = 0.5f - 0.5f * cosf(6.2831853f * hz * t), w = lo + (hi - lo) * l;
+        e->pw_t[0] = w; e->pw_t[1] = both ? 1.0f - w : 0.5f;
+        if (h_turns > 0.0f) e->har[0] = e->har[1] = fmodf(t / sec * h_turns * 127.0f, 127.0f);
+        p8_update(e); buf_render(e, b, dt);
+    }
+}
+
+static void demo_pwm(void)
+{
+    p8_engine_t e; buf_t b = {0};
+    static const int am7[4] = {45, 52, 55, 60};
+    p8_init(&e, FS);
+    /* 1: square 16' alone, classic PWM 50 % -> 8 % -> 50 % */
+    setup(&e, P8_WHOLE, 0, 0, 0, 0, 127, 0);
+    chord(&e, am7, 4); pw_lfo(&e, &b, 8.0f, 0.25f, 0.5f, 0.08f, 0, 0.0f);
+    /* 2: saw net, all feet: pulse staircases */
+    e.wav[0] = 1.0f; e.har[0] = 64.0f; p8_update(&e);
+    pw_lfo(&e, &b, 8.0f, 0.25f, 0.5f, 0.1f, 0, 0.0f);
+    all_off(&e); buf_render(&e, &b, 0.4f);
+    /* 3: DOUBLE, 16'8' square, DCO1 and DCO2 widths in opposite directions, detune */
+    setup(&e, P8_DOUBLE, 0, 9, 0, 9, 64, 63);
+    e.detune_cents = 13.0f; p8_retune(&e);
+    chord(&e, am7, 4); pw_lfo(&e, &b, 10.0f, 0.3f, 0.5f, 0.15f, 1, 0.0f);
+    all_off(&e); buf_render(&e, &b, 0.4f);
+    /* 4: path 2 turning (2 loops) with norm 1 and a PWM LFO */
+    setup(&e, P8_WHOLE, 0, 0, 0, 0, 127, 0);
+    e.path = 2; e.norm = 1.0f; p8_update(&e); p8_settle(&e);
+    chord(&e, am7, 4); pw_lfo(&e, &b, 12.0f, 0.6f, 0.5f, 0.2f, 0, 2.0f);
+    all_off(&e); buf_render(&e, &b, 0.5f);
+    wav_write("demos/pdoly8_pwm.wav", &b);
+    buf_free(&b);
+
+    /* aliasing check: narrow pulse (10 %) on a high note, 2' alone, mono */
+    p8_init(&e, FS);
+    e.tone = 0;
+    setup(&e, P8_WHOLE, 0, 127, 0, 64, 127, 0);
+    e.spread = 0.0f; e.pw[0] = e.pw_t[0] = 0.1f; p8_update(&e);
+    p8_voice_on(&e, 0, 84.0f); buf_render(&e, &b, 2.0f);
+    wav_write("demos/alias_pwm.wav", &b);
+    buf_free(&b);
+}
+
 int main(int argc, char **argv)
 {
     test_rom();
@@ -425,8 +509,9 @@ int main(int argc, char **argv)
     test_pitch();
     test_clamp();
     test_paths();
+    test_pwm();
     test_modes_levels();
-    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); }
+    if (argc > 1 && !strcmp(argv[1], "demos")) { demo_single(); demo_double(); demo_morph(); demo_ring(); demo_pwm(); }
     printf(fails ? "%d check(s) failed\n" : "all checks passed\n", fails);
     return fails != 0;
 }

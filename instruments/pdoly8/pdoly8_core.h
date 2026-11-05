@@ -66,6 +66,7 @@ typedef struct {
     int     path;                /* 0 original (15 knots), 1 ring (8, root kept), 2 figure eight (16, both nets) */
     int     pfade;               /* 1: fading foot follows sqrt (linear power) */
     float   norm;                /* 0..1: hold the loudness constant over the morph */
+    float   pw[2], pw_t[2];      /* pulse width per DCO, 0.5 = square (current, target) */
     float   W[2][P8_FEET];       /* current per foot gain (wav x har x lev) */
     float   Wt[2][P8_FEET];      /* target */
     float   smooth_ms;

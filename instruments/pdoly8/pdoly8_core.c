@@ -192,6 +192,7 @@ void p8_init(p8_engine_t *e, float fs)
     e->har[0] = e->har[1] = 64.0f;
     e->lev[0] = 1.0f;
     e->hsnap = 1.0f;
+    e->pw[0] = e->pw[1] = e->pw_t[0] = e->pw_t[1] = 0.5f;
     e->pfade = 1;
     e->smooth_ms = 8.0f;
     e->spread = 0.5f; e->level = 0.5f;
@@ -227,7 +228,10 @@ void p8_update(p8_engine_t *e)
          * RMS is exactly sqrt(sum w^2) / 2; norm 1 holds it at the level of
          * the square net with all feet, which also bounds the peak there */
         float k = 1.0f;
-        if (e->norm > 0.0f && pw > 1e-9f) k = powf(P8_NORM_REF / sqrtf(pw), clampf(e->norm, 0.0f, 1.0f));
+        if (e->norm > 0.0f && pw > 1e-9f) {
+            float wd = clampf(e->pw_t[g], 0.03f, 0.97f), duty = 4.0f * wd * (1.0f - wd);   /* pulse power / square power */
+            k = powf(P8_NORM_REF / sqrtf(pw * duty), clampf(e->norm, 0.0f, 1.0f));
+        }
         for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = w[f] * k * lev;
     }
     if (e->mode != P8_DOUBLE) for (int t = 4; t < P8_TG; t++) e->tg[t].amp_target = 0.0f;
@@ -292,6 +296,21 @@ static float tg_value(const p8_tg_t *g, const float W[P8_FEET])
     return s * g->amp;
 }
 
+/* PWM: each foot is the AND of its square with a copy shifted by a part of
+ * its period (a phase offset on the counter), i.e. a pulse whose falling edge
+ * stays on the counter step and whose rising edge moves. Width w is the high
+ * part, w = 0.5 is the plain square. Values are DC free: high 1-w, low -w. */
+static float tg_value_pw(const p8_tg_t *g, const float W[P8_FEET], float w)
+{
+    float s = 0.0f;
+    for (int f = 0; f < P8_FEET; f++) {
+        uint32_t P = 2u << g->bit[f];
+        float local = (float)(g->cnt & (P - 1u)) + g->ph;
+        s += local >= (1.0f - w) * (float)P ? (1.0f - w) * W[f] : -w * W[f];
+    }
+    return s * g->amp;
+}
+
 void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
 {
     const float clk0 = P8_TG_CLK * e->a4 / 440.0f;
@@ -311,8 +330,11 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             float tri = 4.0f * fabsf(e->mg_ph - 0.5f) - 1.0f;
             cf = cf_static * exp2f(e->mg_cents * tri / 1200.0f);
         }
-        for (int g = 0; g < 2; g++)
+        for (int g = 0; g < 2; g++) {
             for (int f = 0; f < P8_FEET; f++) e->W[g][f] += e->ksm * (e->Wt[g][f] - e->W[g][f]);
+            e->pw[g] += e->ksm * (e->pw_t[g] - e->pw[g]);
+            if (fabsf(e->pw[g] - e->pw_t[g]) < 1e-6f) e->pw[g] = e->pw_t[g];
+        }
 
         for (int t = 0; t < P8_TG; t++) {
             p8_tg_t *g = &e->tg[t];
@@ -321,8 +343,10 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             /* gate ramp */
             if (g->amp < g->amp_target) { g->amp += gstep; if (g->amp > g->amp_target) g->amp = g->amp_target; }
             else if (g->amp > g->amp_target) { g->amp -= gstep; if (g->amp < g->amp_target) g->amp = g->amp_target; }
-            /* smooth changes of gains and gate */
-            float vn = tg_value(g, W);
+            const float w = e->pw[t >= 4];
+            const int pwm = fabsf(w - 0.5f) > 1e-5f;
+            /* smooth changes of gains, gate and width */
+            float vn = pwm ? tg_value_pw(g, W, w) : tg_value(g, W);
             if (vn != g->v) { float d = vn - g->v; step_smooth(e, d * g->pan_l, d * g->pan_r); g->v = vn; }
             if (g->amp <= 0.0f && g->amp_target <= 0.0f) {   /* silent: park exactly at 0 */
                 if (g->v != 0.0f) { step_smooth(e, -g->v * g->pan_l, -g->v * g->pan_r); g->v = 0.0f; }
@@ -331,6 +355,21 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             /* counter steps: band-limited edges */
             float clk = clk0 * cf * (t >= 4 ? det : 1.0f);
             float inc = 2.0f * clk / g->counter * inv_fs;
+            if (pwm) {                                       /* edges of every foot pulse */
+                float dsum = 0.0f;
+                for (int f = 0; f < P8_FEET; f++) {
+                    uint32_t P = 2u << g->bit[f];
+                    float Pf = (float)P, a0 = (float)(g->cnt & (P - 1u)) + g->ph, b0 = a0 + inc;
+                    float r = (1.0f - w) * Pf, d = W[f] * g->amp;
+                    if (a0 < r && r <= b0)           { float tau = (b0 - r) / inc;        step_sharp(e, d * g->pan_l, d * g->pan_r, tau); dsum += d; }
+                    if (a0 < Pf && Pf <= b0)         { float tau = (b0 - Pf) / inc;       step_sharp(e, -d * g->pan_l, -d * g->pan_r, tau); dsum -= d; }
+                    if (a0 < r + Pf && r + Pf <= b0) { float tau = (b0 - r - Pf) / inc;   step_sharp(e, d * g->pan_l, d * g->pan_r, tau); dsum += d; }
+                }
+                g->v += dsum;
+                g->ph += inc;
+                while (g->ph >= 1.0f) { g->ph -= 1.0f; g->cnt++; }
+                continue;
+            }
             g->ph += inc;
             while (g->ph >= 1.0f) {
                 g->ph -= 1.0f;

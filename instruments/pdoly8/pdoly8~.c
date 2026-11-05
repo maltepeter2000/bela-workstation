@@ -25,10 +25,10 @@ static const float CTL_DEFAULT[NCTL] = {127, 127, 64, 64, 0, 0, 127, 0};
 
 /* Settings with raw values, in dump order after the controls. */
 enum { X_MODE, X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_LEVL, X_MRPH, X_HOLD, X_A4, X_TUNE, X_BND,
-       X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, NEXT };
+       X_MGF, X_MGI, X_HSNP, X_CH1, X_TONE, X_PATH, X_NORM, X_PFAD, X_PW1, X_PW2, NEXT };
 static const char *EXT_NAME[NEXT] = {"mode", "oct1", "oct2", "nois", "sprd", "levl", "mrph", "hold", "a4",
-                                     "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad"};
-static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 1, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1};
+                                     "tune", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "path", "norm", "pfad", "pw1", "pw2"};
+static const float EXT_DEFAULT[NEXT] = {2, 0, 0, 0, 0.5f, 0.5f, 8, 1, 440, 0, 2, 5, 0, 1, 0, 1, 0, 0, 1, 64, 64};
 
 static t_class *pdoly8_class;
 
@@ -128,6 +128,12 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_PATH: v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); e->path = (int)v; x->ext[i] = v; p8_update(e); return;
     case X_NORM: v = clampf_((float)v, 0.0f, 1.0f); e->norm = (float)v; x->ext[i] = v; p8_update(e); return;
     case X_PFAD: v = v != 0; e->pfade = v != 0; x->ext[i] = v; p8_update(e); return;
+    case X_PW1: case X_PW2: {                     /* 0..127: width 3 % .. 97 %, 64 = square */
+        v = clampf_((float)v, 0.0f, 127.0f);
+        float d = (float)v - 64.0f;
+        e->pw_t[i == X_PW2] = 0.5f + 0.47f * (d >= 0.0f ? d / 63.0f : d / 64.0f);
+        x->ext[i] = v; p8_update(e); return;
+    }
     default: return;
     }
     x->ext[i] = v;
@@ -262,12 +268,12 @@ static void pdoly8_dump(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 
 static void pdoly8_print(t_pdoly8 *x)
 {
-    char line[256]; int n = 0;
+    char line[512]; int n = 0;
     post("pdoly8~: sample rate %g, %s, 4 voices", x->e.fs, x->e.mode == P8_DOUBLE ? "DOUBLE" : "WHOLE");
     for (int i = 0; i < NCTL; i++) n += snprintf(line + n, sizeof line - (size_t)n, "%s %g  ", CTL_NAME[i], x->ctl[i]);
     post("pdoly8~: %s", line);
     n = 0;
-    for (int i = 0; i < NEXT; i++) n += snprintf(line + n, sizeof line - (size_t)n, "%s %g  ", EXT_NAME[i], x->ext[i]);
+    for (int i = 0; i < NEXT && n < (int)sizeof line - 32; i++) n += snprintf(line + n, sizeof line - (size_t)n, "%s %g  ", EXT_NAME[i], x->ext[i]);
     post("pdoly8~: %s", line);
     for (int v = 0; v < P8_VOICES; v++)
         post("pdoly8~: voice %d note %g (code %d / %d) %s", v, x->e.tg[v].note, x->e.tg[v].code, x->e.tg[v + 4].code,
