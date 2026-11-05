@@ -305,26 +305,33 @@ static float deg_time(const float *tab, float v)             /* log interpolatio
     return tab[i] * powf(tab[i + 1] / tab[i], t);
 }
 
-/* One-knob morph: a closed loop of 8 Poly-800 DEG settings (attack, decay,
+/* One-knob morph: a line through 7 Poly-800 DEG settings (attack, decay,
  * break point, slope, sustain, release, 0..31), interpolated parameter by
- * parameter: gate -> organ -> pluck -> piano -> long release -> pad ->
- * swell -> brass -> gate. */
-static const float DEG_KNOT[8][6] = {
+ * parameter: gate -> pluck -> piano -> long release -> swell -> pad -> long
+ * pad. Pluck, piano and long release get the widest stretches; from swell on
+ * attack and release only grow. */
+#define DEG_KNOTS 7
+static const float DEG_KPOS[DEG_KNOTS] = {0, 24, 48, 72, 92, 108, 127};
+static const float DEG_KNOT[DEG_KNOTS][6] = {
     { 0,  0, 31,  0, 31,  0},                                /* 0   gate */
-    { 4,  0, 31,  0, 31, 10},                                /* 16  organ */
-    { 0, 14,  0,  0,  0, 12},                                /* 32  pluck */
+    { 0, 14,  0,  0,  0, 12},                                /* 24  pluck */
     { 0, 10, 20, 24,  0, 14},                                /* 48  piano: fast to 20, slow slope */
-    { 2, 16, 24,  0, 24, 26},                                /* 64  long release */
-    {20, 22, 26,  0, 26, 26},                                /* 79  pad */
-    {26,  0, 31,  0, 31, 29},                                /* 95  swell */
-    {10, 16, 24,  0, 24, 14},                                /* 111 brass */
+    { 2, 16, 24,  0, 24, 26},                                /* 72  long release */
+    {16,  0, 31,  0, 31, 18},                                /* 92  swell */
+    {20, 22, 26,  0, 26, 24},                                /* 108 pad */
+    {30, 26, 26,  0, 26, 31},                                /* 127 long pad */
 };
 
 void p8_env_morph(float pos, float hsnap, float deg[6])
 {
-    int a, b; float t;
-    knot_pos(pos, hsnap, 8, 1, &a, &b, &t);
-    for (int k = 0; k < 6; k++) deg[k] = DEG_KNOT[a][k] + t * (DEG_KNOT[b][k] - DEG_KNOT[a][k]);
+    pos = clampf(pos, 0.0f, 127.0f);
+    int a = 0;
+    while (a < DEG_KNOTS - 2 && pos > DEG_KPOS[a + 1]) a++;
+    float x0 = DEG_KPOS[a], x1 = DEG_KPOS[a + 1];
+    float sn = clampf(hsnap, 0.0f, 0.45f * (x1 - x0));
+    float lo = a == 0 ? x0 : x0 + sn, hi = a + 1 == DEG_KNOTS - 1 ? x1 : x1 - sn;   /* plateau around each knot */
+    float t = pos <= lo ? 0.0f : pos >= hi ? 1.0f : (pos - lo) / (hi - lo);
+    for (int k = 0; k < 6; k++) deg[k] = DEG_KNOT[a][k] + t * (DEG_KNOT[a + 1][k] - DEG_KNOT[a][k]);
 }
 
 /* per-sample coefficients of a group from its six DEG values */

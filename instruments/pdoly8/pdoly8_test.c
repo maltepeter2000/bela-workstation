@@ -353,16 +353,20 @@ static void test_walsh(void)
     buf_free(&b);
 }
 
-/* DEG: morph points exact and the loop closes; attack and release times
+/* DEG: morph points exact (also +-1 step with hsnap 1), monotone from swell on; attack and release times
  * follow the measured tables (A31: level 30 after about 8.7 s, R31: -40 dB
  * after about 18.5 s); decay 31 falls about 2.2 dB/s */
 static void test_deg(void)
 {
     float d0[6], d1[6];
     p8_env_morph(0.0f, 1.0f, d0); p8_env_morph(127.0f, 1.0f, d1);
-    for (int k = 0; k < 6; k++) CHECK(d0[k] == d1[k], "DEG loop does not close");
-    p8_env_morph(79.375f, 1.0f, d0);
-    CHECK(d0[0] == 20.0f && d0[5] == 26.0f, "DEG pad point not exact");
+    CHECK(d0[0] == 0.0f && d0[4] == 31.0f && d1[0] == 30.0f && d1[5] == 31.0f, "DEG ends not gate / long pad");
+    p8_env_morph(107.0f, 1.0f, d0); p8_env_morph(109.0f, 1.0f, d1);
+    CHECK(d0[0] == 20.0f && d0[5] == 24.0f && d1[0] == 20.0f && d1[5] == 24.0f, "DEG pad point not exact");
+    for (float p = 92.0f; p < 127.0f; p += 0.5f) {
+        p8_env_morph(p, 1.0f, d0); p8_env_morph(p + 0.5f, 1.0f, d1);
+        CHECK(d1[0] >= d0[0] && d1[5] >= d0[5], "DEG attack / release not growing at %.1f", (double)p);
+    }
 
     p8_engine_t e; buf_t b = {0};
     const float A[3] = {16.0f, 24.0f, 31.0f}, expA[3] = {0.45f, 2.23f, 8.70f};
@@ -795,18 +799,19 @@ static void demo_env(void)
     p8_engine_t e; buf_t b = {0};
     static const int prog[4][4] = {{45, 52, 55, 60}, {41, 48, 52, 57}, {43, 50, 53, 59}, {40, 47, 52, 55}};
     p8_init(&e, FS);
-    /* 1: the eight morph points, a short phrase each */
+    /* 1: the seven morph points, a short phrase each */
+    static const float pos[7] = {0, 24, 48, 72, 92, 108, 127};
     setup(&e, P8_WHOLE, 127, 9, 0, 64, 127, 0);
-    for (int k = 0; k < 8; k++) {
-        e.env[0] = (float)k * 127.0f / 8.0f; p8_update(&e);
-        float hold = k >= 5 ? 1.6f : 0.6f;
+    for (int k = 0; k < 7; k++) {
+        e.env[0] = pos[k]; p8_update(&e);
+        float hold = k >= 4 ? 1.6f : 0.6f;
         for (int c = 0; c < 2; c++) { chord(&e, prog[c], 4); buf_render(&e, &b, hold); all_off(&e); buf_render(&e, &b, 0.25f); }
         buf_render(&e, &b, k >= 4 ? 2.0f : 0.6f);
     }
-    /* 2: arpeggio while env turns once around the loop */
+    /* 2: arpeggio while env runs once from gate to long pad */
     static const int arp[8] = {57, 60, 64, 67, 72, 67, 64, 60};
     for (int i = 0; i < 64; i++) {
-        e.env[0] = fmodf((float)i / 64.0f * 127.0f, 127.0f); p8_update(&e);
+        e.env[0] = (float)i / 63.0f * 127.0f; p8_update(&e);
         p8_voice_on(&e, i & 3, (float)arp[i & 7]); buf_render(&e, &b, 0.16f); p8_voice_off(&e, i & 3); buf_render(&e, &b, 0.06f);
     }
     buf_render(&e, &b, 2.0f);

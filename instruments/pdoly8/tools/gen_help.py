@@ -267,9 +267,9 @@ def build():
         "0-31), measured on a real one: level 0-31 is about (L/31)^2,",
         "attack rises linearly (A31 about 9 s), decay, slope and",
         "release fall at a constant dB per second (31: about 18 s",
-        "to -40 dB). env1 / env2 morph through a loop of settings:",
-        "0 gate / 16 organ / 32 pluck / 48 piano / 64 long release /",
-        "79 pad / 95 swell / 111 brass / 127 = gate. A released voice",
+        "to -40 dB). env1 / env2 / env3 morph through settings:",
+        "0 gate / 24 pluck / 48 piano / 72 long release / 92 swell /",
+        "108 pad / 127 long pad. A released voice",
         "releases at once; hold 1 keeps it until the next phrase."]))
     sections.append(("Presets and steps", [
         "Per-step values: connect the voice to [skpreset name]",
