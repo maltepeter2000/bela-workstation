@@ -45,7 +45,7 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 
 ### Settings (raw values)
 
-In the help patch the settings are grouped in blocks: DCO settings (timbre, octave, PWM, Walsh loop, sync, ring), FM, Filter & DEG3, MG, Delay (with preset messages), DEG1 & DEG2, Portamento, Additional settings.
+In the help patch the settings are grouped in blocks: DCO settings (timbre, octave, PWM, Walsh loop, sync, ring), FM, Filter & DEG3, MG, DEG4, LFO2 & LFO3, Delay (with preset messages), DEG1 & DEG2, Portamento, Additional settings.
 
 | Message | Range | Default | Function |
 |---|---|---|---|
@@ -104,6 +104,24 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `dmf` `dmi` | 0–31 | 0 | delay modulation rate (73, measured: 0.05 … 5 Hz, 11 → 0.26 Hz, 21 → 1.15 Hz) and depth (74: the delay time swings 1:5 at 31, as in the manual; the swing falls about 10 dB per 10 steps below that, measured) |
 | `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The echo goes to the left output in phase and to the right one inverted (measured: L = dry + echo, R = dry − echo, so a mono sum of both cancels it), band-limited to 7 kHz; changing a delay value mutes the echo briefly, as on the original |
 
+### DEG4, LFO2, LFO3 (modulation)
+
+Not on the Poly-800. Like DEG3 and the MG they exist once for the instrument (the Poly-800 is paraphonic: every voice has its own DEG1/DEG2, but VCF, DEG3 and MG are shared). Each has two target slots: `…t1`/`…t2` = target (number or name, e.g. `d4t1 cut`), `…a1`/`…a2` = amount −127…127 (negative inverts).
+
+| Message | Range | Default | Function |
+|---|---|---|---|
+| `env4` | −1…127 | 0 | DEG4 morph as `env1`; −1 = own values |
+| `a4 d4 bp4 sl4 su4 r4` | 0–31 | 0 0 31 0 31 0 | DEG4 values; DEG4 runs 0…1 (its level, linear) |
+| `trg4` | 1/2 | 2 | DEG4 trigger: 1 single, 2 multi |
+| `d4t1 d4a1 d4t2 d4a2` | target, −127…127 | 0 | DEG4 targets and amounts |
+| `l2r` / `l3r` | 0.01–50 Hz | 2 | LFO rate |
+| `l2w` / `l3w` | 0–5 | 0 | wave: triangle, sine, saw up, saw down, square, sample & hold |
+| `l2k` / `l3k` | 0/1/2 | 0 | retrigger: free, every key, first key of a phrase |
+| `l2f` / `l3f` | 0–10 s | 0 | fade-in after a retrigger |
+| `l2t1 l2a1 l2t2 l2a2`, `l3t1 …` | target, −127…127 | 0 | LFO targets and amounts |
+
+Targets (range at amount 127): 0 `off`, 1 `pitch` (±24 semitones), 2 `pitch2` (DCO2 ±48), 3 `detn` (±50 cents), 4/5 `har1` `har2` (±127 steps), 6/7 `wsh1` `wsh2` (±127), 8/9 `wmx1` `wmx2` (±127), 10/11 `pw1` `pw2` (±47 %), 12/13 `fm1` `fm2` (±16 index), 14 `fmr` (×/÷ 4), 15 `ring` (±127), 16 `swe` (±72 semitones), 17/18 `lev1` `lev2` (±127), 19 `amp` (level × 0…2), 20 `pan` (balance), 21 `nois` (±15), 22 `cut` (±8 octaves), 23 `res` (±15), 24 `drv` (±127), 25 `mgr` (×/÷ 8), 26 `mgi` (±200 cents), 27/29 `l2r` `l3r` (LFO rate ×/÷ 8), 28/30 `l2d` `l3d` (LFO depth × 0…2), 31 `dtim` (×/÷ 2), 32 `dlev` (±15). `har`, `wsh`, `wmx`, `lev`, `detn` and `drv` follow per audio block (smoothed by `mrph`), all others per sample.
+
 ### Other messages
 
 | Message | Function |
@@ -121,7 +139,7 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `print` | voices, values and sample rate to the Pd window |
 | `delay <name>` | delay presets: `flanger` (4 ms, slow sweep, feedback), `chorus1` (fast, shallow), `chorus2` (slow, wider), `slap` (120 ms), `long` (0.5 s with repeats), `off` |
 
-Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0` (new settings are appended at the end, so older dumps still load).
+Default dump line: see `dump` (all values, new settings are appended at the end, so older dumps still load).
 
 ### PWM (`pw1`, `pw2`)
 

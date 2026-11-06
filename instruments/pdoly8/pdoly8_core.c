@@ -209,7 +209,7 @@ void p8_set_fs(p8_engine_t *e, float fs)
     {   float g = tanf(P8_PI * P8_OUTPOLE / e->fs); e->op_g = g / (1.0f + g); }
     p8_set_smooth(e, e->smooth_ms);
     p8_set_port(e, e->port_s);
-    for (int g = 0; g < 3; g++) deg_coeffs(e, g);
+    for (int g = 0; g < 4; g++) deg_coeffs(e, g);
     p8_set_eq(e, e->eq_tr, e->eq_bs);
     {   float g = tanf(P8_PI * P8_DDL_LP / e->fs); e->ddl_lpg = g / (1.0f + g); }
     e->ddl_rel = expf(-1.0f / (0.02f * e->fs));                    /* gate envelope: 20 ms release */
@@ -305,7 +305,9 @@ void p8_init(p8_engine_t *e, float fs)
         e->tg[t].vg = 1.0f; e->tg[t].dfac = 1.0f; e->tg[t].rs = 1.0f;
     }
     e->vel_last = 1.0f;
-    e->deg3.rs = 1.0f;
+    e->deg3.rs = 1.0f; e->deg4.rs = 1.0f;
+    e->trig4 = 2;
+    for (int l = 0; l < 2; l++) { e->lfo[l].hz = 2.0f; e->lfo[l].sh = 0.0f; }
     e->drng = 0x9E3779B9u;
     p8_update(e);
     p8_settle(e);
@@ -456,14 +458,14 @@ static void walsh_targets(p8_engine_t *e, int g, float pos)
 }
 
 /* foot weight targets of DCO g at timbre position h (and its Walsh level) */
-static void foot_targets(p8_engine_t *e, int g, float h)
+static void foot_targets(p8_engine_t *e, int g, float h, float dmix, float dlev)
 {
     static const float SQ[P8_FEET]  = {1.0f, 1.057f, 1.083f, 1.098f};
     static const float SAW[P8_FEET] = {2.47f, 2.47f * 0.523f, 2.47f * 0.268f, 2.47f * 0.135f};
     float gain[P8_FEET], net, wv = clampf(e->wav[g], 0.0f, 1.0f);
     p8_path_gains(e->path, h, e->hsnap, e->pfade, gain, &net);
     if (net >= 0.0f) wv = net;
-    float lev = (g == 1 && e->mode != P8_DOUBLE) ? 0.0f : clampf(e->lev[g], 0.0f, 1.0f);
+    float lev = (g == 1 && e->mode != P8_DOUBLE) ? 0.0f : clampf(e->lev[g] + dlev, 0.0f, 1.0f);
     float w[P8_FEET], pw = 0.0f;
     for (int f = 0; f < P8_FEET; f++) { w[f] = (SQ[f] + wv * (SAW[f] - SQ[f])) * gain[f]; pw += w[f] * w[f]; }
     /* loudness: the feet are orthogonal (Rademacher functions), so the
@@ -474,7 +476,7 @@ static void foot_targets(p8_engine_t *e, int g, float h)
         float wd = clampf(e->pw_t[g], 0.03f, 0.97f), duty = 4.0f * wd * (1.0f - wd);   /* pulse power / square power */
         k = powf(P8_NORM_REF / sqrtf(pw * duty), clampf(e->norm, 0.0f, 1.0f));
     }
-    float mix = clampf(e->wmix[g], 0.0f, 1.0f);
+    float mix = clampf(e->wmix[g] + dmix, 0.0f, 1.0f);
     for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = w[f] * k * lev * (1.0f - mix);
     /* Walsh morph: two neighbours on the sequency loop, equal power
      * (Walsh functions are orthonormal), at the RMS of the square net
@@ -484,16 +486,24 @@ static void foot_targets(p8_engine_t *e, int g, float h)
 
 void p8_update(p8_engine_t *e)
 {
+    memset(e->tused, 0, sizeof e->tused);
+    e->mod_on = 0;
+    for (int j = 0; j < 2; j++) {
+        if (e->d4_tgt[j] > 0 && e->d4_tgt[j] < P8_NT && e->d4_amt[j] != 0.0f) { e->tused[e->d4_tgt[j]] = 1; e->mod_on = 1; }
+        for (int l = 0; l < 2; l++)
+            if (e->lfo[l].tgt[j] > 0 && e->lfo[l].tgt[j] < P8_NT && e->lfo[l].amt[j] != 0.0f) { e->tused[e->lfo[l].tgt[j]] = 1; e->mod_on = 1; }
+    }
+    if (!e->mod_on) memset(e->modv, 0, sizeof e->modv);
     /* Foot weights measured on a Poly-800 (square / saw, one key over five
      * octaves, response of the output removed): square net (BR5) a little
      * stronger on the higher feet; saw net (BR6) binary within 1 dB and its
      * 16' 2.47 x (+7.9 dB) the square net's, so both nets peak alike. */
     for (int g = 0; g < 2; g++) {
-        foot_targets(e, g, e->har[g]);
+        foot_targets(e, g, e->har[g], 0.0f, 0.0f);
         walsh_targets(e, g, e->wpos[g]);
     }
     if (e->mode != P8_DOUBLE) for (int t = 4; t < P8_TG; t++) e->tg[t].amp_target = 0.0f;
-    for (int g = 0; g < 3; g++) {
+    for (int g = 0; g < 4; g++) {
         if (e->env[g] >= 0.0f) p8_env_morph(e->env[g], e->hsnap, e->deg[g]);
         deg_coeffs(e, g);
     }
@@ -555,11 +565,14 @@ void p8_voice_glide(p8_engine_t *e, int k, float note, float from)
     if (e->drift > 0.0f) {                                   /* drift: each note's envelopes a little faster or slower */
         for (int t = k; t < P8_TG; t += 4) e->tg[t].rs = 1.0f + 0.2f * e->drift * drand(e);
         if (e->trig3 == 2 || e->deg3.stage == 0) e->deg3.rs = 1.0f + 0.2f * e->drift * drand(e);
-    } else { e->tg[k].rs = e->tg[k + 4].rs = 1.0f; e->deg3.rs = 1.0f; }
+        if (e->trig4 == 2 || e->deg4.stage == 0) e->deg4.rs = 1.0f + 0.2f * e->drift * drand(e);
+    } else { e->tg[k].rs = e->tg[k + 4].rs = 1.0f; e->deg3.rs = 1.0f; e->deg4.rs = 1.0f; }
     e->tg[k].amp_target = 1.0f; e->tg[k].trig = 1;
     e->tg[k + 4].amp_target = e->mode == P8_DOUBLE ? 1.0f : 0.0f;
     e->tg[k + 4].trig = e->mode == P8_DOUBLE;
     if (e->trig3 == 2) e->deg3.trig = 1;                    /* multi: every key restarts DEG3 */
+    if (e->trig4 == 2) e->deg4.trig = 1;                    /* the same for DEG4 */
+    e->key_ev = 1;                                           /* LFO retrigger */
 }
 
 /* new pitch for a sounding voice without retriggering its envelopes
@@ -762,15 +775,63 @@ static float vcf_k(float r)
     return k > 3.95f ? 3.95f : k;
 }
 
+/* one sample of DEG4, LFO2 and LFO3, summed into modv per target */
+static void mod_tick(p8_engine_t *e, float inv_fs)
+{
+    float *mv = e->modv;
+    deg_tick(e, &e->deg4, 3);
+    const float e4 = deg_level(e->deg4.amp) / 31.0f;
+    for (int l = 0; l < 2; l++) {
+        p8_lfo_t *o = &e->lfo[l];
+        const int tr = l ? P8_T_L3R : P8_T_L2R, td = tr + 1;
+        float hz = o->hz;
+        if (e->tused[tr]) hz *= exp2f(3.0f * clampf(mv[tr], -2.0f, 2.0f));
+        o->ph += hz * inv_fs;
+        if (o->ph >= 1.0f) { o->ph -= floorf(o->ph); o->sh = drand(e); }
+        if (o->ft < 1e6f) o->ft += inv_fs;
+        const float ph = o->ph;
+        float v;
+        switch (o->wave) {
+        case 1: v = sinf(2.0f * P8_PI * ph); break;
+        case 2: v = 2.0f * ph - 1.0f; break;
+        case 3: v = 1.0f - 2.0f * ph; break;
+        case 4: v = ph < 0.5f ? 1.0f : -1.0f; break;
+        case 5: v = o->sh; break;
+        default: v = ph < 0.25f ? 4.0f * ph : ph < 0.75f ? 2.0f - 4.0f * ph : 4.0f * ph - 4.0f; break;
+        }
+        if (o->fade > 0.0f && o->ft < o->fade) v *= o->ft / o->fade;
+        if (e->tused[td]) v *= clampf(1.0f + mv[td], 0.0f, 2.0f);
+        o->out = v;
+    }
+    memset(mv, 0, sizeof e->modv);
+    for (int j = 0; j < 2; j++) {
+        mv[e->d4_tgt[j]] += e->d4_amt[j] * e4;
+        mv[e->lfo[0].tgt[j]] += e->lfo[0].amt[j] * e->lfo[0].out;
+        mv[e->lfo[1].tgt[j]] += e->lfo[1].amt[j] * e->lfo[1].out;
+    }
+    mv[P8_T_OFF] = 0.0f;
+}
+
 void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
 {
     const float clk0 = P8_TG_CLK * e->a4 / 440.0f;
-    const float det = exp2f(-clampf(e->detune_cents, 0.0f, 100.0f) / 1200.0f);
+    float det = exp2f(-clampf(e->detune_cents, 0.0f, 100.0f) / 1200.0f);
+    const float *mv = e->modv; const unsigned char *tu = e->tused;
+    const int mod_on = e->mod_on;
     const float inv_fs = 1.0f / e->fs;
     int any = 0;
     for (int t = 0; t < P8_TG; t++) if (e->tg[t].amp_target > 0.0f) any = 1;
     /* DEG3 gate: any key down; keyboard tracking follows the highest key */
     e->deg3.amp_target = any ? 1.0f : 0.0f;
+    e->deg4.amp_target = any ? 1.0f : 0.0f;
+    {   /* LFO retrigger: every key (1) or the first key of a phrase (2) */
+        const int phrase = any && !e->any_prev;
+        for (int l = 0; l < 2; l++) {
+            p8_lfo_t *o = &e->lfo[l];
+            if ((o->retrig == 1 && e->key_ev) || (o->retrig == 2 && phrase)) { o->ph = 0.0f; o->ft = 0.0f; o->sh = drand(e); }
+        }
+        e->key_ev = 0; e->any_prev = any;
+    }
     {
         float hi = -1.0f;
         for (int t = 0; t < P8_VOICES; t++) if (e->tg[t].amp_target > 0.0f && e->tg[t].note > hi) hi = e->tg[t].note;
@@ -781,17 +842,25 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     const float kbd_oct = e->kbd == 2 ? (e->kbd_note - 60.0f) / 12.0f
                         : e->kbd == 1 ? 0.5f * (e->kbd_note - 84.0f) / 12.0f : 0.0f;
     const float cut_oct = vcf_cut_oct(e->vcf_c) + kbd_oct - e->vel_cut * (1.0f - e->vel_last);
-    const float vk = vcf_k(e->vcf_r);
+    float vk = vcf_k(e->vcf_r);
     const float eg_oct = P8_EG_OCT * clampf(e->egint, -15.0f, 15.0f) / 15.0f;
     const float fc_max = 0.42f * e->fs;
     float cf = exp2f((e->tune_cents + e->bend_semi * 100.0f) / 1200.0f);
     const float cf_static = cf;
-    const int sw_mod = e->sw_e > 0.0f || e->sw_m > 0.0f;
+    const int sw_mod = e->sw_e > 0.0f || e->sw_m > 0.0f || tu[P8_T_PITCH2] || tu[P8_T_SWE];
     float swp = exp2f(clampf(e->swp2, 0.0f, 96.0f) / 12.0f);              /* DCO2 offset, semitones */
     const int sync_on = e->sync && e->mode == P8_DOUBLE;
-    const float fm_i[2] = {clampf(e->fm, 0.0f, 16.0f), clampf(e->fm2, 0.0f, 16.0f)};
-    const float ring = clampf(e->rmod, 0.0f, 1.0f);
-    const int drv_on = e->drive > 0.0f;
+    float fm_i[2] = {clampf(e->fm, 0.0f, 16.0f), clampf(e->fm2, 0.0f, 16.0f)};
+    float ring = clampf(e->rmod, 0.0f, 1.0f);
+    float fmr = e->fm_ratio;
+    /* block-rate modulation targets: detune, drive */
+    if (tu[P8_T_DETN]) det = exp2f(-clampf(e->detune_cents + 50.0f * mv[P8_T_DETN], 0.0f, 100.0f) / 1200.0f);
+    float drv = e->drive, drv_g = e->drv_g, drv_c = e->drv_c;
+    if (tu[P8_T_DRV]) {
+        drv = clampf(drv + mv[P8_T_DRV], 0.0f, 1.0f);
+        drv_g = 1.0f + 255.0f * drv * drv; drv_c = 0.5f / softclip(0.5f * drv_g);
+    }
+    const int drv_on = drv > 0.0f;
 
     /* drift (per block): each tone generator's pitch, the MG rate and the
      * cutoff wander slowly and independently (low-passed noise at about
@@ -811,25 +880,40 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         mg_hz *= 1.0f + 0.1f * e->drift * clampf(e->mg_dr, -2.0f, 2.0f);
         dr_oct = 0.2f * e->drift * e->f_dr;
     } else for (int t = 0; t < P8_TG; t++) e->tg[t].dfac = 1.0f;
-    /* timbre position moved by the MG (per block) */
-    if (e->h_m > 0.0f)
-        for (int g = 0; g < 2; g++) foot_targets(e, g, clampf(e->har[g] + e->h_m * e->mg_val, 0.0f, 127.0f));
-    /* Walsh loop position moved by the MG and DEG3 (per block) */
-    if (e->ws_m > 0.0f || e->ws_e > 0.0f)
+    /* timbre position, Walsh mix and DCO levels moved by the MG, DEG4 and the LFOs (per block) */
+    const int fmod = e->h_m > 0.0f || tu[P8_T_HAR1] || tu[P8_T_HAR2] || tu[P8_T_WMX1] || tu[P8_T_WMX2]
+                   || tu[P8_T_LEV1] || tu[P8_T_LEV2];
+    if (fmod)
         for (int g = 0; g < 2; g++)
-            if (e->wlev[g] > 0.0f) walsh_targets(e, g, e->wpos[g] + e->ws_m * e->mg_val + e->ws_e * e->e3n);
+            foot_targets(e, g, clampf(e->har[g] + e->h_m * e->mg_val + 127.0f * mv[P8_T_HAR1 + g], 0.0f, 127.0f),
+                         mv[P8_T_WMX1 + g], mv[P8_T_LEV1 + g]);
+    /* Walsh loop position moved by the MG, DEG3, DEG4 and the LFOs (per block) */
+    if (fmod || e->ws_m > 0.0f || e->ws_e > 0.0f || tu[P8_T_WSH1] || tu[P8_T_WSH2])
+        for (int g = 0; g < 2; g++)
+            walsh_targets(e, g, e->wpos[g] + e->ws_m * e->mg_val + e->ws_e * e->e3n + 127.0f * mv[P8_T_WSH1 + g]);
 
     /* MG delay: counts from the first key of a phrase; then the MG comes in
      * at full depth (measured: no fade-in, a 10 ms ramp avoids a click) */
     if (any && !e->mg_any) e->mg_t = 0.0f;
     e->mg_any = any;
     const int mg_on = e->mg_cents > 0.0f || e->mg_vcf > 0.0f || e->pwm_d[0] > 0.0f || e->pwm_d[1] > 0.0f
-                    || e->sw_m > 0.0f || e->ws_m > 0.0f || e->h_m > 0.0f;
+                    || e->sw_m > 0.0f || e->ws_m > 0.0f || e->h_m > 0.0f || tu[P8_T_MGI];
     float mg_tri = 0.0f;
 
     for (unsigned i = 0; i < n; i++) {
+        if (mod_on) {                                        /* DEG4, LFO2, LFO3 -> per-sample targets */
+            mod_tick(e, inv_fs);
+            float cfs = cf_static;
+            if (tu[P8_T_PITCH]) cfs *= exp2f(2.0f * mv[P8_T_PITCH]);
+            cf = cfs;
+            fm_i[0] = clampf(e->fm + 16.0f * mv[P8_T_FM1], 0.0f, 16.0f);
+            fm_i[1] = clampf(e->fm2 + 16.0f * mv[P8_T_FM2], 0.0f, 16.0f);
+            if (tu[P8_T_FMR]) fmr = e->fm_ratio * exp2f(2.0f * mv[P8_T_FMR]);
+            ring = clampf(e->rmod + mv[P8_T_RING], 0.0f, 1.0f);
+            if (tu[P8_T_RES]) vk = vcf_k(e->vcf_r + 15.0f * mv[P8_T_RES]);
+        }
         if (mg_on) {                                         /* MG: one triangle for the instrument */
-            e->mg_ph += mg_hz * inv_fs;
+            e->mg_ph += (tu[P8_T_MGR] ? mg_hz * exp2f(3.0f * clampf(mv[P8_T_MGR], -2.0f, 2.0f)) : mg_hz) * inv_fs;
             if (e->mg_ph >= 1.0f) e->mg_ph -= 1.0f;
             float fade = 1.0f;
             if (e->mg_delay > 0.0f) {
@@ -839,7 +923,8 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             mg_tri = (4.0f * fabsf(e->mg_ph - 0.5f) - 1.0f) * fade;
             e->mg_val = mg_tri;
             e->mg_lp += (mg_tri - e->mg_lp) * (1.0f - expf(-2.0f * P8_PI * P8_MG_LP * inv_fs));
-            if (e->mg_cents > 0.0f) cf = cf_static * exp2f(e->mg_cents * e->mg_lp / 1200.0f);
+            const float mgc = tu[P8_T_MGI] ? clampf(e->mg_cents + 200.0f * mv[P8_T_MGI], 0.0f, 400.0f) : e->mg_cents;
+            if (mgc > 0.0f) cf = (mod_on ? cf : cf_static) * exp2f(mgc * e->mg_lp / 1200.0f);
         }
         for (int g = 0; g < 2; g++) {
             for (int f = 0; f < P8_FEET; f++) e->W[g][f] += e->ksm * (e->Wt[g][f] - e->W[g][f]);
@@ -856,9 +941,13 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             if (fabsf(e->pw[g] - e->pw_t[g]) < 1e-6f) e->pw[g] = e->pw_t[g];
         }
         float wcur[2];                                       /* pulse width with MG (PWM) */
-        for (int g = 0; g < 2; g++) wcur[g] = e->pwm_d[g] > 0.0f ? clampf(e->pw[g] + e->pwm_d[g] * mg_tri, 0.03f, 0.97f) : e->pw[g];
-        if (sw_mod)                                          /* DCO2 sweep: DEG3 and MG */
-            swp = exp2f(clampf(e->swp2 + e->sw_e * e->e3n + e->sw_m * mg_tri, 0.0f, 96.0f) / 12.0f);
+        for (int g = 0; g < 2; g++) {
+            wcur[g] = e->pwm_d[g] > 0.0f ? clampf(e->pw[g] + e->pwm_d[g] * mg_tri, 0.03f, 0.97f) : e->pw[g];
+            if (tu[P8_T_PW1 + g]) wcur[g] = clampf(wcur[g] + 0.47f * mv[P8_T_PW1 + g], 0.03f, 0.97f);
+        }
+        if (sw_mod)                                          /* DCO2 sweep: DEG3, MG, DEG4, LFOs */
+            swp = exp2f(clampf(e->swp2 + (e->sw_e + 72.0f * mv[P8_T_SWE]) * e->e3n + e->sw_m * mg_tri
+                               + 48.0f * mv[P8_T_PITCH2], -48.0f, 96.0f) / 12.0f);
         float t16[P8_VOICES][P8_RMAX]; int n16[P8_VOICES] = {0, 0, 0, 0};
         float rs0[P8_VOICES] = {1.0f, 1.0f, 1.0f, 1.0f};    /* ring: 16' of DCO1 at the start of the sample */
         if (ring > 0.0f) for (int k = 0; k < P8_VOICES; k++)
@@ -904,7 +993,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 } else if (e->fm_src == 2) {                 /* external signal */
                     m = e->fm_in ? clampf(e->fm_in[i], -2.0f, 2.0f) : 0.0f;
                 } else {                                     /* sine at fmr x the 16' frequency + fmhz */
-                    g->mph += e->fm_ratio * inc / (float)(2u << g->bit[0]) + e->fm_hz * inv_fs;
+                    g->mph += fmr * inc / (float)(2u << g->bit[0]) + e->fm_hz * inv_fs;
                     g->mph -= floorf(g->mph);
                     m = sinf(2.0f * P8_PI * g->mph);
                 }
@@ -945,19 +1034,20 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         deg_tick(e, &e->deg3, 2);
         const float e3 = deg_level(e->deg3.amp);
         e->e3n = e3 / 31.0f;
-        float oct = cut_oct + eg_oct * e3 / 31.0f + e->mg_vcf * mg_tri + dr_oct;
+        float oct = cut_oct + eg_oct * e3 / 31.0f + e->mg_vcf * mg_tri + dr_oct + 8.0f * mv[P8_T_CUT];
         float fc = exp2f(oct) ;
         fc = fc < 20.0f ? 20.0f : fc > fc_max ? fc_max : fc;
         const float vg = tanf(P8_PI * fc * inv_fs), VG = vg / (1.0f + vg), VB = 1.0f / (1.0f + vg);
         const float G4 = VG * VG * VG * VG;
         /* integrate, noise, VCF, output stage */
         e->rng = e->rng * 1664525u + 1013904223u;
-        float nz = ((float)(e->rng >> 8) * (1.0f / 8388608.0f) - 1.0f) * clampf(e->noise_level, 0.0f, 1.0f) * (e3 / 31.0f) * 0.5f;
+        float nz = ((float)(e->rng >> 8) * (1.0f / 8388608.0f) - 1.0f) * clampf(e->noise_level + mv[P8_T_NOIS], 0.0f, 1.0f) * (e3 / 31.0f) * 0.5f;
         float o[2];
         /* digital delay: mono input (sum), band-limited, feedback inside the loop;
          * the echo goes to L in phase and to R inverted (measured on a Poly-800 II) */
         float wet = 0.0f;
-        const int ddl_on = e->ddl_lev > 0.0f;
+        const float dlev = tu[P8_T_DLEV] ? clampf(e->ddl_lev / 15.0f + mv[P8_T_DLEV], 0.0f, 1.0f) : e->ddl_lev / 15.0f;
+        const int ddl_on = dlev > 0.0f;
         for (int c = 0; c < 2; c++) {
             e->acc[c] += e->ring[c][e->rpos];
             e->ring[c][e->rpos] = 0.0f;
@@ -966,7 +1056,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             if (e->tone) {
                 /* VCF: zero-delay-feedback 4-pole ladder, feedback k solved
                  * exactly; no level compensation (bass falls 1/(1+k)) */
-                if (drv_on && e->drv_pre) x = P8_DRV_REF * e->drv_c * softclip(e->drv_g * x * (1.0f / P8_DRV_REF));
+                if (drv_on && e->drv_pre) x = P8_DRV_REF * drv_c * softclip(drv_g * x * (1.0f / P8_DRV_REF));
                 float *st = e->vcf_s[c];
                 float S = VB * (VG * VG * VG * st[0] + VG * VG * st[1] + VG * st[2] + st[3]);
                 float y4 = (G4 * x + S) / (1.0f + vk * G4);
@@ -975,17 +1065,21 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                     float v = (u - st[p]) * VG;
                     float yp = v + st[p]; st[p] = yp + v; u = yp;
                 }
-                if (drv_on && !e->drv_pre) u = P8_DRV_REF * e->drv_c * softclip(e->drv_g * u * (1.0f / P8_DRV_REF));
+                if (drv_on && !e->drv_pre) u = P8_DRV_REF * drv_c * softclip(drv_g * u * (1.0f / P8_DRV_REF));
                 /* output stage: 54 Hz high-pass, one pole at about 10 kHz */
                 y = e->hp_k * (e->dc_y[c] + u - e->dc_x[c]);
                 e->dc_x[c] = u; e->dc_y[c] = y;
                 { float v = (y - e->op_s[c]) * e->op_g; y = v + e->op_s[c]; e->op_s[c] = y + v; }
             } else {
-                if (drv_on) x = P8_DRV_REF * e->drv_c * softclip(e->drv_g * x * (1.0f / P8_DRV_REF));
+                if (drv_on) x = P8_DRV_REF * drv_c * softclip(drv_g * x * (1.0f / P8_DRV_REF));
                 y = x - e->dc_x[c] + e->dc_k * e->dc_y[c];
                 e->dc_x[c] = x; e->dc_y[c] = y;
             }
             o[c] = y;
+        }
+        if (mod_on && (tu[P8_T_AMP] || tu[P8_T_PAN])) {     /* tremolo and balance, before the delay */
+            const float a = tu[P8_T_AMP] ? clampf(1.0f + mv[P8_T_AMP], 0.0f, 2.0f) : 1.0f, b = clampf(mv[P8_T_PAN], -1.0f, 1.0f);
+            o[0] *= a * (b > 0.0f ? 1.0f - b : 1.0f); o[1] *= a * (b < 0.0f ? 1.0f + b : 1.0f);
         }
         if (ddl_on || e->ddl_fb > 0.0f) {
             if (e->ddl_mute < 1.0f) {                               /* muted while the time jumps */
@@ -993,6 +1087,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 e->ddl_mute += inv_fs / 0.04f; if (e->ddl_mute > 1.0f) e->ddl_mute = 1.0f;
             }
             float ms = e->ddl_ms_s;
+            if (tu[P8_T_DTIM]) ms *= exp2f(clampf(mv[P8_T_DTIM], -1.0f, 1.0f));
             if (e->ddl_mi > 0.0f) {
                 e->ddl_ph += P8_DDL_MF0 * exp2f(6.644f * e->ddl_mf / 31.0f) * inv_fs;   /* x100 over 0..31 */
                 if (e->ddl_ph >= 1.0f) e->ddl_ph -= 1.0f;
@@ -1022,7 +1117,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 float tgt = e->ddl_env > P8_DDL_GATE ? 1.0f : 0.0f;
                 e->ddl_gate += (tgt - e->ddl_gate) * 0.002f;
                 mu *= e->ddl_gate; }
-            wet *= e->ddl_lev / 15.0f * mu;
+            wet *= dlev * mu;
         }
         for (int c = 0; c < 2; c++) {
             float y = c == 0 ? o[c] + wet : o[c] - wet;     /* measured: L = dry + echo, R = dry - echo */

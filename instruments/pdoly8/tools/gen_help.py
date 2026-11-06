@@ -149,7 +149,7 @@ BLOCKS = [
     ("MG settings",
      [[("mgr", -1, 15), ("mgf", 0, 30)], [("mgi", 0, 200), ("mgd", 0, 15)], [("mgv", 0, 15)]], [],
      ["One triangle MG for the instrument, measured on a Poly-800 II. It also drives "
-      "hmg, pwm1/2, wsm and swm (DCO settings).",
+      "hmg, pwm1/2, wsm and swm (DCO settings). More LFOs: LFO2 and LFO3 below.",
       "mgr (-1): frequency in steps 0-15 as parameter 81 (0: 0.29 Hz / 3: 1.26 / 8: 5.2 "
       "/ 15: 19 Hz), sets mgf. -1 = use mgf.",
       "mgf (5): the same in Hz.",
@@ -158,6 +158,49 @@ BLOCKS = [
       "mgd (0): delay 0-15 (82: 0.47 s at 5, 1.55 s at 15) from the first key, then "
       "full depth.",
       "mgv (0): MG to the VCF 0-15 (84: +-7.9 octaves at 15)."]),
+    ("DEG4 settings",
+     [[("env4", -1, 127), ("trg4", 1, 2)],
+      [("a4", 0, 31), ("d4", 0, 31), ("bp4", 0, 31), ("sl4", 0, 31), ("su4", 0, 31), ("r4", 0, 31)],
+      [("d4t1", 0, 32), ("d4a1", -127, 127), ("d4t2", 0, 32), ("d4a2", -127, 127)]],
+     ["d4t1 cut", "d4t1 swe", "d4t1 fm1"],
+     ["A modulation envelope (not on the Poly-800), one for all voices like DEG3. The "
+      "Poly-800 is paraphonic: every voice has its own DEG1 / DEG2, but the VCF, DEG3 "
+      "and the MG exist once - and so do DEG4, LFO2 and LFO3. Each of them has two "
+      "target slots: t = target (number or name, e.g. d4t1 cut), a = amount -127..127 "
+      "(negative inverts).",
+      "Targets (range at amount 127): 0 off, 1 pitch (+-24 semitones), 2 pitch2 (DCO2 "
+      "+-48), 3 detn (+-50 cents), 4 har1, 5 har2 (+-127 steps), 6 wsh1, 7 wsh2 "
+      "(+-127), 8 wmx1, 9 wmx2 (+-127), 10 pw1, 11 pw2 (+-47 %), 12 fm1, 13 fm2 (+-16 "
+      "index), 14 fmr (x/: 4), 15 ring (+-127), 16 swe (+-72 semitones), 17 lev1, 18 "
+      "lev2 (+-127), 19 amp (level x 0..2, tremolo), 20 pan (balance), 21 nois (+-15), "
+      "22 cut (+-8 octaves), 23 res (+-15), 24 drv (+-127), 25 mgr (MG rate x/: 8), 26 "
+      "mgi (+-200 cents), 27 l2r, 29 l3r (LFO rate x/: 8), 28 l2d, 30 l3d (LFO depth x "
+      "0..2), 31 dtim (delay time x/: 2), 32 dlev (+-15). har, wsh, wmx, lev, detn "
+      "and drv follow per audio block, smoothed by mrph, all others per sample.",
+      "env4 (0): DEG4 morph as env1 (see Controls), -1 = own values.",
+      "trg4 (2): 2 multi: every key restarts DEG4, 1 single: only the first key of a "
+      "phrase.",
+      "a4 d4 bp4 sl4 su4 r4: attack, decay, break point, slope, sustain, release of "
+      "DEG4, 0-31. DEG4 runs 0..1 (its level, linear).",
+      "d4t1, d4a1, d4t2, d4a2: two targets and amounts. E.g. cut with a pluck (filter "
+      "sweep per key), swe with sync 1 (sync sweep), fm1 (FM that decays), l2d (an "
+      "LFO2 that comes in)."]),
+    ("LFO2 & LFO3 settings",
+     [[("l2r", 0.01, 50), ("l2w", 0, 5), ("l2k", 0, 2), ("l2f", 0, 10)],
+      [("l2t1", 0, 32), ("l2a1", -127, 127), ("l2t2", 0, 32), ("l2a2", -127, 127)],
+      [("l3r", 0.01, 50), ("l3w", 0, 5), ("l3k", 0, 2), ("l3f", 0, 10)],
+      [("l3t1", 0, 32), ("l3a1", -127, 127), ("l3t2", 0, 32), ("l3a2", -127, 127)]],
+     ["l2t1 pitch", "l2t1 har1", "l3t1 cut"],
+     ["Two more LFOs (not on the Poly-800), one each for all voices, output -1..1, "
+      "targets as in DEG4.",
+      "l2r, l3r (2): rate 0.01-50 Hz.",
+      "l2w, l3w (0): wave 0 triangle, 1 sine, 2 saw up, 3 saw down, 4 square, 5 sample "
+      "& hold (a new random value each cycle).",
+      "l2k, l3k (0): retrigger: 0 free running, 1 every key restarts the wave, 2 only "
+      "the first key of a phrase.",
+      "l2f, l3f (0): fade-in after a retrigger, 0-10 s.",
+      "l2t1, l2a1, l2t2, l2a2: two targets and amounts of LFO2.",
+      "l3t1, l3a1, l3t2, l3a2: the same for LFO3."]),
     ("Delay settings",
      [[("dtim", 0, 99), ("dfb", 0, 15)], [("dmf", 0, 31), ("dmi", 0, 31)], [("dlev", 0, 15)]],
      ["delay flanger", "delay chorus1", "delay chorus2", "delay slap",

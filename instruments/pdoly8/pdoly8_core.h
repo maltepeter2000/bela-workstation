@@ -56,6 +56,26 @@ typedef struct {
     float   pan_l, pan_r;
 } p8_tg_t;
 
+/* modulation targets of DEG4, LFO2 and LFO3 (amount 127 = the range given) */
+enum {
+    P8_T_OFF, P8_T_PITCH /* +-24 st */, P8_T_PITCH2 /* DCO2 +-48 st */, P8_T_DETN /* +-50 cents */,
+    P8_T_HAR1, P8_T_HAR2 /* +-127 steps */, P8_T_WSH1, P8_T_WSH2 /* +-127 */, P8_T_WMX1, P8_T_WMX2 /* +-127 */,
+    P8_T_PW1, P8_T_PW2 /* +-47 % */, P8_T_FM1, P8_T_FM2 /* +-16 index */, P8_T_FMR /* x/: 4 */,
+    P8_T_RING /* +-127 */, P8_T_SWE /* +-72 st */, P8_T_LEV1, P8_T_LEV2 /* +-127 */, P8_T_AMP /* x 0..2 */,
+    P8_T_PAN /* balance +-1 */, P8_T_NOIS /* +-15 */, P8_T_CUT /* +-8 oct */, P8_T_RES /* +-15 */, P8_T_DRV /* +-127 */,
+    P8_T_MGR /* x/: 8 */, P8_T_MGI /* +-200 cents */, P8_T_L2R, P8_T_L2D, P8_T_L3R, P8_T_L3D /* rate x/: 8, depth x 0..2 */,
+    P8_T_DTIM /* x/: 2 */, P8_T_DLEV /* +-15 */, P8_NT
+};
+
+typedef struct {                 /* LFO2 / LFO3 */
+    float   hz;                  /* rate */
+    int     wave;                /* 0 triangle, 1 sine, 2 saw up, 3 saw down, 4 square, 5 sample & hold */
+    int     retrig;              /* 0 free, 1 every key, 2 first key of a phrase */
+    float   fade;                /* fade-in after a retrigger, seconds */
+    float   ph, sh, ft, out;     /* phase, held value, time since retrigger, output -1..1 */
+    int     tgt[2]; float amt[2];   /* two targets, amounts -1..1 */
+} p8_lfo_t;
+
 typedef struct {                 /* DEG per-sample coefficients of a group */
     float   att, dec, sl_dn, sl_up, rel, bp, su;
     int     bp_off;
@@ -113,10 +133,19 @@ typedef struct {
     float   wpos[2], wmix[2];    /* Walsh morph per DCO: position 0..127 on the loop, mix 0..1 */
     float   Wc[2][16], Wct[2][16];   /* Walsh coefficients by foot subset (current, target) */
     int     wal[2];              /* Walsh part active */
-    float   env[3];              /* DEG morph position 0..127 (DEG1, DEG2, DEG3), < 0: raw values in deg */
-    float   deg[3][6];           /* DEG1 / DEG2 / DEG3: attack, decay, break point, slope, sustain, release (0..31) */
-    p8_deg_t dc[3];
+    float   env[4];              /* DEG morph position 0..127 (DEG1, DEG2, DEG3, DEG4), < 0: raw values in deg */
+    float   deg[4][6];           /* DEG1 .. DEG4: attack, decay, break point, slope, sustain, release (0..31) */
+    p8_deg_t dc[4];
     p8_tg_t deg3;                /* DEG3 state (one for the instrument: VCF and noise) */
+    p8_tg_t deg4;                /* DEG4: modulation envelope, one for the instrument */
+    int     trig4;               /* DEG4 trigger: 1 single, 2 multi */
+    p8_lfo_t lfo[2];             /* LFO2, LFO3 (one each for the instrument) */
+    int     d4_tgt[2]; float d4_amt[2];   /* DEG4 -> two targets, amounts -1..1 */
+    float   modv[P8_NT];         /* summed modulation per target (last sample) */
+    unsigned char tused[P8_NT];  /* a slot points at this target */
+    int     mod_on;              /* a slot is active */
+    int     key_ev;              /* a key was pressed (LFO retrigger) */
+    int     any_prev;            /* a key was down in the last sample (phrase start) */
     int     trig3;               /* DEG3 trigger: 1 single (first key only), 2 multi (every key) */
     float   vcf_c, vcf_r;        /* VCF cutoff 0..99, resonance 0..15 */
     int     kbd;                 /* keyboard tracking: 0 off, 1 half, 2 full (highest key, C4 = nominal) */

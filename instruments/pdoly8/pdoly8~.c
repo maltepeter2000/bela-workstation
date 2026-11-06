@@ -33,20 +33,23 @@ enum {
        X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD, X_CUT, X_RES, X_KBD, X_POL,
        X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
        X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO,
-       X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, X_HMG, X_RMF, X_RETR, X_DRFT, NEXT };
+       X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, X_HMG, X_RMF, X_RETR, X_DRFT,
+       X_A4, X_D4, X_BP4, X_SL4, X_SU4, X_R4, X_ENV4, X_TRG4, X_D4T1, X_D4A1, X_D4T2, X_D4A2, X_L2R, X_L2W, X_L2K, X_L2F, X_L2T1, X_L2A1, X_L2T2, X_L2A2, X_L3R, X_L3W, X_L3K, X_L3F, X_L3T1, X_L3A1, X_L3T2, X_L3A2, NEXT };
 static const char *EXT_NAME[NEXT] = {
     "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "ch1", "tone", "pw1", "pw2",
     "sync", "swp2", "fm1", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1", "d1",
     "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port", "pmod",
     "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3",
     "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono",
-    "pwm1", "pwm2", "swe", "swm", "ring", "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp", "hmg", "rmf", "retr", "drft"};
+    "pwm1", "pwm2", "swe", "swm", "ring", "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp", "hmg", "rmf", "retr", "drft",
+    "a4", "d4", "bp4", "sl4", "su4", "r4", "env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2", "l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2", "l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2"};
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 8, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0,
     1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
     31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0,
     31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0};
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
+    0, 0, 31, 0, 31, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0};
 
 static t_class *pdoly8_class;
 
@@ -63,6 +66,12 @@ typedef struct _pdoly8 {
     int      restoring;
     float   *buf; int bufn;
 } t_pdoly8;
+
+/* modulation targets of DEG4, LFO2, LFO3 (the order of P8_T_* in pdoly8_core.h) */
+static const char *TGT_NAME[P8_NT] = {
+    "off", "pitch", "pitch2", "detn", "har1", "har2", "wsh1", "wsh2", "wmx1", "wmx2", "pw1", "pw2",
+    "fm1", "fm2", "fmr", "ring", "swe", "lev1", "lev2", "amp", "pan", "nois", "cut", "res", "drv",
+    "mgr", "mgi", "l2r", "l2d", "l3r", "l3d", "dtim", "dlev"};
 
 static float clampf_(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 
@@ -172,6 +181,35 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_WSE:  v = clampf_((float)v, -127.0f, 127.0f); e->ws_e = (float)v; break;   /* DEG3 -> Walsh position */
     case X_VAMP: v = clampf_((float)v, 0.0f, 127.0f); e->vel_amp = (float)v / 127.0f; break;      /* 127: level = velocity */
     case X_VCUT: v = clampf_((float)v, 0.0f, 127.0f); e->vel_cut = 5.0f * (float)v / 127.0f; break; /* 127: soft key 5 oct lower */
+    case X_ENV4: {                               /* DEG4 morph 0..127, -1 = own values (a4 ...) */
+        v = v < 0 ? -1 : clampf_((float)v, 0.0f, 127.0f);
+        e->env[3] = (float)v; x->ext[i] = v; p8_update(e);
+        for (int k = 0; k < 6; k++) x->ext[X_A4 + k] = e->deg[3][k];
+        return;
+    }
+    case X_A4: case X_D4: case X_BP4: case X_SL4: case X_SU4: case X_R4: {
+        v = clampf_((float)v, 0.0f, 31.0f); x->ext[i] = v;
+        if (x->restoring && e->env[3] >= 0.0f) return;
+        e->deg[3][i - X_A4] = (float)v; e->env[3] = -1.0f; x->ext[X_ENV4] = -1; p8_update(e);
+        return;
+    }
+    case X_TRG4: v = v < 1.5f ? 1 : 2; e->trig4 = (int)v; break;                   /* DEG4 single / multi */
+    case X_D4T1: case X_D4T2: case X_L2T1: case X_L2T2: case X_L3T1: case X_L3T2: {   /* targets 0..32 */
+        v = (t_float)(int)clampf_((float)v, 0.0f, (float)(P8_NT - 1)); x->ext[i] = v;
+        int *t = i == X_D4T1 ? &e->d4_tgt[0] : i == X_D4T2 ? &e->d4_tgt[1] : i == X_L2T1 ? &e->lfo[0].tgt[0]
+               : i == X_L2T2 ? &e->lfo[0].tgt[1] : i == X_L3T1 ? &e->lfo[1].tgt[0] : &e->lfo[1].tgt[1];
+        *t = (int)v; p8_update(e); return;
+    }
+    case X_D4A1: case X_D4A2: case X_L2A1: case X_L2A2: case X_L3A1: case X_L3A2: {   /* amounts -127..127 */
+        v = clampf_((float)v, -127.0f, 127.0f); x->ext[i] = v;
+        float *a = i == X_D4A1 ? &e->d4_amt[0] : i == X_D4A2 ? &e->d4_amt[1] : i == X_L2A1 ? &e->lfo[0].amt[0]
+                 : i == X_L2A2 ? &e->lfo[0].amt[1] : i == X_L3A1 ? &e->lfo[1].amt[0] : &e->lfo[1].amt[1];
+        *a = (float)v / 127.0f; p8_update(e); return;
+    }
+    case X_L2R: case X_L3R: v = clampf_((float)v, 0.01f, 50.0f); e->lfo[i == X_L3R].hz = (float)v; break;   /* Hz */
+    case X_L2W: case X_L3W: v = (t_float)(int)clampf_((float)v, 0.0f, 5.0f); e->lfo[i == X_L3W].wave = (int)v; break;
+    case X_L2K: case X_L3K: v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); e->lfo[i == X_L3K].retrig = (int)v; break;
+    case X_L2F: case X_L3F: v = clampf_((float)v, 0.0f, 10.0f); e->lfo[i == X_L3F].fade = (float)v; break;   /* s */
     case X_DRFT: v = clampf_((float)v, 0.0f, 127.0f); e->drift = (float)v / 127.0f; break;   /* analogue drift */
     case X_HMG: v = clampf_((float)v, 0.0f, 127.0f); e->h_m = (float)v; break;   /* MG -> har1 / har2, +- steps */
     case X_RMF: v = (t_float)(int)clampf_((float)v, 0.0f, 14.0f); e->rm_mask = P8_WALSH[(int)v]; break;   /* ring modulator on the Walsh loop */
@@ -398,6 +436,12 @@ static void pdoly8_anything(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 {
     if (argc < 1) { pd_error(x, "pdoly8~: %s needs a value", s->s_name); return; }
     t_float v = atom_getfloatarg(0, argc, argv);
+    if (argv[0].a_type == A_SYMBOL) {            /* a target by name: d4t1 cut, l2t2 pitch ... */
+        int t = -1;
+        for (int k = 0; k < P8_NT; k++) if (argv[0].a_w.w_symbol == gensym(TGT_NAME[k])) t = k;
+        if (t < 0) { pd_error(x, "pdoly8~: %s: unknown target %s", s->s_name, argv[0].a_w.w_symbol->s_name); return; }
+        v = t;
+    }
     for (int i = 0; i < NCTL; i++) if (s == gensym(CTL_NAME[i])) { apply_ctl(x, i, v); return; }
     for (int i = 0; i < NEXT; i++) if (s == gensym(EXT_NAME[i])) { apply_ext(x, i, v); return; }
     pd_error(x, "pdoly8~: unknown message '%s'", s->s_name);
