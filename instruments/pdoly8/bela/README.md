@@ -18,7 +18,7 @@ Pot 5 (`intv`) und CC 24 werden auf 0–12 Halbtöne umgerechnet. Ein Pot übern
 
 1. **External:** `bela/pdoly8~.pd_linux` (fertig gebaut: ARMv7 Cortex-A8, NEON, Hard-Float) **flach** nach `/root/Bela/projects/pd-externals/` kopieren.
    Alternativ auf dem Bela selbst bauen: Repo hinkopieren, `make bela PDINCLUDE=/usr/local/include/libpd` und die entstandene `pdoly8~.pd_linux` dorthin kopieren.
-2. **Patch:** den Inhalt von `bela/project/` (mit dem Ordner `presets/`) in ein Bela-Projekt kopieren, z. B. `/root/Bela/projects/pdoly8/`.
+2. **Patch:** den Inhalt von `bela/project/` in ein Bela-Projekt kopieren, z. B. `/root/Bela/projects/pdoly8/`.
 3. **Projekteinstellungen:** Blocksize 32 (bei zu hoher CPU-Last 64), USB-MIDI-Port prüfen (`amidi -l`).
 
 ```
@@ -31,7 +31,7 @@ scp -r bela/project root@bela.local:/root/Bela/projects/pdoly8
 - `pdoly8~.pd_linux` — das External für den Bela (`make bela-zig` baut es von Linux aus neu, mit zig).
 - `project/_main.pd` — der Patch; alles über send/receive (`p8-in` an das Objekt, `p8-out` vom Objekt, `p8-preset N` lädt ein Factory-Preset).
 - `project/p8pot.pd` — Totzone für Pots und CV.
-- `project/p8factory.pd`, `project/presets/poly800mk2-factory.txt` — die 64 Factory-Programme (Kopie aus dem Hauptordner).
+- `project/p8factory.pd` — die 64 Factory-Programme, direkt im Patch gespeichert (`[text define -k]`), es wird keine Datei gelesen.
 - `../tools/gen_bela.py` — erzeugt `project/` neu (Pot-Bereiche, CC-Nummern, Buttons stehen oben im Skript).
 
 ## Stand

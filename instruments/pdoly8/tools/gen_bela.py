@@ -203,10 +203,42 @@ def main_patch():
     return p
 
 
+def p8factory_embedded():
+    """p8factory with the 64 programs stored inside the patch ([text define -k]):
+    no file is read at run time, so it does not depend on Pd's search path."""
+    rows = []
+    for line in open(os.path.join(ROOT, "presets", "poly800mk2-factory.txt")):
+        line = line.strip().rstrip(";").strip()
+        if line:
+            rows.append(line)
+    data = " \\; ".join(rows) + " \\;"
+    L = ["#N canvas 120 120 640 420 12;",
+         "#X text 20 10 p8factory (Bela): the 64 Poly-800 II factory programs \\, stored inside this patch."
+         " A slot number 0-63 sends that program as dump pdoly8 ... to the outlet., f 70;",
+         "#X obj 20 90 inlet;",
+         "#X obj 20 330 text define -k $0-bank;",
+         "#A set " + data + ";",
+         "#X obj 20 120 moses 0;",
+         "#X obj 70 150 t f b;",
+         "#X obj 130 180 text size $0-bank;",
+         "#X obj 70 210 moses;",
+         "#X obj 70 240 text get $0-bank;",
+         "#X obj 70 270 list trim;",
+         "#X obj 70 300 route pdoly8;",
+         "#X obj 250 300 list prepend dump pdoly8;",
+         "#X obj 250 330 list trim;",
+         "#X obj 250 370 outlet;",
+         "#X connect 1 0 3 0;", "#X connect 3 1 4 0;", "#X connect 4 1 5 0;", "#X connect 5 0 6 1;",
+         "#X connect 4 0 6 0;", "#X connect 6 0 7 0;", "#X connect 7 0 8 0;", "#X connect 8 0 9 0;",
+         "#X connect 9 0 10 0;", "#X connect 10 0 11 0;", "#X connect 11 0 12 0;"]
+    return "\n".join(L) + "\n", len(rows)
+
+
 if __name__ == "__main__":
-    os.makedirs(os.path.join(OUT, "presets"), exist_ok=True)
+    os.makedirs(OUT, exist_ok=True)
     open(os.path.join(OUT, "_main.pd"), "w").write("\n".join(main_patch().lines(top=True)) + "\n")
     open(os.path.join(OUT, "p8pot.pd"), "w").write("\n".join(p8pot().lines(top=True)) + "\n")
-    shutil.copy(os.path.join(ROOT, "p8factory.pd"), OUT)
-    shutil.copy(os.path.join(ROOT, "presets", "poly800mk2-factory.txt"), os.path.join(OUT, "presets"))
-    print("bela/project: _main.pd, p8pot.pd, p8factory.pd, presets/poly800mk2-factory.txt")
+    txt, n = p8factory_embedded()
+    open(os.path.join(OUT, "p8factory.pd"), "w").write(txt)
+    shutil.rmtree(os.path.join(OUT, "presets"), ignore_errors=True)
+    print(f"bela/project: _main.pd, p8pot.pd, p8factory.pd ({n} programs inside)")
