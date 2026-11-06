@@ -70,6 +70,7 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `fm1` / `fm2` | 0–127 | 0 | linear FM index of DCO1 / DCO2, 0–16 (quadratic; index 1 at about 32, through zero above) |
 | `fmr` | 0.125–16 | 1 | ratio of the sine modulator to the DCO's own 16' frequency |
 | `fmhz` | −1000…1000 | 0 | fixed offset in Hz added to the sine modulator (inharmonic FM) |
+| `fmig` | 0–127 | 64 | gain of the signal at inlet 2 (`fms 2`), 64 = 1 |
 | `fms` | 0/1/2 | 0 | FM source (not an on/off switch): 0 internal sine, 1 the other DCO of the voice (cross FM), 2 the signal at inlet 2 |
 | `wsh1` / `wsh2` | 0–127 | 0 | Walsh loop position of DCO1 / DCO2 (see Walsh morph) |
 | `wmx1` / `wmx2` | 0–127 | 0 | mix from the feet sum (0) to the Walsh loop (127) |
@@ -121,6 +122,13 @@ Not on the Poly-800. Like DEG3 and the MG they exist once for the instrument (th
 | `l2t1 l2a1 l2t2 l2a2`, `l3t1 …` | target, −127…127 | 0 | LFO targets and amounts |
 
 Targets (range at amount 127): 0 `off`, 1 `pitch` (±24 semitones), 2 `pitch2` (DCO2 ±48), 3 `detn` (±50 cents), 4/5 `har1` `har2` (±127 steps), 6/7 `wsh1` `wsh2` (±127), 8/9 `wmx1` `wmx2` (±127), 10/11 `pw1` `pw2` (±47 %), 12/13 `fm1` `fm2` (±16 index), 14 `fmr` (×/÷ 4), 15 `ring` (±127), 16 `swe` (±72 semitones), 17/18 `lev1` `lev2` (±127), 19 `amp` (level × 0…2), 20 `pan` (balance), 21 `nois` (±15), 22 `cut` (±8 octaves), 23 `res` (±15), 24 `drv` (±127), 25 `mgr` (×/÷ 8), 26 `mgi` (±200 cents), 27/29 `l2r` `l3r` (LFO rate ×/÷ 8), 28/30 `l2d` `l3d` (LFO depth × 0…2), 31 `dtim` (×/÷ 2), 32 `dlev` (±15). `har`, `wsh`, `wmx`, `lev`, `detn` and `drv` follow per audio block (smoothed by `mrph`), all others per sample.
+
+### Pots, CV and MIDI CC
+
+| Message | Function |
+|---|---|
+| `n <name> <0-127>` | sets a setting from a 0–127 value (pot, CV, CC), scaled to its range: switches and small ranges in equal zones, −127…127 settings with 0 at 64, `fmr`/`l2r`/`l3r`/`mgf` logarithmic |
+| `nget <name> <tag>` | outlet 3 gets `norm <tag> <0-127>`: the setting as a pot position (pickup) |
 
 ### Other messages
 
@@ -285,7 +293,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - No clicks in a 42 s morph of `har` and `wav` (10 ms frame analysis).
 - Levels: worst case (4 voices, square, all feet, both DCOs) peaks at 0.92 (fixed output level 0.5); one saw note with all feet at 0.36.
 - In Pd (libpd 0.56): object loads, notes, voice stealing, controls by name and number, dump and recall round trip, `get`, `print`, `bend`, `reset`, error on unknown messages; the help patch opens without errors.
-- Bela: a prebuilt binary and a minimal Pepper test patch are in `bela/` (see `bela/README.md`); not yet run on the board.
+- Bela: a prebuilt binary and the Pepper patch (10 pages of 8 pots, pickup, CV-Lock, MIDI CC for every page parameter, audio in 1 as FM input) are in `bela/` (see `bela/README.md`).
 
 ## Credits
 

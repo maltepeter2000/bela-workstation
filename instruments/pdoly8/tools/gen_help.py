@@ -105,7 +105,7 @@ BLOCKS = [
       "towards 7 move the sidebands further apart: stronger, more metallic."]),
     ("FM",
      [[("fm1", 0, 127), ("fm2", 0, 127)],
-      [("fms", 0, 2), ("fmr", 0.125, 16), ("fmhz", -1000, 1000)]],
+      [("fms", 0, 2), ("fmr", 0.125, 16), ("fmhz", -1000, 1000), ("fmig", 0, 127)]],
      ["fms 0", "fms 1", "fms 2"],
      ["Linear FM of the counter rate, through zero (the counter runs backwards) above "
       "index 1, every edge band-limited. Not on the Poly-800.",
@@ -117,7 +117,8 @@ BLOCKS = [
       "fmr (1): 0.125-16, whole ratios stay harmonic, others (1.41, 3.5) give bells "
       "and metal that follow the key.",
       "fmhz (0): -1000..1000 Hz added to the sine: a fixed, inharmonic offset with the "
-      "same beat on every key (fmr 0.125, fmhz 200: almost a fixed modulator)."]),
+      "same beat on every key (fmr 0.125, fmhz 200: almost a fixed modulator).",
+      "fmig (64): gain of the signal at the right inlet (fms 2), 64 = 1, 127 = about 2."]),
     ("Filter & DEG3 settings",
      [[("cut", 0, 99), ("res", 0, 15), ("kbd", 0, 2)],
       [("egi", 0, 15), ("pol", 1, 2), ("trg", 1, 2)],
@@ -477,6 +478,10 @@ def build():
         "<setting> <value>: e.g. cut 60 (see the settings blocks below)",
         "delay flanger / chorus1 / chorus2 / slap / long / off",
         "bend <-1..1>: pitch bend of all voices, times bnd semitones",
+        "n <name> <0-127>: a setting from a pot, CV or MIDI CC,",
+        "  scaled to its range (switches in zones, 64 = 0 if bipolar)",
+        "nget <name> <tag>: outlet 3 gets norm <tag> <0-127>,",
+        "  the setting as a pot position (for pickup)",
         "defaults, reset: default values, reset also stops all voices",
         "panic: all voices off",
         "get <name>: reply 'value <name> <v>' on outlet 2",

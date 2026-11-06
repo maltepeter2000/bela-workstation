@@ -991,7 +991,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                     for (int S2 = 1; S2 < 16; S2++) full += fabsf(e->Wc[o][S2]);
                     m = (full > 1e-6f && s2->amp > 0.0f) ? s2->v / (full * s2->amp) : 0.0f;
                 } else if (e->fm_src == 2) {                 /* external signal */
-                    m = e->fm_in ? clampf(e->fm_in[i], -2.0f, 2.0f) : 0.0f;
+                    m = e->fm_in ? clampf(e->fm_in[i] * e->fm_ig, -2.0f, 2.0f) : 0.0f;
                 } else {                                     /* sine at fmr x the 16' frequency + fmhz */
                     g->mph += fmr * inc / (float)(2u << g->bit[0]) + e->fm_hz * inv_fs;
                     g->mph -= floorf(g->mph);

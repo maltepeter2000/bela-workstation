@@ -114,6 +114,7 @@ typedef struct {
     float   fm_hz;               /* sine modulator: fixed offset in Hz (inharmonic FM) */
     int     fm_src;              /* 0 internal sine, 1 the other DCO of the voice, 2 external signal */
     const float *fm_in;          /* external modulator for this block (fm_src 2), or 0 */
+    float   fm_ig;               /* gain of the external modulator */
     float   pwm_d[2];            /* MG -> pulse width, 0..0.47 */
     float   sw_e, sw_m;          /* DEG3 / MG -> DCO2 pitch, semitones */
     unsigned rm_mask;            /* ring modulator: product of these feet of DCO1 (0x8 = 16') */

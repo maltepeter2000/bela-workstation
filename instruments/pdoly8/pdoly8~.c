@@ -34,7 +34,7 @@ enum {
        X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
        X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO,
        X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, X_HMG, X_RMF, X_RETR, X_DRFT,
-       X_A4, X_D4, X_BP4, X_SL4, X_SU4, X_R4, X_ENV4, X_TRG4, X_D4T1, X_D4A1, X_D4T2, X_D4A2, X_L2R, X_L2W, X_L2K, X_L2F, X_L2T1, X_L2A1, X_L2T2, X_L2A2, X_L3R, X_L3W, X_L3K, X_L3F, X_L3T1, X_L3A1, X_L3T2, X_L3A2, NEXT };
+       X_A4, X_D4, X_BP4, X_SL4, X_SU4, X_R4, X_ENV4, X_TRG4, X_D4T1, X_D4A1, X_D4T2, X_D4A2, X_L2R, X_L2W, X_L2K, X_L2F, X_L2T1, X_L2A1, X_L2T2, X_L2A2, X_L3R, X_L3W, X_L3K, X_L3F, X_L3T1, X_L3A1, X_L3T2, X_L3A2, X_FMIG, NEXT };
 static const char *EXT_NAME[NEXT] = {
     "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "ch1", "tone", "pw1", "pw2",
     "sync", "swp2", "fm1", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1", "d1",
@@ -42,14 +42,14 @@ static const char *EXT_NAME[NEXT] = {
     "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3",
     "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono",
     "pwm1", "pwm2", "swe", "swm", "ring", "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp", "hmg", "rmf", "retr", "drft",
-    "a4", "d4", "bp4", "sl4", "su4", "r4", "env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2", "l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2", "l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2"};
+    "a4", "d4", "bp4", "sl4", "su4", "r4", "env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2", "l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2", "l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2", "fmig"};
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 8, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0,
     1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
     31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0,
     31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
-    0, 0, 31, 0, 31, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0};
+    0, 0, 31, 0, 31, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 64};
 
 static t_class *pdoly8_class;
 
@@ -176,6 +176,7 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     }
     case X_FMR:  v = clampf_((float)v, 0.125f, 16.0f); e->fm_ratio = (float)v; break;
     case X_FMHZ: v = clampf_((float)v, -1000.0f, 1000.0f); e->fm_hz = (float)v; break;
+    case X_FMIG: v = clampf_((float)v, 0.0f, 127.0f); e->fm_ig = (float)v / 64.0f; break;   /* input gain, 64 = 1 */
     case X_FMS:  v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); e->fm_src = (int)v; break;   /* sine, other DCO, input */
     case X_WSM:  v = clampf_((float)v, 0.0f, 127.0f); e->ws_m = (float)v; break;   /* MG -> Walsh position */
     case X_WSE:  v = clampf_((float)v, -127.0f, 127.0f); e->ws_e = (float)v; break;   /* DEG3 -> Walsh position */
@@ -449,6 +450,96 @@ static void pdoly8_anything(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 
 static void pdoly8_ctl(t_pdoly8 *x, t_floatarg i, t_floatarg v) { apply_ctl(x, (int)i, v); }
 
+/* 0-127 (a pot, CV or MIDI CC) to a parameter's range and back:
+ * 'i' whole numbers lo..hi in equal zones, 'r' whole numbers linear (wider ranges),
+ * 'b' / 'c' bipolar -hi..hi with 0 at 64 (whole numbers / continuous), 'f' linear, 'l' logarithmic */
+typedef struct { const char *name; char kind; float lo, hi; } t_p8range;
+static const t_p8range RANGE[] = {
+    {"har1",'i',0,127}, {"har2",'i',0,127}, {"env1",'i',0,127}, {"env2",'i',0,127}, {"intv",'i',0,12},
+    {"detn",'i',0,127}, {"lev1",'i',0,127}, {"lev2",'i',0,127},
+    {"cut",'i',0,99}, {"res",'i',0,15}, {"egi",'i',0,15}, {"kbd",'i',0,2}, {"env3",'i',0,127}, {"vcut",'i',0,127},
+    {"drv",'i',0,127}, {"nois",'i',0,15},
+    {"oct1",'i',-1,4}, {"oct2",'i',-1,4}, {"pw1",'i',0,127}, {"pw2",'i',0,127}, {"pwm1",'i',0,127}, {"pwm2",'i',0,127},
+    {"hmg",'i',0,127}, {"drft",'i',0,127},
+    {"wsh1",'i',0,127}, {"wsh2",'i',0,127}, {"wmx1",'i',0,127}, {"wmx2",'i',0,127}, {"wsm",'i',0,127}, {"wse",'b',-127,127},
+    {"sync",'i',0,1}, {"swp2",'i',0,72}, {"swe",'i',0,72}, {"swm",'i',0,24}, {"ring",'i',0,127}, {"rmf",'i',0,14},
+    {"fm1",'i',0,127}, {"fm2",'i',0,127}, {"fmr",'l',0.125f,16}, {"fmhz",'c',-1000,1000}, {"fms",'i',0,2}, {"fmig",'i',0,127},
+    {"mgr",'i',0,15}, {"mgi",'r',0,200}, {"mgd",'i',0,15}, {"mgv",'i',0,15}, {"env4",'i',0,127}, {"trg4",'i',1,2},
+    {"d4t1",'i',0,P8_NT - 1}, {"d4a1",'b',-127,127}, {"d4t2",'i',0,P8_NT - 1}, {"d4a2",'b',-127,127},
+    {"l2r",'l',0.01f,50}, {"l2w",'i',0,5}, {"l2k",'i',0,2}, {"l2f",'f',0,10},
+    {"l2t1",'i',0,P8_NT - 1}, {"l2a1",'b',-127,127}, {"l2t2",'i',0,P8_NT - 1}, {"l2a2",'b',-127,127},
+    {"l3r",'l',0.01f,50}, {"l3w",'i',0,5}, {"l3k",'i',0,2}, {"l3f",'f',0,10},
+    {"l3t1",'i',0,P8_NT - 1}, {"l3a1",'b',-127,127}, {"l3t2",'i',0,P8_NT - 1}, {"l3a2",'b',-127,127},
+    {"dtim",'i',0,99}, {"dfb",'i',0,15}, {"dmf",'i',0,31}, {"dmi",'i',0,31}, {"dlev",'i',0,15},
+    {"port",'i',0,127}, {"mono",'i',0,1}, {"vamp",'i',0,127},
+    {"pmod",'i',0,2}, {"retr",'i',0,1}, {"pol",'i',1,2}, {"trg",'i',1,2}, {"drvp",'i',0,1}, {"mgf",'l',0.1f,30},
+    {"bnd",'i',0,12}, {"mrph",'i',0,100}, {"tone",'i',0,1}, {"leak",'i',0,1},
+    {"treb",'i',-6,6}, {"bass",'i',-6,6}, {"sprd",'i',0,127}};
+#define NRANGE ((int)(sizeof RANGE / sizeof RANGE[0]))
+
+static const t_p8range *find_range(t_symbol *s)
+{
+    for (int i = 0; i < NRANGE; i++) if (s == gensym(RANGE[i].name)) return &RANGE[i];
+    return 0;
+}
+
+static t_float *find_value(t_pdoly8 *x, t_symbol *s)
+{
+    for (int i = 0; i < NCTL; i++) if (s == gensym(CTL_NAME[i])) return &x->ctl[i];
+    for (int i = 0; i < NEXT; i++) if (s == gensym(EXT_NAME[i])) return &x->ext[i];
+    return 0;
+}
+
+static float range_from127(const t_p8range *r, float c)
+{
+    c = clampf_(c, 0.0f, 127.0f);
+    if (r->kind == 'l') return r->lo * powf(r->hi / r->lo, c / 127.0f);
+    if (r->kind == 'f') return r->lo + (r->hi - r->lo) * c / 127.0f;
+    if (r->kind == 'r') return floorf(r->lo + (r->hi - r->lo) * c / 127.0f + 0.5f);
+    if (r->kind == 'b' || r->kind == 'c') {
+        float v = clampf_((c - 64.0f) * r->hi / 63.0f, -r->hi, r->hi);
+        return r->kind == 'b' ? floorf(v + 0.5f) : v;
+    }
+    if (r->hi - r->lo == 127.0f) return r->lo + floorf(c + 0.5f);
+    float n = r->hi - r->lo + 1.0f;                      /* zones of equal width */
+    return r->lo + fminf(floorf(c * n / 128.0f), n - 1.0f);
+}
+
+static float range_to127(const t_p8range *r, float v)
+{
+    float c;
+    if (r->kind == 'l') c = 127.0f * logf(fmaxf(v, r->lo) / r->lo) / logf(r->hi / r->lo);
+    else if (r->kind == 'f' || r->kind == 'r') c = 127.0f * (v - r->lo) / (r->hi - r->lo);
+    else if (r->kind == 'b' || r->kind == 'c') c = 64.0f + v * 63.0f / r->hi;
+    else if (r->hi - r->lo == 127.0f) c = v - r->lo;
+    else { float n = r->hi - r->lo + 1.0f; c = (v - r->lo + 0.5f) * 128.0f / n; }   /* middle of the zone */
+    return floorf(clampf_(c, 0.0f, 127.0f) + 0.5f);
+}
+
+/* n <name> <0-127>: set a parameter from a pot, CV or CC; "none" is ignored */
+static void pdoly8_n(t_pdoly8 *x, t_symbol *name, t_floatarg c)
+{
+    if (name == gensym("none")) return;
+    const t_p8range *r = find_range(name);
+    if (!r) { pd_error(x, "pdoly8~: n: no 0-127 range for '%s'", name->s_name); return; }
+    t_atom a; SETFLOAT(&a, range_from127(r, c));
+    t_float *old = find_value(x, name), before = old ? *old : 0;
+    pdoly8_anything(x, name, 1, &a);
+    const char *nm = name->s_name;                       /* targets: name them in the console */
+    if (old && *old != before && strlen(nm) == 4 && nm[2] == 't' && (nm[0] == 'd' || nm[0] == 'l'))
+        post("pdoly8~: %s %s", nm, TGT_NAME[(int)*old]);
+}
+
+/* nget <name> <tag>: outlet 3 gets "norm <tag> <0-127>", the parameter's value as a pot position */
+static void pdoly8_nget(t_pdoly8 *x, t_symbol *name, t_floatarg tag)
+{
+    const t_p8range *r = find_range(name);
+    t_float *v = find_value(x, name);
+    if (!r || !v) return;
+    t_atom a[2]; SETFLOAT(a, tag); SETFLOAT(a + 1, range_to127(r, *v));
+    outlet_anything(x->x_dump, gensym("norm"), 2, a);
+}
+
 static void pdoly8_params(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 {
     (void)s;
@@ -559,6 +650,8 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_dump, gensym("dump"), A_GIMME, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_params, gensym("params"), A_GIMME, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_get, gensym("get"), A_SYMBOL, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_n, gensym("n"), A_SYMBOL, A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_nget, gensym("nget"), A_SYMBOL, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_delay, gensym("delay"), A_SYMBOL, 0);
     M1(voiceoff); M1(bend); M0(panic); M0(defaults); M0(reset); M0(print);
 }
