@@ -193,7 +193,7 @@ def to_line(pr, names, defs):
         v[f"oct{g}"] = min(4, pr[f"oct{g}"] - 1 + shift)
         v[f"lev{g}"] = round(lev)
         v[f"env{g}"] = -1
-    v["intv"] = round(pr["interval"] * 127 / 12)
+    v["intv"] = pr["interval"]
     v["detn"] = [0, 42, 85, 127][pr["detune"]]
     v["nois"] = pr["noise"]
     v["cut"], v["res"], v["kbd"] = pr["cutoff"], pr["resonance"], pr["kbd"]
@@ -224,7 +224,7 @@ def from_line(vals, names, defs):
     deg3 = env_morph(v["env3"]) if v["env3"] >= 0 else [v[f"{k}3"] for k in ("a", "d", "bp", "sl", "su", "r")]
     for k, x in zip(("a", "d", "bp", "sl", "su", "r"), deg3): pr[f"{k}3"] = max(0, min(31, round(x)))
     pr["mode"] = 1 if v["lev2"] > 0 else 0
-    pr["interval"] = max(0, min(12, round(v["intv"] * 12 / 127)))
+    pr["interval"] = max(0, min(12, round(v["intv"])))
     pr["detune"] = max(0, min(3, round(v["detn"] * 3 / 127)))
     pr["noise"] = int(v["nois"])
     pr["cutoff"], pr["resonance"], pr["kbd"] = round(v["cut"]), round(v["res"]), int(v["kbd"])

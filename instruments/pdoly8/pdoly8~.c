@@ -33,20 +33,20 @@ enum {
        X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD, X_CUT, X_RES, X_KBD, X_POL,
        X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
        X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO,
-       X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, NEXT };
+       X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, X_HMG, X_RMF, X_RETR, NEXT };
 static const char *EXT_NAME[NEXT] = {
     "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "ch1", "tone", "pw1", "pw2",
     "sync", "swp2", "fm1", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1", "d1",
     "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port", "pmod",
     "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3",
     "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono",
-    "pwm1", "pwm2", "swe", "swm", "ring", "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp"};
+    "pwm1", "pwm2", "swe", "swm", "ring", "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp", "hmg", "rmf", "retr"};
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 8, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0,
     1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
     31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0,
     31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};
 
 static t_class *pdoly8_class;
 
@@ -117,12 +117,12 @@ static void apply_ctl(t_pdoly8 *x, int i, t_float v)
         if (v >= 0) for (int k = 0; k < 6; k++) x->ext[(g ? X_A2 : X_A1) + k] = e->deg[g][k];
         return;
     }
-    v = clampf_((float)v, 0.0f, 127.0f);
+    v = i == C_INTV ? (t_float)(int)lroundf(clampf_((float)v, 0.0f, 12.0f)) : clampf_((float)v, 0.0f, 127.0f);
     x->ctl[i] = v;
     switch (i) {
     case C_HAR1: e->har[0] = (float)v; break;
     case C_HAR2: e->har[1] = (float)v; break;
-    case C_INTV: e->interval = (int)lroundf((float)v * 12.0f / 127.0f); p8_retune(e); return;
+    case C_INTV: e->interval = (int)v; p8_retune(e); return;          /* semitones 0..12, as stored on the Poly-800 II */
     case C_DETN: {                     /* Poly-800 II service manual: steps 0-3 = 0, 6.5, 13, 26 cents (down) */
         static const float DET[4] = {0.0f, 6.5f, 13.0f, 26.0f};
         float q = clampf_((float)v, 0.0f, 127.0f) * 3.0f / 127.0f; int a = q >= 3.0f ? 2 : (int)q;
@@ -172,6 +172,9 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_WSE:  v = clampf_((float)v, -127.0f, 127.0f); e->ws_e = (float)v; break;   /* DEG3 -> Walsh position */
     case X_VAMP: v = clampf_((float)v, 0.0f, 127.0f); e->vel_amp = (float)v / 127.0f; break;      /* 127: level = velocity */
     case X_VCUT: v = clampf_((float)v, 0.0f, 127.0f); e->vel_cut = 5.0f * (float)v / 127.0f; break; /* 127: soft key 5 oct lower */
+    case X_HMG: v = clampf_((float)v, 0.0f, 127.0f); e->h_m = (float)v; break;   /* MG -> har1 / har2, +- steps */
+    case X_RMF: v = (t_float)(int)clampf_((float)v, 0.0f, 14.0f); e->rm_mask = P8_WALSH[(int)v]; break;   /* ring modulator on the Walsh loop */
+    case X_RETR: v = v != 0; break;              /* mono: 1 every key restarts the envelopes, 0 legato */
     case X_DRVP: v = v != 0; e->drv_pre = v != 0; break;                  /* overdrive 0 post, 1 pre VCF */
     case X_DRV:  v = clampf_((float)v, 0.0f, 127.0f); p8_set_drive(e, (float)v / 127.0f); break;
     case X_WSH1: case X_WSH2:                    /* Walsh loop position 0..127 */
@@ -186,8 +189,9 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_PORT: v = clampf_((float)v, 0.0f, 127.0f);              /* 0 off .. 127 = 3 s */
         p8_set_port(e, 3.0f * ((float)v / 127.0f) * ((float)v / 127.0f)); break;
     case X_PMOD: v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); break;   /* 0 last note, 1 own, 2 legato */
-    case X_MONO:                                 /* 0 poly, 1 mono, 2 mono legato */
+    case X_MONO:                                 /* 0 poly, 1 mono (2: mono with retr 0, older presets) */
         v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f);
+        if (v == 2) { v = 1; x->ext[X_RETR] = 0; }
         if ((int)v != (int)x->ext[X_MONO]) { for (int k = 0; k < P8_VOICES; k++) { p8_voice_off(e, k); x->held[k] = 0; } x->keys = 0; x->nstack = 0; }
         break;
     case X_CUT: v = clampf_((float)v, 0.0f, 99.0f); e->vcf_c = (float)v; break;      /* VCF cutoff 0..99 */
@@ -278,7 +282,7 @@ static void note_off(t_pdoly8 *x, t_float pitch)
         }
 }
 
-/* mono (1) and mono legato (2): one voice, last-note priority. Mono
+/* mono: one voice, last-note priority. retr 1
  * retriggers the envelopes on every key; legato only on the first key of a
  * phrase - further keys (and returning to a held one) only change the pitch,
  * with portamento if it is on. */
@@ -288,7 +292,7 @@ static void mono_on(t_pdoly8 *x, t_float pitch)
     for (i = 0; i < n; i++) if (x->stack[i] == pitch) break;
     if (i < n) { for (; i < n - 1; i++) x->stack[i] = x->stack[i + 1]; n--; }
     if (n == 16) { for (i = 0; i < 15; i++) x->stack[i] = x->stack[i + 1]; n--; }
-    int legato = x->ext[X_MONO] == 2 && n > 0;
+    int legato = x->ext[X_RETR] == 0 && n > 0;
     x->stack[n++] = pitch; x->nstack = n;
     int pm = (int)x->ext[X_PMOD];
     t_float from = (pm == 2 && !legato && n == 1) ? -1 : x->last;
@@ -309,7 +313,7 @@ static void mono_off(t_pdoly8 *x, t_float pitch)
     if (n == 0) { p8_voice_off(&x->e, 0); x->held[0] = 0; x->keys = 0; return; }
     if (!top) return;
     t_float back = x->stack[n - 1];                  /* back to the key still held */
-    if (x->ext[X_MONO] == 2) p8_voice_pitch(&x->e, 0, (float)back, (float)x->last);
+    if (x->ext[X_RETR] == 0) p8_voice_pitch(&x->e, 0, (float)back, (float)x->last);
     else p8_voice_glide(&x->e, 0, (float)back, (float)x->last);
     x->key[0] = back; x->last = back;
 }

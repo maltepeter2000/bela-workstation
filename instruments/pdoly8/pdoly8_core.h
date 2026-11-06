@@ -94,6 +94,8 @@ typedef struct {
     const float *fm_in;          /* external modulator for this block (fm_src 2), or 0 */
     float   pwm_d[2];            /* MG -> pulse width, 0..0.47 */
     float   sw_e, sw_m;          /* DEG3 / MG -> DCO2 pitch, semitones */
+    unsigned rm_mask;            /* ring modulator: product of these feet of DCO1 (0x8 = 16') */
+    float   h_m;                 /* MG -> timbre position har, +- steps */
     float   rmod;                /* 0..1: DCO2 times the 16' of DCO1 (XOR ring modulation) */
     float   ws_m, ws_e;          /* MG / DEG3 -> Walsh loop position, in loop steps 0..127 */
     float   wlev[2];             /* Walsh amplitude per DCO (mix x level) */

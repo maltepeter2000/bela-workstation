@@ -26,7 +26,7 @@ The messages follow the cz4~ / skandrums-pd conventions (`dump`, `params`, `defa
 | 1 | `har2` | 45 | timbre of DCO2 |
 | 2 | `env1` | 0 | envelope of DCO1 (DEG1), one knob: 0 gate, from 1 very short pluck … pluck … piano … long release … swell … pad … long pad (see Envelopes); −1 = own values `a1` … `r1` |
 | 3 | `env2` | 0 | envelope of DCO2 (DEG2), the same |
-| 4 | `intv` | 0 | interval of DCO2, 0–12 semitones |
+| 4 | `intv` | 0 | interval of DCO2 in semitones 0–12 (not 0–127: the Poly-800 II stores semitones) |
 | 5 | `detn` | 0 | detune of DCO2 downwards; the original's steps 0–3 (0, 6.5, 13, 26 cents, Poly-800 II service manual) lie at 0, 42, 85, 127, linear in between |
 | 6 | `lev1` | 127 | level of DCO1 |
 | 7 | `lev2` | 0 | level of DCO2. Every voice always has both DCOs (the original's DOUBLE, 4 voices); the levels set the mix. When `lev1 + lev2` goes above 127 both are scaled down together |
@@ -45,7 +45,7 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 
 ### Settings (raw values)
 
-In the help patch the settings are grouped in blocks: Additional harmonics, Filter & DEG3, MG, Delay (with preset messages), DEG1 & DEG2, Portamento, Additional settings.
+In the help patch the settings are grouped in blocks: DCO settings (timbre, octave, PWM, Walsh loop, sync, ring), FM, Filter & DEG3, MG, Delay (with preset messages), DEG1 & DEG2, Portamento, Additional settings.
 
 | Message | Range | Default | Function |
 |---|---|---|---|
@@ -63,8 +63,10 @@ In the help patch the settings are grouped in blocks: Additional harmonics, Filt
 | `swp2` | 0–72 | 0 | DCO2 pitch offset in semitones, continuous (sync sweeps; also without sync) |
 | `swe` | 0–72 | 0 | DEG3 adds up to this many semitones to DCO2 (sync sweep) |
 | `swm` | 0–24 | 0 | the MG adds ± this many semitones to DCO2 |
+| `hmg` | 0–127 | 0 | the MG moves `har1` and `har2` by ± this many steps (127 = the whole timbre path) |
 | `pwm1` / `pwm2` | 0–127 | 0 | MG → pulse width of DCO1 / DCO2, 127 = ±47 % |
-| `ring` | 0–127 | 0 | DCO2 times the 16' of DCO1 (XOR ring modulation of square waves) |
+| `ring` | 0–127 | 0 | DCO2 times a ±1 wave of DCO1 (XOR ring modulation of square waves) |
+| `rmf` | 0–14 | 0 | ring modulator: a step on DCO1's Walsh loop (0 = 16', 7 = 2', 10 = all four feet); steps towards 7 give wider sidebands |
 | `fm1` / `fm2` | 0–127 | 0 | linear FM index of DCO1 / DCO2, 0–16 (quadratic; index 1 at about 32, through zero above) |
 | `fmr` | 0.125–16 | 1 | ratio of the sine modulator to the DCO's own 16' frequency |
 | `fmhz` | −1000…1000 | 0 | fixed offset in Hz added to the sine modulator (inharmonic FM) |
@@ -79,10 +81,11 @@ In the help patch the settings are grouped in blocks: Additional harmonics, Filt
 | `vamp` | 0–127 | 0 | velocity → level of each voice (both DCOs); 127: level = velocity |
 | `port` | 0–127 | 0 | portamento, off … 3 s (quadratic; not on the Poly-800) |
 | `pmod` | 0/1/2 | 0 | glide from: 0 the last note played, 1 the voice's own last note, 2 the last note only while another key is held (legato) |
-| `mono` | 0/1/2 | 0 | 0 poly (4 voices); 1 mono: one voice, last key wins, every key restarts the envelopes; 2 mono legato: only the first key of a phrase restarts them, further keys (and going back to a held one) only change the pitch |
+| `mono` | 0/1 | 0 | 0 poly (4 voices); 1 mono: one voice, last key wins (2, from older presets, = mono 1 with `retr 0`) |
+| `retr` | 0/1 | 1 | mono: 1 every key restarts the envelopes; 0 legato: only the first key of a phrase restarts them, further keys (and going back to a held one) only change the pitch |
 | `cut` | 0–99 | 99 | VCF cutoff (66 Hz … 20 kHz, measured) |
 | `res` | 0–15 | 0 | VCF resonance (ladder feedback k 0 … 3.9, no self-oscillation) |
-| `drv` | 0–127 | 0 | overdrive (where: `drvp`): soft clipping (rational, as in cz4~), 0–30 dB more gain with level makeup |
+| `drv` | 0–127 | 0 | overdrive (where: `drvp`): soft clipping (rational, as in cz4~), 0–48 dB more gain with level makeup |
 | `drvp` | 0/1 | 0 | overdrive 0 post (after the VCF), 1 pre (into the VCF) |
 | `vcut` | 0–127 | 0 | velocity → cutoff: at 127 a soft key is up to 5 octaves lower; full velocity plays the set cutoff (one VCF: the last key counts) |
 | `kbd` | 0/1/2 | 0 | keyboard tracking off / half / full (highest key; full: 1 oct/oct, nominal at C4; half: 0.5 oct/oct, nominal at the top key C6 — measured) |
@@ -106,7 +109,7 @@ In the help patch the settings are grouped in blocks: Additional harmonics, Filt
 |---|---|
 | `note p v`, or the list `p v` | note on (v > 0) / off; 4 voices, the oldest is stolen |
 | list `p v ch` | from `[notein]` → `[pack f f f]`, filtered by `ch1` |
-| `bend f` | pitch bend −1…1 of all voices (on the master clock), times `bnd` |
+| `bend f` | pitch bend −1…1 of all voices (on the master clock), times `bnd`; from a MIDI keyboard: `[bendin]` → `[expr ($f1 - 8192) / 8192]` → `bend $1` (as in the help patch) |
 | `params v0 v1 …` | set the controls by index |
 | `defaults` / `reset` | default values; `reset` also stops all voices |
 | `panic` | all voices off |
@@ -117,7 +120,7 @@ In the help patch the settings are grouped in blocks: Additional harmonics, Filt
 | `print` | voices, values and sample rate to the Pd window |
 | `delay <name>` | delay presets: `flanger` (4 ms, slow sweep, feedback), `chorus1` (fast, shallow), `chorus2` (slow, wider), `slap` (120 ms), `long` (0.5 s with repeats), `off` |
 
-Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0` (new settings are appended at the end, so older dumps still load).
+Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1` (new settings are appended at the end, so older dumps still load).
 
 ### PWM (`pw1`, `pw2`)
 
@@ -170,7 +173,7 @@ The own values `a1` … `r2` override the loop (`env` −1). Changing the envelo
 
 ### Portamento (`port`, `pmod`)
 
-Not on the Poly-800, added here. On a new note the counters jump to the new divider at once, as on the chip; a pitch offset from the old note fades out exponentially on top of the clock (about 95 % after the set time), so every glide ends exactly on the chip's own pitch. The source is the last note played (`pmod 0`, good for lines over the 4 voices), the voice's own last note (`pmod 1`, chords glide voice by voice), or the last note only while another key is held (`pmod 2`, legato). `pmod` is not a mono/poly switch; that is `mono` (0 poly, 1 mono, 2 mono legato).
+Not on the Poly-800, added here. On a new note the counters jump to the new divider at once, as on the chip; a pitch offset from the old note fades out exponentially on top of the clock (about 95 % after the set time), so every glide ends exactly on the chip's own pitch. The source is the last note played (`pmod 0`, good for lines over the 4 voices), the voice's own last note (`pmod 1`, chords glide voice by voice), or the last note only while another key is held (`pmod 2`, legato). `pmod` is not a mono/poly switch; that is `mono`, with `retr` for retrigger or legato.
 
 ### VCF and DEG3
 

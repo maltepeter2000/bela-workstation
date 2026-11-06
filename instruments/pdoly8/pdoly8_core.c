@@ -66,6 +66,7 @@ float p8_code_hz16(int code, float clock_hz)
  * all four feet in the middle (64) ... 2' alone. */
 const uint8_t P8_KNOT[P8_KNOTS] = {0x8, 0xC, 0xE, 0xA, 0xB, 0x9, 0xD, 0xF, 0x7, 0x5, 0x4, 0x6, 0x2, 0x3, 0x1};
 
+#define P8_RMAX 12                                           /* ring flips per sample and voice */
 static float clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 
 /* Musical ring (path 1): the 8 combinations that keep the 16' as root, a
@@ -264,13 +265,13 @@ static inline float softclip(float x)
     return x * (27.0f + x2) / (27.0f + 9.0f * x2);
 }
 
-/* overdrive before or after the VCF: gain 1 .. 32 (+30 dB, quadratic), the makeup
+/* overdrive before or after the VCF: gain 1 .. 256 (+48 dB, quadratic), the makeup
  * keeps a signal at half the reference level at its level */
 #define P8_DRV_REF 3.0f                                      /* one saw note, all feet: peak about 3 */
 void p8_set_drive(p8_engine_t *e, float d)
 {
     e->drive = clampf(d, 0.0f, 1.0f);
-    e->drv_g = 1.0f + 31.0f * e->drive * e->drive;
+    e->drv_g = 1.0f + 255.0f * e->drive * e->drive;
     e->drv_c = 0.5f / softclip(0.5f * e->drv_g);
 }
 
@@ -284,6 +285,7 @@ void p8_init(p8_engine_t *e, float fs)
     e->har[0] = e->har[1] = 64.0f;
     e->lev[0] = 1.0f;
     e->hsnap = 1.0f;
+    e->rm_mask = 0x8;
     e->env[0] = e->env[1] = e->env[2] = 0.0f;
     e->trig3 = 2; e->vcf_c = 99.0f; e->kbd_note = 60.0f;
     e->ddl_ms = e->ddl_ms_s = 4.0f;
@@ -450,35 +452,41 @@ static void walsh_targets(p8_engine_t *e, int g, float pos)
     e->wal[g] = 1;
 }
 
+/* foot weight targets of DCO g at timbre position h (and its Walsh level) */
+static void foot_targets(p8_engine_t *e, int g, float h)
+{
+    static const float SQ[P8_FEET]  = {1.0f, 1.057f, 1.083f, 1.098f};
+    static const float SAW[P8_FEET] = {2.47f, 2.47f * 0.523f, 2.47f * 0.268f, 2.47f * 0.135f};
+    float gain[P8_FEET], net, wv = clampf(e->wav[g], 0.0f, 1.0f);
+    p8_path_gains(e->path, h, e->hsnap, e->pfade, gain, &net);
+    if (net >= 0.0f) wv = net;
+    float lev = (g == 1 && e->mode != P8_DOUBLE) ? 0.0f : clampf(e->lev[g], 0.0f, 1.0f);
+    float w[P8_FEET], pw = 0.0f;
+    for (int f = 0; f < P8_FEET; f++) { w[f] = (SQ[f] + wv * (SAW[f] - SQ[f])) * gain[f]; pw += w[f] * w[f]; }
+    /* loudness: the feet are orthogonal (Rademacher functions), so the
+     * RMS is exactly sqrt(sum w^2) / 2; norm 1 holds it at the level of
+     * the square net with all feet, which also bounds the peak there */
+    float k = 1.0f;
+    if (e->norm > 0.0f && pw > 1e-9f) {
+        float wd = clampf(e->pw_t[g], 0.03f, 0.97f), duty = 4.0f * wd * (1.0f - wd);   /* pulse power / square power */
+        k = powf(P8_NORM_REF / sqrtf(pw * duty), clampf(e->norm, 0.0f, 1.0f));
+    }
+    float mix = clampf(e->wmix[g], 0.0f, 1.0f);
+    for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = w[f] * k * lev * (1.0f - mix);
+    /* Walsh morph: two neighbours on the sequency loop, equal power
+     * (Walsh functions are orthonormal), at the RMS of the square net
+     * with all feet */
+    e->wlev[g] = 0.5f * P8_NORM_REF * mix * lev;
+}
+
 void p8_update(p8_engine_t *e)
 {
     /* Foot weights measured on a Poly-800 (square / saw, one key over five
      * octaves, response of the output removed): square net (BR5) a little
      * stronger on the higher feet; saw net (BR6) binary within 1 dB and its
      * 16' 2.47 x (+7.9 dB) the square net's, so both nets peak alike. */
-    static const float SQ[P8_FEET]  = {1.0f, 1.057f, 1.083f, 1.098f};
-    static const float SAW[P8_FEET] = {2.47f, 2.47f * 0.523f, 2.47f * 0.268f, 2.47f * 0.135f};
     for (int g = 0; g < 2; g++) {
-        float gain[P8_FEET], net, wv = clampf(e->wav[g], 0.0f, 1.0f);
-        p8_path_gains(e->path, e->har[g], e->hsnap, e->pfade, gain, &net);
-        if (net >= 0.0f) wv = net;
-        float lev = (g == 1 && e->mode != P8_DOUBLE) ? 0.0f : clampf(e->lev[g], 0.0f, 1.0f);
-        float w[P8_FEET], pw = 0.0f;
-        for (int f = 0; f < P8_FEET; f++) { w[f] = (SQ[f] + wv * (SAW[f] - SQ[f])) * gain[f]; pw += w[f] * w[f]; }
-        /* loudness: the feet are orthogonal (Rademacher functions), so the
-         * RMS is exactly sqrt(sum w^2) / 2; norm 1 holds it at the level of
-         * the square net with all feet, which also bounds the peak there */
-        float k = 1.0f;
-        if (e->norm > 0.0f && pw > 1e-9f) {
-            float wd = clampf(e->pw_t[g], 0.03f, 0.97f), duty = 4.0f * wd * (1.0f - wd);   /* pulse power / square power */
-            k = powf(P8_NORM_REF / sqrtf(pw * duty), clampf(e->norm, 0.0f, 1.0f));
-        }
-        float mix = clampf(e->wmix[g], 0.0f, 1.0f);
-        for (int f = 0; f < P8_FEET; f++) e->Wt[g][f] = w[f] * k * lev * (1.0f - mix);
-        /* Walsh morph: two neighbours on the sequency loop, equal power
-         * (Walsh functions are orthonormal), at the RMS of the square net
-         * with all feet */
-        e->wlev[g] = 0.5f * P8_NORM_REF * mix * lev;
+        foot_targets(e, g, e->har[g]);
         walsh_targets(e, g, e->wpos[g]);
     }
     if (e->mode != P8_DOUBLE) for (int t = 4; t < P8_TG; t++) e->tg[t].amp_target = 0.0f;
@@ -663,7 +671,11 @@ static float tg_run(p8_engine_t *e, p8_tg_t *g, const shape_t *sh, int generic,
             float tau = tend + g->ph / inc;
             if (tau > tend + span) tau = tend + span;
             if (wrap < 0.0f && (g->cnt & (P16 - 1u)) == 0u) wrap = tau;
-            if (t16 && *n16 < 4 && (g->cnt & ((P16 >> 1) - 1u)) == 0u) t16[(*n16)++] = tau;   /* 16' toggles */
+            if (t16 && *n16 < P8_RMAX) {                     /* ring: the product of the masked feet flips */
+                uint32_t ch = g->cnt ^ (g->cnt - 1u); int par = 0;
+                for (int f = 0; f < P8_FEET; f++) if ((e->rm_mask >> (3 - f)) & 1u) par ^= (int)((ch >> g->bit[f]) & 1u);
+                if (par) t16[(*n16)++] = tau;
+            }
             float vn = tg_eval(g, sh, tg_bits(g));
             if (vn != g->v) { float dv = vn - g->v; step_sharp(e, dv * g->pan_l, dv * g->pan_r, tau); g->v = vn; }
         }
@@ -696,7 +708,7 @@ static float tg_run(p8_engine_t *e, p8_tg_t *g, const shape_t *sh, int generic,
         unsigned bit = 1u << (3 - ev[i].f);
         unsigned h0 = h;
         h = ev[i].up ? (h | bit) : (h & ~bit);
-        if (t16 && ev[i].f == 0 && h != h0 && *n16 < 4) t16[(*n16)++] = ev[i].tau;
+        if (t16 && ((e->rm_mask >> (3 - ev[i].f)) & 1u) && h != h0 && *n16 < P8_RMAX) t16[(*n16)++] = ev[i].tau;
         float vn = tg_eval(g, sh, h);
         if (vn != g->v) { float dv = vn - g->v; step_sharp(e, dv * g->pan_l, dv * g->pan_r, ev[i].tau); g->v = vn; }
     }
@@ -767,6 +779,9 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     const float ring = clampf(e->rmod, 0.0f, 1.0f);
     const int drv_on = e->drive > 0.0f;
 
+    /* timbre position moved by the MG (per block) */
+    if (e->h_m > 0.0f)
+        for (int g = 0; g < 2; g++) foot_targets(e, g, clampf(e->har[g] + e->h_m * e->mg_val, 0.0f, 127.0f));
     /* Walsh loop position moved by the MG and DEG3 (per block) */
     if (e->ws_m > 0.0f || e->ws_e > 0.0f)
         for (int g = 0; g < 2; g++)
@@ -777,7 +792,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     if (any && !e->mg_any) e->mg_t = 0.0f;
     e->mg_any = any;
     const int mg_on = e->mg_cents > 0.0f || e->mg_vcf > 0.0f || e->pwm_d[0] > 0.0f || e->pwm_d[1] > 0.0f
-                    || e->sw_m > 0.0f || e->ws_m > 0.0f;
+                    || e->sw_m > 0.0f || e->ws_m > 0.0f || e->h_m > 0.0f;
     float mg_tri = 0.0f;
 
     for (unsigned i = 0; i < n; i++) {
@@ -812,10 +827,10 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         for (int g = 0; g < 2; g++) wcur[g] = e->pwm_d[g] > 0.0f ? clampf(e->pw[g] + e->pwm_d[g] * mg_tri, 0.03f, 0.97f) : e->pw[g];
         if (sw_mod)                                          /* DCO2 sweep: DEG3 and MG */
             swp = exp2f(clampf(e->swp2 + e->sw_e * e->e3n + e->sw_m * mg_tri, 0.0f, 96.0f) / 12.0f);
-        float t16[P8_VOICES][4]; int n16[P8_VOICES] = {0, 0, 0, 0};
+        float t16[P8_VOICES][P8_RMAX]; int n16[P8_VOICES] = {0, 0, 0, 0};
         float rs0[P8_VOICES] = {1.0f, 1.0f, 1.0f, 1.0f};    /* ring: 16' of DCO1 at the start of the sample */
         if (ring > 0.0f) for (int k = 0; k < P8_VOICES; k++)
-            rs0[k] = ((tg_states(&e->tg[k], wcur[0]) >> 3) & 1u) ? 1.0f : -1.0f;
+            rs0[k] = (__builtin_popcount(~tg_states(&e->tg[k], wcur[0]) & e->rm_mask) & 1) ? -1.0f : 1.0f;
 
         float sync_tau[P8_VOICES] = {-1.0f, -1.0f, -1.0f, -1.0f};
         for (int t = 0; t < P8_TG; t++) {
@@ -867,9 +882,9 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             /* keep the edges per sample bounded (sweeps, FM): at most 3 counts */
             if (inc > 3.0f) inc = 3.0f; else if (inc < -3.0f) inc = -3.0f;
             /* split points of DCO2 in this sample: sync (reset) and the 16' edges of DCO1 (ring) */
-            float pt[6]; int pty[6], np = 0;
+            float pt[P8_RMAX + 2]; int pty[P8_RMAX + 2], np = 0;
             if (slave && sync_tau[k] >= 0.0f) { pt[np] = sync_tau[k]; pty[np++] = 0; }
-            if (slave && ring > 0.0f) for (int j = 0; j < n16[k] && np < 6; j++) { pt[np] = t16[k][j]; pty[np++] = 1; }
+            if (slave && ring > 0.0f) for (int j = 0; j < n16[k] && np < P8_RMAX + 1; j++) { pt[np] = t16[k][j]; pty[np++] = 1; }
             if (np) {
                 for (int a = 1; a < np; a++)                 /* in time order: largest tau first */
                     for (int b = a; b > 0 && pt[b] > pt[b - 1]; b--) {
