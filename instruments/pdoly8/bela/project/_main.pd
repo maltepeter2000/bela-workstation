@@ -1,7 +1,7 @@
 #N canvas 0 50 640 420 10;
 #X text 10 6 pdoly8~ on the Bela Pepper - minimal test patch, f 47;
 #X text 10 21 MIDI (USB): notes / pitch bend / CC 20-27 = controls 0-7 / program change = factory preset, f 90;
-#X text 10 36 Pots 1-8 (and the CV inputs): har1 har2 env1 env2 intv detn lev1 lev2, f 69;
+#X text 10 36 Pots 1-8: har1 har2 env1 env2 intv detn lev1 lev2. With a cable in a CV jack its pot attenuates the CV., f 100;
 #X text 10 51 Button 1 / 2: factory preset down / up. Start: preset 0 (program 11), f 68;
 #X text 10 66 A pot only takes over after it moved (deadband) - so a preset stays until you touch a pot., f 90;
 #N canvas 0 50 520 260 init 0;
@@ -79,7 +79,7 @@
 #X restore 10 120 pd midi;
 #X text 120 120 notes / bend / CC / program, f 27;
 #N canvas 0 50 900 460 pots 0;
-#X text 10 6 POTS + CV: adc~ 3-10 every 10 ms \, scaled to 0-127 (range measured on a Pepper) -> controls 0-7. On the Pepper the CV input adds to its pot., f 100;
+#X text 10 6 POTS + CV: adc~ 3-10 every 10 ms \, scaled to 0-127 (range of every pot measured on a Pepper) -> controls 0-7. Empty jack: the pot sets the value. Cable in: the pot attenuates the CV., f 100;
 #X obj 10 30 loadbang;
 #X obj 80 30 metro 10;
 #X obj 160 30 s p8-tick;

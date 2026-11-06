@@ -8,7 +8,7 @@ Minimaler Test-Patch: MIDI über USB, die 8 Pots (und CV) steuern die 8 Controls
 |---|---|
 | MIDI (USB) | Noten (4 Stimmen), Pitch Bend (`bnd`, Standard ±2 Halbtöne), CC 20–27 = Controls 0–7, Program Change 1–64 = Factory-Preset 0–63 |
 | Pots 1–8 | `har1` `har2` `env1` `env2` `intv` `detn` `lev1` `lev2` |
-| CV-Eingänge | beim Pepper addiert sich die CV zu ihrem Pot, steuert also dasselbe Control |
+| CV-Eingänge | ohne Kabel setzt der Pot den Wert; steckt ein Kabel, schwächt der Pot die CV ab (Attenuator), die CV steuert also dasselbe Control |
 | Button 1 / 2 | Factory-Preset runter / hoch (0–63, läuft rund) |
 | Start | Factory-Preset 0 (Programm 11) |
 
@@ -37,4 +37,5 @@ scp -r bela/project root@bela.local:/root/Bela/projects/pdoly8
 ## Stand
 
 - Getestet in Pd (libpd 0.56) auf dem Desktop mit simulierten Pots: Preset beim Start, Noten, Preset-Wechsel, Pot 1 → `har1`, Pot 5 → `intv` in Halbtönen.
-- Auf dem Bela noch nicht gelaufen: CPU-Last, MIDI-Port und die Pot-Bereiche (aus beladrumrack übernommen, `POT_LO`/`POT_HI`) sind noch zu prüfen.
+- Pot-Bereiche: pro Pot aus beladrumrack übernommen (dort gemessen, Maxima 0.907 / 0.916 / 0.923 / 0.924 / 0.877 / 0.890 / 0.917 / 0.997, im Patch mit 1 % Reserve).
+- Auf dem Bela noch nicht gelaufen: CPU-Last, MIDI-Port und der CV-Bereich (Skalierung gilt für den Pot ohne Kabel; mit CV kann 127 früher oder später erreicht werden) sind noch zu prüfen.

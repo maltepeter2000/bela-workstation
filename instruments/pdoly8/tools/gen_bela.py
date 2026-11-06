@@ -2,8 +2,9 @@
 """Generates bela/project/ : a minimal Bela Pepper patch for pdoly8~.
 
   MIDI (USB)   notes, pitch bend, CC 20-27 = controls 0-7, program change = factory preset
-  Pots 1-8     controls 0-7 (har1 har2 env1 env2 intv detn lev1 lev2); on the Pepper
-               a CV input adds to its pot, so CV moves the same controls
+  Pots 1-8     controls 0-7 (har1 har2 env1 env2 intv detn lev1 lev2). On the Pepper a pot
+               sets the value while its CV jack is empty; with a cable in, the pot
+               attenuates that CV, so the CV moves the same control
   Button 1/2   factory preset down / up (0-63)
   Start        factory preset 0 (program 11)
 
@@ -22,7 +23,8 @@ OUT = os.path.join(ROOT, "bela", "project")
 CTL = ["har1", "har2", "env1", "env2", "intv", "detn", "lev1", "lev2"]
 CC0 = 20                           # CC 20-27 = controls 0-7
 BTN_DOWN, BTN_UP = 26, 25          # Pepper buttons 1 and 2 (pressed = 0)
-# raw adc~ range of the Pepper pots (measured with beladrumrack/testprojects/potrange)
+# raw adc~ range of the Pepper pots, per pot (measured with beladrumrack/testprojects/potrange:
+# maxima 0.907 0.916 0.923 0.924 0.877 0.890 0.917 0.997, here with 1 % margin inwards)
 POT_LO = [0.002] * 8
 POT_HI = [0.898, 0.907, 0.914, 0.915, 0.868, 0.881, 0.907, 0.987]
 FONT = 10
@@ -127,8 +129,8 @@ def sec_midi():
 
 def sec_pots():
     p = P("pots", 900, 460)
-    p.note("POTS + CV: adc~ 3-10 every 10 ms, scaled to 0-127 (range measured on a Pepper) -> controls 0-7."
-           " On the Pepper the CV input adds to its pot.", 10, 6)
+    p.note("POTS + CV: adc~ 3-10 every 10 ms, scaled to 0-127 (range of every pot measured on a Pepper) -> controls 0-7."
+           " Empty jack: the pot sets the value. Cable in: the pot attenuates the CV.", 10, 6)
     mt = p.add("loadbang", 10, 30); me = p.add("metro 10", 80, 30); st = p.add("s p8-tick", 160, 30)
     p.con(mt, 0, me, 0); p.con(me, 0, st, 0)
     for j in range(8):
@@ -182,7 +184,7 @@ def main_patch():
     p = P(None, 640, 420)
     lines = ["pdoly8~ on the Bela Pepper - minimal test patch",
              "MIDI (USB): notes / pitch bend / CC 20-27 = controls 0-7 / program change = factory preset",
-             "Pots 1-8 (and the CV inputs): har1 har2 env1 env2 intv detn lev1 lev2",
+             "Pots 1-8: har1 har2 env1 env2 intv detn lev1 lev2. With a cable in a CV jack its pot attenuates the CV.",
              "Button 1 / 2: factory preset down / up. Start: preset 0 (program 11)",
              "A pot only takes over after it moved (deadband) - so a preset stays until you touch a pot."]
     for k, l in enumerate(lines):
