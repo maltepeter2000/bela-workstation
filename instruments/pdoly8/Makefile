@@ -2,6 +2,8 @@
 #
 #   make            build pdoly8~ for this machine (needs Pd's m_pd.h, see PDINCLUDE)
 #   make bela       build on the Bela board itself (Cortex-A8, NEON, hard float)
+#   make bela-zig   cross-build the Bela binary (ARMv7 Cortex-A8, NEON, hard float) into bela/
+#                   from Linux, with zig; and regenerate bela/project/
 #   make mac-zig    cross-build a universal macOS binary (arm64 + x86_64) into bin/macos
 #                   from Linux, with zig (pip install ziglang) and llvm-lipo
 #   make test       desktop test of the core; ./pdoly8_test
@@ -42,6 +44,11 @@ bela: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	    -o 'pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm
 
 ZIG  ?= python3 -m ziglang
+bela-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
+	$(ZIG) cc -target arm-linux-gnueabihf.2.24 -mcpu=cortex_a8 -O3 -ffast-math -std=c99 -fPIC -fvisibility=hidden \
+	    -I"$(PDINCLUDE)" -shared -s -o 'bela/pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm
+	python3 tools/gen_bela.py
+
 LIPO ?= llvm-lipo-18
 mac-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	mkdir -p bin/macos
@@ -73,4 +80,4 @@ clean:
 	rm -f pdoly8_test pdoly8_core.o 'pdoly8~.pd_linux' 'pdoly8~.pd_darwin'
 	rm -rf demos
 
-.PHONY: external bela mac-zig test demos help presets clean
+.PHONY: external bela bela-zig mac-zig test demos help presets clean

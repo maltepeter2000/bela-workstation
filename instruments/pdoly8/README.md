@@ -285,7 +285,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - No clicks in a 42 s morph of `har` and `wav` (10 ms frame analysis).
 - Levels: worst case (4 voices, square, all feet, both DCOs) peaks at 0.92 (fixed output level 0.5); one saw note with all feet at 0.36.
 - In Pd (libpd 0.56): object loads, notes, voice stealing, controls by name and number, dump and recall round trip, `get`, `print`, `bend`, `reset`, error on unknown messages; the help patch opens without errors.
-- Not yet built or measured on the Bela.
+- Bela: a prebuilt binary and a minimal Pepper test patch are in `bela/` (see `bela/README.md`); not yet run on the board.
 
 ## Credits
 
