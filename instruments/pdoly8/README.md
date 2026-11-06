@@ -44,6 +44,8 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 
 ### Settings (raw values)
 
+In the help patch the settings are grouped in blocks: Additional harmonics, Filter & DEG3, MG, Delay (with preset messages), DEG1 & DEG2, Portamento, Additional settings.
+
 | Message | Range | Default | Function |
 |---|---|---|---|
 | `oct1` / `oct2` | −1…4 | 0 | octave of DCO1 / DCO2: −1/0/1 = Low, Mid, High; 2–4 = the feet one, two, three counter bits higher (the original combinations without 16') |
@@ -54,7 +56,6 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 | `mgf` | Hz | 5 | MG rate (also set by `mgr`) |
 | `mgi` | 0–200 cents | 0 | vibrato depth (triangle on the master clock, through a measured 14.5 Hz one-pole low-pass, so fast vibrato is shallower as on the original). Original 83: 12.4 cents per step, 186 at 15 |
 | `mgr` | 0–15, −1 | −1 | MG frequency in original steps (81, measured: 0 = 0.29 Hz, 3 = 1.26, 6 = 3.39, 8 = 5.22, 9 = 6.49, 12 = 11.1, 15 = 19.1 Hz); sets `mgf`; −1 = use `mgf` |
-| `hsnp` | 0–4 | 1 | plateau around each foot combination, in `har` steps |
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
 | `pw1` / `pw2` | 0–127 | 64 | pulse width of DCO1 / DCO2: 3–97 %, 64 = square; acts on every foot (see PWM) |
 | `sync` | 0/1 | 0 | 1: DCO2 restarts at every 16' period of DCO1 (hard sync) |
@@ -69,6 +70,7 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 | `a2 d2 bp2 sl2 su2 r2` | 0–31 | 0 0 31 0 31 0 | the same for DEG2 |
 | `port` | 0–127 | 0 | portamento, off … 3 s (quadratic; not on the Poly-800) |
 | `pmod` | 0/1/2 | 0 | glide from: 0 the last note played, 1 the voice's own last note, 2 the last note only while another key is held (legato) |
+| `mono` | 0/1/2 | 0 | 0 poly (4 voices); 1 mono: one voice, last key wins, every key restarts the envelopes; 2 mono legato: only the first key of a phrase restarts them, further keys (and going back to a held one) only change the pitch |
 | `cut` | 0–99 | 99 | VCF cutoff (66 Hz … 20 kHz, measured) |
 | `res` | 0–15 | 0 | VCF resonance (ladder feedback k 0 … 3.9, no self-oscillation) |
 | `kbd` | 0/1/2 | 0 | keyboard tracking off / half / full (highest key; full: 1 oct/oct, nominal at C4; half: 0.5 oct/oct, nominal at the top key C6 — measured) |
@@ -101,8 +103,9 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 | `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 60 settings |
 | `dump pdoly8 …` | restore such a line; lines of other voices are ignored |
 | `print` | voices, values and sample rate to the Pd window |
+| `delay <name>` | delay presets: `flanger` (4 ms, slow sweep, feedback), `chorus1` (fast, shallow), `chorus2` (slow, wider), `slap` (120 ms), `long` (0.5 s with repeats), `off` |
 
-Default dump line: `dump pdoly8 127 127 64 64 0 0 127 0 2 0 0 0 0.5 0.5 8 0 440 0 2 5 0 1 0 1 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0`.
+Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0`.
 
 ### PWM (`pw1`, `pw2`)
 
@@ -151,7 +154,7 @@ The own values `a1` … `r2` override the loop (`env` −1). Changing the envelo
 
 ### Portamento (`port`, `pmod`)
 
-Not on the Poly-800, added here. On a new note the counters jump to the new divider at once, as on the chip; a pitch offset from the old note fades out exponentially on top of the clock (about 95 % after the set time), so every glide ends exactly on the chip's own pitch. The source is the last note played (`pmod 0`, good for lines over the 4 voices), the voice's own last note (`pmod 1`, chords glide voice by voice), or the last note only while another key is held (`pmod 2`, legato).
+Not on the Poly-800, added here. On a new note the counters jump to the new divider at once, as on the chip; a pitch offset from the old note fades out exponentially on top of the clock (about 95 % after the set time), so every glide ends exactly on the chip's own pitch. The source is the last note played (`pmod 0`, good for lines over the 4 voices), the voice's own last note (`pmod 1`, chords glide voice by voice), or the last note only while another key is held (`pmod 2`, legato). `pmod` is not a mono/poly switch; that is `mono` (0 poly, 1 mono, 2 mono legato).
 
 ### VCF and DEG3
 
@@ -192,7 +195,7 @@ It takes the value order from `pdoly8~.c`, so it follows the object. Waveform an
 - **Output response (`tone 1`).** Fitted to the recording: one-pole high-pass at 54 Hz, two poles at 7.5 kHz (VCF fully open plus output stage). A moving VCF comes later.
 - **Envelopes.** Each tone generator has its own DEG (see above). The counters keep running, so a note-on does not restart the phase.
 
-Not modelled: the Poly-800 (Mk I) chorus, the joystick, and the slight clock jitter that the pulse thinning of the detune adds. MG and EQ are measured on a Poly-800 II; the delay curves are taken from the service manual and still to be calibrated against recordings.
+Not modelled: the Poly-800 (Mk I) chorus, the joystick, and the slight clock jitter that the pulse thinning of the detune adds. MG, EQ and the digital delay are measured on a Poly-800 II.
 
 ## Build
 
@@ -239,7 +242,7 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - Sync and FM: off = sample-identical; sync and FM spectra harmonic within −75 dB below 16 kHz; index 4 through-zero FM with sync stays finite and below full scale.
 - PWM: measured duty equals the set width (10, 25, 75, 90 %) within 0.1 %; the pulse path at 50 % matches the square path within −74.9 dB; narrow pulses alias-free (−85 dB).
 - Timbre path: all 15 points exact (±1 step), one foot or the net per step; octave 2 = the feet one counter bit up. (The core still has the earlier paths 0–2 for the tests.)
-- Foot path: all 15 knots exact (also ±1 step with `hsnp 1`), neighbours differ in exactly one foot, largest gain change per 0.01 `har` step 0.0014 (no jumps).
+- Foot path: all 15 knots exact (also ±1 step: each combination is held as a plateau, so pots and the sysex converter hit the original combinations exactly), neighbours differ in exactly one foot, largest gain change per 0.01 `har` step 0.0014 (no jumps).
 - Aliasing: C6 square on 2' (4186 Hz) — strongest non-harmonic component −83 dB.
 - No clicks in a 42 s morph of `har` and `wav` (10 ms frame analysis).
 - Levels: worst case (4 voices, square, all feet, both DCOs) peaks at 0.92 (fixed output level 0.5); one saw note with all feet at 0.36.

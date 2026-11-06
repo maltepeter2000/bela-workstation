@@ -52,64 +52,110 @@ CONTROLS = [
                 "(lev1 + lev2 > 127) both are scaled down together."),
 ]
 
-SETTINGS = [
-    "oct1, oct2 (0) octave -1 0 1 (LOW MID HIGH), 2-4 feet shifted",
-    "nois (0) white noise level 0-15, sounds while a voice sounds",
-    "sprd (0) stereo spread of the 4 voices 0-127",
-    "mrph (8) smoothing of har and lev changes in ms",
-    "bnd (2) pitch bend range in semitones (original: up to 7)",
-    "mgf (5) MG rate in Hz; mgr (-1) the same in steps 0-15",
-    "mgi (0) vibrato depth in cents (original: 12.4 per step)",
-    "hsnp (1) plateau around each foot combination, in har steps",
-    "ch1 (0) MIDI channel for p v ch lists, 0 = any",
-    "tone (1) 1: output response measured on a Poly-800 with the",
-    "VCF (54 Hz high-pass, VCF, 1 pole at 5 kHz), 0: raw",
-    "pw1, pw2 (64) pulse width of DCO1 / DCO2: 0-127 = 3-97 %,",
-    "64 = square; works on every foot at once (see PWM)",
-    "sync (0) 1: DCO2 restarts at every period of DCO1",
-    "swp2 (0) DCO2 pitch offset 0-48 semitones, continuous",
-    "fm (0) 0-127: FM index of DCO1, 0-8 (through zero above 45)",
-    "fmr (1) FM ratio of the sine modulator to DCO1, 0.125-16",
-    "fms (0) FM source: 0 internal sine, 1 DCO2 (cross FM)",
-    "wsh1, wsh2 (0) Walsh loop position of DCO1 / DCO2, 0-127",
-    "wmx1, wmx2 (0) mix from the feet (0) to the Walsh loop (127)",
-    "leak (0) 1: released voices stay at -55 dB, as on the original",
-    "a1 d1 bp1 sl1 su1 r1 (0 0 31 0 31 0) DEG1 attack, decay,",
-    "break point, slope, sustain, release 0-31 (env1 becomes -1)",
-    "a2 d2 bp2 sl2 su2 r2: the same for DEG2",
-    "port (0) portamento 0-127 = off to 3 s (not on the Poly-800)",
-    "pmod (0) glide from: 0 the last note, 1 the voice's own last",
-    "note, 2 the last note only while another key is held",
-    "cut (99) VCF cutoff 0-99 (66 Hz - 20 kHz, 4 poles, measured)",
-    "res (0) resonance 0-15 (no self-oscillation, as the original)",
-    "kbd (0) key tracking 0 off, 1 half (ref C6), 2 full (ref C4)",
-    "pol (2) DEG3 polarity 2 up, 1 down; egi (0) EG INT 0-15",
-    "trg (2) DEG3 trigger 1 single, 2 multi",
-    "env3 (0) DEG3 morph (VCF and noise), -1 = own a3 ... r3",
-    "a3 d3 bp3 sl3 su3 r3: DEG3 values 0-31",
-    "mgd (0) MG delay 0-15 (0.47 s at 5 / 1.55 s at 15)",
-    "mgv (0) MG to VCF 0-15 (+-7.9 octaves at 15)",
-    "treb bass (0 0) EQ -6..6 = -10..+10 dB (2 kHz / 300 Hz)",
-    "dtim (30) delay time 0-99 = 4-1024 ms; dfb (0) feedback 0-15",
-    "dmf dmi (0 0) delay mod rate 0-31 = 0.1-10 Hz and depth 0-31",
-    "dlev (0) delay effect level 0-15 (0 = off)",
+# setting blocks: title, number boxes (name, min, max), preset messages, text
+BLOCKS = [
+    ("Additional harmonics",
+     [("pw1", 0, 127), ("pw2", 0, 127), ("sync", 0, 1), ("swp2", 0, 48),
+      ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("wsh1", 0, 127),
+      ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127)], [],
+     ["Not on the Poly-800, all edges stay band-limited.",
+      "pw1, pw2 (64) pulse width 0-127 = 3-97 %, 64 = square: every",
+      "foot becomes the AND of itself and a copy shifted by part of",
+      "its period (pulse staircases on the saw net).",
+      "sync (0) 1: DCO2's counter restarts at every 16' period of",
+      "DCO1, at the exact sub-sample time, swp2 (0) DCO2 offset",
+      "0-48 semitones, continuous - sweep it for the sync sound.",
+      "fm (0) 0-127 = FM index 0-8 of DCO1's counter rate (through",
+      "zero above 45, integer ratios stay harmonic), fmr (1) ratio",
+      "of the sine to the 16', 0.125-16, fms (0) 0 sine, 1 DCO2.",
+      "wsh1, wsh2 (0) Walsh loop 0-127: the 15 XOR products of the",
+      "feet by sequency (0: 16' / 17: 16'x4' / 59: 2' / 85: all /",
+      "119: 16'x8' / 127 = 0), neighbours fade at equal power;",
+      "wmx1, wmx2 (0) mix from the feet (0) to the Walsh loop (127)."]),
+    ("Filter & DEG3 settings",
+     [("cut", 0, 99), ("res", 0, 15), ("kbd", 0, 2), ("egi", 0, 15),
+      ("pol", 1, 2), ("trg", 1, 2), ("nois", 0, 15), ("env3", -1, 127),
+      ("a3", 0, 31), ("d3", 0, 31), ("bp3", 0, 31), ("sl3", 0, 31),
+      ("su3", 0, 31), ("r3", 0, 31)], [],
+     ["One 4-pole VCF for the instrument (NJM2069), measured on a",
+      "Poly-800 II. cut (99) 0-99 = 66 Hz - 20 kHz, 13 steps per",
+      "octave, res (0) 0-15, an uncompensated ladder (the bass falls",
+      "as it rises), no self-oscillation, kbd (0) key tracking of",
+      "the highest key: 0 off, 2 full (1:1, C4 nominal), 1 half",
+      "(1:2, C6 nominal). DEG3 is one, for all voices: egi (0) EG",
+      "INT 0-15 moves the cutoff up to 7.9 octaves, pol (2) 2 up,",
+      "1 down, trg (2) 2 multi: every key restarts DEG3, 1 single:",
+      "only the first key of a phrase. nois (0) white noise 0-15,",
+      "its VCA follows DEG3. env3 (0) DEG3 morph as env1 (see",
+      "Controls), -1 = own values a3 d3 bp3 sl3 su3 r3 (0-31)."]),
+    ("MG settings",
+     [("mgr", -1, 15), ("mgf", 0, 30), ("mgi", 0, 200), ("mgd", 0, 15),
+      ("mgv", 0, 15)], [],
+     ["One triangle MG for the instrument, measured on a Poly-800 II.",
+      "mgr (-1) frequency in steps 0-15 as parameter 81 (0.29 Hz /",
+      "3: 1.26 / 8: 5.2 / 15: 19 Hz), sets mgf, mgf (5) the same in",
+      "Hz. mgi (0) depth on the pitch in cents (83: 12.4 cents per",
+      "step, 186 at 15), a 14.5 Hz low-pass makes fast vibrato",
+      "shallower, as on the original. mgd (0) delay 0-15 (82: 0.47 s",
+      "at 5, 1.55 s at 15) from the first key, then full depth.",
+      "mgv (0) MG to the VCF 0-15 (84: +-7.9 octaves at 15)."]),
+    ("Delay settings",
+     [("dtim", 0, 99), ("dfb", 0, 15), ("dmf", 0, 31), ("dmi", 0, 31),
+      ("dlev", 0, 15)],
+     ["delay flanger", "delay chorus1", "delay chorus2", "delay slap",
+      "delay long", "delay off"],
+     ["The digital delay of the Poly-800 II (71-75), measured: echo",
+      "in phase on the left output, inverted on the right (a mono",
+      "sum cancels it). dtim (30) 0-99 = 4.2 ms - 1.08 s (70: 216",
+      "ms), dfb (0) feedback 0-15 (15: -3.1 dB per echo), dmf (0)",
+      "mod rate 0-31 = 0.05-5 Hz, dmi (0) mod depth 0-31 (31: the",
+      "time swings 1:5, about 10 dB less per 10 steps below), dlev",
+      "(0) echo level 0-15, 0 = off. A gate ends the echo train;",
+      "changing a value mutes the echo for a moment, as on the",
+      "original. Presets: flanger (4 ms, slow sweep, feedback),",
+      "chorus1 (fast, shallow), chorus2 (slow, wider), slap (120",
+      "ms), long (0.5 s with repeats), off."]),
+    ("DEG1 & DEG2 settings",
+     [("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
+      ("su1", 0, 31), ("r1", 0, 31), ("a2", 0, 31), ("d2", 0, 31),
+      ("bp2", 0, 31), ("sl2", 0, 31), ("su2", 0, 31), ("r2", 0, 31)], [],
+     ["Each voice's DCO1 and DCO2 have their own 6-stage DEG as on",
+      "the Poly-800 (attack, decay, break point, slope, sustain,",
+      "release 0-31, setting one makes env1 / env2 -1). Measured on",
+      "a Poly-800 II: level 0-31 is about (L/31)^2, attack rises",
+      "linearly (31: about 9 s), decay, slope and release fall at a",
+      "constant dB per second (31: about 18 s to -40 dB). env1 /",
+      "env2 (Controls) morph through: 0 gate / 1 short pluck / 24",
+      "pluck / 48 piano / 72 long release / 92 swell / 108 pad /",
+      "127 long pad."]),
+    ("Portamento",
+     [("port", 0, 127), ("pmod", 0, 2), ("mono", 0, 2)], [],
+     ["Not on the Poly-800. port (0) glide time 0-127 = off to 3 s.",
+      "pmod (0) where a glide starts: 0 from the last note played,",
+      "1 from the note this voice played before, 2 from the last",
+      "note only while another key is still held (legato glide).",
+      "mono (0) 0 poly (4 voices), 1 mono: one voice, the last key",
+      "wins, every key restarts the envelopes, 2 mono legato: only",
+      "the first key of a phrase restarts them, further keys (and",
+      "going back to a held one) only change the pitch."]),
+    ("Additional settings",
+     [("oct1", -1, 4), ("oct2", -1, 4), ("bnd", 0, 12), ("treb", -6, 6),
+      ("bass", -6, 6), ("sprd", 0, 127), ("mrph", 0, 100), ("ch1", 0, 16),
+      ("tone", 0, 1), ("leak", 0, 1)], [],
+     ["oct1, oct2 (0) -1 0 1 = LOW MID HIGH, 2-4: the feet one to",
+      "three octaves higher (the combinations without 16').",
+      "bnd (2) bend range in semitones (original: up to 7).",
+      "treb, bass (0) EQ -6..6 (76/77, measured: about 4 dB at 3,",
+      "10 dB at 6, shelves at 4.3 kHz and 115 Hz).",
+      "sprd (0) stereo spread of the 4 voices 0-127.",
+      "mrph (8) smoothing of har and lev changes in ms.",
+      "ch1 (0) MIDI channel for p v ch lists, 0 = any.",
+      "tone (1) 1: output stage measured on a Poly-800 (54 Hz",
+      "high-pass, VCF, 1 pole at 5 kHz), 0: raw tone generators.",
+      "leak (0) 1: released voices stay at -55 dB, as on the",
+      "original."]),
 ]
 
-# number boxes in the bottom panel: name, min, max
-ADV = [("oct1", -1, 4), ("oct2", -1, 4), ("nois", 0, 15),
-       ("sprd", 0, 127), ("mrph", 0, 100), ("bnd", 0, 12), ("mgf", 0, 30),
-       ("mgi", 0, 200), ("hsnp", 0, 4), ("ch1", 0, 16), ("tone", 0, 1),
-       ("pw1", 0, 127),
-       ("pw2", 0, 127), ("sync", 0, 1), ("swp2", 0, 48),
-       ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("wsh1", 0, 127),
-       ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127), ("leak", 0, 1), ("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
-       ("su1", 0, 31), ("r1", 0, 31), ("a2", 0, 31), ("d2", 0, 31), ("bp2", 0, 31), ("sl2", 0, 31),
-       ("su2", 0, 31), ("r2", 0, 31), ("port", 0, 127), ("pmod", 0, 2), ("cut", 0, 99),
-       ("res", 0, 15), ("kbd", 0, 2), ("pol", 1, 2), ("egi", 0, 15), ("trg", 1, 2), ("env3", -1, 127),
-       ("a3", 0, 31), ("d3", 0, 31), ("bp3", 0, 31), ("sl3", 0, 31), ("su3", 0, 31), ("r3", 0, 31),
-       ("mgd", 0, 15), ("mgv", 0, 15), ("mgr", -1, 15), ("treb", -6, 6), ("bass", -6, 6), ("dtim", 0, 99),
-       ("dfb", 0, 15), ("dmf", 0, 31), ("dmi", 0, 31), ("dlev", 0, 15),
-       ("bend", -1, 1)]
 VINT = []
 
 
@@ -179,7 +225,8 @@ def build():
         "<p> <v> <channel>: from [notein], filtered by ch1",
         "<control> <0-127>: set a control by name, e.g. har1 64",
         "ctl <index> <0-127>, params v0 v1 ...: set by index",
-        "<setting> <value>: e.g. cut 60 (see Settings below)",
+        "<setting> <value>: e.g. cut 60 (see the settings blocks below)",
+        "delay flanger / chorus1 / chorus2 / slap / long / off",
         "bend <-1..1>: pitch bend of all voices (master clock)",
         "defaults, reset: default values, reset also stops all voices",
         "panic: all voices off",
@@ -192,16 +239,6 @@ def build():
     for i, (cn, dv, txt) in enumerate(CONTROLS):
         clines += wrap(f"{i} {cn} ({dv}) {txt}")
     sections.append(("Controls (index name default)", clines))
-    sections.append(("Settings (name default)", SETTINGS))
-    sections.append(("How the Poly-800 makes its sound", [
-        "One master clock feeds the MSM5232: 8 tone generators in two",
-        "groups (TG0-3 = DCO1, TG4-7 = DCO2). Each key becomes an",
-        "integer divider from the chip's ROM, then a binary counter",
-        "whose bits are the 16', 8', 4' and 2' squares, locked in",
-        "phase. The four feet of a group are summed to a square or a",
-        "step saw. Bend and vibrato move the master clock, so",
-        "all voices move together. Detune thins out DCO2's clock.",
-        "Every edge is band-limited: analog edges, no aliasing."]))
     sections.append(("Timbre (har1 / har2)", [
         "The 15 distinct timbres of the original, dark to bright:",
         "0: 16' / saw net 9: 16'2' / 18: 16'4'2' / 27: 16'4' /",
@@ -211,52 +248,8 @@ def build():
         "One foot or the net per step. The combinations without 16'",
         "are the same waves higher: use oct1 / oct2 2-4.",
         "A fading foot rises in power, so the morph has no dips."]))
-    sections.append(("PWM", [
-        "pw1 / pw2 turn every foot into a pulse: the AND of the foot",
-        "with a copy shifted by part of its period, so the falling",
-        "edge stays on the counter step and the rising edge moves.",
-        "On the saw net this gives pulse staircases. All edges stay",
-        "band-limited."]))
-    sections.append(("Sync and FM", [
-        "sync 1: DCO2's counter restarts at every 16' period of DCO1,",
-        "at the exact sub-sample time. Sweep DCO2 with swp2 (or intv,",
-        "oct2) for the classic sync sound; lev1 0 to hear DCO2 alone.",
-        "fm: linear FM of DCO1's counter rate by a sine at fmr times",
-        "its 16' frequency (fms 0) or by DCO2 (fms 1). Above index 1",
-        "the counter runs backwards for a moment (through zero), so",
-        "integer ratios stay harmonic. All edges stay band-limited."]))
-    sections.append(("Walsh morph", [
-        "The feet are Rademacher functions; their products (XOR of",
-        "the foot squares) are the 15 Walsh functions: two-level waves",
-        "whose energy sits around harmonic 1 ... 8 of the 16'. wsh",
-        "moves along a closed loop of them by sequency, up through",
-        "one of each pair and down through the other; neighbours fade",
-        "at equal power, so the level stays. 0: 16' / 8: 8' /",
-        "17: 16'x4' / 25: 4' / 34: 16'x4'x2' / 42: 8'x2' / 51: 16'x2' /",
-        "59: 2' / 68: 16'x8'x2' / 76: 8'x4'x2' / 85: all / 93: 4'x2' /",
-        "102: 16'x8'x4' / 110: 8'x4' / 119: 16'x8' / 127 = 0.",
-        "wmx fades from the feet sum to the Walsh loop."]))
-    sections.append(("VCF and DEG3", [
-        "One 4-pole VCF for the instrument, as the NJM2069, measured",
-        "on a Poly-800: cutoff 0-99 = 66 Hz ... 20 kHz (13 steps per",
-        "octave), resonance an uncompensated ladder (bass falls as it",
-        "rises, no self-oscillation). DEG3 (one, paraphonic) moves the",
-        "cutoff by up to 7.9 octaves (EG INT 15) and sets the noise",
-        "level, both linear in its level. Single trigger: only the",
-        "first key starts DEG3; multi: every key. Full tracking follows",
-        "the highest key 1:1 (C4 nominal), half by 1/2 (C6 nominal)."]))
-    sections.append(("Envelopes (DEG1 / DEG2)", [
-        "Each tone generator has its own 6-stage DEG as on the",
-        "Poly-800 (attack, decay, break point, slope, sustain, release",
-        "0-31), measured on a real one: level 0-31 is about (L/31)^2,",
-        "attack rises linearly (A31 about 9 s), decay, slope and",
-        "release fall at a constant dB per second (31: about 18 s",
-        "to -40 dB). env1 / env2 / env3 morph through settings:",
-        "0 gate / 1 short pluck / 24 pluck / 48 piano / 72 long rel. /",
-        "92 swell / 108 pad / 127 long pad. Always 4 voices of",
-        "DCO1 + DCO2; lev1 / lev2 set the mix."]))
     sections.append(("Presets", [
-        "Two read-only lists send presets to the object; changing",
+        "Two read-only lists send presets to the object, changing",
         "slots never writes anything back. Both send 'dump pdoly8 ...'",
         "messages (here via [s], nothing is wired across the patch).",
         "[p8factory]: the 64 Poly-800 II factory programs, slot 0-63",
@@ -276,12 +269,14 @@ def build():
         extra = sec[2] if len(sec) > 2 else 0
         placed.append((title, lines, y, extra))
         y += 24 + LINE * len(lines) + 28 + extra
-    # bottom panel: number boxes for the settings and the vintage stages,
-    # each row into its own [s $0-pdoly8] (the [r] above the object picks it up)
-    ROWA = 76
-    adv_y = y
-    adv_rows = (len(ADV) + 3) // 4
-    y = adv_y + 24 + 28 + ROWA * adv_rows + 20
+    # setting blocks: number boxes (each row into its own [s $0-pdoly8]),
+    # preset messages, then the explanation
+    ROWA = 62
+    placed_b = []
+    for title, items, presets, text in BLOCKS:
+        placed_b.append((title, items, presets, text, y))
+        rows = (len(items) + 3) // 4
+        y += 24 + 10 + ROWA * rows + (34 * ((len(presets) + 2) // 3) + 10 if presets else 0) + LINE * len(text) + 28
     credits_y = y
     yel_bottom = credits_y + 3 * LINE + M
     bar_bottom = yel_bottom + M
@@ -368,24 +363,32 @@ def build():
             m2 = p.add(f"#X msg {TX} {ly + 78} {SEMI} pd open {DOLLAR}1 {DOLLAR}2;")
             p.conn(m1, 0, pc, 0); p.conn(pc, 0, lp, 0); p.conn(lp, 0, m2, 0)
             p.add(f"#X text {TX + 50} {ly} <- click to open skpreset-help.pd, f 40;")
-    def panel(y0, title, note, items):
+    for title, items, presets, text, y0 in placed_b:
         p.heading(CX, y0, title, 14)
-        p.comment(TX, y0 + 24, [note])
+        ay0 = y0 + 24 + 10
         snd = {}
         for i, (nm, lo, hi) in enumerate(items):
             r, c = divmod(i, 4)
-            x = CX + c * 112
-            ay = y0 + 24 + 28 + ROWA * r
+            x = CX + c * 100
+            ay = ay0 + ROWA * r
             if r not in snd:
-                snd[r] = p.add(f"#X obj {CX} {ay + 52} s {bus};")
+                snd[r] = p.add(f"#X obj {CX + 400} {ay + 24} s {bus};")
             a = p.add(f"#X floatatom {x} {ay} 6 {lo} {hi} 0 - - -;")
-            m = p.add(f"#X msg {x} {ay + 26} {nm} {DOLLAR}1;")
+            m = p.add(f"#X msg {x} {ay + 24} {nm} {DOLLAR}1;")
             p.conn(a, 0, m, 0)
             p.conn(m, 0, snd[r], 0)
-    panel(adv_y, "Advanced settings", "The settings above as number boxes, sent via the s/r bus.", ADV)
-    p.comment(TX, credits_y, ["Credits: pdoly8~ by Peter with Claude (Anthropic).",
-                              "Modelled on the Korg Poly-800 service manual; MSM5232",
-                              "scale ROM data as documented in MAME's msm5232.cpp"])
+        ty = ay0 + ROWA * ((len(items) + 3) // 4)
+        if presets:
+            sp = p.add(f"#X obj {CX + 400} {ty} s {bus};")
+            for i, txt in enumerate(presets):
+                r, c = divmod(i, 3)
+                m = p.add(f"#X msg {CX + c * 130} {ty + 34 * r} {txt};")
+                p.conn(m, 0, sp, 0)
+            ty += 34 * ((len(presets) + 2) // 3) + 10
+        p.comment(TX, ty, text)
+    p.comment(TX, credits_y, ["Credits: Modelled on the Korg Poly-800 service manual;",
+                              "MSM5232; scale ROM data as documented in MAME's",
+                              "msm5232.cpp with help by Claude"])
 
     head = f"#N canvas 348 20 {YEL_X + YEL_W + 2 * M + 20} {bar_bottom + M} 12;"
     return head + "\n" + "\n".join(p.lines) + "\n" + "\n".join(p.conns) + "\n"

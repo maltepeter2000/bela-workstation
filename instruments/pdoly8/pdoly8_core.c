@@ -505,6 +505,18 @@ void p8_voice_on(p8_engine_t *e, int k, float note)
 void p8_voice_glide(p8_engine_t *e, int k, float note, float from)
 {
     if (k < 0 || k >= P8_VOICES) return;
+    p8_voice_pitch(e, k, note, from);
+    e->tg[k].amp_target = 1.0f; e->tg[k].trig = 1;
+    e->tg[k + 4].amp_target = e->mode == P8_DOUBLE ? 1.0f : 0.0f;
+    e->tg[k + 4].trig = e->mode == P8_DOUBLE;
+    if (e->trig3 == 2) e->deg3.trig = 1;                    /* multi: every key restarts DEG3 */
+}
+
+/* new pitch for a sounding voice without retriggering its envelopes
+ * (mono legato); glides from 'from' if portamento is on */
+void p8_voice_pitch(p8_engine_t *e, int k, float note, float from)
+{
+    if (k < 0 || k >= P8_VOICES) return;
     for (int t = k; t < P8_TG; t += 4) {
         p8_tg_t *g = &e->tg[t];
         float c_old = 0.0f;
@@ -514,10 +526,6 @@ void p8_voice_glide(p8_engine_t *e, int k, float note, float from)
         /* 16' frequency ~ 1 / (counter * 2^n): the offset in cents from the old pitch */
         g->glide = glide ? 1200.0f * (((float)g->bit[0] + log2f(g->counter)) - c_old) : 0.0f;
     }
-    e->tg[k].amp_target = 1.0f; e->tg[k].trig = 1;
-    e->tg[k + 4].amp_target = e->mode == P8_DOUBLE ? 1.0f : 0.0f;
-    e->tg[k + 4].trig = e->mode == P8_DOUBLE;
-    if (e->trig3 == 2) e->deg3.trig = 1;                    /* multi: every key restarts DEG3 */
 }
 
 void p8_set_port(p8_engine_t *e, float sec)

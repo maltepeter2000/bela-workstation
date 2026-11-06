@@ -26,23 +26,23 @@ static const float CTL_DEFAULT[NCTL] = {45, 45, 0, 0, 0, 0, 127, 0};
 
 /* Settings with raw values, in dump order after the controls. */
 enum {
-       X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_MRPH, X_BND, X_MGF, X_MGI, X_HSNP, X_CH1,
-       X_TONE, X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, X_WSH1, X_WSH2,
-       X_WMX1, X_WMX2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2,
-       X_D2, X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD, X_CUT, X_RES, X_KBD,
-       X_POL, X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3,
-       X_MGD, X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, NEXT };
+       X_OCT1, X_OCT2, X_NOIS, X_SPRD, X_MRPH, X_BND, X_MGF, X_MGI, X_CH1, X_TONE,
+       X_PW1, X_PW2, X_SYNC, X_SWP2, X_FM, X_FMR, X_FMS, X_WSH1, X_WSH2, X_WMX1,
+       X_WMX2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2, X_D2,
+       X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD, X_CUT, X_RES, X_KBD, X_POL,
+       X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
+       X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO, NEXT };
 static const char *EXT_NAME[NEXT] = {
-    "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "hsnp", "ch1", "tone", "pw1",
-    "pw2", "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1",
-    "d1", "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port",
-    "pmod", "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3",
-    "su3", "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev"};
+    "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "ch1", "tone", "pw1", "pw2",
+    "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1", "d1",
+    "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port", "pmod",
+    "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3",
+    "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono"};
 static const float EXT_DEFAULT[NEXT] = {
-    0, 0, 0, 0, 8, 2, 5, 0, 1, 0, 1, 64, 64, 0, 0,
-    0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0,
-    0, 31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0,
-    0, 31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0};
+    0, 0, 0, 0, 8, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0,
+    1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
+    31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0,
+    31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0, 0};
 
 static t_class *pdoly8_class;
 
@@ -55,6 +55,7 @@ typedef struct _pdoly8 {
     int      held[P8_VOICES]; t_float key[P8_VOICES]; unsigned age[P8_VOICES]; int keys;
     unsigned clock;
     t_float  last;                 /* last note played, -1 none */
+    t_float  stack[16]; int nstack; /* mono: keys held, last on top */
     int      restoring;
     float   *buf; int bufn;
 } t_pdoly8;
@@ -138,7 +139,6 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_BND:  v = clampf_((float)v, 0.0f, 12.0f); e->bend_semi = (float)(x->bend * v); break;
     case X_MGF:  v = clampf_((float)v, 0.05f, 30.0f); e->mg_hz = (float)v; break;
     case X_MGI:  v = clampf_((float)v, 0.0f, 200.0f);   /* cents; measured 12.4 per step of 83, 186 at 15 */ e->mg_cents = (float)v; break;
-    case X_HSNP: v = clampf_((float)v, 0.0f, 4.0f); e->hsnap = (float)v; x->ext[i] = v; p8_update(e); return;
     case X_CH1:  v = (t_float)(int)clampf_((float)v, 0.0f, 16.0f); break;     /* 0 = any channel */
     case X_TONE: v = v != 0; e->tone = v != 0; break;                     /* measured output response */
     case X_PW1: case X_PW2: {                     /* 0..127: width 3 % .. 97 %, 64 = square */
@@ -165,6 +165,10 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_PORT: v = clampf_((float)v, 0.0f, 127.0f);              /* 0 off .. 127 = 3 s */
         p8_set_port(e, 3.0f * ((float)v / 127.0f) * ((float)v / 127.0f)); break;
     case X_PMOD: v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); break;   /* 0 last note, 1 own, 2 legato */
+    case X_MONO:                                 /* 0 poly, 1 mono, 2 mono legato */
+        v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f);
+        if ((int)v != (int)x->ext[X_MONO]) { for (int k = 0; k < P8_VOICES; k++) { p8_voice_off(e, k); x->held[k] = 0; } x->keys = 0; x->nstack = 0; }
+        break;
     case X_CUT: v = clampf_((float)v, 0.0f, 99.0f); e->vcf_c = (float)v; break;      /* VCF cutoff 0..99 */
     case X_RES: v = clampf_((float)v, 0.0f, 15.0f); e->vcf_r = (float)v; break;      /* resonance 0..15 */
     case X_KBD: v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); e->kbd = (int)v; break;   /* off, half, full */
@@ -253,8 +257,45 @@ static void note_off(t_pdoly8 *x, t_float pitch)
         }
 }
 
+/* mono (1) and mono legato (2): one voice, last-note priority. Mono
+ * retriggers the envelopes on every key; legato only on the first key of a
+ * phrase - further keys (and returning to a held one) only change the pitch,
+ * with portamento if it is on. */
+static void mono_on(t_pdoly8 *x, t_float pitch)
+{
+    int i, n = x->nstack;
+    for (i = 0; i < n; i++) if (x->stack[i] == pitch) break;
+    if (i < n) { for (; i < n - 1; i++) x->stack[i] = x->stack[i + 1]; n--; }
+    if (n == 16) { for (i = 0; i < 15; i++) x->stack[i] = x->stack[i + 1]; n--; }
+    int legato = x->ext[X_MONO] == 2 && n > 0;
+    x->stack[n++] = pitch; x->nstack = n;
+    int pm = (int)x->ext[X_PMOD];
+    t_float from = (pm == 2 && !legato && n == 1) ? -1 : x->last;
+    if (legato) p8_voice_pitch(&x->e, 0, (float)pitch, (float)from);
+    else p8_voice_glide(&x->e, 0, (float)pitch, (float)from);
+    x->held[0] = 1; x->key[0] = pitch; x->keys = 1;
+    x->last = pitch;
+}
+
+static void mono_off(t_pdoly8 *x, t_float pitch)
+{
+    int i, n = x->nstack;
+    for (i = 0; i < n; i++) if (x->stack[i] == pitch) break;
+    if (i == n) return;
+    int top = i == n - 1;
+    for (; i < n - 1; i++) x->stack[i] = x->stack[i + 1];
+    x->nstack = --n;
+    if (n == 0) { p8_voice_off(&x->e, 0); x->held[0] = 0; x->keys = 0; return; }
+    if (!top) return;
+    t_float back = x->stack[n - 1];                  /* back to the key still held */
+    if (x->ext[X_MONO] == 2) p8_voice_pitch(&x->e, 0, (float)back, (float)x->last);
+    else p8_voice_glide(&x->e, 0, (float)back, (float)x->last);
+    x->key[0] = back; x->last = back;
+}
+
 static void play(t_pdoly8 *x, t_float pitch, t_float vel)
 {
+    if (x->ext[X_MONO] > 0) { if (vel > 0) mono_on(x, pitch); else mono_off(x, pitch); return; }
     if (vel > 0) note_on(x, pitch); else note_off(x, pitch);
 }
 
@@ -275,10 +316,30 @@ static void pdoly8_list(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 static void pdoly8_panic(t_pdoly8 *x)
 {
     for (int v = 0; v < P8_VOICES; v++) { x->held[v] = 0; p8_voice_off(&x->e, v); }
-    x->keys = 0;
+    x->keys = 0; x->nstack = 0;
 }
 
 /* pitch bend -1..1, scaled by bnd (semitones); acts on the master clock */
+/* delay presets: delay flanger | chorus1 | chorus2 | slap | long | off
+ * (time, feedback, mod rate, mod depth, level in Poly-800 II steps) */
+static void pdoly8_delay(t_pdoly8 *x, t_symbol *s)
+{
+    static const struct { const char *n; float v[5]; } P[] = {
+        {"flanger", { 0, 11,  8, 31, 15}},   /* 4 ms, slow sweep 1:5, feedback */
+        {"chorus1", {20,  0, 24, 21, 12}},   /* 13 ms, fast 1.8 Hz, shallow */
+        {"chorus2", {24,  0, 14, 26, 12}},   /* 16 ms, slow 0.4 Hz, wider */
+        {"slap",    {60,  0,  0,  0, 10}},   /* 120 ms, one echo */
+        {"long",    {85,  9,  0,  0,  9}},   /* 0.5 s, repeats */
+        {"off",     {30,  0,  0,  0,  0}},
+    };
+    for (unsigned k = 0; k < sizeof P / sizeof P[0]; k++)
+        if (!strcmp(s->s_name, P[k].n)) {
+            for (int j = 0; j < 5; j++) apply_ext(x, X_DTIM + j, P[k].v[j]);
+            return;
+        }
+    pd_error(x, "pdoly8~: delay: unknown preset %s (flanger chorus1 chorus2 slap long off)", s->s_name);
+}
+
 static void pdoly8_bend(t_pdoly8 *x, t_floatarg f)
 {
     x->bend = clampf_((float)f, -1.0f, 1.0f);
@@ -376,7 +437,8 @@ static void *pdoly8_new(void)
     p8_init(&x->e, sr > 0.0f ? sr : 44100.0f);
     x->e.mode = P8_DOUBLE;                       /* always 4 voices of DCO1 + DCO2; lev1 / lev2 set the mix */
     x->e.path = 3;                               /* one-knob timbre */
-    x->e.pfade = 1; x->e.norm = 0.0f;            /* fading foot linear in power; original level changes */
+    x->e.pfade = 1; x->e.norm = 0.0f;
+    x->e.hsnap = 1.0f;                           /* exact original combinations +-1 step around each */            /* fading foot linear in power; original level changes */
     x->e.level = 0.5f;                           /* fixed output level (headroom for 4 voices, both DCOs) */
     x->last = -1;
     set_defaults(x);
@@ -412,5 +474,6 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_dump, gensym("dump"), A_GIMME, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_params, gensym("params"), A_GIMME, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_get, gensym("get"), A_SYMBOL, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_delay, gensym("delay"), A_SYMBOL, 0);
     M1(voiceoff); M1(bend); M0(panic); M0(defaults); M0(reset); M0(print);
 }

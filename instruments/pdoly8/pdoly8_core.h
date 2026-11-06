@@ -155,6 +155,7 @@ void  p8_settle(p8_engine_t *e);             /* jump gain smoothing to the targe
 void  p8_voice_on(p8_engine_t *e, int k, float note);
 void  p8_voice_glide(p8_engine_t *e, int k, float note, float from);   /* portamento from a note */
 void  p8_voice_off(p8_engine_t *e, int k);
+void  p8_voice_pitch(p8_engine_t *e, int k, float note, float from);   /* legato: no retrigger */
 void  p8_set_port(p8_engine_t *e, float sec);
 int   p8_voice_sounding(const p8_engine_t *e, int k);
 void  p8_retune(p8_engine_t *e);             /* after octave / interval change */
