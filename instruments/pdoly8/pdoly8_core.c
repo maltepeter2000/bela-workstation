@@ -264,7 +264,7 @@ static inline float softclip(float x)
     return x * (27.0f + x2) / (27.0f + 9.0f * x2);
 }
 
-/* overdrive after the VCF: gain 1 .. 32 (+30 dB, quadratic), the makeup
+/* overdrive before or after the VCF: gain 1 .. 32 (+30 dB, quadratic), the makeup
  * keeps a signal at half the reference level at its level */
 #define P8_DRV_REF 3.0f                                      /* one saw note, all feet: peak about 3 */
 void p8_set_drive(p8_engine_t *e, float d)
@@ -919,6 +919,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             if (e->tone) {
                 /* VCF: zero-delay-feedback 4-pole ladder, feedback k solved
                  * exactly; no level compensation (bass falls 1/(1+k)) */
+                if (drv_on && e->drv_pre) x = P8_DRV_REF * e->drv_c * softclip(e->drv_g * x * (1.0f / P8_DRV_REF));
                 float *st = e->vcf_s[c];
                 float S = VB * (VG * VG * VG * st[0] + VG * VG * st[1] + VG * st[2] + st[3]);
                 float y4 = (G4 * x + S) / (1.0f + vk * G4);
@@ -927,7 +928,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                     float v = (u - st[p]) * VG;
                     float yp = v + st[p]; st[p] = yp + v; u = yp;
                 }
-                if (drv_on) u = P8_DRV_REF * e->drv_c * softclip(e->drv_g * u * (1.0f / P8_DRV_REF));
+                if (drv_on && !e->drv_pre) u = P8_DRV_REF * e->drv_c * softclip(e->drv_g * u * (1.0f / P8_DRV_REF));
                 /* output stage: 54 Hz high-pass, one pole at about 10 kHz */
                 y = e->hp_k * (e->dc_y[c] + u - e->dc_x[c]);
                 e->dc_x[c] = u; e->dc_y[c] = y;

@@ -97,7 +97,8 @@ typedef struct {
     float   rmod;                /* 0..1: DCO2 times the 16' of DCO1 (XOR ring modulation) */
     float   ws_m, ws_e;          /* MG / DEG3 -> Walsh loop position, in loop steps 0..127 */
     float   wlev[2];             /* Walsh amplitude per DCO (mix x level) */
-    float   drive, drv_g, drv_c; /* overdrive 0..1 after the VCF: gain, makeup */
+    float   drive, drv_g, drv_c; /* overdrive 0..1: gain, makeup */
+    int     drv_pre;             /* 0: after the VCF, 1: before it */
     float   e3n;                 /* DEG3 level 0..1 (last sample) */
     float   vel_amp, vel_cut;    /* velocity -> level 0..1, -> cutoff in octaves */
     float   vel_last;            /* velocity of the last key, 0..1 (one VCF for the instrument) */

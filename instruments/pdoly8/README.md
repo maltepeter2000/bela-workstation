@@ -82,7 +82,8 @@ In the help patch the settings are grouped in blocks: Additional harmonics, Filt
 | `mono` | 0/1/2 | 0 | 0 poly (4 voices); 1 mono: one voice, last key wins, every key restarts the envelopes; 2 mono legato: only the first key of a phrase restarts them, further keys (and going back to a held one) only change the pitch |
 | `cut` | 0–99 | 99 | VCF cutoff (66 Hz … 20 kHz, measured) |
 | `res` | 0–15 | 0 | VCF resonance (ladder feedback k 0 … 3.9, no self-oscillation) |
-| `drv` | 0–127 | 0 | overdrive after the VCF: soft clipping (rational, as in cz4~), 0–30 dB more gain with level makeup |
+| `drv` | 0–127 | 0 | overdrive (where: `drvp`): soft clipping (rational, as in cz4~), 0–30 dB more gain with level makeup |
+| `drvp` | 0/1 | 0 | overdrive 0 post (after the VCF), 1 pre (into the VCF) |
 | `vcut` | 0–127 | 0 | velocity → cutoff: at 127 a soft key is up to 5 octaves lower; full velocity plays the set cutoff (one VCF: the last key counts) |
 | `kbd` | 0/1/2 | 0 | keyboard tracking off / half / full (highest key; full: 1 oct/oct, nominal at C4; half: 0.5 oct/oct, nominal at the top key C6 — measured) |
 | `pol` | 1/2 | 2 | DEG3 polarity: 2 opens the filter, 1 closes it |
@@ -116,7 +117,7 @@ In the help patch the settings are grouped in blocks: Additional harmonics, Filt
 | `print` | voices, values and sample rate to the Pd window |
 | `delay <name>` | delay presets: `flanger` (4 ms, slow sweep, feedback), `chorus1` (fast, shallow), `chorus2` (slow, wider), `slap` (120 ms), `long` (0.5 s with repeats), `off` |
 
-Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0` (new settings are appended at the end, so older dumps still load).
+Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0` (new settings are appended at the end, so older dumps still load).
 
 ### PWM (`pw1`, `pw2`)
 
