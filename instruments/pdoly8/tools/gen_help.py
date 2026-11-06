@@ -200,7 +200,7 @@ BLOCKS = [
       "one) only change the pitch."]),
     ("Additional settings",
      [[("bnd", 0, 12), ("ch1", 0, 16)], [("treb", -6, 6), ("bass", -6, 6)],
-      [("sprd", 0, 127), ("mrph", 0, 100)], [("tone", 0, 1), ("leak", 0, 1)]], [],
+      [("sprd", 0, 127), ("mrph", 0, 100)], [("tone", 0, 1), ("leak", 0, 1)], [("drft", 0, 127)]], [],
      ["bnd (2): bend range in semitones (original: up to 7). Pitch bend from a MIDI "
       "keyboard comes in through [bendin] at the top.",
       "ch1 (0): MIDI channel for p v ch lists, 0 = any.",
@@ -210,7 +210,12 @@ BLOCKS = [
       "mrph (8): smoothing of har and lev changes in ms.",
       "tone (1): 1: output stage measured on a Poly-800 (54 Hz high-pass, VCF, 1 pole "
       "at 5 kHz), 0: raw tone generators.",
-      "leak (0): 1: released voices stay at -55 dB, as on the original."]),
+      "leak (0): 1: released voices stay at -55 dB, as on the original.",
+      "drft (0): analogue drift (not on the Poly-800, whose pitch comes from a crystal "
+      "and dividers), like the slop / vintage knob of newer Sequential instruments: "
+      "every DCO of every voice wanders slowly and on its own (at 127 about +-3 cents, peaks about 8), "
+      "each note's envelopes run a little faster or slower (+-20 %, DEG3 too), the MG "
+      "rate wanders +-10 % and the cutoff +-0.2 octaves. 0 = exact."]),
 ]
 
 VINT = []

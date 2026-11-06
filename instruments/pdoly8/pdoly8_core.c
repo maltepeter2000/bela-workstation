@@ -302,9 +302,11 @@ void p8_init(p8_engine_t *e, float fs)
     for (int t = 0; t < P8_TG; t++) {
         e->tg[t].cnt = (uint32_t)(t * 37u);                  /* chip counters are not in step */
         e->tg[t].pan_l = e->tg[t].pan_r = 0.70710678f;
-        e->tg[t].vg = 1.0f;
+        e->tg[t].vg = 1.0f; e->tg[t].dfac = 1.0f; e->tg[t].rs = 1.0f;
     }
     e->vel_last = 1.0f;
+    e->deg3.rs = 1.0f;
+    e->drng = 0x9E3779B9u;
     p8_update(e);
     p8_settle(e);
 }
@@ -401,6 +403,7 @@ static void deg_coeffs(p8_engine_t *e, int g)
 static float deg_tick(p8_engine_t *e, p8_tg_t *g, int grp)
 {
     const p8_deg_t *c = &e->dc[grp];
+    const float rs = g->rs;                                  /* drift: c^rs ~ 1 - rs (1 - c) */
     int gate = g->amp_target > 0.0f;
     if (g->trig || (gate && !g->gate)) { g->stage = 1; g->elv = deg_level(g->amp); g->trig = 0; }
     else if (!gate && g->gate) g->stage = 5;
@@ -408,18 +411,18 @@ static float deg_tick(p8_engine_t *e, p8_tg_t *g, int grp)
     float a = g->amp;
     switch (g->stage) {
     case 1:                                                  /* attack: level rises linearly */
-        g->elv += c->att;
+        g->elv += c->att * rs;
         if (g->elv >= 31.0f) { g->elv = 31.0f; g->stage = c->bp_off ? 3 : 2; }
         a = deg_amp(g->elv);
         break;
     case 2:                                                  /* decay to the break point */
-        a *= c->dec;
+        a *= 1.0f - rs * (1.0f - c->dec);
         if (a <= c->bp) { a = c->bp; g->stage = 3; }
         break;
     case 3:                                                  /* slope to the sustain level */
-        if (c->su < a) { a *= c->sl_dn; if (a <= c->su) { a = c->su; g->stage = 4; } }
+        if (c->su < a) { a *= 1.0f - rs * (1.0f - c->sl_dn); if (a <= c->su) { a = c->su; g->stage = 4; } }
         else if (c->su > a) {
-            float L = deg_level(a) + c->sl_up, Ls = deg_level(c->su);
+            float L = deg_level(a) + c->sl_up * rs, Ls = deg_level(c->su);
             if (L >= Ls) { a = c->su; g->stage = 4; } else a = deg_amp(L);
         } else g->stage = 4;
         break;
@@ -428,7 +431,7 @@ static float deg_tick(p8_engine_t *e, p8_tg_t *g, int grp)
         break;
     case 5: {                                                /* release, exponential */
         float floor_ = e->leak ? DEG_LEAK : 0.0f;
-        a *= c->rel;
+        a *= 1.0f - rs * (1.0f - c->rel);
         if (a <= floor_ || a < 1e-6f) { a = floor_; g->stage = floor_ > 0.0f ? 6 : 0; }
         break;
     }
@@ -534,6 +537,13 @@ void p8_voice_on(p8_engine_t *e, int k, float note)
     p8_voice_glide(e, k, note, -1.0f);
 }
 
+/* drift random numbers, uniform -1..1 */
+static float drand(p8_engine_t *e)
+{
+    e->drng = e->drng * 1664525u + 1013904223u;
+    return (float)(e->drng >> 8) * (1.0f / 8388608.0f) - 1.0f;
+}
+
 /* Portamento (not on the Poly-800): the counters jump to the new divider at
  * once, as on the chip, and a pitch offset in cents from the old note to
  * the new one fades out exponentially on top of the clock, so the glide
@@ -542,6 +552,10 @@ void p8_voice_glide(p8_engine_t *e, int k, float note, float from)
 {
     if (k < 0 || k >= P8_VOICES) return;
     p8_voice_pitch(e, k, note, from);
+    if (e->drift > 0.0f) {                                   /* drift: each note's envelopes a little faster or slower */
+        for (int t = k; t < P8_TG; t += 4) e->tg[t].rs = 1.0f + 0.2f * e->drift * drand(e);
+        if (e->trig3 == 2 || e->deg3.stage == 0) e->deg3.rs = 1.0f + 0.2f * e->drift * drand(e);
+    } else { e->tg[k].rs = e->tg[k + 4].rs = 1.0f; e->deg3.rs = 1.0f; }
     e->tg[k].amp_target = 1.0f; e->tg[k].trig = 1;
     e->tg[k + 4].amp_target = e->mode == P8_DOUBLE ? 1.0f : 0.0f;
     e->tg[k + 4].trig = e->mode == P8_DOUBLE;
@@ -779,6 +793,24 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     const float ring = clampf(e->rmod, 0.0f, 1.0f);
     const int drv_on = e->drive > 0.0f;
 
+    /* drift (per block): each tone generator's pitch, the MG rate and the
+     * cutoff wander slowly and independently (low-passed noise at about
+     * 0.25 Hz, about +-1); at drft 127: pitch about +-3 cents (peaks about 8), MG rate
+     * +-10 %, cutoff +-0.2 octaves, envelope times +-20 % per note */
+    float mg_hz = e->mg_hz, dr_oct = 0.0f;
+    if (e->drift > 0.0f) {
+        const float a = expf(-2.0f * P8_PI * 0.25f * (float)n / e->fs);
+        const float k = (1.0f - a) * sqrtf((1.0f + a) / (1.0f - a)) * 1.732f;   /* unit variance */
+        for (int t = 0; t < P8_TG; t++) {
+            p8_tg_t *g = &e->tg[t];
+            g->dr = a * g->dr + k * drand(e);
+            g->dfac = exp2f(3.0f * e->drift * g->dr / 1200.0f);
+        }
+        e->mg_dr = a * e->mg_dr + k * drand(e);
+        e->f_dr = a * e->f_dr + k * drand(e);
+        mg_hz *= 1.0f + 0.1f * e->drift * clampf(e->mg_dr, -2.0f, 2.0f);
+        dr_oct = 0.2f * e->drift * e->f_dr;
+    } else for (int t = 0; t < P8_TG; t++) e->tg[t].dfac = 1.0f;
     /* timbre position moved by the MG (per block) */
     if (e->h_m > 0.0f)
         for (int g = 0; g < 2; g++) foot_targets(e, g, clampf(e->har[g] + e->h_m * e->mg_val, 0.0f, 127.0f));
@@ -797,7 +829,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
 
     for (unsigned i = 0; i < n; i++) {
         if (mg_on) {                                         /* MG: one triangle for the instrument */
-            e->mg_ph += e->mg_hz * inv_fs;
+            e->mg_ph += mg_hz * inv_fs;
             if (e->mg_ph >= 1.0f) e->mg_ph -= 1.0f;
             float fade = 1.0f;
             if (e->mg_delay > 0.0f) {
@@ -852,7 +884,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 continue;
             }
             /* counter steps: band-limited edges */
-            float clk = clk0 * cf * (slave ? det * swp : 1.0f);
+            float clk = clk0 * cf * (slave ? det * swp : 1.0f) * g->dfac;
             float inc = 2.0f * clk / g->counter * inv_fs;
             if (g->glide != 0.0f) {                          /* portamento */
                 inc *= exp2f(g->glide / 1200.0f);
@@ -913,7 +945,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         deg_tick(e, &e->deg3, 2);
         const float e3 = deg_level(e->deg3.amp);
         e->e3n = e3 / 31.0f;
-        float oct = cut_oct + eg_oct * e3 / 31.0f + e->mg_vcf * mg_tri;
+        float oct = cut_oct + eg_oct * e3 / 31.0f + e->mg_vcf * mg_tri + dr_oct;
         float fc = exp2f(oct) ;
         fc = fc < 20.0f ? 20.0f : fc > fc_max ? fc_max : fc;
         const float vg = tanf(P8_PI * fc * inv_fs), VG = vg / (1.0f + vg), VB = 1.0f / (1.0f + vg);

@@ -76,6 +76,7 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `wsm` | 0–127 | 0 | the MG moves the Walsh position ± this many steps (127 = the whole loop) |
 | `wse` | −127…127 | 0 | DEG3 moves the Walsh position by up to this many steps |
 | `leak` | 0/1 | 0 | 1: released voices stay at −55 dB, as measured on the original |
+| `drft` | 0–127 | 0 | analogue drift (like the slop / vintage control of newer Sequential instruments): every DCO wanders slowly and independently (low-passed noise, about 0.25 Hz; at 127 about ±3 cents, peaks about 8), each note's envelopes run up to ±20 % faster or slower (DEG3 too), MG rate ±10 %, cutoff ±0.2 octaves |
 | `a1 d1 bp1 sl1 su1 r1` | 0–31 | 0 0 31 0 31 0 | DEG1 attack, decay, break point, slope, sustain, release; setting one makes `env1` −1 |
 | `a2 d2 bp2 sl2 su2 r2` | 0–31 | 0 0 31 0 31 0 | the same for DEG2 |
 | `vamp` | 0–127 | 0 | velocity → level of each voice (both DCOs); 127: level = velocity |
@@ -120,7 +121,7 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `print` | voices, values and sample rate to the Pd window |
 | `delay <name>` | delay presets: `flanger` (4 ms, slow sweep, feedback), `chorus1` (fast, shallow), `chorus2` (slow, wider), `slap` (120 ms), `long` (0.5 s with repeats), `off` |
 
-Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1` (new settings are appended at the end, so older dumps still load).
+Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 1 0` (new settings are appended at the end, so older dumps still load).
 
 ### PWM (`pw1`, `pw2`)
 

@@ -1,7 +1,7 @@
-#N canvas 348 20 800 7286 12;
-#X obj 40 20 cnv 19 700 7226 empty empty empty 20 12 0 30 #fafaf2 #000000 0;
-#X obj 20 80 cnv 19 20 7186 empty empty empty 20 12 0 30 #ffcfd6 #000000 0;
-#X obj 560 140 cnv 19 200 7126 empty empty empty 20 12 0 30 #1e3791 #000000 0;
+#N canvas 348 20 800 7460 12;
+#X obj 40 20 cnv 19 700 7400 empty empty empty 20 12 0 30 #fafaf2 #000000 0;
+#X obj 20 80 cnv 19 20 7360 empty empty empty 20 12 0 30 #ffcfd6 #000000 0;
+#X obj 560 140 cnv 19 200 7300 empty empty empty 20 12 0 30 #1e3791 #000000 0;
 #X obj 60 40 cnv 10 10 10 empty empty pdoly8~ 24 6 0 22 #1e3791 #000000 0;
 #X obj 60 80 cnv 10 10 10 empty empty 4-Voice\ Poly-800\ tone\ generation\ -\ MSM5232\ foot\ synthesis 24 6 0 16 #1e3791 #000000 0;
 #X obj 60 476 pdoly8~;
@@ -290,8 +290,11 @@
 #X msg 60 6920 tone \$1;
 #X floatatom 160 6896 6 0 1 0 - - -;
 #X msg 160 6920 leak \$1;
-#X text 82 6958 bnd (2): bend range in semitones (original: up to 7). Pitch bend from a MIDI keyboard comes in through [bendin] at the top. \; ch1 (0): MIDI channel for p v ch lists \, 0 = any. \; treb \, bass (0): EQ -6..6 (76/77 \, measured: about 4 dB at 3 \, 10 dB at 6 \, shelves at 4.3 kHz and 115 Hz). \; sprd (0): stereo spread of the 4 voices 0-127. \; mrph (8): smoothing of har and lev changes in ms. \; tone (1): 1: output stage measured on a Poly-800 (54 Hz high-pass \, VCF \, 1 pole at 5 kHz) \, 0: raw tone generators. \; leak (0): 1: released voices stay at -55 dB \, as on the original., f 64;
-#X text 82 7178 Credits: Modelled on the Korg Poly-800 service manual\; \; MSM5232\; scale ROM data as documented in MAME's \; msm5232.cpp with help by Claude, f 64;
+#X obj 460 6982 s \$0-pdoly8;
+#X floatatom 60 6958 6 0 127 0 - - -;
+#X msg 60 6982 drft \$1;
+#X text 82 7020 bnd (2): bend range in semitones (original: up to 7). Pitch bend from a MIDI keyboard comes in through [bendin] at the top. \; ch1 (0): MIDI channel for p v ch lists \, 0 = any. \; treb \, bass (0): EQ -6..6 (76/77 \, measured: about 4 dB at 3 \, 10 dB at 6 \, shelves at 4.3 kHz and 115 Hz). \; sprd (0): stereo spread of the 4 voices 0-127. \; mrph (8): smoothing of har and lev changes in ms. \; tone (1): 1: output stage measured on a Poly-800 (54 Hz high-pass \, VCF \, 1 pole at 5 kHz) \, 0: raw tone generators. \; leak (0): 1: released voices stay at -55 dB \, as on the original. \; drft (0): analogue drift (not on the Poly-800 \, whose pitch comes from a crystal and dividers) \, like the slop / vintage knob of newer Sequential instruments: every DCO of every voice wanders slowly and on its own (at 127 about +-3 cents \, peaks about 8) \, each note's envelopes run a little faster or slower (+-20 % \, DEG3 too) \, the MG rate wanders +-10 % and the cutoff +-0.2 octaves. 0 = exact., f 64;
+#X text 82 7352 Credits: Modelled on the Korg Poly-800 service manual\; \; MSM5232\; scale ROM data as documented in MAME's \; msm5232.cpp with help by Claude, f 64;
 #X connect 6 0 5 0;
 #X connect 7 0 5 1;
 #X connect 9 0 10 0;
@@ -510,3 +513,5 @@
 #X connect 288 0 286 0;
 #X connect 289 0 290 0;
 #X connect 290 0 286 0;
+#X connect 292 0 293 0;
+#X connect 293 0 291 0;

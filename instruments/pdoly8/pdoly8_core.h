@@ -51,6 +51,8 @@ typedef struct {
     float   glide;               /* portamento: pitch offset in cents, fading to 0 */
     float   v;                   /* last output value, before panning */
     float   vg;                  /* velocity gain, 1 = full */
+    float   dr, dfac;            /* drift: slow random walk (about +-1), pitch factor */
+    float   rs;                  /* drift: envelope rate scale of this note, 1 = exact */
     float   pan_l, pan_r;
 } p8_tg_t;
 
@@ -104,6 +106,9 @@ typedef struct {
     float   e3n;                 /* DEG3 level 0..1 (last sample) */
     float   vel_amp, vel_cut;    /* velocity -> level 0..1, -> cutoff in octaves */
     float   vel_last;            /* velocity of the last key, 0..1 (one VCF for the instrument) */
+    float   drift;               /* 0..1: analogue drift of pitch, envelopes, MG rate, cutoff */
+    float   mg_dr, f_dr;         /* drift states of MG rate and cutoff */
+    uint32_t drng;
     float   mg_val;              /* MG triangle (last sample, after the delay) */
     float   wpos[2], wmix[2];    /* Walsh morph per DCO: position 0..127 on the loop, mix 0..1 */
     float   Wc[2][16], Wct[2][16];   /* Walsh coefficients by foot subset (current, target) */
