@@ -11,6 +11,7 @@ Modelled on the Poly-800 service manual (circuits 19, 22, 27, 28, 31, 32): one m
 | | Type | Function |
 |---|---|---|
 | Inlet 1 | messages | notes, controls, settings, presets |
+| Inlet 2 | signal | external FM modulator (`fms 2`), about −1…1 |
 | Outlet 1 | signal | left |
 | Outlet 2 | signal | right |
 | Outlet 3 | messages | events: `dump pdoly8 <values>`, `value <name> <v>` |
@@ -59,20 +60,30 @@ In the help patch the settings are grouped in blocks: Additional harmonics, Filt
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
 | `pw1` / `pw2` | 0–127 | 64 | pulse width of DCO1 / DCO2: 3–97 %, 64 = square; acts on every foot (see PWM) |
 | `sync` | 0/1 | 0 | 1: DCO2 restarts at every 16' period of DCO1 (hard sync) |
-| `swp2` | 0–48 | 0 | DCO2 pitch offset in semitones, continuous (sync sweeps; also without sync) |
-| `fm` | 0–127 | 0 | linear FM index of DCO1, 0–8 (quadratic; index 1 at about 45, through zero above) |
-| `fmr` | 0.125–16 | 1 | ratio of the sine modulator to DCO1's 16' frequency |
-| `fms` | 0/1 | 0 | FM source: 0 internal sine, 1 DCO2 (cross FM) |
+| `swp2` | 0–72 | 0 | DCO2 pitch offset in semitones, continuous (sync sweeps; also without sync) |
+| `swe` | 0–72 | 0 | DEG3 adds up to this many semitones to DCO2 (sync sweep) |
+| `swm` | 0–24 | 0 | the MG adds ± this many semitones to DCO2 |
+| `pwm1` / `pwm2` | 0–127 | 0 | MG → pulse width of DCO1 / DCO2, 127 = ±47 % |
+| `ring` | 0–127 | 0 | DCO2 times the 16' of DCO1 (XOR ring modulation of square waves) |
+| `fm1` / `fm2` | 0–127 | 0 | linear FM index of DCO1 / DCO2, 0–16 (quadratic; index 1 at about 32, through zero above) |
+| `fmr` | 0.125–16 | 1 | ratio of the sine modulator to the DCO's own 16' frequency |
+| `fmhz` | −1000…1000 | 0 | fixed offset in Hz added to the sine modulator (inharmonic FM) |
+| `fms` | 0/1/2 | 0 | FM source (not an on/off switch): 0 internal sine, 1 the other DCO of the voice (cross FM), 2 the signal at inlet 2 |
 | `wsh1` / `wsh2` | 0–127 | 0 | Walsh loop position of DCO1 / DCO2 (see Walsh morph) |
 | `wmx1` / `wmx2` | 0–127 | 0 | mix from the feet sum (0) to the Walsh loop (127) |
+| `wsm` | 0–127 | 0 | the MG moves the Walsh position ± this many steps (127 = the whole loop) |
+| `wse` | −127…127 | 0 | DEG3 moves the Walsh position by up to this many steps |
 | `leak` | 0/1 | 0 | 1: released voices stay at −55 dB, as measured on the original |
 | `a1 d1 bp1 sl1 su1 r1` | 0–31 | 0 0 31 0 31 0 | DEG1 attack, decay, break point, slope, sustain, release; setting one makes `env1` −1 |
 | `a2 d2 bp2 sl2 su2 r2` | 0–31 | 0 0 31 0 31 0 | the same for DEG2 |
+| `vamp` | 0–127 | 0 | velocity → level of each voice (both DCOs); 127: level = velocity |
 | `port` | 0–127 | 0 | portamento, off … 3 s (quadratic; not on the Poly-800) |
 | `pmod` | 0/1/2 | 0 | glide from: 0 the last note played, 1 the voice's own last note, 2 the last note only while another key is held (legato) |
 | `mono` | 0/1/2 | 0 | 0 poly (4 voices); 1 mono: one voice, last key wins, every key restarts the envelopes; 2 mono legato: only the first key of a phrase restarts them, further keys (and going back to a held one) only change the pitch |
 | `cut` | 0–99 | 99 | VCF cutoff (66 Hz … 20 kHz, measured) |
 | `res` | 0–15 | 0 | VCF resonance (ladder feedback k 0 … 3.9, no self-oscillation) |
+| `drv` | 0–127 | 0 | overdrive after the VCF: soft clipping (rational, as in cz4~), 0–30 dB more gain with level makeup |
+| `vcut` | 0–127 | 0 | velocity → cutoff: at 127 a soft key is up to 5 octaves lower; full velocity plays the set cutoff (one VCF: the last key counts) |
 | `kbd` | 0/1/2 | 0 | keyboard tracking off / half / full (highest key; full: 1 oct/oct, nominal at C4; half: 0.5 oct/oct, nominal at the top key C6 — measured) |
 | `pol` | 1/2 | 2 | DEG3 polarity: 2 opens the filter, 1 closes it |
 | `egi` | 0–15 | 0 | EG INT: DEG3 depth on the cutoff (15 = 7.9 octaves) |
@@ -105,7 +116,7 @@ In the help patch the settings are grouped in blocks: Additional harmonics, Filt
 | `print` | voices, values and sample rate to the Pd window |
 | `delay <name>` | delay presets: `flanger` (4 ms, slow sweep, feedback), `chorus1` (fast, shallow), `chorus2` (slow, wider), `slap` (120 ms), `long` (0.5 s with repeats), `off` |
 
-Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0`.
+Default dump line: `dump pdoly8 45 45 0 0 0 0 127 0 0 0 0 0 8 2 5 0 0 1 64 64 0 0 0 1 0 0 0 0 0 0 0 0 31 0 31 0 0 0 31 0 31 0 0 0 99 0 0 2 0 2 0 0 0 31 0 31 0 0 0 -1 0 0 30 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0` (new settings are appended at the end, so older dumps still load).
 
 ### PWM (`pw1`, `pw2`)
 
@@ -114,12 +125,16 @@ Each foot becomes the AND of its square with a copy shifted by part of its perio
 ### Sync and FM
 
 - **Hard sync (`sync 1`):** DCO2's counter restarts at every 16' period of DCO1, at the exact sub-sample time, with a band-limited step. Sweep DCO2 with `swp2` (continuous, 0–48 semitones) or `intv`/`oct2`; `lev1 0` lets DCO2 be heard alone. Feet, nets and PWM of DCO2 all go through the sync.
-- **Linear FM (`fm`, `fmr`, `fms`):** DCO1's counter rate is modulated by a sine at `fmr` times its 16' frequency, or by DCO2 (cross FM). Above index 1 the counter runs backwards for a moment (through-zero FM), so integer ratios stay harmonic; the edges of every foot are found in both directions and stay band-limited.
+- **Sweeps (`swe`, `swm`):** DEG3 and the MG move DCO2's pitch (up to +72 and ±24 semitones on top of `swp2`, at most 96 in all). Screaming sync: `sync 1`, `lev1` low, `swe` 40–72 with a falling DEG3, `res` and `drv` up.
+- **Ring (`ring`):** DCO2 is multiplied by the ±1 square of DCO1's 16' (the XOR ring modulation of square waves); each edge of DCO1 flips DCO2 with a band-limited step. At 127 only sum and difference tones remain (measured: DCO2 at 98 Hz over a 65.4 Hz 16' → 163 Hz strongest, 98 Hz itself gone except where 3·f1 − f2 lands on it).
+- **Linear FM (`fm1`, `fm2`, `fmr`, `fmhz`, `fms`):** each DCO's counter rate is modulated by a sine at `fmr` times its own 16' frequency plus `fmhz` Hz, by the other DCO of the voice (cross FM in both directions), or by the signal at inlet 2. Counter speed is limited to 3 counts per sample (FM, sweeps), which keeps the edges per sample bounded; deep FM on high notes costs the most CPU. Above index 1 the counter runs backwards for a moment (through-zero FM), so integer ratios stay harmonic; the edges of every foot are found in both directions and stay band-limited.
 - Measured: sync (DCO2 at +7.3 semitones) and FM (ratio 1, index 1 and 3) keep every component below 16 kHz harmonic within −75 dB; deep through-zero FM with sync on 4 low voices peaks at 0.72. With `fm 0` and `sync 0` the output is sample-identical to before.
 
 ### Walsh morph (`wsh`, `wmx`)
 
 The four feet are Rademacher functions. Their products (the XOR of foot squares) are the 15 Walsh functions: two-level waves on the same counter edges, with their energy around harmonic 1 … 8 of the 16' (the sequency). They come in pairs of equal sequency; `wsh` moves along a closed loop that rises through one of each pair and falls through the other, so neighbours lie one harmonic apart and 127 joins 0. Neighbours fade at equal power (Walsh functions are orthonormal), at the loudness of the square net with all feet, so the level stays constant. Besides the octave squares this reaches energy at harmonics 3, 5, 6 and 7 — formant-like timbres that adding feet cannot make.
+
+`wsm` and `wse` move the position with the MG and DEG3 (per audio block, smoothed by `mrph`).
 
 | `wsh` | 0 | 8 | 17 | 25 | 34 | 42 | 51 | 59 | 68 | 76 | 85 | 93 | 102 | 110 | 119 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|

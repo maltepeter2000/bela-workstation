@@ -5,6 +5,7 @@
  *
  * Inlet   1  messages: notes ("note p v", the list "p v", or "p v ch" from
  *            [notein]), controls, settings, presets, see pdoly8~-help.pd
+ * Inlet   2  signal: external modulator for FM (fms 2), about -1..1
  * Outlets 1, 2  signal left, right
  *         3     events: "dump pdoly8 <values>" (for [skpreset]), "value <name> <v>"
  * Message conventions follow cz4~ and skandrums-pd (dump / params / defaults / get).
@@ -31,18 +32,21 @@ enum {
        X_WMX2, X_LEAK, X_A1, X_D1, X_BP1, X_SL1, X_SU1, X_R1, X_A2, X_D2,
        X_BP2, X_SL2, X_SU2, X_R2, X_PORT, X_PMOD, X_CUT, X_RES, X_KBD, X_POL,
        X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
-       X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO, NEXT };
+       X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO,
+       X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, NEXT };
 static const char *EXT_NAME[NEXT] = {
     "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "ch1", "tone", "pw1", "pw2",
-    "sync", "swp2", "fm", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1", "d1",
+    "sync", "swp2", "fm1", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1", "d1",
     "bp1", "sl1", "su1", "r1", "a2", "d2", "bp2", "sl2", "su2", "r2", "port", "pmod",
     "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3",
-    "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono"};
+    "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono",
+    "pwm1", "pwm2", "swe", "swm", "ring", "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut"};
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 8, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0,
     1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
     31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0,
-    31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0, 0};
+    31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 static t_class *pdoly8_class;
 
@@ -66,12 +70,15 @@ static float clampf_(float x, float lo, float hi) { return x < lo ? lo : x > hi 
 static t_int *pdoly8_perform(t_int *w)
 {
     t_pdoly8 *x = (t_pdoly8 *)(w[1]);
-    t_sample *out_l = (t_sample *)(w[2]), *out_r = (t_sample *)(w[3]);
-    int n = (int)(w[4]);
-    float *ol = x->buf, *or_ = x->buf + n;
+    t_sample *in = (t_sample *)(w[2]), *out_l = (t_sample *)(w[3]), *out_r = (t_sample *)(w[4]);
+    int n = (int)(w[5]);
+    float *ol = x->buf, *or_ = x->buf + n, *fi = x->buf + 2 * n;
+    for (int i = 0; i < n; i++) fi[i] = in[i];          /* the input may share memory with an output */
+    x->e.fm_in = fi;
     p8_render(&x->e, ol, or_, (unsigned)n);
+    x->e.fm_in = 0;
     for (int i = 0; i < n; i++) { out_l[i] = ol[i]; out_r[i] = or_[i]; }
-    return w + 5;
+    return w + 6;
 }
 
 static void pdoly8_dsp(t_pdoly8 *x, t_signal **sp)
@@ -79,11 +86,11 @@ static void pdoly8_dsp(t_pdoly8 *x, t_signal **sp)
     int n = sp[0]->s_n;
     float sr = (float)sp[0]->s_sr;
     if (sr > 0.0f && sr != x->e.fs) p8_set_fs(&x->e, sr);
-    if (2 * n > x->bufn) {
-        x->buf = (float *)resizebytes(x->buf, (size_t)x->bufn * sizeof(float), (size_t)(2 * n) * sizeof(float));
-        x->bufn = 2 * n;
+    if (3 * n > x->bufn) {
+        x->buf = (float *)resizebytes(x->buf, (size_t)x->bufn * sizeof(float), (size_t)(3 * n) * sizeof(float));
+        x->bufn = 3 * n;
     }
-    dsp_add(pdoly8_perform, 4, x, sp[0]->s_vec, sp[1]->s_vec, (t_int)n);
+    dsp_add(pdoly8_perform, 5, x, sp[0]->s_vec, sp[1]->s_vec, sp[2]->s_vec, (t_int)n);
 }
 
 /* ------------------------------------------------------- applying values */
@@ -148,11 +155,24 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
         x->ext[i] = v; p8_update(e); return;
     }
     case X_SYNC: v = v != 0; e->sync = v != 0; break;                     /* DCO2 restarts with DCO1 */
-    case X_SWP2: v = clampf_((float)v, 0.0f, 48.0f); e->swp2 = (float)v; break;   /* semitones */
-    case X_FM:   v = clampf_((float)v, 0.0f, 127.0f);                    /* index 0..8, 1 at about 45 */
-        e->fm = 8.0f * ((float)v / 127.0f) * ((float)v / 127.0f); break;
+    case X_SWP2: v = clampf_((float)v, 0.0f, 72.0f); e->swp2 = (float)v; break;   /* semitones */
+    case X_SWE:  v = clampf_((float)v, 0.0f, 72.0f); e->sw_e = (float)v; break;    /* DEG3 -> DCO2, semitones */
+    case X_SWM:  v = clampf_((float)v, 0.0f, 24.0f); e->sw_m = (float)v; break;    /* MG -> DCO2, +-semitones */
+    case X_PWM1: case X_PWM2:                    /* MG -> pulse width, 127 = +-47 % */
+        v = clampf_((float)v, 0.0f, 127.0f); e->pwm_d[i == X_PWM2] = 0.47f * (float)v / 127.0f; break;
+    case X_RING: v = clampf_((float)v, 0.0f, 127.0f); e->rmod = (float)v / 127.0f; break;
+    case X_FM: case X_FM2: {                     /* index 0..16, 1 at about 32 */
+        v = clampf_((float)v, 0.0f, 127.0f);
+        float q = (float)v / 127.0f; if (i == X_FM) e->fm = 16.0f * q * q; else e->fm2 = 16.0f * q * q; break;
+    }
     case X_FMR:  v = clampf_((float)v, 0.125f, 16.0f); e->fm_ratio = (float)v; break;
-    case X_FMS:  v = v != 0; e->fm_src = v != 0; break;
+    case X_FMHZ: v = clampf_((float)v, -1000.0f, 1000.0f); e->fm_hz = (float)v; break;
+    case X_FMS:  v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); e->fm_src = (int)v; break;   /* sine, other DCO, input */
+    case X_WSM:  v = clampf_((float)v, 0.0f, 127.0f); e->ws_m = (float)v; break;   /* MG -> Walsh position */
+    case X_WSE:  v = clampf_((float)v, -127.0f, 127.0f); e->ws_e = (float)v; break;   /* DEG3 -> Walsh position */
+    case X_VAMP: v = clampf_((float)v, 0.0f, 127.0f); e->vel_amp = (float)v / 127.0f; break;      /* 127: level = velocity */
+    case X_VCUT: v = clampf_((float)v, 0.0f, 127.0f); e->vel_cut = 5.0f * (float)v / 127.0f; break; /* 127: soft key 5 oct lower */
+    case X_DRV:  v = clampf_((float)v, 0.0f, 127.0f); p8_set_drive(e, (float)v / 127.0f); break;
     case X_WSH1: case X_WSH2:                    /* Walsh loop position 0..127 */
         v = clampf_((float)v, 0.0f, 127.0f); e->wpos[i == X_WSH2] = (float)v; x->ext[i] = v; p8_update(e); return;
     case X_ENV3: {                               /* DEG3 morph 0..127, -1 = own values (a3 ...) */
@@ -295,6 +315,20 @@ static void mono_off(t_pdoly8 *x, t_float pitch)
 
 static void play(t_pdoly8 *x, t_float pitch, t_float vel)
 {
+    if (vel > 0) {                               /* velocity: for the voice about to play */
+        int pick = 0;
+        if (x->ext[X_MONO] <= 0) {               /* same choice as note_on */
+            int v, found = -1;
+            for (v = 0; v < P8_VOICES; v++) if (x->held[v] && x->key[v] == pitch) found = v;
+            if (found >= 0) pick = found;
+            else {
+                pick = -1;
+                for (v = 0; v < P8_VOICES; v++) if (!x->held[v] && (pick < 0 || x->age[v] < x->age[pick])) pick = v;
+                if (pick < 0) for (v = 0; v < P8_VOICES; v++) if (pick < 0 || x->age[v] < x->age[pick]) pick = v;
+            }
+        }
+        p8_voice_vel(&x->e, pick, (float)vel / 127.0f);
+    }
     if (x->ext[X_MONO] > 0) { if (vel > 0) mono_on(x, pitch); else mono_off(x, pitch); return; }
     if (vel > 0) note_on(x, pitch); else note_off(x, pitch);
 }
@@ -443,8 +477,9 @@ static void *pdoly8_new(void)
     x->last = -1;
     set_defaults(x);
     p8_settle(&x->e);
-    x->bufn = 2 * 64;
+    x->bufn = 3 * 64;
     x->buf = (float *)getbytes((size_t)x->bufn * sizeof(float));
+    inlet_new(&x->x_obj, &x->x_obj.ob_pd, &s_signal, &s_signal);   /* inlet 2: external FM signal (fms 2) */
     outlet_new(&x->x_obj, &s_signal);
     outlet_new(&x->x_obj, &s_signal);
     x->x_dump = outlet_new(&x->x_obj, &s_anything);

@@ -255,6 +255,25 @@ void p8_set_ddl(p8_engine_t *e, float time, float fb, float mf, float mi, float 
     e->ddl_mute = 0.0f;                    /* "delay sound output is momentarily interrupted" */
 }
 
+/* soft clipping (rational, as in cz4~), exact +-1 from |x| = 3 */
+static inline float softclip(float x)
+{
+    if (x > 3.0f) return 1.0f;
+    if (x < -3.0f) return -1.0f;
+    float x2 = x * x;
+    return x * (27.0f + x2) / (27.0f + 9.0f * x2);
+}
+
+/* overdrive after the VCF: gain 1 .. 32 (+30 dB, quadratic), the makeup
+ * keeps a signal at half the reference level at its level */
+#define P8_DRV_REF 3.0f                                      /* one saw note, all feet: peak about 3 */
+void p8_set_drive(p8_engine_t *e, float d)
+{
+    e->drive = clampf(d, 0.0f, 1.0f);
+    e->drv_g = 1.0f + 31.0f * e->drive * e->drive;
+    e->drv_c = 0.5f / softclip(0.5f * e->drv_g);
+}
+
 void p8_init(p8_engine_t *e, float fs)
 {
     blep_init();
@@ -276,11 +295,14 @@ void p8_init(p8_engine_t *e, float fs)
     e->tone = 1;
     e->mg_hz = 5.0f;
     e->rng = 0x2545F491u;
+    p8_set_drive(e, 0.0f);
     p8_set_fs(e, fs);
     for (int t = 0; t < P8_TG; t++) {
         e->tg[t].cnt = (uint32_t)(t * 37u);                  /* chip counters are not in step */
         e->tg[t].pan_l = e->tg[t].pan_r = 0.70710678f;
+        e->tg[t].vg = 1.0f;
     }
+    e->vel_last = 1.0f;
     p8_update(e);
     p8_settle(e);
 }
@@ -415,6 +437,19 @@ static float deg_tick(p8_engine_t *e, p8_tg_t *g, int grp)
 }
 
 /* per-foot target gains of both groups: wave weights x foot gains x level */
+/* Walsh morph targets of DCO g at loop position pos (wraps) */
+static void walsh_targets(p8_engine_t *e, int g, float pos)
+{
+    for (int S = 0; S < 16; S++) e->Wct[g][S] = 0.0f;
+    if (e->wlev[g] <= 0.0f) return;
+    pos = fmodf(pos, 127.0f); if (pos < 0.0f) pos += 127.0f;
+    int wa, wb; float wt;
+    knot_pos(pos, e->hsnap, 15, 1, &wa, &wb, &wt);
+    e->Wct[g][P8_WALSH[wa]] += e->wlev[g] * sqrtf(1.0f - wt);
+    e->Wct[g][P8_WALSH[wb]] += e->wlev[g] * sqrtf(wt);
+    e->wal[g] = 1;
+}
+
 void p8_update(p8_engine_t *e)
 {
     /* Foot weights measured on a Poly-800 (square / saw, one key over five
@@ -443,15 +478,8 @@ void p8_update(p8_engine_t *e)
         /* Walsh morph: two neighbours on the sequency loop, equal power
          * (Walsh functions are orthonormal), at the RMS of the square net
          * with all feet */
-        for (int S = 0; S < 16; S++) e->Wct[g][S] = 0.0f;
-        if (mix > 0.0f) {
-            int wa, wb; float wt;
-            knot_pos(e->wpos[g], e->hsnap, 15, 1, &wa, &wb, &wt);
-            float A = 0.5f * P8_NORM_REF * mix * lev;
-            e->Wct[g][P8_WALSH[wa]] += A * sqrtf(1.0f - wt);
-            e->Wct[g][P8_WALSH[wb]] += A * sqrtf(wt);
-            e->wal[g] = 1;
-        }
+        e->wlev[g] = 0.5f * P8_NORM_REF * mix * lev;
+        walsh_targets(e, g, e->wpos[g]);
     }
     if (e->mode != P8_DOUBLE) for (int t = 4; t < P8_TG; t++) e->tg[t].amp_target = 0.0f;
     for (int g = 0; g < 3; g++) {
@@ -528,6 +556,17 @@ void p8_voice_pitch(p8_engine_t *e, int k, float note, float from)
     }
 }
 
+/* velocity of voice k (0..1): its level (vel_amp) and, for the one VCF,
+ * the cutoff (vel_cut); full velocity leaves both as set */
+void p8_voice_vel(p8_engine_t *e, int k, float vel)
+{
+    if (k < 0 || k >= P8_VOICES) return;
+    vel = clampf(vel, 0.0f, 1.0f);
+    float g = 1.0f - clampf(e->vel_amp, 0.0f, 1.0f) * (1.0f - vel);
+    e->tg[k].vg = e->tg[k + 4].vg = g;
+    e->vel_last = vel;
+}
+
 void p8_set_port(p8_engine_t *e, float sec)
 {
     e->port_s = sec < 0.0f ? 0.0f : sec;
@@ -562,6 +601,7 @@ typedef struct {
     const float *Wc;             /* Walsh coefficients by foot subset, 16 */
     int wal;                     /* Walsh part active */
     float w;                     /* pulse width, 0.5 = square */
+    float rm;                    /* ring modulation factor (DCO2), 1 = none */
 } shape_t;
 
 /* h: foot states, bit (3 - f) set = foot f high (16' = 0x8 ... 2' = 0x1) */
@@ -578,7 +618,7 @@ static float tg_eval(const p8_tg_t *g, const shape_t *sh, unsigned h)
             if (c != 0.0f) s += (__builtin_popcount(S & low) & 1) ? -c : c;
         }
     }
-    return s * g->amp;
+    return s * g->amp * g->vg * sh->rm;
 }
 
 /* foot states from the counter: square feet are its bits; pulse feet are
@@ -609,7 +649,7 @@ static unsigned tg_bits(const p8_tg_t *g)
  * sorted in time, so products of feet (Walsh) change correctly. Returns the
  * time (tau) of the first forward wrap of the 16' period, or -1. */
 static float tg_run(p8_engine_t *e, p8_tg_t *g, const shape_t *sh, int generic,
-                    float inc, float span, float tend)
+                    float inc, float span, float tend, float *t16, int *n16)
 {
     float wrap = -1.0f;
     const float d = inc * span;
@@ -623,6 +663,7 @@ static float tg_run(p8_engine_t *e, p8_tg_t *g, const shape_t *sh, int generic,
             float tau = tend + g->ph / inc;
             if (tau > tend + span) tau = tend + span;
             if (wrap < 0.0f && (g->cnt & (P16 - 1u)) == 0u) wrap = tau;
+            if (t16 && *n16 < 4 && (g->cnt & ((P16 >> 1) - 1u)) == 0u) t16[(*n16)++] = tau;   /* 16' toggles */
             float vn = tg_eval(g, sh, tg_bits(g));
             if (vn != g->v) { float dv = vn - g->v; step_sharp(e, dv * g->pan_l, dv * g->pan_r, tau); g->v = vn; }
         }
@@ -653,7 +694,9 @@ static float tg_run(p8_engine_t *e, p8_tg_t *g, const shape_t *sh, int generic,
         for (int j = i; j > 0 && ev[j].tau > ev[j - 1].tau; j--) { __typeof__(ev[0]) tmp = ev[j]; ev[j] = ev[j - 1]; ev[j - 1] = tmp; }
     for (int i = 0; i < nev; i++) {
         unsigned bit = 1u << (3 - ev[i].f);
+        unsigned h0 = h;
         h = ev[i].up ? (h | bit) : (h & ~bit);
+        if (t16 && ev[i].f == 0 && h != h0 && *n16 < 4) t16[(*n16)++] = ev[i].tau;
         float vn = tg_eval(g, sh, h);
         if (vn != g->v) { float dv = vn - g->v; step_sharp(e, dv * g->pan_l, dv * g->pan_r, ev[i].tau); g->v = vn; }
     }
@@ -711,21 +754,30 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
      * half = 0.5 oct/oct with the nominal cutoff at the top key C6 (note 84) */
     const float kbd_oct = e->kbd == 2 ? (e->kbd_note - 60.0f) / 12.0f
                         : e->kbd == 1 ? 0.5f * (e->kbd_note - 84.0f) / 12.0f : 0.0f;
-    const float cut_oct = vcf_cut_oct(e->vcf_c) + kbd_oct;
+    const float cut_oct = vcf_cut_oct(e->vcf_c) + kbd_oct - e->vel_cut * (1.0f - e->vel_last);
     const float vk = vcf_k(e->vcf_r);
     const float eg_oct = P8_EG_OCT * clampf(e->egint, -15.0f, 15.0f) / 15.0f;
     const float fc_max = 0.42f * e->fs;
     float cf = exp2f((e->tune_cents + e->bend_semi * 100.0f) / 1200.0f);
     const float cf_static = cf;
-    const float swp = exp2f(clampf(e->swp2, 0.0f, 48.0f) / 12.0f);        /* DCO2 offset, semitones */
+    const int sw_mod = e->sw_e > 0.0f || e->sw_m > 0.0f;
+    float swp = exp2f(clampf(e->swp2, 0.0f, 96.0f) / 12.0f);              /* DCO2 offset, semitones */
     const int sync_on = e->sync && e->mode == P8_DOUBLE;
-    const float fm_i = clampf(e->fm, 0.0f, 8.0f);
+    const float fm_i[2] = {clampf(e->fm, 0.0f, 16.0f), clampf(e->fm2, 0.0f, 16.0f)};
+    const float ring = clampf(e->rmod, 0.0f, 1.0f);
+    const int drv_on = e->drive > 0.0f;
+
+    /* Walsh loop position moved by the MG and DEG3 (per block) */
+    if (e->ws_m > 0.0f || e->ws_e > 0.0f)
+        for (int g = 0; g < 2; g++)
+            if (e->wlev[g] > 0.0f) walsh_targets(e, g, e->wpos[g] + e->ws_m * e->mg_val + e->ws_e * e->e3n);
 
     /* MG delay: counts from the first key of a phrase; then the MG comes in
      * at full depth (measured: no fade-in, a 10 ms ramp avoids a click) */
     if (any && !e->mg_any) e->mg_t = 0.0f;
     e->mg_any = any;
-    const int mg_on = e->mg_cents > 0.0f || e->mg_vcf > 0.0f;
+    const int mg_on = e->mg_cents > 0.0f || e->mg_vcf > 0.0f || e->pwm_d[0] > 0.0f || e->pwm_d[1] > 0.0f
+                    || e->sw_m > 0.0f || e->ws_m > 0.0f;
     float mg_tri = 0.0f;
 
     for (unsigned i = 0; i < n; i++) {
@@ -738,6 +790,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 fade = clampf((e->mg_t - e->mg_delay) / 0.01f, 0.0f, 1.0f);
             }
             mg_tri = (4.0f * fabsf(e->mg_ph - 0.5f) - 1.0f) * fade;
+            e->mg_val = mg_tri;
             e->mg_lp += (mg_tri - e->mg_lp) * (1.0f - expf(-2.0f * P8_PI * P8_MG_LP * inv_fs));
             if (e->mg_cents > 0.0f) cf = cf_static * exp2f(e->mg_cents * e->mg_lp / 1200.0f);
         }
@@ -755,6 +808,14 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             }
             if (fabsf(e->pw[g] - e->pw_t[g]) < 1e-6f) e->pw[g] = e->pw_t[g];
         }
+        float wcur[2];                                       /* pulse width with MG (PWM) */
+        for (int g = 0; g < 2; g++) wcur[g] = e->pwm_d[g] > 0.0f ? clampf(e->pw[g] + e->pwm_d[g] * mg_tri, 0.03f, 0.97f) : e->pw[g];
+        if (sw_mod)                                          /* DCO2 sweep: DEG3 and MG */
+            swp = exp2f(clampf(e->swp2 + e->sw_e * e->e3n + e->sw_m * mg_tri, 0.0f, 96.0f) / 12.0f);
+        float t16[P8_VOICES][4]; int n16[P8_VOICES] = {0, 0, 0, 0};
+        float rs0[P8_VOICES] = {1.0f, 1.0f, 1.0f, 1.0f};    /* ring: 16' of DCO1 at the start of the sample */
+        if (ring > 0.0f) for (int k = 0; k < P8_VOICES; k++)
+            rs0[k] = ((tg_states(&e->tg[k], wcur[0]) >> 3) & 1u) ? 1.0f : -1.0f;
 
         float sync_tau[P8_VOICES] = {-1.0f, -1.0f, -1.0f, -1.0f};
         for (int t = 0; t < P8_TG; t++) {
@@ -763,9 +824,11 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             const float *W = e->W[t >= 4];
             /* gate ramp */
             deg_tick(e, g, t >= 4);                          /* DEG1 / DEG2 */
-            const float w = e->pw[t >= 4];
+            const int k = t & 3, slave = t >= 4;
+            const float w = wcur[slave];
             const int pwm = fabsf(w - 0.5f) > 1e-5f;
-            const shape_t sh = {W, e->Wc[t >= 4], e->wal[t >= 4], w};
+            float rsg = rs0[k];                              /* ring: DCO1's 16' at the start of the sample */
+            shape_t sh = {W, e->Wc[slave], e->wal[slave], w, slave && ring > 0.0f ? 1.0f - ring + ring * rsg : 1.0f};
             /* smooth changes of gains, gate and width */
             float vn = tg_eval(g, &sh, pwm ? tg_states(g, w) : tg_bits(g));
             if (vn != g->v) { float d = vn - g->v; step_smooth(e, d * g->pan_l, d * g->pan_r); g->v = vn; }
@@ -774,7 +837,6 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 continue;
             }
             /* counter steps: band-limited edges */
-            const int k = t & 3, slave = t >= 4;
             float clk = clk0 * cf * (slave ? det * swp : 1.0f);
             float inc = 2.0f * clk / g->counter * inv_fs;
             if (g->glide != 0.0f) {                          /* portamento */
@@ -783,31 +845,50 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 if (fabsf(g->glide) < 0.01f) g->glide = 0.0f;
             }
             int generic = pwm;
-            if (!slave && fm_i > 0.0f) {                     /* linear FM of DCO1, through zero */
-                float m;
-                if (e->fm_src == 1) {                        /* DCO2 as modulator (last sample) */
-                    const p8_tg_t *s2 = &e->tg[k + 4];
+            if (fm_i[slave] > 0.0f) {                        /* linear FM, through zero */
+                float m = 0.0f;
+                if (e->fm_src == 1) {                        /* the other DCO of the voice */
+                    const int o = slave ? 0 : 1;
+                    const p8_tg_t *s2 = &e->tg[k + 4 * o];
                     float full = 0.0f;
-                    for (int f = 0; f < P8_FEET; f++) full += 0.5f * e->W[1][f];
-                    for (int S2 = 1; S2 < 16; S2++) full += fabsf(e->Wc[1][S2]);
+                    for (int f = 0; f < P8_FEET; f++) full += 0.5f * e->W[o][f];
+                    for (int S2 = 1; S2 < 16; S2++) full += fabsf(e->Wc[o][S2]);
                     m = (full > 1e-6f && s2->amp > 0.0f) ? s2->v / (full * s2->amp) : 0.0f;
-                } else {                                     /* sine at fmr x the 16' frequency */
-                    g->mph += e->fm_ratio * inc / (float)(2u << g->bit[0]);
+                } else if (e->fm_src == 2) {                 /* external signal */
+                    m = e->fm_in ? clampf(e->fm_in[i], -2.0f, 2.0f) : 0.0f;
+                } else {                                     /* sine at fmr x the 16' frequency + fmhz */
+                    g->mph += e->fm_ratio * inc / (float)(2u << g->bit[0]) + e->fm_hz * inv_fs;
                     g->mph -= floorf(g->mph);
                     m = sinf(2.0f * P8_PI * g->mph);
                 }
-                inc *= 1.0f + fm_i * m;
+                inc *= 1.0f + fm_i[slave] * m;
                 generic = 1;
             }
-            if (slave && sync_tau[k] >= 0.0f) {              /* hard sync: reset at DCO1's wrap */
-                float tau = sync_tau[k];
-                tg_run(e, g, &sh, 1, inc, 1.0f - tau, tau);
-                g->cnt = 0; g->ph = 0.0f;
-                vn = tg_eval(g, &sh, tg_states(g, w));
-                if (vn != g->v) { float d = vn - g->v; step_sharp(e, d * g->pan_l, d * g->pan_r, tau); g->v = vn; }
-                tg_run(e, g, &sh, 1, inc, tau, 0.0f);
+            /* keep the edges per sample bounded (sweeps, FM): at most 3 counts */
+            if (inc > 3.0f) inc = 3.0f; else if (inc < -3.0f) inc = -3.0f;
+            /* split points of DCO2 in this sample: sync (reset) and the 16' edges of DCO1 (ring) */
+            float pt[6]; int pty[6], np = 0;
+            if (slave && sync_tau[k] >= 0.0f) { pt[np] = sync_tau[k]; pty[np++] = 0; }
+            if (slave && ring > 0.0f) for (int j = 0; j < n16[k] && np < 6; j++) { pt[np] = t16[k][j]; pty[np++] = 1; }
+            if (np) {
+                for (int a = 1; a < np; a++)                 /* in time order: largest tau first */
+                    for (int b = a; b > 0 && pt[b] > pt[b - 1]; b--) {
+                        float tf = pt[b]; pt[b] = pt[b - 1]; pt[b - 1] = tf;
+                        int ti = pty[b]; pty[b] = pty[b - 1]; pty[b - 1] = ti;
+                    }
+                float cur = 1.0f;
+                for (int a = 0; a < np; a++) {
+                    float tau = pt[a] > cur ? cur : pt[a];
+                    tg_run(e, g, &sh, 1, inc, cur - tau, tau, 0, 0);
+                    if (pty[a] == 0) { g->cnt = 0; g->ph = 0.0f; }          /* hard sync */
+                    else { rsg = -rsg; sh.rm = 1.0f - ring + ring * rsg; }    /* ring: DCO1's 16' flips */
+                    vn = tg_eval(g, &sh, tg_states(g, w));
+                    if (vn != g->v) { float d = vn - g->v; step_sharp(e, d * g->pan_l, d * g->pan_r, tau); g->v = vn; }
+                    cur = tau;
+                }
+                tg_run(e, g, &sh, 1, inc, cur, 0.0f, 0, 0);
             } else {
-                float wrap = tg_run(e, g, &sh, generic, inc, 1.0f, 0.0f);
+                float wrap = tg_run(e, g, &sh, generic, inc, 1.0f, 0.0f, slave ? 0 : t16[k], &n16[k]);
                 if (!slave && sync_on) sync_tau[k] = wrap;
             }
         }
@@ -816,6 +897,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
          * sets the noise VCA, both measured as linear in the DEG level */
         deg_tick(e, &e->deg3, 2);
         const float e3 = deg_level(e->deg3.amp);
+        e->e3n = e3 / 31.0f;
         float oct = cut_oct + eg_oct * e3 / 31.0f + e->mg_vcf * mg_tri;
         float fc = exp2f(oct) ;
         fc = fc < 20.0f ? 20.0f : fc > fc_max ? fc_max : fc;
@@ -845,11 +927,13 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                     float v = (u - st[p]) * VG;
                     float yp = v + st[p]; st[p] = yp + v; u = yp;
                 }
+                if (drv_on) u = P8_DRV_REF * e->drv_c * softclip(e->drv_g * u * (1.0f / P8_DRV_REF));
                 /* output stage: 54 Hz high-pass, one pole at about 10 kHz */
                 y = e->hp_k * (e->dc_y[c] + u - e->dc_x[c]);
                 e->dc_x[c] = u; e->dc_y[c] = y;
                 { float v = (y - e->op_s[c]) * e->op_g; y = v + e->op_s[c]; e->op_s[c] = y + v; }
             } else {
+                if (drv_on) x = P8_DRV_REF * e->drv_c * softclip(e->drv_g * x * (1.0f / P8_DRV_REF));
                 y = x - e->dc_x[c] + e->dc_k * e->dc_y[c];
                 e->dc_x[c] = x; e->dc_y[c] = y;
             }

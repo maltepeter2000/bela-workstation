@@ -55,28 +55,68 @@ CONTROLS = [
 # setting blocks: title, number boxes (name, min, max), preset messages, text
 BLOCKS = [
     ("Additional harmonics",
-     [("pw1", 0, 127), ("pw2", 0, 127), ("sync", 0, 1), ("swp2", 0, 48),
-      ("fm", 0, 127), ("fmr", 0.125, 16), ("fms", 0, 1), ("wsh1", 0, 127),
-      ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127)], [],
+     [("pw1", 0, 127), ("pw2", 0, 127), ("pwm1", 0, 127), ("pwm2", 0, 127),
+      ("sync", 0, 1), ("swp2", 0, 72), ("swe", 0, 72), ("swm", 0, 24),
+      ("ring", 0, 127)], [],
      ["Not on the Poly-800, all edges stay band-limited.",
       "pw1, pw2 (64) pulse width 0-127 = 3-97 %, 64 = square: every",
       "foot becomes the AND of itself and a copy shifted by part of",
-      "its period (pulse staircases on the saw net).",
+      "its period (pulse staircases on the saw net). pwm1, pwm2 (0)",
+      "the MG moves the width, 127 = +-47 % (rate mgr / mgf, the",
+      "MG delay mgd applies).",
       "sync (0) 1: DCO2's counter restarts at every 16' period of",
-      "DCO1, at the exact sub-sample time, swp2 (0) DCO2 offset",
-      "0-48 semitones, continuous - sweep it for the sync sound.",
-      "fm (0) 0-127 = FM index 0-8 of DCO1's counter rate (through",
-      "zero above 45, integer ratios stay harmonic), fmr (1) ratio",
-      "of the sine to the 16', 0.125-16, fms (0) 0 sine, 1 DCO2.",
-      "wsh1, wsh2 (0) Walsh loop 0-127: the 15 XOR products of the",
-      "feet by sequency (0: 16' / 17: 16'x4' / 59: 2' / 85: all /",
-      "119: 16'x8' / 127 = 0), neighbours fade at equal power;",
-      "wmx1, wmx2 (0) mix from the feet (0) to the Walsh loop (127)."]),
+      "DCO1, at the exact sub-sample time. swp2 (0) DCO2 offset",
+      "0-72 semitones, swe (0) DEG3 adds up to 0-72 semitones, swm",
+      "(0) the MG adds +-0-24 semitones. Screaming sync: sync 1,",
+      "lev1 low, lev2 high, swe 40-72, a falling DEG3 (d3, su3 0),",
+      "res and drv up. The sweeps also work without sync.",
+      "ring (0) 0-127: DCO2 times the 16' of DCO1 (XOR, the ring",
+      "modulation of square waves). At 127 only sum and difference",
+      "tones remain: with intv, swp2 or detn for bells and metal."]),
+    ("FM",
+     [("fm1", 0, 127), ("fm2", 0, 127), ("fms", 0, 2), ("fmr", 0.125, 16),
+      ("fmhz", -1000, 1000)], ["fms 0", "fms 1", "fms 2"],
+     ["Linear FM of the counter rate, through zero (the counter runs",
+      "backwards) above index 1, every edge band-limited.",
+      "fm1, fm2 (0) depth on DCO1 / DCO2, 0-127 = index 0-16 (1 at",
+      "about 32). 0 = off.",
+      "fms (0) chooses the modulator, it does not switch anything",
+      "on or off: 0 a sine per DCO at fmr x its own 16' frequency",
+      "plus fmhz, 1 the other DCO of the voice (cross FM: DCO2 into",
+      "DCO1 and DCO1 into DCO2), 2 the signal at the right inlet",
+      "(about -1..1: osc~, adc~, noise~, another synth ...). Above,",
+      "the osc~ goes there, set its frequency and fms 2.",
+      "fmr (1) 0.125-16: whole ratios stay harmonic, others (1.41,",
+      "3.5) give bells and metal that follow the key. fmhz (0)",
+      "-1000..1000 Hz added to the sine: a fixed, inharmonic offset",
+      "with the same beat on every key (fmr 0.125, fmhz 200: almost",
+      "a fixed modulator)."]),
+    ("Walsh loop",
+     [("wsh1", 0, 127), ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127),
+      ("wsm", 0, 127), ("wse", -127, 127)], [],
+     ["The four feet are square waves of one counter, an octave",
+      "apart. Multiplying them (XOR of the counter bits) gives 15",
+      "Walsh functions: square-like waves that go through 1 to 8",
+      "cycles per 16' period (sequency), with their energy near that",
+      "harmonic. They come from the same counter edges, so they are",
+      "exactly in tune and band-limited - a wavetable the chip",
+      "already has. The loop orders them by sequency: moving along",
+      "it sweeps the energy from the 16' up to the 8th harmonic and",
+      "back, through the in-between products, neighbours fading at",
+      "equal power.",
+      "wsh1, wsh2 (0) position 0-127 (0: 16' / 17: 16'x4' / 59: 2'",
+      "/ 85: all four / 119: 16'x8' / 127 = 0 again).",
+      "wmx1, wmx2 (0) mix from the normal feet (0) to the loop (127).",
+      "wsm (0) the MG moves the position +-wsm steps (127: the whole",
+      "loop, a sweeping, vocal sound - try mgr 2-8). wse (0) DEG3",
+      "moves it by up to wse steps (-127..127), e.g. a bright attack",
+      "falling into the 16'. Both act on DCO1 and DCO2 where wmx is",
+      "above 0, smoothed by mrph."]),
     ("Filter & DEG3 settings",
      [("cut", 0, 99), ("res", 0, 15), ("kbd", 0, 2), ("egi", 0, 15),
       ("pol", 1, 2), ("trg", 1, 2), ("nois", 0, 15), ("env3", -1, 127),
       ("a3", 0, 31), ("d3", 0, 31), ("bp3", 0, 31), ("sl3", 0, 31),
-      ("su3", 0, 31), ("r3", 0, 31)], [],
+      ("su3", 0, 31), ("r3", 0, 31), ("drv", 0, 127), ("vcut", 0, 127)], [],
      ["One 4-pole VCF for the instrument (NJM2069), measured on a",
       "Poly-800 II. cut (99) 0-99 = 66 Hz - 20 kHz, 13 steps per",
       "octave, res (0) 0-15, an uncompensated ladder (the bass falls",
@@ -87,7 +127,12 @@ BLOCKS = [
       "1 down, trg (2) 2 multi: every key restarts DEG3, 1 single:",
       "only the first key of a phrase. nois (0) white noise 0-15,",
       "its VCA follows DEG3. env3 (0) DEG3 morph as env1 (see",
-      "Controls), -1 = own values a3 d3 bp3 sl3 su3 r3 (0-31)."]),
+      "Controls), -1 = own values a3 d3 bp3 sl3 su3 r3 (0-31).",
+      "drv (0) overdrive after the VCF (not on the Poly-800): soft",
+      "clipping, 0-127 = 0-30 dB more gain with level makeup, denser",
+      "with res and chords. vcut (0) velocity to the cutoff: at 127",
+      "a soft key is up to 5 octaves lower, full velocity plays the",
+      "cut set (one VCF: the last key counts)."]),
     ("MG settings",
      [("mgr", -1, 15), ("mgf", 0, 30), ("mgi", 0, 200), ("mgd", 0, 15),
       ("mgv", 0, 15)], [],
@@ -118,7 +163,8 @@ BLOCKS = [
     ("DEG1 & DEG2 settings",
      [("a1", 0, 31), ("d1", 0, 31), ("bp1", 0, 31), ("sl1", 0, 31),
       ("su1", 0, 31), ("r1", 0, 31), ("a2", 0, 31), ("d2", 0, 31),
-      ("bp2", 0, 31), ("sl2", 0, 31), ("su2", 0, 31), ("r2", 0, 31)], [],
+      ("bp2", 0, 31), ("sl2", 0, 31), ("su2", 0, 31), ("r2", 0, 31),
+      ("vamp", 0, 127)], [],
      ["Each voice's DCO1 and DCO2 have their own 6-stage DEG as on",
       "the Poly-800 (attack, decay, break point, slope, sustain,",
       "release 0-31, setting one makes env1 / env2 -1). Measured on",
@@ -127,7 +173,9 @@ BLOCKS = [
       "constant dB per second (31: about 18 s to -40 dB). env1 /",
       "env2 (Controls) morph through: 0 gate / 1 short pluck / 24",
       "pluck / 48 piano / 72 long release / 92 swell / 108 pad /",
-      "127 long pad."]),
+      "127 long pad.",
+      "vamp (0) velocity to the level of each voice (both DCOs, not",
+      "on the Poly-800): 0 off, 127 level = velocity."]),
     ("Portamento",
      [("port", 0, 127), ("pmod", 0, 2), ("mono", 0, 2)], [],
      ["Not on the Poly-800. port (0) glide time 0-127 = off to 3 s.",
@@ -217,7 +265,8 @@ def build():
     y = dac_y + 18 + 36
 
     sections = []
-    sections.append(("Inlets", ["0: messages (see Messages below)"]))
+    sections.append(("Inlets", ["0: messages (see Messages below)",
+                                 "1: signal, external FM modulator (fms 2, see FM)"]))
     sections.append(("Outlets", ["0: signal left", "1: signal right",
                                  "2: events: value, dump"]))
     sections.append(("Messages", [
@@ -277,6 +326,7 @@ def build():
         placed_b.append((title, items, presets, text, y))
         rows = (len(items) + 3) // 4
         y += 24 + 10 + ROWA * rows + (34 * ((len(presets) + 2) // 3) + 10 if presets else 0) + LINE * len(text) + 28
+        if title == "FM": y += 90
     credits_y = y
     yel_bottom = credits_y + 3 * LINE + M
     bar_bottom = yel_bottom + M
@@ -292,6 +342,8 @@ def build():
     o = p.add(f"#X obj {CX} {obj_y} {OBJ};")
     rcv = p.add(f"#X obj {CX} {r_y} r {bus};")
     p.conn(rcv, 0, o, 0)
+    rfm = p.add(f"#X obj {CX + 100} {r_y} r~ {DOLLAR}0-fmin;")
+    p.conn(rfm, 0, o, 1)
     snd0 = p.add(f"#X obj {CX} {util_y + 30} s {bus};")
     # demo: a chord every 500 ms, released after 250 ms
     tgl = p.add(f"#X obj {CX} {top_y} tgl 19 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000 0 1;")
@@ -385,6 +437,13 @@ def build():
                 m = p.add(f"#X msg {CX + c * 130} {ty + 34 * r} {txt};")
                 p.conn(m, 0, sp, 0)
             ty += 34 * ((len(presets) + 2) // 3) + 10
+        if title == "FM":                                   # external modulator -> right inlet
+            fa = p.add(f"#X floatatom {CX} {ty} 6 0 0 0 - - -;")
+            osc = p.add(f"#X obj {CX} {ty + 28} osc~ 110;")
+            ss = p.add(f"#X obj {CX} {ty + 56} s~ {DOLLAR}0-fmin;")
+            p.add(f"#X text {CX + 90} {ty + 28} external modulator (fms 2);")
+            p.conn(fa, 0, osc, 0); p.conn(osc, 0, ss, 0)
+            ty += 90
         p.comment(TX, ty, text)
     p.comment(TX, credits_y, ["Credits: Modelled on the Korg Poly-800 service manual;",
                               "MSM5232; scale ROM data as documented in MAME's",

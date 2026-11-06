@@ -50,6 +50,7 @@ typedef struct {
     int     stage, gate, trig;   /* DEG stage 0 idle 1 A 2 D 3 slope 4 S 5 R 6 leak */
     float   glide;               /* portamento: pitch offset in cents, fading to 0 */
     float   v;                   /* last output value, before panning */
+    float   vg;                  /* velocity gain, 1 = full */
     float   pan_l, pan_r;
 } p8_tg_t;
 
@@ -85,9 +86,22 @@ typedef struct {
     float   pw[2], pw_t[2];      /* pulse width per DCO, 0.5 = square (current, target) */
     int     sync;                /* 1: DCO2 restarts at every 16' period of DCO1 (DOUBLE) */
     float   swp2;                /* DCO2 pitch offset 0..48 semitones, continuous (sync sweep) */
-    float   fm;                  /* linear FM index of DCO1, 0..8, through zero above 1 */
-    float   fm_ratio;            /* sine modulator: ratio to DCO1's 16' frequency */
-    int     fm_src;              /* 0 internal sine, 1 DCO2 */
+    float   fm;                  /* linear FM index of DCO1, 0..16, through zero above 1 */
+    float   fm2;                 /* the same for DCO2 */
+    float   fm_ratio;            /* sine modulator: ratio to the DCO's own 16' frequency */
+    float   fm_hz;               /* sine modulator: fixed offset in Hz (inharmonic FM) */
+    int     fm_src;              /* 0 internal sine, 1 the other DCO of the voice, 2 external signal */
+    const float *fm_in;          /* external modulator for this block (fm_src 2), or 0 */
+    float   pwm_d[2];            /* MG -> pulse width, 0..0.47 */
+    float   sw_e, sw_m;          /* DEG3 / MG -> DCO2 pitch, semitones */
+    float   rmod;                /* 0..1: DCO2 times the 16' of DCO1 (XOR ring modulation) */
+    float   ws_m, ws_e;          /* MG / DEG3 -> Walsh loop position, in loop steps 0..127 */
+    float   wlev[2];             /* Walsh amplitude per DCO (mix x level) */
+    float   drive, drv_g, drv_c; /* overdrive 0..1 after the VCF: gain, makeup */
+    float   e3n;                 /* DEG3 level 0..1 (last sample) */
+    float   vel_amp, vel_cut;    /* velocity -> level 0..1, -> cutoff in octaves */
+    float   vel_last;            /* velocity of the last key, 0..1 (one VCF for the instrument) */
+    float   mg_val;              /* MG triangle (last sample, after the delay) */
     float   wpos[2], wmix[2];    /* Walsh morph per DCO: position 0..127 on the loop, mix 0..1 */
     float   Wc[2][16], Wct[2][16];   /* Walsh coefficients by foot subset (current, target) */
     int     wal[2];              /* Walsh part active */
@@ -161,6 +175,8 @@ int   p8_voice_sounding(const p8_engine_t *e, int k);
 void  p8_retune(p8_engine_t *e);             /* after octave / interval change */
 void  p8_set_eq(p8_engine_t *e, float treble, float bass);   /* steps -6..6 */
 void  p8_set_ddl(p8_engine_t *e, float time, float fb, float mf, float mi, float lev);   /* Poly-800 II units */
+void  p8_voice_vel(p8_engine_t *e, int k, float vel);   /* 0..1, before the note */
+void  p8_set_drive(p8_engine_t *e, float d);   /* overdrive 0..1 after the VCF */
 
 /* foot gains of har position h (0..127) with a plateau of hsnap steps */
 void  p8_foot_gains(float h, float hsnap, float g[P8_FEET]);              /* path 0, linear */
