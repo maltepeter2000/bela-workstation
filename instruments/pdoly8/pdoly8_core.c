@@ -873,7 +873,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 float v = (in - e->ddl_lp[p]) * e->ddl_lpg; float yp = v + e->ddl_lp[p]; e->ddl_lp[p] = yp + v; in = yp;
             }
             e->ddl_buf[e->ddl_w & (P8_DDL - 1)] = in;
-            e->ddl_w++;
+            e->ddl_w = (e->ddl_w + 1) & (P8_DDL - 1);              /* keep it small: (float)ddl_w must stay exact */
             float mu = e->ddl_mute < 0.5f ? 0.0f : 2.0f * e->ddl_mute - 1.0f;
             /* gate: the echo stops when it has fallen below a threshold (measured: an
              * echo train ends abruptly about 37 dB under the note) */
