@@ -277,6 +277,75 @@ def wrap(text, width=MAXCH):
     return out + [cur]
 
 
+def split_text(groups, paras):
+    """intro paragraphs, and the paragraphs of each group (by the names they start with)"""
+    import re
+    def owner(t):
+        m = re.match(r"^([a-z0-9][a-z0-9 ,/]*?)( \(|:)", t)
+        if not m:
+            return None
+        names = [n for n in re.split(r"[ ,/]+", m.group(1)) if n]
+        for gi, g in enumerate(groups):
+            if any(n == it[0] for it in g for n in names):
+                return gi
+        return None
+    intro, per, pending, seen = [], [[] for _ in groups], [], False
+    for t in paras:
+        gi = owner(t)
+        if gi is None:
+            (pending if seen else intro).append(t)
+        else:
+            seen = True
+            per[gi] += pending + [t]; pending = []
+    per[-1] += pending
+    return intro, per
+
+
+ROWA = 62
+GAP = 12
+
+
+def draw_block(p, title, groups, presets, paras, y, bus):
+    """draws a settings block at y (p None: layout only), returns the y after it"""
+    if p: p.heading(CX, y, title, 14)
+    y += 34
+    intro, per = split_text(groups, paras)
+    if intro:
+        if p: p.comment(TX, y, intro, para=True)
+        y += LINE * nlines(intro) + GAP
+    for gi, g in enumerate(groups):
+        for row in rows_of([g]):
+            if p:
+                snd = p.add(f"#X obj {CX + 400} {y + 24} s {bus};")
+                for c, (nm, lo, hi) in enumerate(row):
+                    a = p.add(f"#X floatatom {CX + c * 100} {y} 6 {lo} {hi} 0 - - -;")
+                    m = p.add(f"#X msg {CX + c * 100} {y + 24} {nm} {DOLLAR}1;")
+                    p.conn(a, 0, m, 0); p.conn(m, 0, snd, 0)
+            y += 54
+        last = gi == len(groups) - 1
+        if presets and (title == "FM" and gi == 1 or title != "FM" and last):
+            if p:
+                sp = p.add(f"#X obj {CX + 400} {y} s {bus};")
+                for i, txt in enumerate(presets):
+                    r, c = divmod(i, 3)
+                    m = p.add(f"#X msg {CX + c * 130} {y + 34 * r} {txt};")
+                    p.conn(m, 0, sp, 0)
+            y += 34 * ((len(presets) + 2) // 3)
+        if title == "FM" and gi == 1:                       # external modulator -> right inlet
+            if p:
+                fa = p.add(f"#X floatatom {CX} {y} 6 0 0 0 - - -;")
+                osc = p.add(f"#X obj {CX} {y + 28} osc~ 110;")
+                ss = p.add(f"#X obj {CX} {y + 56} s~ {DOLLAR}0-fmin;")
+                p.add(f"#X text {CX + 90} {y + 28} external modulator (fms 2);")
+                p.conn(fa, 0, osc, 0); p.conn(osc, 0, ss, 0)
+            y += 86
+        if per[gi]:
+            if p: p.comment(TX, y, per[gi], para=True)
+            y += LINE * nlines(per[gi]) + GAP
+        y += 6
+    return y + LINE
+
+
 def build():
     p = Patch()
     n = len(CONTROLS)
@@ -350,9 +419,7 @@ def build():
     placed_b = []
     for title, items, presets, text in BLOCKS:
         placed_b.append((title, items, presets, text, y))
-        rows = len(rows_of(items))
-        y += 24 + 10 + ROWA * rows + (34 * ((len(presets) + 2) // 3) + 10 if presets else 0) + LINE * nlines(text) + 28
-        if title == "FM": y += 90
+        y = draw_block(None, title, items, presets, text, y, None)
     credits_y = y
     yel_bottom = credits_y + 3 * LINE + M
     bar_bottom = yel_bottom + M
@@ -447,34 +514,7 @@ def build():
             p.conn(m1, 0, pc, 0); p.conn(pc, 0, lp, 0); p.conn(lp, 0, m2, 0)
             p.add(f"#X text {TX + 50} {ly} <- click to open skpreset-help.pd, f 40;")
     for title, items, presets, text, y0 in placed_b:
-        p.heading(CX, y0, title, 14)
-        ay0 = y0 + 24 + 10
-        snd = {}
-        for i, (r, c, (nm, lo, hi)) in enumerate((r, c, it) for r, row in enumerate(rows_of(items)) for c, it in enumerate(row)):
-            x = CX + c * 100
-            ay = ay0 + ROWA * r
-            if r not in snd:
-                snd[r] = p.add(f"#X obj {CX + 400} {ay + 24} s {bus};")
-            a = p.add(f"#X floatatom {x} {ay} 6 {lo} {hi} 0 - - -;")
-            m = p.add(f"#X msg {x} {ay + 24} {nm} {DOLLAR}1;")
-            p.conn(a, 0, m, 0)
-            p.conn(m, 0, snd[r], 0)
-        ty = ay0 + ROWA * len(rows_of(items))
-        if presets:
-            sp = p.add(f"#X obj {CX + 400} {ty} s {bus};")
-            for i, txt in enumerate(presets):
-                r, c = divmod(i, 3)
-                m = p.add(f"#X msg {CX + c * 130} {ty + 34 * r} {txt};")
-                p.conn(m, 0, sp, 0)
-            ty += 34 * ((len(presets) + 2) // 3) + 10
-        if title == "FM":                                   # external modulator -> right inlet
-            fa = p.add(f"#X floatatom {CX} {ty} 6 0 0 0 - - -;")
-            osc = p.add(f"#X obj {CX} {ty + 28} osc~ 110;")
-            ss = p.add(f"#X obj {CX} {ty + 56} s~ {DOLLAR}0-fmin;")
-            p.add(f"#X text {CX + 90} {ty + 28} external modulator (fms 2);")
-            p.conn(fa, 0, osc, 0); p.conn(osc, 0, ss, 0)
-            ty += 90
-        p.comment(TX, ty, text, para=True)
+        draw_block(p, title, items, presets, text, y0, bus)
     p.comment(TX, credits_y, ["Credits: Modelled on the Korg Poly-800 service manual;",
                               "MSM5232; scale ROM data as documented in MAME's",
                               "msm5232.cpp with help by Claude"])
