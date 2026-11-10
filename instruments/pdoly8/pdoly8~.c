@@ -34,7 +34,7 @@ enum {
        X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
        X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO,
        X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, X_HMG, X_RMF, X_RETR, X_DRFT,
-       X_A4, X_D4, X_BP4, X_SL4, X_SU4, X_R4, X_ENV4, X_TRG4, X_D4T1, X_D4A1, X_D4T2, X_D4A2, X_L2R, X_L2W, X_L2K, X_L2F, X_L2T1, X_L2A1, X_L2T2, X_L2A2, X_L3R, X_L3W, X_L3K, X_L3F, X_L3T1, X_L3A1, X_L3T2, X_L3A2, X_FMIG, NEXT };
+       X_A4, X_D4, X_BP4, X_SL4, X_SU4, X_R4, X_ENV4, X_TRG4, X_D4T1, X_D4A1, X_D4T2, X_D4A2, X_L2R, X_L2W, X_L2K, X_L2F, X_L2T1, X_L2A1, X_L2T2, X_L2A2, X_L3R, X_L3W, X_L3K, X_L3F, X_L3T1, X_L3A1, X_L3T2, X_L3A2, X_FMIG, X_DGLD, NEXT };
 static const char *EXT_NAME[NEXT] = {
     "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "ch1", "tone", "pw1", "pw2",
     "sync", "swp2", "fm1", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1", "d1",
@@ -42,14 +42,14 @@ static const char *EXT_NAME[NEXT] = {
     "cut", "res", "kbd", "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3",
     "r3", "mgd", "mgv", "mgr", "treb", "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono",
     "pwm1", "pwm2", "swe", "swm", "ring", "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp", "hmg", "rmf", "retr", "drft",
-    "a4", "d4", "bp4", "sl4", "su4", "r4", "env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2", "l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2", "l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2", "fmig"};
+    "a4", "d4", "bp4", "sl4", "su4", "r4", "env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2", "l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2", "l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2", "fmig", "dgld"};
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 8, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0,
     1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
     31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0,
     31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0,
-    0, 0, 31, 0, 31, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 64};
+    0, 0, 31, 0, 31, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 64, 1};
 
 static t_class *pdoly8_class;
 
@@ -149,7 +149,7 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     case X_OCT1: case X_OCT2:
         v = v < -1 ? -1 : v > 4 ? 4 : (t_float)(int)v;          /* -1..1 chip, 2..4 feet shifted up */
         e->octave[i == X_OCT2] = (int)v; x->ext[i] = v; p8_retune(e); return;
-    case X_NOIS: v = (t_float)(int)clampf_((float)v, 0.0f, 15.0f); e->noise_level = (float)v / 15.0f; break;
+    case X_NOIS: v = clampf_((float)v, 0.0f, 15.0f); e->noise_level = (float)v / 15.0f; break;
     case X_SPRD: v = clampf_((float)v, 0.0f, 127.0f); e->spread = (float)v / 127.0f; x->ext[i] = v; p8_update(e); return;   /* stereo spread of the 4 voices */
     case X_MRPH: v = v < 0 ? 0 : v; p8_set_smooth(e, (float)v); break;
     case X_BND:  v = clampf_((float)v, 0.0f, 12.0f); e->bend_semi = (float)(x->bend * v); break;
@@ -176,6 +176,7 @@ static void apply_ext(t_pdoly8 *x, int i, t_float v)
     }
     case X_FMR:  v = clampf_((float)v, 0.125f, 16.0f); e->fm_ratio = (float)v; break;
     case X_FMHZ: v = clampf_((float)v, -1000.0f, 1000.0f); e->fm_hz = (float)v; break;
+    case X_DGLD: v = v != 0; e->ddl_glide = v != 0; break;   /* delay: 1 time changes glide (default), 0 mute 40 ms as the original */
     case X_FMIG: v = clampf_((float)v, 0.0f, 127.0f); e->fm_ig = (float)v / 64.0f; break;   /* input gain, 64 = 1 */
     case X_FMS:  v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); e->fm_src = (int)v; break;   /* sine, other DCO, input */
     case X_WSM:  v = clampf_((float)v, 0.0f, 127.0f); e->ws_m = (float)v; break;   /* MG -> Walsh position */
@@ -451,30 +452,102 @@ static void pdoly8_anything(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 static void pdoly8_ctl(t_pdoly8 *x, t_floatarg i, t_floatarg v) { apply_ctl(x, (int)i, v); }
 
 /* 0-127 (a pot, CV or MIDI CC) to a parameter's range and back:
- * 'i' whole numbers lo..hi in equal zones, 'r' whole numbers linear (wider ranges),
+ * 'i' up to 15 values: whole numbers in equal zones, more: continuous (fractions from
+ *     14-bit controllers pass), 't' modulation targets in zones, 'r' linear,
  * 'b' / 'c' bipolar -hi..hi with 0 at 64 (whole numbers / continuous), 'f' linear, 'l' logarithmic */
-typedef struct { const char *name; char kind; float lo, hi; } t_p8range;
+typedef struct { const char *name; char kind; float lo, hi;
+                 const char *label, *unit; } t_p8range;   /* unit: "a|b|c" names the values, "@" a target */
 static const t_p8range RANGE[] = {
-    {"har1",'i',0,127}, {"har2",'i',0,127}, {"env1",'i',0,127}, {"env2",'i',0,127}, {"intv",'i',0,12},
-    {"detn",'i',0,127}, {"lev1",'i',0,127}, {"lev2",'i',0,127},
-    {"cut",'i',0,99}, {"res",'i',0,15}, {"egi",'i',0,15}, {"kbd",'i',0,2}, {"env3",'i',0,127}, {"vcut",'i',0,127},
-    {"drv",'i',0,127}, {"nois",'i',0,15},
-    {"oct1",'i',-1,4}, {"oct2",'i',-1,4}, {"pw1",'i',0,127}, {"pw2",'i',0,127}, {"pwm1",'i',0,127}, {"pwm2",'i',0,127},
-    {"hmg",'i',0,127}, {"drft",'i',0,127},
-    {"wsh1",'i',0,127}, {"wsh2",'i',0,127}, {"wmx1",'i',0,127}, {"wmx2",'i',0,127}, {"wsm",'i',0,127}, {"wse",'b',-127,127},
-    {"sync",'i',0,1}, {"swp2",'i',0,72}, {"swe",'i',0,72}, {"swm",'i',0,24}, {"ring",'i',0,127}, {"rmf",'i',0,14},
-    {"fm1",'i',0,127}, {"fm2",'i',0,127}, {"fmr",'l',0.125f,16}, {"fmhz",'c',-1000,1000}, {"fms",'i',0,2}, {"fmig",'i',0,127},
-    {"mgr",'i',0,15}, {"mgi",'r',0,200}, {"mgd",'i',0,15}, {"mgv",'i',0,15}, {"env4",'i',0,127}, {"trg4",'i',1,2},
-    {"d4t1",'i',0,P8_NT - 1}, {"d4a1",'b',-127,127}, {"d4t2",'i',0,P8_NT - 1}, {"d4a2",'b',-127,127},
-    {"l2r",'l',0.01f,50}, {"l2w",'i',0,5}, {"l2k",'i',0,2}, {"l2f",'f',0,10},
-    {"l2t1",'i',0,P8_NT - 1}, {"l2a1",'b',-127,127}, {"l2t2",'i',0,P8_NT - 1}, {"l2a2",'b',-127,127},
-    {"l3r",'l',0.01f,50}, {"l3w",'i',0,5}, {"l3k",'i',0,2}, {"l3f",'f',0,10},
-    {"l3t1",'i',0,P8_NT - 1}, {"l3a1",'b',-127,127}, {"l3t2",'i',0,P8_NT - 1}, {"l3a2",'b',-127,127},
-    {"dtim",'i',0,99}, {"dfb",'i',0,15}, {"dmf",'i',0,31}, {"dmi",'i',0,31}, {"dlev",'i',0,15},
-    {"port",'i',0,127}, {"mono",'i',0,1}, {"vamp",'i',0,127},
-    {"pmod",'i',0,2}, {"retr",'i',0,1}, {"pol",'i',1,2}, {"trg",'i',1,2}, {"drvp",'i',0,1}, {"mgf",'l',0.1f,30},
-    {"bnd",'i',0,12}, {"mrph",'i',0,100}, {"tone",'i',0,1}, {"leak",'i',0,1},
-    {"treb",'i',-6,6}, {"bass",'i',-6,6}, {"sprd",'i',0,127}};
+    {"har1",'i',0,127,"Timbre 1",""},
+    {"har2",'i',0,127,"Timbre 2",""},
+    {"env1",'i',0,127,"Env 1 morph",""},
+    {"env2",'i',0,127,"Env 2 morph",""},
+    {"intv",'i',0,12,"Interval","st"},
+    {"detn",'i',0,127,"Detune",""},
+    {"lev1",'i',0,127,"Level 1",""},
+    {"lev2",'i',0,127,"Level 2",""},
+    {"cut",'i',0,99,"Cutoff",""},
+    {"res",'i',0,15,"Resonance",""},
+    {"egi",'i',0,15,"EG depth",""},
+    {"kbd",'i',0,2,"Key track","off|half|full"},
+    {"env3",'i',0,127,"Env 3 morph",""},
+    {"vcut",'i',0,127,"Vel>cutoff",""},
+    {"drv",'i',0,127,"Drive",""},
+    {"nois",'i',0,15,"Noise",""},
+    {"oct1",'i',-1,4,"Octave 1","-1|0|+1|+2|+3|+4"},
+    {"oct2",'i',-1,4,"Octave 2","-1|0|+1|+2|+3|+4"},
+    {"pw1",'i',0,127,"Pulse width 1",""},
+    {"pw2",'i',0,127,"Pulse width 2",""},
+    {"pwm1",'i',0,127,"PWM 1",""},
+    {"pwm2",'i',0,127,"PWM 2",""},
+    {"hmg",'i',0,127,"MG>timbre",""},
+    {"drft",'i',0,127,"Drift",""},
+    {"wsh1",'i',0,127,"Walsh pos 1",""},
+    {"wsh2",'i',0,127,"Walsh pos 2",""},
+    {"wmx1",'i',0,127,"Walsh mix 1",""},
+    {"wmx2",'i',0,127,"Walsh mix 2",""},
+    {"wsm",'i',0,127,"MG>Walsh",""},
+    {"wse",'b',-127,127,"EG3>Walsh",""},
+    {"sync",'i',0,1,"Sync","off|on"},
+    {"swp2",'i',0,72,"DCO2 pitch","st"},
+    {"swe",'i',0,72,"EG3>DCO2","st"},
+    {"swm",'i',0,24,"MG>DCO2","st"},
+    {"ring",'i',0,127,"Ring mod",""},
+    {"rmf",'i',0,14,"Ring source",""},
+    {"fm1",'i',0,127,"FM depth 1",""},
+    {"fm2",'i',0,127,"FM depth 2",""},
+    {"fmr",'l',0.125f,16,"FM ratio","x"},
+    {"fmhz",'c',-1000,1000,"FM offset","Hz"},
+    {"fms",'i',0,2,"FM source","sine|other DCO|input"},
+    {"fmig",'i',0,127,"FM input gain",""},
+    {"dgld",'i',0,1,"Delay changes","mute|glide"},
+    {"mgr",'i',0,15,"MG rate",""},
+    {"mgi",'r',0,200,"Vibrato","ct"},
+    {"mgd",'i',0,15,"MG delay",""},
+    {"mgv",'i',0,15,"MG>cutoff",""},
+    {"env4",'i',0,127,"Env 4 morph",""},
+    {"trg4",'i',1,2,"Env 4 trigger","single|multi"},
+    {"d4t1",'t',0,P8_NT - 1,"Env4 target 1","@"},
+    {"d4a1",'b',-127,127,"Env4 amount 1",""},
+    {"d4t2",'t',0,P8_NT - 1,"Env4 target 2","@"},
+    {"d4a2",'b',-127,127,"Env4 amount 2",""},
+    {"l2r",'l',0.01f,50,"LFO2 rate","Hz"},
+    {"l2w",'i',0,5,"LFO2 wave","tri|sine|saw up|saw down|square|S&H"},
+    {"l2k",'i',0,2,"LFO2 retrig","free|key|phrase"},
+    {"l2f",'f',0,10,"LFO2 fade","s"},
+    {"l2t1",'t',0,P8_NT - 1,"LFO2 target 1","@"},
+    {"l2a1",'b',-127,127,"LFO2 amount 1",""},
+    {"l2t2",'t',0,P8_NT - 1,"LFO2 target 2","@"},
+    {"l2a2",'b',-127,127,"LFO2 amount 2",""},
+    {"l3r",'l',0.01f,50,"LFO3 rate","Hz"},
+    {"l3w",'i',0,5,"LFO3 wave","tri|sine|saw up|saw down|square|S&H"},
+    {"l3k",'i',0,2,"LFO3 retrig","free|key|phrase"},
+    {"l3f",'f',0,10,"LFO3 fade","s"},
+    {"l3t1",'t',0,P8_NT - 1,"LFO3 target 1","@"},
+    {"l3a1",'b',-127,127,"LFO3 amount 1",""},
+    {"l3t2",'t',0,P8_NT - 1,"LFO3 target 2","@"},
+    {"l3a2",'b',-127,127,"LFO3 amount 2",""},
+    {"dtim",'i',0,99,"Delay time",""},
+    {"dfb",'i',0,15,"Delay feedback",""},
+    {"dmf",'i',0,31,"Delay mod rate",""},
+    {"dmi",'i',0,31,"Delay mod depth",""},
+    {"dlev",'i',0,15,"Delay level",""},
+    {"port",'i',0,127,"Portamento",""},
+    {"mono",'i',0,1,"Voice mode","poly|mono"},
+    {"vamp",'i',0,127,"Vel>level",""},
+    {"pmod",'i',0,2,"Glide mode","last|own|legato"},
+    {"retr",'i',0,1,"Mono retrig","legato|retrig"},
+    {"pol",'i',1,2,"EG polarity","down|up"},
+    {"trg",'i',1,2,"Env 3 trigger","single|multi"},
+    {"drvp",'i',0,1,"Drive position","post|pre"},
+    {"mgf",'l',0.1f,30,"MG rate","Hz"},
+    {"bnd",'i',0,12,"Bend range","st"},
+    {"mrph",'i',0,100,"Smoothing","ms"},
+    {"tone",'i',0,1,"Output stage","off|on"},
+    {"leak",'i',0,1,"Leak","off|on"},
+    {"treb",'i',-6,6,"Treble",""},
+    {"bass",'i',-6,6,"Bass",""},
+    {"sprd",'i',0,127,"Stereo spread",""}};
 #define NRANGE ((int)(sizeof RANGE / sizeof RANGE[0]))
 
 static const t_p8range *find_range(t_symbol *s)
@@ -495,12 +568,9 @@ static float range_from127(const t_p8range *r, float c)
     c = clampf_(c, 0.0f, 127.0f);
     if (r->kind == 'l') return r->lo * powf(r->hi / r->lo, c / 127.0f);
     if (r->kind == 'f') return r->lo + (r->hi - r->lo) * c / 127.0f;
-    if (r->kind == 'r') return floorf(r->lo + (r->hi - r->lo) * c / 127.0f + 0.5f);
-    if (r->kind == 'b' || r->kind == 'c') {
-        float v = clampf_((c - 64.0f) * r->hi / 63.0f, -r->hi, r->hi);
-        return r->kind == 'b' ? floorf(v + 0.5f) : v;
-    }
-    if (r->hi - r->lo == 127.0f) return r->lo + floorf(c + 0.5f);
+    if (r->kind == 'r') return r->lo + (r->hi - r->lo) * c / 127.0f;
+    if (r->kind == 'b' || r->kind == 'c') return clampf_((c - 64.0f) * r->hi / 63.0f, -r->hi, r->hi);
+    if (r->kind == 'i' && r->hi - r->lo >= 15.0f) return r->lo + (r->hi - r->lo) * c / 127.0f;   /* continuous */
     float n = r->hi - r->lo + 1.0f;                      /* zones of equal width */
     return r->lo + fminf(floorf(c * n / 128.0f), n - 1.0f);
 }
@@ -511,7 +581,7 @@ static float range_to127(const t_p8range *r, float v)
     if (r->kind == 'l') c = 127.0f * logf(fmaxf(v, r->lo) / r->lo) / logf(r->hi / r->lo);
     else if (r->kind == 'f' || r->kind == 'r') c = 127.0f * (v - r->lo) / (r->hi - r->lo);
     else if (r->kind == 'b' || r->kind == 'c') c = 64.0f + v * 63.0f / r->hi;
-    else if (r->hi - r->lo == 127.0f) c = v - r->lo;
+    else if (r->kind == 'i' && r->hi - r->lo >= 15.0f) c = 127.0f * (v - r->lo) / (r->hi - r->lo);
     else { float n = r->hi - r->lo + 1.0f; c = (v - r->lo + 0.5f) * 128.0f / n; }   /* middle of the zone */
     return floorf(clampf_(c, 0.0f, 127.0f) + 0.5f);
 }
@@ -528,6 +598,31 @@ static void pdoly8_n(t_pdoly8 *x, t_symbol *name, t_floatarg c)
     const char *nm = name->s_name;                       /* targets: name them in the console */
     if (old && *old != before && strlen(nm) == 4 && nm[2] == 't' && (nm[0] == 'd' || nm[0] == 'l'))
         post("pdoly8~: %s %s", nm, TGT_NAME[(int)*old]);
+}
+
+/* disp <name>: outlet 3 gets "disp <label> <value>", two symbols for a display
+ * (OLED): the setting's name and its value with unit, switch name or target */
+static void pdoly8_disp(t_pdoly8 *x, t_symbol *name)
+{
+    const t_p8range *r = find_range(name);
+    t_float *pv = find_value(x, name);
+    if (!r || !pv) return;
+    float v = *pv;
+    char buf[64];
+    if (r->unit[0] == '@') snprintf(buf, sizeof buf, "%s", TGT_NAME[(int)clampf_(v, 0, P8_NT - 1)]);
+    else if (strchr(r->unit, '|')) {                     /* named values: lo, lo+1, ... */
+        int k = (int)lroundf(v - r->lo), n = 0;
+        const char *p = r->unit, *q;
+        while (n < k && (q = strchr(p, '|'))) { p = q + 1; n++; }
+        q = strchr(p, '|'); int len = q ? (int)(q - p) : (int)strlen(p);
+        snprintf(buf, sizeof buf, "%.*s", len, p);
+    }
+    else if ((r->kind == 'i' && r->hi - r->lo < 15.0f) || r->kind == 't')
+        snprintf(buf, sizeof buf, "%.0f%s%s", v, r->unit[0] ? " " : "", r->unit);
+    else if (r->kind == 'l' || fabsf(v) < 10.0f) snprintf(buf, sizeof buf, "%.3g%s%s", v, r->unit[0] ? " " : "", r->unit);
+    else snprintf(buf, sizeof buf, "%.1f%s%s", v, r->unit[0] ? " " : "", r->unit);
+    t_atom a[2]; SETSYMBOL(a, gensym(r->label)); SETSYMBOL(a + 1, gensym(buf));
+    outlet_anything(x->x_dump, gensym("disp"), 2, a);
 }
 
 /* nget <name> <tag>: outlet 3 gets "norm <tag> <0-127>", the parameter's value as a pot position */
@@ -652,6 +747,7 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_get, gensym("get"), A_SYMBOL, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_n, gensym("n"), A_SYMBOL, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_nget, gensym("nget"), A_SYMBOL, A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_disp, gensym("disp"), A_SYMBOL, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_delay, gensym("delay"), A_SYMBOL, 0);
     M1(voiceoff); M1(bend); M0(panic); M0(defaults); M0(reset); M0(print);
 }

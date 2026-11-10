@@ -123,6 +123,11 @@ typedef struct {
     float   ws_m, ws_e;          /* MG / DEG3 -> Walsh loop position, in loop steps 0..127 */
     float   wlev[2];             /* Walsh amplitude per DCO (mix x level) */
     float   drive, drv_g, drv_c; /* overdrive 0..1: gain, makeup */
+    /* smoothed copies of continuous settings (time: smooth_ms), so that 7-bit
+     * MIDI CC steps become ramps: cutoff (octaves), resonance, FM, ring and
+     * noise per sample, the others per block */
+    struct { float cut, res, fm[2], ring, nois, det, eg, swp, mgc, mgv, fmhz, fmr, drv, dfb, dlev; } sm;
+    int     ddl_glide;           /* 1: delay time changes glide instead of muting for 40 ms (original) */
     int     drv_pre;             /* 0: after the VCF, 1: before it */
     float   e3n;                 /* DEG3 level 0..1 (last sample) */
     float   vel_amp, vel_cut;    /* velocity -> level 0..1, -> cutoff in octaves */

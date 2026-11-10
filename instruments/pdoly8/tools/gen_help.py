@@ -265,7 +265,7 @@ BLOCKS = [
       "32 dlev: delay level +-15",
       "har, wsh, wmx, lev, detn and drv follow per audio block (smoothed by mrph), all others per sample."]),
     ("Delay settings",
-     [[("dtim", 0, 99), ("dfb", 0, 15)], [("dmf", 0, 31), ("dmi", 0, 31)], [("dlev", 0, 15)]],
+     [[("dtim", 0, 99), ("dfb", 0, 15)], [("dmf", 0, 31), ("dmi", 0, 31)], [("dlev", 0, 15), ("dgld", 0, 1)]],
      ["delay flanger", "delay chorus1", "delay chorus2", "delay slap",
       "delay long", "delay off"],
      ["The digital delay of the Poly-800 II (71-75), measured: the echo is in phase on "
@@ -277,6 +277,7 @@ BLOCKS = [
       "dmi (0): mod depth 0-31 (31: the time swings 1:5, about 10 dB less per 10 steps "
       "below).",
       "dlev (0): echo level 0-15, 0 = off.",
+      "dgld (1): 1: changes glide (time like a tape, feedback and level smoothed), for MIDI CC and modulation, 0: every change mutes the echo for 40 ms, as on the original.",
       "Presets: flanger (4 ms, slow sweep, feedback), chorus1 (fast, shallow), chorus2 "
       "(slow, wider), slap (120 ms), long (0.5 s with repeats), off."]),
     ("DEG1 & DEG2 settings",
@@ -313,7 +314,7 @@ BLOCKS = [
       "treb, bass (0): EQ -6..6 (76/77, measured: about 4 dB at 3, 10 dB at 6, "
       "shelves at 4.3 kHz and 115 Hz).",
       "sprd (0): stereo spread of the 4 voices 0-127.",
-      "mrph (8): smoothing of har and lev changes in ms.",
+      "mrph (8): smoothing time in ms of every continuous setting (timbre, levels, cutoff, resonance, FM, ring, drive, noise, DCO2 pitch, detune, vibrato, EG depth ...), so MIDI CC steps become ramps. 0 = none.",
       "tone (1): 1: output stage measured on a Poly-800 (54 Hz high-pass, VCF, 1 pole "
       "at 5 kHz), 0: raw tone generators.",
       "leak (0): 1: released voices stay at -55 dB, as on the original.",
@@ -482,6 +483,8 @@ def build():
         "  scaled to its range (switches in zones, 64 = 0 if bipolar)",
         "nget <name> <tag>: outlet 3 gets norm <tag> <0-127>,",
         "  the setting as a pot position (for pickup)",
+        "disp <name>: outlet 3 gets disp <label> <value>,",
+        "  two symbols for a display (OLED)",
         "defaults, reset: default values, reset also stops all voices",
         "panic: all voices off",
         "get <name>: reply 'value <name> <v>' on outlet 2",

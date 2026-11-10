@@ -52,7 +52,7 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `oct1` / `oct2` | −1…4 | 0 | octave of DCO1 / DCO2: −1/0/1 = Low, Mid, High; 2–4 = the feet one, two, three counter bits higher (the original combinations without 16') |
 | `nois` | 0–15 | 0 | white noise, sounds while a voice sounds |
 | `sprd` | 0–127 | 0 | stereo spread of the 4 voices, continuous |
-| `mrph` | ms | 8 | smoothing of `har`, `lev` |
+| `mrph` | ms | 8 | smoothing time of every continuous setting (timbre, levels, cutoff, resonance, FM, ring, drive, noise, DCO2 pitch, detune, vibrato, EG depth …): CC steps become ramps |
 | `bnd` | 0–12 | 2 | pitch bend range in semitones (original up to ±7) |
 | `mgf` | Hz | 5 | MG rate (also set by `mgr`) |
 | `mgi` | 0–200 cents | 0 | vibrato depth (triangle on the master clock, through a measured 14.5 Hz one-pole low-pass, so fast vibrato is shallower as on the original). Original 83: 12.4 cents per step, 186 at 15 |
@@ -103,7 +103,8 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `dtim` | 0–99 | 30 | digital delay time (71): exponential, 4.2 ms … 1.08 s (measured: 70 → 216 ms, 99 → 1.08 s) |
 | `dfb` | 0–15 | 0 | delay feedback (72): at 15 each echo is 3.1 dB quieter (measured); a gate ends the echo train about 48 dB under full scale, as on the original |
 | `dmf` `dmi` | 0–31 | 0 | delay modulation rate (73, measured: 0.05 … 5 Hz, 11 → 0.26 Hz, 21 → 1.15 Hz) and depth (74: the delay time swings 1:5 at 31, as in the manual; the swing falls about 10 dB per 10 steps below that, measured) |
-| `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The echo goes to the left output in phase and to the right one inverted (measured: L = dry + echo, R = dry − echo, so a mono sum of both cancels it), band-limited to 7 kHz; changing a delay value mutes the echo briefly, as on the original |
+| `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The echo goes to the left output in phase and to the right one inverted (measured: L = dry + echo, R = dry − echo, so a mono sum of both cancels it), band-limited to 7 kHz |
+| `dgld` | 0/1 | 1 | 1: delay changes glide (time like a tape, feedback and level smoothed), for CC and modulation; 0: every change mutes the echo for 40 ms, as on the original |
 
 ### DEG4, LFO2, LFO3 (modulation)
 
@@ -129,6 +130,9 @@ Targets (range at amount 127): 0 `off`, 1 `pitch` (±24 semitones), 2 `pitch2` (
 |---|---|
 | `n <name> <0-127>` | sets a setting from a 0–127 value (pot, CV, CC), scaled to its range: switches and small ranges in equal zones, −127…127 settings with 0 at 64, `fmr`/`l2r`/`l3r`/`mgf` logarithmic |
 | `nget <name> <tag>` | outlet 3 gets `norm <tag> <0-127>`: the setting as a pot position (pickup) |
+| `disp <name>` | outlet 3 gets `disp <label> <value>`: two symbols for a display, e.g. `Cutoff` `50.1`, `FM source` `other DCO`, `LFO2 target 1` `cut` |
+
+`n` takes fractions (14-bit controllers); settings with more than 15 values are set continuously. Every continuous setting is smoothed over `mrph` ms (default 8) inside the engine, so 7-bit CC steps become ramps instead of zipper noise and clicks.
 
 ### Other messages
 
@@ -293,7 +297,8 @@ Check the path to `m_pd.h` with `find / -name m_pd.h`. Externals load only when 
 - No clicks in a 42 s morph of `har` and `wav` (10 ms frame analysis).
 - Levels: worst case (4 voices, square, all feet, both DCOs) peaks at 0.92 (fixed output level 0.5); one saw note with all feet at 0.36.
 - In Pd (libpd 0.56): object loads, notes, voice stealing, controls by name and number, dump and recall round trip, `get`, `print`, `bend`, `reset`, error on unknown messages; the help patch opens without errors.
-- Bela: a prebuilt binary and the Pepper patch (10 pages of 8 pots, pickup, CV-Lock, MIDI CC for every page parameter, audio in 1 as FM input) are in `bela/` (see `bela/README.md`).
+- Bela with an OLED and MIDI only (no Pepper): `bela-oled/` (see `bela-oled/README.md`): CC and 14-bit NRPN for every setting, the OLED shows the changed setting.
+- Bela Pepper: a prebuilt binary and the Pepper patch (10 pages of 8 pots, pickup, CV-Lock, MIDI CC for every page parameter, audio in 1 as FM input) are in `bela/` (see `bela/README.md`).
 
 ## Credits
 

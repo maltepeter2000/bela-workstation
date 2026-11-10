@@ -47,7 +47,9 @@ ZIG  ?= python3 -m ziglang
 bela-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	$(ZIG) cc -target arm-linux-gnueabihf.2.24 -mcpu=cortex_a8 -O3 -ffast-math -std=c99 -fPIC -fvisibility=hidden \
 	    -I"$(PDINCLUDE)" -shared -s -o 'bela/pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm
+	cp 'bela/pdoly8~.pd_linux' bela-oled/
 	python3 tools/gen_bela.py
+	python3 tools/gen_bela_oled.py
 
 LIPO ?= llvm-lipo-18
 mac-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h

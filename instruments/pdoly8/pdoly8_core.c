@@ -66,6 +66,7 @@ float p8_code_hz16(int code, float clock_hz)
  * all four feet in the middle (64) ... 2' alone. */
 const uint8_t P8_KNOT[P8_KNOTS] = {0x8, 0xC, 0xE, 0xA, 0xB, 0x9, 0xD, 0xF, 0x7, 0x5, 0x4, 0x6, 0x2, 0x3, 0x1};
 
+static float vcf_cut_oct(float c);
 #define P8_RMAX 12                                           /* ring flips per sample and voice */
 static float clampf(float x, float lo, float hi) { return x < lo ? lo : x > hi ? hi : x; }
 
@@ -253,7 +254,7 @@ void p8_set_ddl(p8_engine_t *e, float time, float fb, float mf, float mi, float 
     /* mod depth: the time swings 1:5 at 31 (manual, measured); below that the
      * swing falls by about 10 dB per 10 steps (measured at 21 and 11); 0 = none */
     e->ddl_g = (exp2f((e->ddl_mi - 31.0f) * 0.33219f) - 0.000794f) * (1.0f / 0.999206f);
-    e->ddl_mute = 0.0f;                    /* "delay sound output is momentarily interrupted" */
+    if (!e->ddl_glide) e->ddl_mute = 0.0f; /* "delay sound output is momentarily interrupted" */
 }
 
 /* soft clipping (rational, as in cz4~), exact +-1 from |x| = 3 */
@@ -521,6 +522,12 @@ void p8_settle(p8_engine_t *e)
     for (int g = 0; g < 2; g++) for (int f = 0; f < P8_FEET; f++) e->W[g][f] = e->Wt[g][f];
     for (int g = 0; g < 2; g++) for (int S = 0; S < 16; S++) e->Wc[g][S] = e->Wct[g][S];
     for (int g = 0; g < 2; g++) e->pw[g] = e->pw_t[g];
+    e->sm.cut = vcf_cut_oct(e->vcf_c); e->sm.res = e->vcf_r;
+    e->sm.fm[0] = e->fm; e->sm.fm[1] = e->fm2; e->sm.ring = e->rmod; e->sm.nois = e->noise_level;
+    e->sm.det = e->detune_cents; e->sm.eg = e->egint; e->sm.swp = e->swp2; e->sm.mgc = e->mg_cents;
+    e->sm.mgv = e->mg_vcf; e->sm.fmhz = e->fm_hz; e->sm.fmr = log2f(e->fm_ratio > 0.0f ? e->fm_ratio : 1.0f);
+    e->sm.drv = e->drive; e->sm.dfb = e->ddl_fb; e->sm.dlev = e->ddl_lev;
+    e->ddl_ms_s = e->ddl_ms;
 }
 
 static void tg_pitch(p8_engine_t *e, int t)
@@ -815,7 +822,20 @@ static void mod_tick(p8_engine_t *e, float inv_fs)
 void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
 {
     const float clk0 = P8_TG_CLK * e->a4 / 440.0f;
-    float det = exp2f(-clampf(e->detune_cents, 0.0f, 100.0f) / 1200.0f);
+    /* smoothing of continuous settings: per block here, per sample below */
+    const float ksm = e->ksm, kb = 1.0f - powf(1.0f - ksm, (float)n);
+    {   p8_engine_t *q = e;
+#define P8_SMB(c, t) q->sm.c += kb * ((t) - q->sm.c)
+        P8_SMB(det, q->detune_cents); P8_SMB(eg, q->egint); P8_SMB(swp, q->swp2); P8_SMB(mgc, q->mg_cents);
+        P8_SMB(mgv, q->mg_vcf); P8_SMB(fmhz, q->fm_hz); P8_SMB(fmr, log2f(fmaxf(q->fm_ratio, 0.01f))); P8_SMB(drv, q->drive);
+        P8_SMB(dfb, q->ddl_fb); P8_SMB(dlev, q->ddl_lev);
+#undef P8_SMB
+    }
+    const float tgt_cut = vcf_cut_oct(e->vcf_c);
+    int sm_run = fabsf(e->sm.cut - tgt_cut) > 1e-5f || fabsf(e->sm.res - e->vcf_r) > 1e-5f
+              || fabsf(e->sm.fm[0] - e->fm) > 1e-6f || fabsf(e->sm.fm[1] - e->fm2) > 1e-6f
+              || fabsf(e->sm.ring - e->rmod) > 1e-6f || fabsf(e->sm.nois - e->noise_level) > 1e-6f;
+    float det = exp2f(-clampf(e->sm.det, 0.0f, 100.0f) / 1200.0f);
     const float *mv = e->modv; const unsigned char *tu = e->tused;
     const int mod_on = e->mod_on;
     const float inv_fs = 1.0f / e->fs;
@@ -841,23 +861,23 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
      * half = 0.5 oct/oct with the nominal cutoff at the top key C6 (note 84) */
     const float kbd_oct = e->kbd == 2 ? (e->kbd_note - 60.0f) / 12.0f
                         : e->kbd == 1 ? 0.5f * (e->kbd_note - 84.0f) / 12.0f : 0.0f;
-    const float cut_oct = vcf_cut_oct(e->vcf_c) + kbd_oct - e->vel_cut * (1.0f - e->vel_last);
-    float vk = vcf_k(e->vcf_r);
-    const float eg_oct = P8_EG_OCT * clampf(e->egint, -15.0f, 15.0f) / 15.0f;
+    const float cut_rel = kbd_oct - e->vel_cut * (1.0f - e->vel_last);   /* + the smoothed cutoff */
+    float vk = vcf_k(e->sm.res);
+    const float eg_oct = P8_EG_OCT * clampf(e->sm.eg, -15.0f, 15.0f) / 15.0f;
     const float fc_max = 0.42f * e->fs;
     float cf = exp2f((e->tune_cents + e->bend_semi * 100.0f) / 1200.0f);
     const float cf_static = cf;
     const int sw_mod = e->sw_e > 0.0f || e->sw_m > 0.0f || tu[P8_T_PITCH2] || tu[P8_T_SWE];
-    float swp = exp2f(clampf(e->swp2, 0.0f, 96.0f) / 12.0f);              /* DCO2 offset, semitones */
+    float swp = exp2f(clampf(e->sm.swp, 0.0f, 96.0f) / 12.0f);            /* DCO2 offset, semitones */
     const int sync_on = e->sync && e->mode == P8_DOUBLE;
-    float fm_i[2] = {clampf(e->fm, 0.0f, 16.0f), clampf(e->fm2, 0.0f, 16.0f)};
-    float ring = clampf(e->rmod, 0.0f, 1.0f);
-    float fmr = e->fm_ratio;
+    float fm_i[2] = {clampf(e->sm.fm[0], 0.0f, 16.0f), clampf(e->sm.fm[1], 0.0f, 16.0f)};
+    float ring = clampf(e->sm.ring, 0.0f, 1.0f);
+    float fmr = exp2f(e->sm.fmr);
     /* block-rate modulation targets: detune, drive */
-    if (tu[P8_T_DETN]) det = exp2f(-clampf(e->detune_cents + 50.0f * mv[P8_T_DETN], 0.0f, 100.0f) / 1200.0f);
-    float drv = e->drive, drv_g = e->drv_g, drv_c = e->drv_c;
-    if (tu[P8_T_DRV]) {
-        drv = clampf(drv + mv[P8_T_DRV], 0.0f, 1.0f);
+    if (tu[P8_T_DETN]) det = exp2f(-clampf(e->sm.det + 50.0f * mv[P8_T_DETN], 0.0f, 100.0f) / 1200.0f);
+    float drv = e->sm.drv, drv_g = e->drv_g, drv_c = e->drv_c;
+    if (tu[P8_T_DRV] || fabsf(drv - e->drive) > 1e-6f) {
+        if (tu[P8_T_DRV]) drv = clampf(drv + mv[P8_T_DRV], 0.0f, 1.0f);
         drv_g = 1.0f + 255.0f * drv * drv; drv_c = 0.5f / softclip(0.5f * drv_g);
     }
     const int drv_on = drv > 0.0f;
@@ -896,21 +916,29 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
      * at full depth (measured: no fade-in, a 10 ms ramp avoids a click) */
     if (any && !e->mg_any) e->mg_t = 0.0f;
     e->mg_any = any;
-    const int mg_on = e->mg_cents > 0.0f || e->mg_vcf > 0.0f || e->pwm_d[0] > 0.0f || e->pwm_d[1] > 0.0f
+    const int mg_on = e->sm.mgc > 0.01f || e->sm.mgv > 1e-4f || e->mg_cents > 0.0f || e->mg_vcf > 0.0f || e->pwm_d[0] > 0.0f || e->pwm_d[1] > 0.0f
                     || e->sw_m > 0.0f || e->ws_m > 0.0f || e->h_m > 0.0f || tu[P8_T_MGI];
     float mg_tri = 0.0f;
 
     for (unsigned i = 0; i < n; i++) {
+        if (sm_run) {                                        /* per-sample smoothing (CC steps -> ramps) */
+            e->sm.cut += ksm * (tgt_cut - e->sm.cut);
+            e->sm.res += ksm * (e->vcf_r - e->sm.res); vk = vcf_k(e->sm.res);
+            e->sm.fm[0] += ksm * (e->fm - e->sm.fm[0]); e->sm.fm[1] += ksm * (e->fm2 - e->sm.fm[1]);
+            e->sm.ring += ksm * (e->rmod - e->sm.ring); e->sm.nois += ksm * (e->noise_level - e->sm.nois);
+            fm_i[0] = clampf(e->sm.fm[0], 0.0f, 16.0f); fm_i[1] = clampf(e->sm.fm[1], 0.0f, 16.0f);
+            ring = clampf(e->sm.ring, 0.0f, 1.0f);
+        }
         if (mod_on) {                                        /* DEG4, LFO2, LFO3 -> per-sample targets */
             mod_tick(e, inv_fs);
             float cfs = cf_static;
             if (tu[P8_T_PITCH]) cfs *= exp2f(2.0f * mv[P8_T_PITCH]);
             cf = cfs;
-            fm_i[0] = clampf(e->fm + 16.0f * mv[P8_T_FM1], 0.0f, 16.0f);
-            fm_i[1] = clampf(e->fm2 + 16.0f * mv[P8_T_FM2], 0.0f, 16.0f);
-            if (tu[P8_T_FMR]) fmr = e->fm_ratio * exp2f(2.0f * mv[P8_T_FMR]);
-            ring = clampf(e->rmod + mv[P8_T_RING], 0.0f, 1.0f);
-            if (tu[P8_T_RES]) vk = vcf_k(e->vcf_r + 15.0f * mv[P8_T_RES]);
+            fm_i[0] = clampf(e->sm.fm[0] + 16.0f * mv[P8_T_FM1], 0.0f, 16.0f);
+            fm_i[1] = clampf(e->sm.fm[1] + 16.0f * mv[P8_T_FM2], 0.0f, 16.0f);
+            if (tu[P8_T_FMR]) fmr = exp2f(e->sm.fmr + 2.0f * mv[P8_T_FMR]);
+            ring = clampf(e->sm.ring + mv[P8_T_RING], 0.0f, 1.0f);
+            if (tu[P8_T_RES]) vk = vcf_k(e->sm.res + 15.0f * mv[P8_T_RES]);
         }
         if (mg_on) {                                         /* MG: one triangle for the instrument */
             e->mg_ph += (tu[P8_T_MGR] ? mg_hz * exp2f(3.0f * clampf(mv[P8_T_MGR], -2.0f, 2.0f)) : mg_hz) * inv_fs;
@@ -923,7 +951,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             mg_tri = (4.0f * fabsf(e->mg_ph - 0.5f) - 1.0f) * fade;
             e->mg_val = mg_tri;
             e->mg_lp += (mg_tri - e->mg_lp) * (1.0f - expf(-2.0f * P8_PI * P8_MG_LP * inv_fs));
-            const float mgc = tu[P8_T_MGI] ? clampf(e->mg_cents + 200.0f * mv[P8_T_MGI], 0.0f, 400.0f) : e->mg_cents;
+            const float mgc = tu[P8_T_MGI] ? clampf(e->sm.mgc + 200.0f * mv[P8_T_MGI], 0.0f, 400.0f) : e->sm.mgc;
             if (mgc > 0.0f) cf = (mod_on ? cf : cf_static) * exp2f(mgc * e->mg_lp / 1200.0f);
         }
         for (int g = 0; g < 2; g++) {
@@ -946,7 +974,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             if (tu[P8_T_PW1 + g]) wcur[g] = clampf(wcur[g] + 0.47f * mv[P8_T_PW1 + g], 0.03f, 0.97f);
         }
         if (sw_mod)                                          /* DCO2 sweep: DEG3, MG, DEG4, LFOs */
-            swp = exp2f(clampf(e->swp2 + (e->sw_e + 72.0f * mv[P8_T_SWE]) * e->e3n + e->sw_m * mg_tri
+            swp = exp2f(clampf(e->sm.swp + (e->sw_e + 72.0f * mv[P8_T_SWE]) * e->e3n + e->sw_m * mg_tri
                                + 48.0f * mv[P8_T_PITCH2], -48.0f, 96.0f) / 12.0f);
         float t16[P8_VOICES][P8_RMAX]; int n16[P8_VOICES] = {0, 0, 0, 0};
         float rs0[P8_VOICES] = {1.0f, 1.0f, 1.0f, 1.0f};    /* ring: 16' of DCO1 at the start of the sample */
@@ -993,7 +1021,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 } else if (e->fm_src == 2) {                 /* external signal */
                     m = e->fm_in ? clampf(e->fm_in[i] * e->fm_ig, -2.0f, 2.0f) : 0.0f;
                 } else {                                     /* sine at fmr x the 16' frequency + fmhz */
-                    g->mph += fmr * inc / (float)(2u << g->bit[0]) + e->fm_hz * inv_fs;
+                    g->mph += fmr * inc / (float)(2u << g->bit[0]) + e->sm.fmhz * inv_fs;
                     g->mph -= floorf(g->mph);
                     m = sinf(2.0f * P8_PI * g->mph);
                 }
@@ -1034,19 +1062,19 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         deg_tick(e, &e->deg3, 2);
         const float e3 = deg_level(e->deg3.amp);
         e->e3n = e3 / 31.0f;
-        float oct = cut_oct + eg_oct * e3 / 31.0f + e->mg_vcf * mg_tri + dr_oct + 8.0f * mv[P8_T_CUT];
+        float oct = e->sm.cut + cut_rel + eg_oct * e3 / 31.0f + e->sm.mgv * mg_tri + dr_oct + 8.0f * mv[P8_T_CUT];
         float fc = exp2f(oct) ;
         fc = fc < 20.0f ? 20.0f : fc > fc_max ? fc_max : fc;
         const float vg = tanf(P8_PI * fc * inv_fs), VG = vg / (1.0f + vg), VB = 1.0f / (1.0f + vg);
         const float G4 = VG * VG * VG * VG;
         /* integrate, noise, VCF, output stage */
         e->rng = e->rng * 1664525u + 1013904223u;
-        float nz = ((float)(e->rng >> 8) * (1.0f / 8388608.0f) - 1.0f) * clampf(e->noise_level + mv[P8_T_NOIS], 0.0f, 1.0f) * (e3 / 31.0f) * 0.5f;
+        float nz = ((float)(e->rng >> 8) * (1.0f / 8388608.0f) - 1.0f) * clampf(e->sm.nois + mv[P8_T_NOIS], 0.0f, 1.0f) * (e3 / 31.0f) * 0.5f;
         float o[2];
         /* digital delay: mono input (sum), band-limited, feedback inside the loop;
          * the echo goes to L in phase and to R inverted (measured on a Poly-800 II) */
         float wet = 0.0f;
-        const float dlev = tu[P8_T_DLEV] ? clampf(e->ddl_lev / 15.0f + mv[P8_T_DLEV], 0.0f, 1.0f) : e->ddl_lev / 15.0f;
+        const float dlev = tu[P8_T_DLEV] ? clampf(e->sm.dlev / 15.0f + mv[P8_T_DLEV], 0.0f, 1.0f) : e->sm.dlev / 15.0f;
         const int ddl_on = dlev > 0.0f;
         for (int c = 0; c < 2; c++) {
             e->acc[c] += e->ring[c][e->rpos];
@@ -1082,7 +1110,8 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             o[0] *= a * (b > 0.0f ? 1.0f - b : 1.0f); o[1] *= a * (b < 0.0f ? 1.0f + b : 1.0f);
         }
         if (ddl_on || e->ddl_fb > 0.0f) {
-            if (e->ddl_mute < 1.0f) {                               /* muted while the time jumps */
+            if (e->ddl_glide) e->ddl_ms_s += 0.0003f * (e->ddl_ms - e->ddl_ms_s);   /* glide, about 70 ms at 48 kHz */
+            else if (e->ddl_mute < 1.0f) {                          /* muted while the time jumps */
                 if (e->ddl_mute < 0.5f) e->ddl_ms_s = e->ddl_ms;
                 e->ddl_mute += inv_fs / 0.04f; if (e->ddl_mute > 1.0f) e->ddl_mute = 1.0f;
             }
@@ -1103,7 +1132,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
             float y1 = e->ddl_buf[(unsigned)(i0 + 1) & (P8_DDL - 1)], y2 = e->ddl_buf[(unsigned)(i0 + 2) & (P8_DDL - 1)];
             float c1 = 0.5f * (y1 - ym1), c2 = ym1 - 2.5f * y0 + 2.0f * y1 - 0.5f * y2, c3 = 0.5f * (y2 - ym1) + 1.5f * (y0 - y1);
             wet = ((c3 * fr + c2) * fr + c1) * fr + y0;
-            float in = 0.5f * (o[0] + o[1]) + wet * (e->ddl_fb / 15.0f) * P8_DDL_FB15;
+            float in = 0.5f * (o[0] + o[1]) + wet * (e->sm.dfb / 15.0f) * P8_DDL_FB15;
             for (int p = 0; p < 2; p++) {                         /* band limit of the DDL */
                 float v = (in - e->ddl_lp[p]) * e->ddl_lpg; float yp = v + e->ddl_lp[p]; e->ddl_lp[p] = yp + v; in = yp;
             }
