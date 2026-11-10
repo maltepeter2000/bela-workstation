@@ -12,11 +12,24 @@
  *
  * DEG1-3, VCF, MG, EQ and digital delay as on the Poly-800 II.
  */
+#if !defined(_WIN32)
+#define _DEFAULT_SOURCE              /* sockets, nanosleep with -std=c99 */
+#define _DARWIN_C_SOURCE
+#endif
 #include "m_pd.h"
 #include "pdoly8_core.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#if !defined(_WIN32)
+#include <pthread.h>
+#include <time.h>
+#include <unistd.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <arpa/inet.h>
+#define P8_OLED 1
+#endif
 
 /* The eight controls (0..127), one per pot or MIDI CC: timbre and envelope
  * of each DCO, interval, detune, levels. env1 / env2 also take -1 (own DEG
@@ -60,6 +73,16 @@ typedef struct _pdoly8 {
     t_float  stack[16]; int nstack; /* mono: keys held, last on top */
     int      restoring;
     float   *buf; int bufn;
+#ifdef P8_OLED
+    /* OLED via O2O: the audio thread only copies text (seqlock), a thread of
+     * its own sends the OSC packet, so no network call runs in the audio
+     * thread (on Bela that would cost a mode switch and clicks) */
+    char     o_txt[2][2][48];      /* two buffers of two lines */
+    volatile unsigned o_seq;       /* odd while writing */
+    int      o_on, o_quit, o_sock;
+    struct sockaddr_in o_to;
+    pthread_t o_th;
+#endif
 } t_pdoly8;
 
 /* modulation targets of DEG4, LFO2, LFO3 (the order of P8_T_* in pdoly8_core.h) */
@@ -581,6 +604,73 @@ static float range_to127(const t_p8range *r, float v)
     return floorf(clampf_(c, 0.0f, 127.0f) + 0.5f);
 }
 
+#ifdef P8_OLED
+static void oled_put(t_pdoly8 *x, const char *l1, const char *l2)
+{
+    if (!x->o_on) return;
+    unsigned s = x->o_seq;
+    __atomic_store_n(&x->o_seq, s + 1, __ATOMIC_RELEASE);          /* odd: writing */
+    int b = ((s + 2) >> 1) & 1;
+    snprintf(x->o_txt[b][0], sizeof x->o_txt[b][0], "%s", l1);
+    snprintf(x->o_txt[b][1], sizeof x->o_txt[b][1], "%s", l2);
+    __atomic_store_n(&x->o_seq, s + 2, __ATOMIC_RELEASE);
+}
+
+static int osc_str(char *p, const char *s)                   /* OSC string, padded to 4 */
+{
+    int n = (int)strlen(s) + 1, m = (n + 3) & ~3;
+    memset(p, 0, (size_t)m); memcpy(p, s, (size_t)(n - 1));
+    return m;
+}
+
+static void *oled_thread(void *arg)
+{
+    t_pdoly8 *x = (t_pdoly8 *)arg;
+    unsigned sent = 0;
+    struct timespec ts = {0, 40 * 1000 * 1000};             /* at most every 40 ms */
+    while (!x->o_quit) {
+        nanosleep(&ts, 0);
+        unsigned s = __atomic_load_n(&x->o_seq, __ATOMIC_ACQUIRE);
+        if (s == sent || (s & 1)) continue;
+        char l[2][48]; int b = (s >> 1) & 1;
+        memcpy(l, x->o_txt[b], sizeof l);
+        if (__atomic_load_n(&x->o_seq, __ATOMIC_ACQUIRE) != s) continue;   /* changed while copying */
+        char pk[256]; int n = 0;
+        n += osc_str(pk + n, "/display-strings-and-numbers");
+        n += osc_str(pk + n, ",sss");
+        n += osc_str(pk + n, l[0]); n += osc_str(pk + n, "\\n"); n += osc_str(pk + n, l[1]);
+        sendto(x->o_sock, pk, (size_t)n, 0, (struct sockaddr *)&x->o_to, sizeof x->o_to);
+        sent = s;
+    }
+    return 0;
+}
+
+/* oled <host> <port>: send the changed setting (and oledtext) to O2O from a thread of its own */
+static void pdoly8_oled(t_pdoly8 *x, t_symbol *host, t_floatarg port)
+{
+    if (x->o_on) return;
+    x->o_sock = socket(AF_INET, SOCK_DGRAM, 0);
+    if (x->o_sock < 0) { pd_error(x, "pdoly8~: oled: no socket"); return; }
+    memset(&x->o_to, 0, sizeof x->o_to);
+    x->o_to.sin_family = AF_INET; x->o_to.sin_port = htons((unsigned short)port);
+    if (inet_pton(AF_INET, host->s_name, &x->o_to.sin_addr) != 1) { pd_error(x, "pdoly8~: oled: bad address"); close(x->o_sock); return; }
+    x->o_quit = 0; x->o_on = 1;
+    if (pthread_create(&x->o_th, 0, oled_thread, x) != 0) { x->o_on = 0; close(x->o_sock); pd_error(x, "pdoly8~: oled: no thread"); }
+}
+
+/* oledtext <line 1> <line 2>: show two lines (e.g. the program) */
+static void pdoly8_oledtext(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
+{
+    (void)s;
+    char a[48] = "", b[48] = "";
+    if (argc > 0) atom_string(argv, a, sizeof a);
+    if (argc > 1) atom_string(argv + 1, b, sizeof b);
+    oled_put(x, a, b);
+}
+#endif
+
+static int disp_text(t_pdoly8 *x, t_symbol *name, const char **label, char *buf, size_t nb);
+
 /* n <name> <0-127>: set a parameter from a pot, CV or CC; "none" is ignored */
 static void pdoly8_n(t_pdoly8 *x, t_symbol *name, t_floatarg c)
 {
@@ -588,35 +678,41 @@ static void pdoly8_n(t_pdoly8 *x, t_symbol *name, t_floatarg c)
     const t_p8range *r = find_range(name);
     if (!r) { pd_error(x, "pdoly8~: n: no 0-127 range for '%s'", name->s_name); return; }
     t_atom a; SETFLOAT(&a, range_from127(r, c));
-    t_float *old = find_value(x, name), before = old ? *old : 0;
     pdoly8_anything(x, name, 1, &a);
-    const char *nm = name->s_name;                       /* targets: name them in the console */
-    if (old && *old != before && strlen(nm) == 4 && nm[2] == 't' && (nm[0] == 'd' || nm[0] == 'l'))
-        post("pdoly8~: %s %s", nm, TGT_NAME[(int)*old]);
+#ifdef P8_OLED
+    if (x->o_on) { const char *l; char v[48]; if (disp_text(x, name, &l, v, sizeof v)) oled_put(x, l, v); }
+#endif
 }
 
 /* disp <name>: outlet 3 gets "disp <label> <value>", two symbols for a display
  * (OLED): the setting's name and its value with unit, switch name or target */
-static void pdoly8_disp(t_pdoly8 *x, t_symbol *name)
+static int disp_text(t_pdoly8 *x, t_symbol *name, const char **label, char *buf, size_t nb)
 {
     const t_p8range *r = find_range(name);
     t_float *pv = find_value(x, name);
-    if (!r || !pv) return;
+    if (!r || !pv) return 0;
     float v = *pv;
-    char buf[64];
-    if (r->unit[0] == '@') snprintf(buf, sizeof buf, "%s", TGT_NAME[(int)clampf_(v, 0, P8_NT - 1)]);
+    *label = r->label;
+    if (r->unit[0] == '@') snprintf(buf, nb, "%s", TGT_NAME[(int)clampf_(v, 0, P8_NT - 1)]);
     else if (strchr(r->unit, '|')) {                     /* named values: lo, lo+1, ... */
         int k = (int)lroundf(v - r->lo), n = 0;
         const char *p = r->unit, *q;
         while (n < k && (q = strchr(p, '|'))) { p = q + 1; n++; }
         q = strchr(p, '|'); int len = q ? (int)(q - p) : (int)strlen(p);
-        snprintf(buf, sizeof buf, "%.*s", len, p);
+        snprintf(buf, nb, "%.*s", len, p);
     }
     else if ((r->kind == 'i' && r->hi - r->lo < 15.0f) || r->kind == 't')
-        snprintf(buf, sizeof buf, "%.0f%s%s", v, r->unit[0] ? " " : "", r->unit);
-    else if (r->kind == 'l' || fabsf(v) < 10.0f) snprintf(buf, sizeof buf, "%.3g%s%s", v, r->unit[0] ? " " : "", r->unit);
-    else snprintf(buf, sizeof buf, "%.1f%s%s", v, r->unit[0] ? " " : "", r->unit);
-    t_atom a[2]; SETSYMBOL(a, gensym(r->label)); SETSYMBOL(a + 1, gensym(buf));
+        snprintf(buf, nb, "%.0f%s%s", v, r->unit[0] ? " " : "", r->unit);
+    else if (r->kind == 'l' || fabsf(v) < 10.0f) snprintf(buf, nb, "%.3g%s%s", v, r->unit[0] ? " " : "", r->unit);
+    else snprintf(buf, nb, "%.1f%s%s", v, r->unit[0] ? " " : "", r->unit);
+    return 1;
+}
+
+static void pdoly8_disp(t_pdoly8 *x, t_symbol *name)
+{
+    const char *l; char buf[64];
+    if (!disp_text(x, name, &l, buf, sizeof buf)) return;
+    t_atom a[2]; SETSYMBOL(a, gensym(l)); SETSYMBOL(a + 1, gensym(buf));
     outlet_anything(x->x_dump, gensym("disp"), 2, a);
 }
 
@@ -717,7 +813,13 @@ static void *pdoly8_new(void)
     return x;
 }
 
-static void pdoly8_free(t_pdoly8 *x) { freebytes(x->buf, (size_t)x->bufn * sizeof(float)); }
+static void pdoly8_free(t_pdoly8 *x)
+{
+#ifdef P8_OLED
+    if (x->o_on) { x->o_quit = 1; pthread_join(x->o_th, 0); close(x->o_sock); x->o_on = 0; }
+#endif
+    freebytes(x->buf, (size_t)x->bufn * sizeof(float));
+}
 
 #define M1(name) class_addmethod(pdoly8_class, (t_method)pdoly8_##name, gensym(#name), A_FLOAT, 0)
 #define M0(name) class_addmethod(pdoly8_class, (t_method)pdoly8_##name, gensym(#name), 0)
@@ -743,6 +845,10 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_n, gensym("n"), A_SYMBOL, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_nget, gensym("nget"), A_SYMBOL, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_disp, gensym("disp"), A_SYMBOL, 0);
+#ifdef P8_OLED
+    class_addmethod(pdoly8_class, (t_method)pdoly8_oled, gensym("oled"), A_SYMBOL, A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_oledtext, gensym("oledtext"), A_GIMME, 0);
+#endif
     class_addmethod(pdoly8_class, (t_method)pdoly8_delay, gensym("delay"), A_SYMBOL, 0);
     M1(voiceoff); M1(bend); M0(panic); M0(defaults); M0(reset); M0(print);
 }

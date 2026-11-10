@@ -19,7 +19,7 @@ CFLAGS  ?= -O2 -std=c99 -Wall -Wextra -Wshadow
 # The core must stay in single precision (Cortex-A8 VFP/NEON): flag any
 # accidental double arithmetic there.
 CORE_FLAGS = -Wdouble-promotion -Werror
-LDLIBS  = -lm
+LDLIBS  = -lm -lpthread
 
 UNAME := $(shell uname -s)
 ifeq ($(UNAME),Darwin)
@@ -41,15 +41,16 @@ $(EXTERNAL): pdoly8~.c pdoly8_core.c pdoly8_core.h
 
 bela: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	$(CC) $(BELA_FLAGS) -std=c99 -Wall -fPIC -fvisibility=hidden -I"$(PDINCLUDE)" -shared \
-	    -o 'pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm
+	    -o 'pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm -lpthread
 
 ZIG  ?= python3 -m ziglang
 bela-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	$(ZIG) cc -target arm-linux-gnueabihf.2.24 -mcpu=cortex_a8 -O3 -ffast-math -std=c99 -fPIC -fvisibility=hidden \
-	    -I"$(PDINCLUDE)" -shared -s -o 'bela/pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm
+	    -I"$(PDINCLUDE)" -shared -s -o 'bela/pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm -lpthread
 	cp 'bela/pdoly8~.pd_linux' bela-oled/
 	python3 tools/gen_bela.py
 	python3 tools/gen_bela_oled.py
+	python3 tools/gen_cc_readme.py
 
 LIPO ?= llvm-lipo-18
 mac-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h

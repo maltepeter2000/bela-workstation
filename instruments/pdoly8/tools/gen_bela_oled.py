@@ -7,13 +7,13 @@
     NRPN 14-bit: CC 99 = 0, CC 98 = the parameter's CC number, CC 6 / 38 = data MSB / LSB
   Every value goes through pdoly8~'s  n <name> <0-127>  (fractions from NRPN pass);
   pdoly8~ smooths continuous settings (mrph), the delay glides (dgld 1).
-  OLED via O2O (OSC to 127.0.0.1:7562, as in tx81z-pd): the changed setting and its
-  value (pdoly8~'s  disp <name>), the program on preset changes; at most every 40 ms.
+  OLED via O2O (OSC to 127.0.0.1:7562, as in tx81z-pd): pdoly8~ sends the changed setting
+  and its value from a thread of its own (oled / oledtext), at most every 40 ms. Nothing
+  in the patch prints or touches the network, so the audio thread never mode-switches.
 
 Send/receive names
   p8-in      messages to pdoly8~          p8-out     outlet 3 of pdoly8~
   p8-preset  load factory preset N        p8-set     "<number> <0-127>" from CC or NRPN
-  p8-oled    "<line 1> <line 2>" to the OLED
 usage: python3 tools/gen_bela_oled.py
 """
 import os
@@ -35,7 +35,7 @@ def sec_init():
     lb = p.add("loadbang", 10, 40)
     mi = p.msg("; bela_setMidi hw 0 0 0", 10, 70)
     d = p.add("del 500", 200, 70); z = p.msg("0", 200, 100); sp = p.add("s p8-preset", 200, 125)
-    hi = p.msg("pdoly8~ Poly-800", 400, 100); so = p.add("s p8-oled", 400, 125)
+    hi = p.msg(f"oled {OLED_HOST} {OLED_PORT}, oledtext pdoly8~ Poly-800", 400, 100); so = p.add("s p8-in", 400, 125)
     p.con(lb, 0, mi, 0); p.con(lb, 0, d, 0); p.con(d, 0, z, 0); p.con(z, 0, sp, 0); p.con(lb, 0, hi, 0); p.con(hi, 0, so, 0)
     return p
 
@@ -47,9 +47,9 @@ def sec_presets():
     fa = p.add("p8factory", 10, 120); s = p.add("s p8-in", 10, 145)
     ex = p.add("expr (int($f1 / 8) + 1) * 10 + $f1 % 8 + 1", 200, 120)
     mf = p.add("makefilename %d", 200, 145)
-    pk = p.msg("Program $1", 200, 170); so = p.add("s p8-oled", 200, 195); pr = p.add("print preset", 400, 145)
+    pk = p.msg("oledtext Program $1", 200, 170); so = p.add("s p8-in", 200, 195)
     p.con(r, 0, w, 0); p.con(w, 0, t, 0); p.con(t, 1, fa, 0); p.con(fa, 0, s, 0)
-    p.con(t, 0, ex, 0); p.con(ex, 0, mf, 0); p.con(mf, 0, pk, 0); p.con(pk, 0, so, 0); p.con(ex, 0, pr, 0)
+    p.con(t, 0, ex, 0); p.con(ex, 0, mf, 0); p.con(mf, 0, pk, 0); p.con(pk, 0, so, 0)
     return p
 
 
@@ -66,20 +66,31 @@ def sec_midi():
     ci = p.add("ctlin", 10, 170); pk2 = p.add("pack f f", 10, 195); sw = p.msg("$2 $1", 10, 220)
     p.con(ci, 1, pk2, 1); p.con(ci, 0, pk2, 0); p.con(pk2, 0, sw, 0)
     rt = p.add("route 98 6 38 99", 10, 250); p.con(sw, 0, rt, 0)
-    # plain CC
-    sc = p.add("s p8-set", 400, 285); p.con(rt, 4, sc, 0)
-    p.note("other CC: number value -> p8-set", 480, 285)
-    # NRPN: 98 = number, 6 = MSB (LSB taken as 0), 38 = LSB (with the last MSB)
-    p.note("NRPN: 98 = parameter (its CC number) / 6 = MSB / 38 = LSB / 99 ignored", 10, 290)
-    num = p.add("f", 10, 420); p.con(rt, 0, num, 1)
-    ex = p.add("expr ($f1 * 128 + $f2) * 127 / 16383", 150, 380)
-    t6 = p.add("t f f b", 150, 320); z = p.msg("0", 260, 345)
-    p.con(rt, 1, t6, 0); p.con(t6, 2, z, 0); p.con(z, 0, ex, 1)
-    ms = p.add("f", 330, 345); p.con(t6, 1, ms, 1); p.con(t6, 0, ex, 0)
-    t38 = p.add("t b f", 330, 320); p.con(rt, 2, t38, 0); p.con(t38, 1, ex, 1); p.con(t38, 0, ms, 0); p.con(ms, 0, ex, 0)
-    tv = p.add("t b f", 150, 405); p.con(ex, 0, tv, 0)
-    pv = p.add("pack f f", 10, 445); p.con(tv, 1, pv, 1); p.con(tv, 0, num, 0); p.con(num, 0, pv, 0)
-    s5 = p.add("s p8-set", 10, 470); p.con(pv, 0, s5, 0)
+    sc = p.add("s p8-set", 600, 285); p.con(rt, 4, sc, 0)
+    p.note("other CC: number value -> p8-set", 600, 260)
+    p.note("NRPN: 98 = parameter (its CC number) / 6 = MSB / 38 = LSB only right after a 6 (else CC 38 = pw1) / 99 ignored",
+           10, 290)
+    num = p.add("f", 10, 470); p.con(rt, 0, num, 1)
+    ex = p.add("expr ($f1 * 128 + $f2) * 127 / 16383", 150, 440)
+    arm = p.add("f", 420, 400)                           # 1 after CC 6: the next CC 38 is the LSB
+    ms = p.add("f", 300, 400)
+    # CC 6 = MSB: arm, LSB 0, keep the MSB, value
+    t6 = p.add("t f f b b", 150, 320); o1 = p.msg("1", 300, 345); z = p.msg("0", 250, 370)
+    p.con(rt, 1, t6, 0); p.con(t6, 3, o1, 0); p.con(o1, 0, arm, 1); p.con(t6, 2, z, 0); p.con(z, 0, ex, 1)
+    p.con(t6, 1, ms, 1); p.con(t6, 0, ex, 0)
+    # CC 38: LSB if armed, else the plain CC 38
+    t38 = p.add("t b f", 420, 320); p.con(rt, 2, t38, 0)
+    lsbv = p.add("f", 520, 470); pv0 = p.add("f", 640, 470)
+    p.con(t38, 1, lsbv, 1); p.con(t38, 1, pv0, 1)
+    p.con(t38, 0, arm, 0)
+    ta = p.add("t f b", 420, 425); z2 = p.msg("0", 500, 425); p.con(arm, 0, ta, 0); p.con(ta, 1, z2, 0); p.con(z2, 0, arm, 1)
+    sel = p.add("sel 1 0", 420, 450); p.con(ta, 0, sel, 0)
+    p.con(sel, 0, lsbv, 0); p.con(sel, 1, pv0, 0)
+    tl = p.add("t b f", 520, 495); p.con(lsbv, 0, tl, 0); p.con(tl, 1, ex, 1); p.con(tl, 0, ms, 0); p.con(ms, 0, ex, 0)
+    pl = p.msg("38 $1", 640, 495); s38 = p.add("s p8-set", 640, 520); p.con(pv0, 0, pl, 0); p.con(pl, 0, s38, 0)
+    tv = p.add("t b f", 150, 470); p.con(ex, 0, tv, 0)
+    pv = p.add("pack f f", 10, 495); p.con(tv, 1, pv, 1); p.con(tv, 0, num, 0); p.con(num, 0, pv, 0)
+    s5 = p.add("s p8-set", 10, 520); p.con(pv, 0, s5, 0)
     return p
 
 
@@ -96,8 +107,7 @@ def sec_set():
     p.con(t, 1, ap, 0)
     pn = p.add("list prepend n", 250, 255); tr = p.add("list trim", 250, 280); so = p.add("s p8-in", 250, 305)
     p.con(ap, 0, pn, 0); p.con(pn, 0, tr, 0); p.con(tr, 0, so, 0)
-    dm = p.msg("disp $1", 60, 255); sd = p.add("s p8-in", 60, 280)
-    p.con(t, 0, dm, 0); p.con(dm, 0, sd, 0)
+    p.note("pdoly8~ itself sends the changed setting to the OLED (oled ...)", 60, 260)
     p.note("unknown numbers are ignored", 150, 120)
     return p
 
@@ -146,14 +156,15 @@ def main_patch():
              "MIDI: notes / pitch bend / program change 1-64 = factory preset / CC and 14-bit NRPN -> settings",
              "  (table in README; NRPN: CC 99 = 0, CC 98 = the parameter's CC number, CC 6 / 38 = MSB / LSB)",
              "pdoly8~ smooths every continuous setting (mrph ms), the delay glides (dgld 1): no zipper or pops.",
-             "OLED: the changed setting and its value, the program on preset changes.",
+             "OLED: the changed setting and its value, the program on preset changes - sent by pdoly8~ from a",
+             "  thread of its own (oled 127.0.0.1 7562), never from the audio thread: no network call, no print.",
              "Audio in 1 = external FM source (fms 2, gain fmig)."]
     for k, l in enumerate(lines):
         p.note(l, 10, 6 + 15 * k)
     y = 110
     for sec, txt in [(sec_init(), "MIDI port / O2O / preset 0 at start"), (sec_tables(), "CC table"),
                      (sec_presets(), "factory presets"), (sec_midi(), "notes / bend / program / CC / NRPN"),
-                     (sec_set(), "CC / NRPN -> pdoly8~ and OLED"), (sec_oled(), "OLED via O2O")]:
+                     (sec_set(), "CC / NRPN -> pdoly8~")]:
         p.sub(sec, 10, y)
         p.note(txt, 140, y)
         y += 25

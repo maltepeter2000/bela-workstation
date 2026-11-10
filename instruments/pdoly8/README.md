@@ -131,6 +131,8 @@ Targets (range at amount 127): 0 `off`, 1 `pitch` (±24 semitones), 2 `pitch2` (
 | `n <name> <0-127>` | sets a setting from a 0–127 value (pot, CV, CC), scaled to its range: switches and small ranges in equal zones, −127…127 settings with 0 at 64, `fmr`/`l2r`/`l3r`/`mgf` logarithmic |
 | `nget <name> <tag>` | outlet 3 gets `norm <tag> <0-127>`: the setting as a pot position (pickup) |
 | `disp <name>` | outlet 3 gets `disp <label> <value>`: two symbols for a display, e.g. `Cutoff` `50.1`, `FM source` `other DCO`, `LFO2 target 1` `cut` |
+| `oled <host> <port>` | sends the changed setting (as `disp`) and `oledtext` as OSC `/display-strings-and-numbers` to O2O (an OLED), from a thread of its own: no network call in the audio thread (Linux, macOS) |
+| `oledtext <line 1> <line 2>` | two lines for the OLED, e.g. the program |
 
 `n` takes fractions (14-bit controllers); settings with more than 15 values are set continuously. Every continuous setting, the modulation slots (amount, target, LFO edges) and the stereo spread and EQ are smoothed over `mrph` ms (default 25, long enough to bridge the 10–20 ms between the steps of a turned 7-bit knob) inside the engine, so 7-bit CC steps become ramps instead of zipper noise and clicks.
 
