@@ -12,7 +12,7 @@
 | CV-Eingänge | ohne Kabel setzt der Pot den Wert; mit Kabel schwächt der Pot die CV ab |
 | **CV-Lock** | Taste 4 halten und einen Pot drehen: dieser Eingang bleibt auf seinem Parameter, auf allen Seiten, ohne Pickup (für CV). Dasselbe noch einmal löst ihn. Die Konsole meldet `locked pot N: n <name>` / `unlocked pot N`; das Preset springt dabei nicht weiter |
 | Audio In 1 | externe FM-Quelle: Seite FM, `fms` auf „Eingang“, Pot 6 = Pegel (`fmig`) |
-| MIDI (USB) | Noten (4 Stimmen), Pitch Bend, Program Change 1–64 = Preset 0–63, CC siehe unten (jeder Kanal) |
+| MIDI (USB) | Noten (4 Stimmen), Pitch Bend, Program Change 1–64 = Preset 0–63, CC siehe unten (dieselbe Tabelle wie `bela-oled/`, jeder Kanal) |
 
 ## Seiten
 
@@ -33,117 +33,129 @@ Schalter (`kbd`, `sync`, `fms`, `mono`, LFO-Welle …) und Ziele (`d4t1`, `l2t1`
 
 ## MIDI-CC
 
-Ein CC setzt den Parameter wie der Pot (gleiche Umrechnung, über `n <name> <0-127>` im External). Danach lesen die Pots ihre Pickup-Ziele neu.
+Für einen Controller mit 4 Reihen × 16 Pots: 8 Gruppen zu je 8, jede Reihe ein durchgehender CC-Block ohne reservierte Nummern, kein Parameter doppelt. NRPN (14 Bit) mit denselben Nummern: CC 99 = 0, CC 98 = Nummer, CC 6 / 38 = MSB / LSB.
 
-| Seite | CC → Parameter |
-|---|---|
-| 1 PLAY | 20 `har1`, 21 `har2`, 22 `env1`, 23 `env2`, 24 `intv`, 25 `detn`, 26 `lev1`, 27 `lev2` |
-| 2 FILTER | 40 `cut`, 41 `res`, 42 `egi`, 43 `kbd`, 44 `env3`, 45 `vcut`, 46 `drv`, 47 `nois` |
-| 3 OSC | 48 `oct1`, 49 `oct2`, 50 `pw1`, 51 `pw2`, 52 `pwm1`, 53 `pwm2`, 54 `hmg`, 55 `drft` |
-| 4 WALSH | 56 `wsh1`, 57 `wsh2`, 58 `wmx1`, 59 `wmx2`, 60 `wsm`, 61 `wse`, 26 `lev1`, 27 `lev2` |
-| 5 SYNC-RING | 70 `sync`, 71 `swp2`, 72 `swe`, 73 `swm`, 74 `ring`, 75 `rmf`, 26 `lev1`, 27 `lev2` |
-| 6 FM | 76 `fm1`, 77 `fm2`, 78 `fmr`, 79 `fmhz`, 80 `fms`, 81 `fmig`, 26 `lev1`, 27 `lev2` |
-| 7 MG-DEG4 | 82 `mgr`, 83 `mgi`, 84 `mgd`, 85 `mgv`, 86 `env4`, 87 `trg4`, 88 `d4t1`, 89 `d4a1` |
-| 8 LFO2 | 102 `l2r`, 103 `l2w`, 104 `l2k`, 105 `l2f`, 106 `l2t1`, 107 `l2a1`, 108 `l2t2`, 109 `l2a2` |
-| 9 LFO3 | 110 `l3r`, 111 `l3w`, 112 `l3k`, 113 `l3f`, 114 `l3t1`, 115 `l3a1`, 116 `l3t2`, 117 `l3a2` |
-| 10 FX-PERFORM | 12 `dtim`, 13 `dfb`, 14 `dmf`, 15 `dmi`, 16 `dlev`, 17 `port`, 18 `mono`, 19 `vamp` |
-| nur MIDI | 2 `pmod`, 3 `retr`, 4 `pol`, 5 `trg`, 8 `drvp`, 9 `mgf`, 28 `bnd`, 29 `mrph`, 30 `tone`, 31 `leak`, 33 `treb`, 34 `bass`, 35 `sprd`, 36 `d4t2`, 37 `d4a2` |
+| Reihe | Pots 1–8 | Pots 9–16 |
+|---|---|---|
+| **1** (CC 12–27) | PLAY | FILTER |
+| **2** (CC 40–55) | OSC | WALSH-RING |
+| **3** (CC 70–85) | SYNC-FM | MG-FMSOURCE-DEG3 |
+| **4** (CC 102–117) | DELAY-EQ | PERFORM |
 
-Ausführlich:
+| Gruppe | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| **PLAY** 12–19 | `har1` | `har2` | `env1` | `env2` | `intv` | `detn` | `lev1` | `lev2` |
+| **FILTER** 20–27 | `cut` | `res` | `egi` | `env3` | `kbd` | `vcut` | `drv` | `nois` |
+| **OSC** 40–47 | `oct1` | `oct2` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
+| **WALSH-RING** 48–55 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
+| **SYNC-FM** 70–77 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
+| **MG-FMSOURCE-DEG3** 78–85 | `mgr` | `mgi` | `mgd` | `mgv` | `fms` | `fmig` | `pol` | `trg` |
+| **DELAY-EQ** 102–109 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
+| **PERFORM** 110–117 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
 
-| CC | Parameter | Funktion | Seite / Pot |
+LFO2, LFO3, DEG4 und `drvp`, `tone`, `leak`, `mgf` liegen auf freien Nummern außerhalb der Blöcke (ohne Pot). Nicht per CC: `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4` (über `env1`–`env4` erreichbar).
+
+| CC / NRPN | Parameter | Anzeige (OLED) | Bereich |
 |---|---|---|---|
-| 2 | `pmod` | Portamento-Modus | nur MIDI |
-| 3 | `retr` | Mono-Retrigger / Legato | nur MIDI |
-| 4 | `pol` | DEG3-Polarität | nur MIDI |
-| 5 | `trg` | DEG3-Trigger | nur MIDI |
-| 8 | `drvp` | Overdrive post / pre | nur MIDI |
-| 9 | `mgf` | MG-Rate in Hz (log) | nur MIDI |
-| 12 | `dtim` | Delay-Zeit | 10 FX-PERFORM / 1 |
-| 13 | `dfb` | Delay-Feedback | 10 FX-PERFORM / 2 |
-| 14 | `dmf` | Delay-Mod-Rate | 10 FX-PERFORM / 3 |
-| 15 | `dmi` | Delay-Mod-Tiefe | 10 FX-PERFORM / 4 |
-| 16 | `dlev` | Delay-Pegel | 10 FX-PERFORM / 5 |
-| 17 | `port` | Portamento | 10 FX-PERFORM / 6 |
-| 18 | `mono` | Poly / Mono | 10 FX-PERFORM / 7 |
-| 19 | `vamp` | Velocity → Lautstärke | 10 FX-PERFORM / 8 |
-| 20 | `har1` | Klangfarbe DCO1 | 1 PLAY / 1 |
-| 21 | `har2` | Klangfarbe DCO2 | 1 PLAY / 2 |
-| 22 | `env1` | Hüllkurven-Morph DCO1 | 1 PLAY / 3 |
-| 23 | `env2` | Hüllkurven-Morph DCO2 | 1 PLAY / 4 |
-| 24 | `intv` | Intervall DCO2 (0–12 Halbtöne) | 1 PLAY / 5 |
-| 25 | `detn` | Verstimmung DCO2 | 1 PLAY / 6 |
-| 26 | `lev1` | Pegel DCO1 | 1 PLAY / 7 |
-| 27 | `lev2` | Pegel DCO2 | 1 PLAY / 8 |
-| 28 | `bnd` | Pitch-Bend-Bereich | nur MIDI |
-| 29 | `mrph` | Glättung | nur MIDI |
-| 30 | `tone` | Ausgangsstufe an / aus | nur MIDI |
-| 31 | `leak` | Leak an / aus | nur MIDI |
-| 33 | `treb` | EQ Höhen | nur MIDI |
-| 34 | `bass` | EQ Bässe | nur MIDI |
-| 35 | `sprd` | Stereo-Breite | nur MIDI |
-| 36 | `d4t2` | DEG4-Ziel 2 | nur MIDI |
-| 37 | `d4a2` | DEG4-Stärke 2 | nur MIDI |
-| 40 | `cut` | Cutoff | 2 FILTER / 1 |
-| 41 | `res` | Resonanz | 2 FILTER / 2 |
-| 42 | `egi` | DEG3 → Cutoff | 2 FILTER / 3 |
-| 43 | `kbd` | Keyboard-Tracking (aus / halb / voll) | 2 FILTER / 4 |
-| 44 | `env3` | Hüllkurven-Morph DEG3 | 2 FILTER / 5 |
-| 45 | `vcut` | Velocity → Cutoff | 2 FILTER / 6 |
-| 46 | `drv` | Overdrive | 2 FILTER / 7 |
-| 47 | `nois` | Rauschen | 2 FILTER / 8 |
-| 48 | `oct1` | Oktave DCO1 (−1…+4) | 3 OSC / 1 |
-| 49 | `oct2` | Oktave DCO2 (−1…+4) | 3 OSC / 2 |
-| 50 | `pw1` | Pulsbreite DCO1 | 3 OSC / 3 |
-| 51 | `pw2` | Pulsbreite DCO2 | 3 OSC / 4 |
-| 52 | `pwm1` | MG → Pulsbreite DCO1 | 3 OSC / 5 |
-| 53 | `pwm2` | MG → Pulsbreite DCO2 | 3 OSC / 6 |
-| 54 | `hmg` | MG → Klangfarbe | 3 OSC / 7 |
-| 55 | `drft` | Analog-Drift | 3 OSC / 8 |
-| 56 | `wsh1` | Walsh-Position DCO1 | 4 WALSH / 1 |
-| 57 | `wsh2` | Walsh-Position DCO2 | 4 WALSH / 2 |
-| 58 | `wmx1` | Mix Füße ↔ Walsh DCO1 | 4 WALSH / 3 |
-| 59 | `wmx2` | Mix Füße ↔ Walsh DCO2 | 4 WALSH / 4 |
-| 60 | `wsm` | MG → Walsh-Position | 4 WALSH / 5 |
-| 61 | `wse` | DEG3 → Walsh-Position (Mitte = 0) | 4 WALSH / 6 |
-| 70 | `sync` | Hard Sync (aus / an) | 5 SYNC-RING / 1 |
-| 71 | `swp2` | Tonhöhe DCO2 (0–72 Halbtöne) | 5 SYNC-RING / 2 |
-| 72 | `swe` | DEG3 → DCO2 (Sync-Sweep) | 5 SYNC-RING / 3 |
-| 73 | `swm` | MG → DCO2 | 5 SYNC-RING / 4 |
-| 74 | `ring` | Ringmodulation | 5 SYNC-RING / 5 |
-| 75 | `rmf` | Ringmodulator (Walsh-Stufe 0–14) | 5 SYNC-RING / 6 |
-| 76 | `fm1` | FM-Tiefe DCO1 | 6 FM / 1 |
-| 77 | `fm2` | FM-Tiefe DCO2 | 6 FM / 2 |
-| 78 | `fmr` | FM-Verhältnis (0,125–16, log) | 6 FM / 3 |
-| 79 | `fmhz` | FM-Versatz in Hz (Mitte = 0) | 6 FM / 4 |
-| 80 | `fms` | FM-Quelle (Sinus / anderer DCO / Eingang) | 6 FM / 5 |
-| 81 | `fmig` | Pegel FM-Eingang (Audio In 1) | 6 FM / 6 |
-| 82 | `mgr` | MG-Rate (Stufen 0–15) | 7 MG-DEG4 / 1 |
-| 83 | `mgi` | MG → Pitch (Vibrato) | 7 MG-DEG4 / 2 |
-| 84 | `mgd` | MG-Verzögerung | 7 MG-DEG4 / 3 |
-| 85 | `mgv` | MG → Cutoff | 7 MG-DEG4 / 4 |
-| 86 | `env4` | Hüllkurven-Morph DEG4 | 7 MG-DEG4 / 5 |
-| 87 | `trg4` | DEG4-Trigger (single / multi) | 7 MG-DEG4 / 6 |
-| 88 | `d4t1` | DEG4-Ziel 1 | 7 MG-DEG4 / 7 |
-| 89 | `d4a1` | DEG4-Stärke 1 (Mitte = 0) | 7 MG-DEG4 / 8 |
-| 102 | `l2r` | LFO2-Rate (0,01–50 Hz, log) | 8 LFO2 / 1 |
-| 103 | `l2w` | LFO2-Welle (6 Zonen) | 8 LFO2 / 2 |
-| 104 | `l2k` | LFO2-Retrigger (frei / Taste / Phrase) | 8 LFO2 / 3 |
-| 105 | `l2f` | LFO2-Einblendzeit | 8 LFO2 / 4 |
-| 106 | `l2t1` | LFO2-Ziel 1 | 8 LFO2 / 5 |
-| 107 | `l2a1` | LFO2-Stärke 1 | 8 LFO2 / 6 |
-| 108 | `l2t2` | LFO2-Ziel 2 | 8 LFO2 / 7 |
-| 109 | `l2a2` | LFO2-Stärke 2 | 8 LFO2 / 8 |
-| 110 | `l3r` | LFO3-Rate | 9 LFO3 / 1 |
-| 111 | `l3w` | LFO3-Welle | 9 LFO3 / 2 |
-| 112 | `l3k` | LFO3-Retrigger | 9 LFO3 / 3 |
-| 113 | `l3f` | LFO3-Einblendzeit | 9 LFO3 / 4 |
-| 114 | `l3t1` | LFO3-Ziel 1 | 9 LFO3 / 5 |
-| 115 | `l3a1` | LFO3-Stärke 1 | 9 LFO3 / 6 |
-| 116 | `l3t2` | LFO3-Ziel 2 | 9 LFO3 / 7 |
-| 117 | `l3a2` | LFO3-Stärke 2 | 9 LFO3 / 8 |
-
-Nicht per Pot oder CC: `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4` (über die Morph-Regler `env1`–`env4` erreichbar), per Nachricht natürlich schon.
+| **PLAY** | | | |
+| 12 | `har1` | Timbre 1 | 0 … 127 |
+| 13 | `har2` | Timbre 2 | 0 … 127 |
+| 14 | `env1` | Env 1 morph | 0 … 127 |
+| 15 | `env2` | Env 2 morph | 0 … 127 |
+| 16 | `intv` | Interval | 0 … 12 st |
+| 17 | `detn` | Detune | 0 … 127 |
+| 18 | `lev1` | Level 1 | 0 … 127 |
+| 19 | `lev2` | Level 2 | 0 … 127 |
+| **FILTER** | | | |
+| 20 | `cut` | Cutoff | 0 … 99 |
+| 21 | `res` | Resonance | 0 … 15 |
+| 22 | `egi` | EG depth | 0 … 15 |
+| 23 | `env3` | Env 3 morph | 0 … 127 |
+| 24 | `kbd` | Key track | off / half / full |
+| 25 | `vcut` | Vel>cutoff | 0 … 127 |
+| 26 | `drv` | Drive | 0 … 127 |
+| 27 | `nois` | Noise | 0 … 15 |
+| **OSC** | | | |
+| 40 | `oct1` | Octave 1 | -1 / 0 / +1 / +2 / +3 / +4 |
+| 41 | `oct2` | Octave 2 | -1 / 0 / +1 / +2 / +3 / +4 |
+| 42 | `pw1` | Pulse width 1 | 0 … 127 |
+| 43 | `pw2` | Pulse width 2 | 0 … 127 |
+| 44 | `pwm1` | PWM 1 | 0 … 127 |
+| 45 | `pwm2` | PWM 2 | 0 … 127 |
+| 46 | `hmg` | MG>timbre | 0 … 127 |
+| 47 | `drft` | Drift | 0 … 127 |
+| **WALSH-RING** | | | |
+| 48 | `wsh1` | Walsh pos 1 | 0 … 127 |
+| 49 | `wsh2` | Walsh pos 2 | 0 … 127 |
+| 50 | `wmx1` | Walsh mix 1 | 0 … 127 |
+| 51 | `wmx2` | Walsh mix 2 | 0 … 127 |
+| 52 | `wsm` | MG>Walsh | 0 … 127 |
+| 53 | `wse` | EG3>Walsh | -127 … 127 |
+| 54 | `ring` | Ring mod | 0 … 127 |
+| 55 | `rmf` | Ring source | 0 … 14 |
+| **SYNC-FM** | | | |
+| 70 | `sync` | Sync | off / on |
+| 71 | `swp2` | DCO2 pitch | 0 … 72 st |
+| 72 | `swe` | EG3>DCO2 | 0 … 72 st |
+| 73 | `swm` | MG>DCO2 | 0 … 24 st |
+| 74 | `fm1` | FM depth 1 | 0 … 127 |
+| 75 | `fm2` | FM depth 2 | 0 … 127 |
+| 76 | `fmr` | FM ratio | 0.125f … 16 x |
+| 77 | `fmhz` | FM offset | -1000 … 1000 Hz |
+| **MG-FMSOURCE-DEG3** | | | |
+| 78 | `mgr` | MG rate | 0 … 15 |
+| 79 | `mgi` | Vibrato | 0 … 200 ct |
+| 80 | `mgd` | MG delay | 0 … 15 |
+| 81 | `mgv` | MG>cutoff | 0 … 15 |
+| 82 | `fms` | FM source | sine / other DCO / input |
+| 83 | `fmig` | FM input gain | 0 … 127 |
+| 84 | `pol` | EG polarity | down / up |
+| 85 | `trg` | Env 3 trigger | single / multi |
+| **DELAY-EQ** | | | |
+| 102 | `dtim` | Delay time | 0 … 99 |
+| 103 | `dfb` | Delay feedback | 0 … 15 |
+| 104 | `dmf` | Delay mod rate | 0 … 31 |
+| 105 | `dmi` | Delay mod depth | 0 … 31 |
+| 106 | `dlev` | Delay level | 0 … 15 |
+| 107 | `dgld` | Delay changes | mute / glide |
+| 108 | `treb` | Treble | -6 … 6 |
+| 109 | `bass` | Bass | -6 … 6 |
+| **PERFORM** | | | |
+| 110 | `port` | Portamento | 0 … 127 |
+| 111 | `pmod` | Glide mode | last / own / legato |
+| 112 | `mono` | Voice mode | poly / mono |
+| 113 | `retr` | Mono retrig | legato / retrig |
+| 114 | `vamp` | Vel>level | 0 … 127 |
+| 115 | `bnd` | Bend range | 0 … 12 st |
+| 116 | `sprd` | Stereo spread | 0 … 127 |
+| 117 | `mrph` | Smoothing | 0 … 100 ms |
+| **ohne Pot** | | | |
+| 2 | `drvp` | Drive position | post / pre |
+| 3 | `tone` | Output stage | off / on |
+| 4 | `leak` | Leak | off / on |
+| 5 | `mgf` | MG rate | 0.1f … 30 Hz |
+| 28 | `env4` | Env 4 morph | 0 … 127 |
+| 29 | `trg4` | Env 4 trigger | single / multi |
+| 30 | `d4t1` | Env4 target 1 | Ziel 0–32 |
+| 31 | `d4a1` | Env4 amount 1 | -127 … 127 |
+| 33 | `d4t2` | Env4 target 2 | Ziel 0–32 |
+| 34 | `d4a2` | Env4 amount 2 | -127 … 127 |
+| 56 | `l3r` | LFO3 rate | 0.01f … 50 Hz |
+| 57 | `l3w` | LFO3 wave | tri / sine / saw up / saw down / square / S&H |
+| 58 | `l3k` | LFO3 retrig | free / key / phrase |
+| 59 | `l3f` | LFO3 fade | 0 … 10 s |
+| 60 | `l3t1` | LFO3 target 1 | Ziel 0–32 |
+| 61 | `l3a1` | LFO3 amount 1 | -127 … 127 |
+| 62 | `l3t2` | LFO3 target 2 | Ziel 0–32 |
+| 63 | `l3a2` | LFO3 amount 2 | -127 … 127 |
+| 86 | `l2r` | LFO2 rate | 0.01f … 50 Hz |
+| 87 | `l2w` | LFO2 wave | tri / sine / saw up / saw down / square / S&H |
+| 88 | `l2k` | LFO2 retrig | free / key / phrase |
+| 89 | `l2f` | LFO2 fade | 0 … 10 s |
+| 90 | `l2t1` | LFO2 target 1 | Ziel 0–32 |
+| 91 | `l2a1` | LFO2 amount 1 | -127 … 127 |
+| 92 | `l2t2` | LFO2 target 2 | Ziel 0–32 |
+| 93 | `l2a2` | LFO2 amount 2 | -127 … 127 |
 
 ## Installation
 

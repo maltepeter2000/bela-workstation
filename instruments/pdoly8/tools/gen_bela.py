@@ -39,19 +39,30 @@ PAGES = [
     ("LFO3",       ["l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2"]),
     ("FX-PERFORM", ["dtim", "dfb", "dmf", "dmi", "dlev", "port", "mono", "vamp"]),
 ]
-# MIDI CC -> parameter (any channel)
+# MIDI CC -> parameter (any channel): 4 rows of 16 controller pots = 8 groups of 8,
+# every row one block of CCs without reserved numbers; no parameter twice
+CC_GROUPS = [
+    ("PLAY",               12, ["har1", "har2", "env1", "env2", "intv", "detn", "lev1", "lev2"]),
+    ("FILTER",             20, ["cut", "res", "egi", "env3", "kbd", "vcut", "drv", "nois"]),
+    ("OSC",                40, ["oct1", "oct2", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
+    ("WALSH-RING",         48, ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "ring", "rmf"]),
+    ("SYNC-FM",            70, ["sync", "swp2", "swe", "swm", "fm1", "fm2", "fmr", "fmhz"]),
+    ("MG-FMSOURCE-DEG3",   78, ["mgr", "mgi", "mgd", "mgv", "fms", "fmig", "pol", "trg"]),
+    ("DELAY-EQ",          102, ["dtim", "dfb", "dmf", "dmi", "dlev", "dgld", "treb", "bass"]),
+    ("PERFORM",           110, ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
+]
+CC_EXTRA = [(2, "drvp"), (3, "tone"), (4, "leak"), (5, "mgf"),
+            (28, "env4"), (29, "trg4"), (30, "d4t1"), (31, "d4a1"), (33, "d4t2"), (34, "d4a2")] + \
+           [(56 + k, n) for k, n in enumerate(["l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2"])] + \
+           [(86 + k, n) for k, n in enumerate(["l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2"])]
 CCS = {}
-for cc0, page in [(20, 0), (40, 1), (48, 2), (12, 9), (102, 7), (110, 8)]:
-    for k, nm in enumerate(PAGES[page][1]):
+for _, cc0, names in CC_GROUPS:
+    for k, nm in enumerate(names):
         CCS[cc0 + k] = nm
-for k, nm in enumerate(["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse"]):
-    CCS[56 + k] = nm
-for k, nm in enumerate(["sync", "swp2", "swe", "swm", "ring", "rmf", "fm1", "fm2", "fmr", "fmhz", "fms",
-                        "fmig", "mgr", "mgi", "mgd", "mgv", "env4", "trg4", "d4t1", "d4a1"]):
-    CCS[70 + k] = nm
-for cc, nm in [(2, "pmod"), (3, "retr"), (4, "pol"), (5, "trg"), (8, "drvp"), (9, "mgf"), (28, "bnd"), (29, "mrph"),
-               (30, "tone"), (31, "leak"), (33, "treb"), (34, "bass"), (35, "sprd"), (36, "d4t2"), (37, "d4a2")]:
+for cc, nm in CC_EXTRA:
     CCS[cc] = nm
+assert len(set(CCS.values())) == len(CCS), "a parameter twice"
+assert not set(CCS) & {0, 1, 6, 7, 10, 32, 38, 64, 65, 66, 67, 68, 69, 96, 97, 98, 99, 100, 101} and max(CCS) < 120
 BUTTONS = [26, 25, 24, 23]                       # Pepper buttons 1-4, pressed = 0
 LEDS = [17, 18, 21, 13, 14, 11, 12, 15, 16, 19]  # Pepper LEDs 1-10
 # raw adc~ range of the Pepper pots, per pot (measured with beladrumrack/testprojects/potrange:
