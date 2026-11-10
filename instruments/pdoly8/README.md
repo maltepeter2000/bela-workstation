@@ -52,7 +52,7 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `oct1` / `oct2` | −1…4 | 0 | octave of DCO1 / DCO2: −1/0/1 = Low, Mid, High; 2–4 = the feet one, two, three counter bits higher (the original combinations without 16') |
 | `nois` | 0–15 | 0 | white noise, sounds while a voice sounds |
 | `sprd` | 0–127 | 0 | stereo spread of the 4 voices, continuous |
-| `mrph` | ms | 8 | smoothing time of every continuous setting (timbre, levels, cutoff, resonance, FM, ring, drive, noise, DCO2 pitch, detune, vibrato, EG depth …): CC steps become ramps |
+| `mrph` | ms | 25 | smoothing time of every continuous setting (timbre, levels, cutoff, resonance, FM, ring, drive, noise, DCO2 pitch, detune, vibrato, EG depth …): CC steps become ramps |
 | `bnd` | 0–12 | 2 | pitch bend range in semitones (original up to ±7) |
 | `mgf` | Hz | 5 | MG rate (also set by `mgr`) |
 | `mgi` | 0–200 cents | 0 | vibrato depth (triangle on the master clock, through a measured 14.5 Hz one-pole low-pass, so fast vibrato is shallower as on the original). Original 83: 12.4 cents per step, 186 at 15 |
@@ -132,7 +132,7 @@ Targets (range at amount 127): 0 `off`, 1 `pitch` (±24 semitones), 2 `pitch2` (
 | `nget <name> <tag>` | outlet 3 gets `norm <tag> <0-127>`: the setting as a pot position (pickup) |
 | `disp <name>` | outlet 3 gets `disp <label> <value>`: two symbols for a display, e.g. `Cutoff` `50.1`, `FM source` `other DCO`, `LFO2 target 1` `cut` |
 
-`n` takes fractions (14-bit controllers); settings with more than 15 values are set continuously. Every continuous setting is smoothed over `mrph` ms (default 8) inside the engine, so 7-bit CC steps become ramps instead of zipper noise and clicks.
+`n` takes fractions (14-bit controllers); settings with more than 15 values are set continuously. Every continuous setting, the modulation slots (amount, target, LFO edges) and the stereo spread and EQ are smoothed over `mrph` ms (default 25, long enough to bridge the 10–20 ms between the steps of a turned 7-bit knob) inside the engine, so 7-bit CC steps become ramps instead of zipper noise and clicks.
 
 ### Other messages
 

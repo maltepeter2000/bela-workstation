@@ -51,6 +51,7 @@ typedef struct {
     float   glide;               /* portamento: pitch offset in cents, fading to 0 */
     float   v;                   /* last output value, before panning */
     float   vg;                  /* velocity gain, 1 = full */
+    float   pan_lt, pan_rt;      /* pan targets (spread), the gains follow smoothly */
     float   dr, dfac;            /* drift: slow random walk (about +-1), pitch factor */
     float   rs;                  /* drift: envelope rate scale of this note, 1 = exact */
     float   pan_l, pan_r;
@@ -126,7 +127,9 @@ typedef struct {
     /* smoothed copies of continuous settings (time: smooth_ms), so that 7-bit
      * MIDI CC steps become ramps: cutoff (octaves), resonance, FM, ring and
      * noise per sample, the others per block */
-    struct { float cut, res, fm[2], ring, nois, det, eg, swp, mgc, mgv, fmhz, fmr, drv, dfb, dlev; } sm;
+    struct { float cut, res, fm[2], ring, nois, det, eg, swp, mgc, mgv, fmhz, fmr, drv, dfb, dlev,
+             swe, swm, pwm[2], hm, wsm, wse, fmig, tr, bs; } sm;
+    float   mraw[P8_NT];         /* modulation per target before smoothing */
     int     ddl_glide;           /* 1: delay time changes glide instead of muting for 40 ms (original) */
     int     drv_pre;             /* 0: after the VCF, 1: before it */
     float   e3n;                 /* DEG3 level 0..1 (last sample) */

@@ -401,7 +401,7 @@
 #X msg 60 9032 sprd \$1;
 #X floatatom 160 9008 6 0 100 0 - - -;
 #X msg 160 9032 mrph \$1;
-#X text 82 9062 sprd (0): stereo spread of the 4 voices 0-127. \; mrph (8): smoothing time in ms of every continuous setting (timbre \, levels \, cutoff \, resonance \, FM \, ring \, drive \, noise \, DCO2 pitch \, detune \, vibrato \, EG depth ...) \, so MIDI CC steps become ramps. 0 = none., f 64;
+#X text 82 9062 sprd (0): stereo spread of the 4 voices 0-127. \; mrph (25): smoothing time in ms of every continuous setting (timbre \, levels \, cutoff \, resonance \, FM \, ring \, drive \, noise \, DCO2 pitch \, detune \, vibrato \, EG depth ...) \, so MIDI CC steps become ramps. 0 = none., f 64;
 #X obj 460 9170 s \$0-pdoly8;
 #X floatatom 60 9146 6 0 1 0 - - -;
 #X msg 60 9170 tone \$1;

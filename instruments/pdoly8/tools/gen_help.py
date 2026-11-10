@@ -314,7 +314,7 @@ BLOCKS = [
       "treb, bass (0): EQ -6..6 (76/77, measured: about 4 dB at 3, 10 dB at 6, "
       "shelves at 4.3 kHz and 115 Hz).",
       "sprd (0): stereo spread of the 4 voices 0-127.",
-      "mrph (8): smoothing time in ms of every continuous setting (timbre, levels, cutoff, resonance, FM, ring, drive, noise, DCO2 pitch, detune, vibrato, EG depth ...), so MIDI CC steps become ramps. 0 = none.",
+      "mrph (25): smoothing time in ms of every continuous setting (timbre, levels, cutoff, resonance, FM, ring, drive, noise, DCO2 pitch, detune, vibrato, EG depth ...), so MIDI CC steps become ramps. 0 = none.",
       "tone (1): 1: output stage measured on a Poly-800 (54 Hz high-pass, VCF, 1 pole "
       "at 5 kHz), 0: raw tone generators.",
       "leak (0): 1: released voices stay at -55 dB, as on the original.",
