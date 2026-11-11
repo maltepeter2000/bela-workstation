@@ -48,6 +48,7 @@ bela-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	$(ZIG) cc -target arm-linux-gnueabihf.2.24 -mcpu=cortex_a8 -O3 -ffast-math -std=c99 -fPIC -fvisibility=hidden \
 	    -I"$(PDINCLUDE)" -shared -s -o 'bela/pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm -lpthread
 	cp 'bela/pdoly8~.pd_linux' bela-oled/
+	python3 tools/gen_p8cc.py
 	python3 tools/gen_bela.py
 	python3 tools/gen_bela_oled.py
 	python3 tools/gen_cc_readme.py
@@ -61,7 +62,7 @@ mac-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	done
 	$(LIPO) -create bin/macos/pdoly8~.aarch64 bin/macos/pdoly8~.x86_64 -output 'bin/macos/pdoly8~.pd_darwin'
 	rm -f bin/macos/pdoly8~.aarch64 bin/macos/pdoly8~.x86_64
-	cp 'pdoly8~-help.pd' p8factory.pd p8user.pd bin/macos/
+	cp 'pdoly8~-help.pd' p8factory.pd p8user.pd p8cc.pd bin/macos/
 	mkdir -p bin/macos/presets && cp presets/poly800mk2-factory.txt bin/macos/presets/
 
 test: pdoly8_test

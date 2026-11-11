@@ -1,12 +1,14 @@
 pdoly8~ – Testversion für Pure Data auf dem Mac (Apple Silicon und Intel)
 
 1. Den Ordner "pdoly8" (mit pdoly8~.pd_darwin, pdoly8~-help.pd, p8factory.pd,
-   p8user.pd und presets/) z. B. nach
+   p8user.pd, p8cc.pd und presets/) z. B. nach
    ~/Documents/Pd/externals kopieren.
 2. In Pd: Datei > Einstellungen > Pfad: diesen Ordner hinzufügen (oder den
    Hilfe-Patch direkt aus dem Ordner öffnen).
 3. pdoly8~-help.pd öffnen, DSP einschalten. Unter "Presets": Werksklänge
    0-63 mit [p8factory], eigene Klänge mit [p8user] (store N speichert).
+4. MIDI-Controller: [p8cc] oben im Hilfe-Patch wertet CC 20-83 (8 Gruppen
+   zu 8 Reglern) und 14-Bit-NRPN aus, Tabelle unter "MIDI CC (p8cc)".
 
 Falls macOS das Laden blockiert ("kann nicht geöffnet werden" / "beschädigt"),
 einmal im Terminal ausführen:

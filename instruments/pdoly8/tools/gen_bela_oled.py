@@ -63,52 +63,9 @@ def sec_midi():
     p.con(bi, 0, be, 0); p.con(be, 0, bm, 0); p.con(bm, 0, s2, 0)
     pg = p.add("pgmin", 450, 40); mi = p.add("- 1", 450, 70); s3 = p.add("s p8-preset", 450, 100)
     p.con(pg, 0, mi, 0); p.con(mi, 0, s3, 0)
-    ci = p.add("ctlin", 10, 170); pk2 = p.add("pack f f", 10, 195); sw = p.msg("$2 $1", 10, 220)
-    p.con(ci, 1, pk2, 1); p.con(ci, 0, pk2, 0); p.con(pk2, 0, sw, 0)
-    rt = p.add("route 98 6 38 99", 10, 250); p.con(sw, 0, rt, 0)
-    sc = p.add("s p8-set", 600, 285); p.con(rt, 4, sc, 0)
-    p.note("other CC: number value -> p8-set", 600, 260)
-    p.note("NRPN: 98 = parameter (its CC number) / 6 = MSB / 38 = LSB only right after a 6 (else CC 38 = pw1) / 99 ignored",
-           10, 290)
-    num = p.add("f", 10, 470); p.con(rt, 0, num, 1)
-    ex = p.add("expr ($f1 * 128 + $f2) * 127 / 16383", 150, 440)
-    arm = p.add("f", 420, 400)                           # 1 after CC 6: the next CC 38 is the LSB
-    ms = p.add("f", 300, 400)
-    # CC 6 = MSB: arm, LSB 0, keep the MSB, value
-    t6 = p.add("t f f b b", 150, 320); o1 = p.msg("1", 300, 345); z = p.msg("0", 250, 370)
-    p.con(rt, 1, t6, 0); p.con(t6, 3, o1, 0); p.con(o1, 0, arm, 1); p.con(t6, 2, z, 0); p.con(z, 0, ex, 1)
-    p.con(t6, 1, ms, 1); p.con(t6, 0, ex, 0)
-    # CC 38: LSB if armed, else the plain CC 38
-    t38 = p.add("t b f", 420, 320); p.con(rt, 2, t38, 0)
-    lsbv = p.add("f", 520, 470); pv0 = p.add("f", 640, 470)
-    p.con(t38, 1, lsbv, 1); p.con(t38, 1, pv0, 1)
-    p.con(t38, 0, arm, 0)
-    ta = p.add("t f b", 420, 425); z2 = p.msg("0", 500, 425); p.con(arm, 0, ta, 0); p.con(ta, 1, z2, 0); p.con(z2, 0, arm, 1)
-    sel = p.add("sel 1 0", 420, 450); p.con(ta, 0, sel, 0)
-    p.con(sel, 0, lsbv, 0); p.con(sel, 1, pv0, 0)
-    tl = p.add("t b f", 520, 495); p.con(lsbv, 0, tl, 0); p.con(tl, 1, ex, 1); p.con(tl, 0, ms, 0); p.con(ms, 0, ex, 0)
-    pl = p.msg("38 $1", 640, 495); s38 = p.add("s p8-set", 640, 520); p.con(pv0, 0, pl, 0); p.con(pl, 0, s38, 0)
-    tv = p.add("t b f", 150, 470); p.con(ex, 0, tv, 0)
-    pv = p.add("pack f f", 10, 495); p.con(tv, 1, pv, 1); p.con(tv, 0, num, 0); p.con(num, 0, pv, 0)
-    s5 = p.add("s p8-set", 10, 520); p.con(pv, 0, s5, 0)
-    return p
-
-
-def sec_set():
-    p = P("set", 760, 320)
-    p.note("SET: <number> <0-127> -> n <name> <value> to pdoly8~, then disp <name> for the OLED (table p8-cc)", 10, 6)
-    r = p.add("r p8-set", 10, 40); up = p.add("unpack f f", 10, 65)
-    ap = p.add("list append", 250, 230)
-    p.con(r, 0, up, 0); p.con(up, 1, ap, 1)              # the value comes first (right outlet)
-    ts = p.add("text search p8-cc", 10, 95); mo = p.add("moses 0", 10, 120)
-    tg = p.add("text get p8-cc", 60, 145); sp = p.add("list split 1", 60, 170)
-    sy = p.add("symbol", 60, 195); t = p.add("t s s", 60, 220)
-    p.con(up, 0, ts, 0); p.con(ts, 0, mo, 0); p.con(mo, 1, tg, 0); p.con(tg, 0, sp, 0); p.con(sp, 1, sy, 0); p.con(sy, 0, t, 0)
-    p.con(t, 1, ap, 0)
-    pn = p.add("list prepend n", 250, 255); tr = p.add("list trim", 250, 280); so = p.add("s p8-in", 250, 305)
-    p.con(ap, 0, pn, 0); p.con(pn, 0, tr, 0); p.con(tr, 0, so, 0)
-    p.note("pdoly8~ itself sends the changed setting to the OLED (oled ...)", 60, 260)
-    p.note("unknown numbers are ignored", 150, 120)
+    cc = p.add("p8cc", 10, 170); s4 = p.add("s p8-in", 10, 200)
+    p.con(cc, 0, s4, 0)
+    p.note("p8cc: CC 20-83 (+ LFO2/3, DEG4 ...) and 14-bit NRPN -> n <name> <value> (table inside p8cc.pd)", 80, 170)
     return p
 
 
@@ -162,9 +119,8 @@ def main_patch():
     for k, l in enumerate(lines):
         p.note(l, 10, 6 + 15 * k)
     y = 110
-    for sec, txt in [(sec_init(), "MIDI port / O2O / preset 0 at start"), (sec_tables(), "CC table"),
-                     (sec_presets(), "factory presets"), (sec_midi(), "notes / bend / program / CC / NRPN"),
-                     (sec_set(), "CC / NRPN -> pdoly8~")]:
+    for sec, txt in [(sec_init(), "MIDI port / O2O / preset 0 at start"),
+                     (sec_presets(), "factory presets"), (sec_midi(), "notes / bend / program / CC and NRPN (p8cc)")]:
         p.sub(sec, 10, y)
         p.note(txt, 140, y)
         y += 25
@@ -179,12 +135,9 @@ def main_patch():
 
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
-    out = []
-    for ln in main_patch().lines(top=True):
-        out.append(ln)
-        if ln.endswith("text define -k p8-cc;"):
-            out.append(G.table_data([f"{cc} {nm}" for cc, nm in sorted(G.CCS.items())]))
-    open(os.path.join(OUT, "_main.pd"), "w").write("\n".join(out) + "\n")
+    open(os.path.join(OUT, "_main.pd"), "w").write("\n".join(main_patch().lines(top=True)) + "\n")
+    import gen_p8cc
+    gen_p8cc.write(os.path.join(OUT, "p8cc.pd"))
     txt, n = G.p8factory_embedded()
     open(os.path.join(OUT, "p8factory.pd"), "w").write(txt)
-    print(f"bela-oled/project: _main.pd, p8factory.pd ({n} programs inside)")
+    print(f"bela-oled/project: _main.pd, p8cc.pd, p8factory.pd ({n} programs inside)")

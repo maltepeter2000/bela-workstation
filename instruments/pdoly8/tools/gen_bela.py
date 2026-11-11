@@ -248,7 +248,7 @@ def sec_presets():
 
 def sec_midi():
     p = P("midi", 820, 420)
-    p.note("MIDI (USB): notes / pitch bend / program change = factory preset / CC -> parameter (table p8-cc) on any channel",
+    p.note("MIDI (USB): notes / pitch bend / program change = factory preset / CC and NRPN via p8cc on any channel",
            10, 6)
     ni = p.add("notein", 10, 40); pk = p.add("pack f f f", 10, 70); s1 = p.add("s p8-in", 10, 100)
     p.con(ni, 0, pk, 0); p.con(ni, 1, pk, 1); p.con(ni, 2, pk, 2); p.con(pk, 0, s1, 0)
@@ -257,17 +257,10 @@ def sec_midi():
     p.con(bi, 0, be, 0); p.con(be, 0, bm, 0); p.con(bm, 0, s2, 0)
     pg = p.add("pgmin", 450, 40); mi = p.add("- 1", 450, 70); s3 = p.add("s p8-preset", 450, 100)
     p.con(pg, 0, mi, 0); p.con(mi, 0, s3, 0)
-    ci = p.add("ctlin", 10, 170); pk2 = p.add("pack f f", 10, 195); up = p.add("unpack f f", 10, 220)
-    p.con(ci, 1, pk2, 1); p.con(ci, 0, pk2, 0); p.con(pk2, 0, up, 0)
-    p.note("CC number first: find its parameter (or none), then the value", 200, 170)
-    ts = p.add("text search p8-cc", 100, 250); mo = p.add("moses 0", 100, 275)
-    no = p.msg("none", 100, 300); tg = p.add("text get p8-cc", 200, 300); sp = p.add("list split 1", 200, 325)
-    pn = p.add("list prepend n", 200, 350); hold = p.add("list prepend n none", 10, 380)
-    p.con(up, 1, ts, 0); p.con(ts, 0, mo, 0); p.con(mo, 0, no, 0); p.con(no, 0, pn, 0); p.con(mo, 1, tg, 0); p.con(tg, 0, sp, 0)
-    p.con(sp, 1, pn, 0); p.con(pn, 0, hold, 1)
-    t = p.add("t b f", 10, 250); p.con(up, 0, t, 0); p.con(t, 1, hold, 0)
-    tr = p.add("list trim", 10, 405); s4 = p.add("s p8-in", 10, 430); rf = p.add("s p8-refresh", 120, 430)
-    p.con(hold, 0, tr, 0); p.con(tr, 0, s4, 0); p.con(t, 0, rf, 0)
+    cc = p.add("p8cc", 10, 170); t = p.add("t a b", 10, 200)
+    s4 = p.add("s p8-in", 10, 230); rf = p.add("s p8-refresh", 100, 230)
+    p.con(cc, 0, t, 0); p.con(t, 0, s4, 0); p.con(t, 1, rf, 0)
+    p.note("p8cc: CC and 14-bit NRPN -> n <name> <value> (table inside p8cc.pd); then the pots re-read their targets", 80, 170)
     return p
 
 
@@ -284,9 +277,8 @@ def sec_pots():
 
 def sec_tables():
     p = P("tables", 900, 200)
-    p.note("TABLES: p8-map = 8 pot parameters + name per page (line = page), p8-cc = MIDI CC -> parameter", 10, 6)
+    p.note("TABLES: p8-map = 8 pot parameters + name per page (line = page); the CC table is in p8cc.pd", 10, 6)
     p.add("text define -k p8-map", 10, 40)
-    p.add("text define -k p8-cc", 250, 40)
     return p
 
 
@@ -372,13 +364,13 @@ if __name__ == "__main__":
         out.append(ln)
         if ln.endswith("text define -k p8-map;"):
             out.append(table_data([" ".join(n) + " " + t for t, n in PAGES]))
-        if ln.endswith("text define -k p8-cc;"):
-            out.append(table_data([f"{cc} {nm}" for cc, nm in sorted(CCS.items())]))
     open(os.path.join(OUT, "_main.pd"), "w").write("\n".join(out) + "\n")
+    import gen_p8cc
+    gen_p8cc.write(os.path.join(OUT, "p8cc.pd"))
     open(os.path.join(OUT, "p8knob.pd"), "w").write("\n".join(p8knob().lines(top=True)) + "\n")
     for old in ("p8pot.pd",):
         if os.path.exists(os.path.join(OUT, old)): os.remove(os.path.join(OUT, old))
     txt, n = p8factory_embedded()
     open(os.path.join(OUT, "p8factory.pd"), "w").write(txt)
     shutil.rmtree(os.path.join(OUT, "presets"), ignore_errors=True)
-    print(f"bela/project: _main.pd, p8pot.pd, p8factory.pd ({n} programs inside)")
+    print(f"bela/project: _main.pd, p8knob.pd, p8cc.pd, p8factory.pd ({n} programs inside)")

@@ -495,6 +495,16 @@ def build():
         "dump: send all values to outlet 2 as 'dump " + SHORT + " v0 ..'",
         "dump " + SHORT + " v0 v1 ...: restore such a dump (this voice only)",
         "voice <i> <p>, voiceoff <i>: play one voice directly"]))
+    import gen_bela as GB
+    cc = ["[p8cc] at the top turns MIDI CC and 14-bit NRPN into n <name> <value> (any channel).",
+          "Made for 4 rows of 16 controller pots: 8 groups of 8, CC 20-83, no setting twice:"]
+    for t, c0, ns in GB.CC_GROUPS:
+        cc.append(f"{c0}-{c0 + 7} {t}: " + " ".join(ns))
+    ex = GB.CC_EXTRA
+    cc.append("Without a pot: " + ", ".join(f"{c} {n}" for c, n in ex) + ".")
+    cc.append("NRPN: CC 99 = 0, CC 98 = the setting's CC number, CC 6 = MSB, CC 38 = LSB (only right after a CC 6, else CC 38 = pw1).")
+    cc.append("Every continuous setting is smoothed over mrph ms (25), so CC steps become ramps.")
+    sections.append(("MIDI CC (p8cc)", cc, 0, True))
     clines = [f"{i} {cn} ({dv}): {txt}" for i, (cn, dv, txt) in enumerate(CONTROLS)]
     sections.append(("Controls (index name default)", clines, 0, True))
     sections.append(("Timbre (har1 / har2)", [
@@ -587,6 +597,8 @@ def build():
     p.conn(nin, 0, pck, 0); p.conn(nin, 1, pck, 1); p.conn(nin, 2, pck, 2)
     p.conn(pck, 0, o, 0)
     bin_ = p.add(f"#X obj {CX + 330} {r_y - 36} bendin;")
+    pcc = p.add(f"#X obj {CX + 200} {obj_y} p8cc;")
+    p.conn(pcc, 0, o, 0)
     bex = p.add(f"#X obj {CX + 330} {r_y} expr ($f1 - 8192) / 8192;")
     bms = p.add(f"#X msg {CX + 330} {obj_y} bend {DOLLAR}1;")
     p.conn(bin_, 0, bex, 0); p.conn(bex, 0, bms, 0); p.conn(bms, 0, o, 0)
