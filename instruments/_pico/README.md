@@ -33,15 +33,18 @@ Files are identified by content, so their names do not matter.
 ### Build
 
 ```bash
-python3 tools/make_d50_data.py /path/to/your/roms
 cd d50~
 make
+python3 ../tools/make_d50_data.py /path/to/your/roms
 ```
 
-The first command writes `d50~/d50_pcm.bin`, `d50~/generated/d5_pcm_table.h`
-and copies any `.syx` files into `d50~/`. All of them are ignored by git and
-must stay out of any repository. `make` needs Pure Data's `m_pd.h`; see
-`pd-lib-builder/Makefile.pdlibbuilder` for `PDDIR` and the other switches.
+`make` needs Pure Data's `m_pd.h` and no ROM data; see
+`pd-lib-builder/Makefile.pdlibbuilder` for `PDINCLUDEDIR` and the other
+switches. Every push also builds a universal macOS binary and a Linux one
+(Actions tab, artifacts of the latest run).
+
+The last command writes `d50~/d50_pcm.bin` and copies any `.syx` files into
+`d50~/`. They are ignored by git and must stay out of any repository.
 
 At run time the object looks for `d50_pcm.bin` and the `.syx` files in the
 folder of the external, then in the folder of the patch. Banks load in
@@ -59,7 +62,8 @@ through from 0.
 
 ```
 d50~/                 the external, its Makefile and help patch
-d50~/engine/          PicoFaceD5 engine headers, unmodified
+d50~/engine/          PicoFaceD5 engine headers, unmodified, and the sample
+                      table generated from upstream's d5_sample_table.json
 tools/d5_extract/     ROM converter from PicoVintageSynthCollection
 tools/                make_d50_data.py, gen_help.py
 pd-lib-builder/       build helper (public domain, Katja Vetter)

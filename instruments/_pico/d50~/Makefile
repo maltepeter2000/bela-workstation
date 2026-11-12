@@ -3,23 +3,24 @@
 #   make                 build for this machine
 #   make install         copy into Pd's externals folder (see PDLIBDIR)
 #
-# The engine needs generated/d5_pcm_table.h, which tools/make_d50_data.py
-# writes together with d50_pcm.bin from your own ROM images.
+# Building needs no ROM data. To make sound the object needs d50_pcm.bin,
+# which tools/make_d50_data.py writes from your own ROM images.
 
 lib.name = d50~
 class.sources = d50~.cpp
 common.sources = d50_core.cpp
 datafiles = d50~-help.pd
 
-cflags = -std=c++17 -DD5_HOST_BUILD -Iengine -Igenerated -fvisibility=hidden
+cflags = -std=c++17 -DD5_HOST_BUILD -Iengine -fvisibility=hidden
 suppress-wunused = yes
 
-ifeq ($(wildcard generated/d5_pcm_table.h),)
-$(error generated/d5_pcm_table.h is missing: run "python3 ../tools/make_d50_data.py <folder with your D-50 ROM images>" first)
+# libc++ needs a newer deployment target than pd-lib-builder's default.
+ifeq ($(shell uname -s),Darwin)
+cflags += -mmacosx-version-min=10.13
 endif
 
 PDLIBBUILDER_DIR = ../pd-lib-builder
 include $(PDLIBBUILDER_DIR)/Makefile.pdlibbuilder
 
 # The engine's headers are large inline functions by design.
-warn.flags = -Wall -Wextra -Wshadow -Wstrict-aliasing -Wno-cast-function-type
+CXXFLAGS := $(filter-out -Winline,$(CXXFLAGS)) -Wno-cast-function-type

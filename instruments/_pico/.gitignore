@@ -4,7 +4,6 @@ roms/
 *.BIN
 *.syx
 *.SYX
-d50~/generated/
 
 # Build products
 *.o

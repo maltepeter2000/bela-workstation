@@ -1,0 +1,39 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pd header
+        run: curl -fsSL -o m_pd.h https://raw.githubusercontent.com/pure-data/pure-data/0.55-2/src/m_pd.h
+      - name: Build (arm64 + x86_64)
+        run: |
+          make -C 'd50~' PDINCLUDEDIR="$PWD" arch="arm64 x86_64"
+          lipo -info 'd50~/d50~.pd_darwin'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: d50-macos
+          path: |
+            d50~/d50~.pd_darwin
+            d50~/d50~-help.pd
+
+  linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Pd header
+        run: curl -fsSL -o m_pd.h https://raw.githubusercontent.com/pure-data/pure-data/0.55-2/src/m_pd.h
+      - name: Build
+        run: make -C 'd50~' PDINCLUDEDIR="$PWD"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: d50-linux-x86_64
+          path: |
+            d50~/d50~.pd_linux
+            d50~/d50~-help.pd

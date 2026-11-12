@@ -10,11 +10,11 @@ along as patch banks.
 
 Writes, inside d50~/:
 
-    d50_pcm.bin               the decoded samples, loaded by the external at run time
-    generated/d5_pcm_table.h  the sample table the engine is compiled against
-    *.syx                     the patch banks, loaded at run time
+    d50_pcm.bin   the decoded samples, loaded by the external at run time
+    *.syx         the patch banks, loaded at run time
 
-None of these belong in a repository: they are derived from Roland's ROMs.
+Neither belongs in a repository: they are derived from Roland's ROMs.
+Building the external does not need them, only playing it.
 The conversion itself is tools/d5_extract/ of PicoVintageSynthCollection.
 """
 import glob
@@ -35,16 +35,13 @@ def main():
         subprocess.run([sys.executable,
                         os.path.join(here, "d5_extract", "d5_make_blob.py"),
                         romdir, tmp], check=True)
-        os.makedirs(os.path.join(dest, "generated"), exist_ok=True)
         shutil.copy(os.path.join(tmp, "d5_pcm.bin"),
                     os.path.join(dest, "d50_pcm.bin"))
-        shutil.copy(os.path.join(tmp, "d5_pcm_table.h"),
-                    os.path.join(dest, "generated", "d5_pcm_table.h"))
     banks = sorted(glob.glob(os.path.join(romdir, "*.syx")) +
                    glob.glob(os.path.join(romdir, "*.SYX")))
     for b in banks:
         shutil.copy(b, os.path.join(dest, os.path.basename(b)))
-    print(f"d50~/d50_pcm.bin and d50~/generated/d5_pcm_table.h written; "
+    print(f"d50~/d50_pcm.bin written; "
           f"{len(banks)} patch bank(s) copied")
     if not banks:
         print("no *.syx in the ROM folder: d50~ will play its eight built-in "
