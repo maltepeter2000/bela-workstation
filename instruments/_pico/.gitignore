@@ -1,0 +1,20 @@
+# Derived from Roland's ROMs -- never commit.
+roms/
+*.bin
+*.BIN
+*.syx
+*.SYX
+d50~/generated/
+
+# Build products
+*.o
+*.pd_linux
+*.pd_darwin
+*.dll
+*.d_fat
+*.l_*
+*.d_*
+*.m_*
+*.wav
+__pycache__/
+.DS_Store
