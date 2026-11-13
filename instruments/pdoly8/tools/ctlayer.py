@@ -17,6 +17,8 @@ build(rows) makes the layer abstraction [<name> <channel>] (channel 0 = all):
   [ctlin] inside, CC on its channel -> outlet: n <name> <0-127>  (to the instrument)
   inlet: the instrument's reports "info <name> <0-127> <text>" (every change, also its own)
          pickup 0/1   (default 1)      sync   (asks for all its settings: ninfo ...)
+  CC 3 on its channel (any value) = sync request from the controller (the Launchkey firmware sends
+  it before its first CC on a new channel): all values go back to the controller.
   Feedback: a change that did not come from the encoder itself (preset, editor, message)
   goes back to the controller as CC on the same channel and number ([ctlout]), so a
   controller that takes incoming CC knows the new value. Pickup: after such a change the
@@ -66,7 +68,7 @@ def build(title, rows):
     p = G.P(None, 900, 900)
     p.note(f"{title}: controller layer - CC pages 20-119 (without 32 38 64-69 84 88 96-101) on channel $1 "
            "(0 = all) -> n <name> <0-127>. Inlet: info <name> <0-127> <text> from the instrument, "
-           "pickup 0/1, sync. Changes from elsewhere go back to the controller as CC (ctlout), "
+           "pickup 0/1, sync (also CC 3 from the controller). Changes from elsewhere go back to the controller as CC (ctlout), "
            "pickup avoids jumps. Table: line = CC number, the setting or -.", 10, 6)
     # ---- init: two timers (logical time since load), arrays, channel
     lb = p.add("loadbang", 10, 60)
@@ -131,6 +133,7 @@ def build(title, rows):
     p.con(ri, 1, pass_, 4)
     allm = p.msg(", ".join(f"ninfo {n}" for n in m), 560, 1000)
     p.con(ri, 2, allm, 0); p.con(dl, 0, allm, 0); p.con(allm, 0, out, 0)
+    s3 = p.add("sel 3", 300, 440); p.con(u2, 1, s3, 0); p.con(s3, 0, allm, 0)   # CC 3: sync request
     lst = p.add("list", 160, 1000); p.con(ri, 0, lst, 0)       # "har1 37 .." (selector har1) -> list
     ui = p.add("unpack s f s", 10, 1030); p.con(lst, 0, ui, 0)
     fv = p.add("f", 300, 1200); p.con(ui, 1, fv, 1)

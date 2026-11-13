@@ -542,7 +542,9 @@ def build():
           "Changes from elsewhere (presets, editor, messages) go back to the controller as CC "
           "on the same channel and number. Pickup: after such a change an encoder acts only when "
           "it reaches the value or crosses it (pickup 0 turns that off). Inlet: outlet 3 of "
-          "pdoly8~ (here [r $0-pdoly8-out]), pickup 0/1, sync (send all values to the controller)."]
+          "pdoly8~ (here [r $0-pdoly8-out]), pickup 0/1, sync (send all values to the controller). "
+          "CC 3 from the controller on the same channel does the same (the Launchkey firmware sends it "
+          "before its first CC on a new channel)."]
     for k, (t, ns) in enumerate(GB.CC_ROWS):
         cc.append(f"page {k + 1} {t}, CC {CL.page_text(k)}: " + " ".join(ns))
     cc.append("Every continuous setting is smoothed over mrph ms (25), so CC steps become ramps.")

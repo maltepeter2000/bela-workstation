@@ -149,11 +149,11 @@ Targets (range at amount 127): 0 `off`, 1 `pitch` (±24 semitones), 2 `pitch2` (
 
 ### MIDI CC: the controller layer (`p8cc.pd`)
 
-`[p8cc <channel>]` (help and Bela: channel 1, 0 = all channels) turns MIDI CC into `n <name> <value>` for the object. Every instrument gets its own MIDI channel and the same CC pages, so the controller (Launchkey) keeps one setup: page k = row k in the editor. The pages are 20–119 without 32, 38, 64–69, 84, 88, 96–101 (bank / data LSB, pedals, portamento control, high-res velocity, NRPN / RPN): 10 full pages and one of 4. The generic part is `tools/ctlayer.py` (for every instrument), the rows of pdoly8~ are `CC_ROWS` in `tools/gen_bela.py`.
+The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` (help and Bela: channel 1, 0 = all channels) turns MIDI CC into `n <name> <value>` for the object. Every instrument gets its own MIDI channel and the same CC pages, so the controller (Launchkey) keeps one setup: page k = row k in the editor. The pages are 20–119 without 32, 38, 64–69, 84, 88, 96–101 (bank / data LSB, pedals, portamento control, high-res velocity, NRPN / RPN): 10 full pages and one of 4. The generic part is `tools/ctlayer.py` (for every instrument), the rows of pdoly8~ are `CC_ROWS` in `tools/gen_bela.py`.
 
 - **Feedback:** the object reports every change on outlet 3 (`info <name> <0-127> <text>`, also its own). The layer sends changes that did not come from the encoder itself (presets, program change, editor, messages) back to the controller as CC on the same channel and number (`[ctlout]`), so a controller that takes incoming CC knows the new value.
 - **Pickup:** after such a change an encoder acts only when it reaches the value (within 3) or crosses it, so nothing jumps with a controller that ignores the feedback. `pickup 0` turns it off.
-- Inlet: outlet 3 of the object, `pickup 0/1`, `sync` (all values to the controller, also 500 ms after load).
+- Inlet: outlet 3 of the object, `pickup 0/1`, `sync` (all values to the controller, also 500 ms after load). CC 3 from the controller on the same channel is a sync request too: the Launchkey firmware (`maltepeter2000/launchkey_firmware`, CC pages) sends it before its first CC on a new channel and takes the values back as its encoder positions.
 
 | Page | CC | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 |---|---|---|---|---|---|---|---|---|---|
