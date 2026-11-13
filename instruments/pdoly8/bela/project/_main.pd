@@ -181,7 +181,7 @@
 #X restore 10 210 pd presets;
 #X text 140 210 factory presets, f 15;
 #N canvas 0 50 820 420 midi 0;
-#X text 10 6 MIDI (USB): notes / pitch bend / program change = factory preset / CC and NRPN via p8cc on any channel, f 100;
+#X text 10 6 MIDI (USB): notes / pitch bend / program change = factory preset / CC via the controller layer p8cc, f 99;
 #X obj 10 40 notein;
 #X obj 10 70 pack f f f;
 #X obj 10 100 s p8-in;
@@ -192,11 +192,12 @@
 #X obj 450 40 pgmin;
 #X obj 450 70 - 1;
 #X obj 450 100 s p8-preset;
-#X obj 10 170 p8cc;
+#X obj 10 140 r p8-out;
+#X obj 10 170 p8cc 1;
 #X obj 10 200 t a b;
 #X obj 10 230 s p8-in;
 #X obj 100 230 s p8-refresh;
-#X text 80 170 p8cc: CC and 14-bit NRPN -> n <name> <value> (table inside p8cc.pd) \; then the pots re-read their targets, f 100;
+#X text 100 170 p8cc 1: controller layer \, CC pages on channel 1 -> n <name> <value> \, changes back to the controller (ctlout) \, pickup \; then the pots re-read their targets, f 100;
 #X connect 1 0 2 0;
 #X connect 1 1 2 1;
 #X connect 1 2 2 2;
@@ -208,7 +209,8 @@
 #X connect 9 0 10 0;
 #X connect 11 0 12 0;
 #X connect 12 0 13 0;
-#X connect 12 1 14 0;
+#X connect 13 0 14 0;
+#X connect 13 1 15 0;
 #X restore 10 235 pd midi;
 #X text 140 235 notes / bend / program / CC, f 27;
 #N canvas 0 50 900 200 pots 0;

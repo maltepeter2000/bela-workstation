@@ -510,7 +510,8 @@ def build():
         "nget <name> <tag>: outlet 3 gets norm <tag> <0-127>,",
         "  the setting as a pot position (for pickup)",
         "ninfo <name>: outlet 3 gets info <name> <0-127> <value>,",
-        "  pot position and value with unit (for the editor)",
+        "  pot position and value with unit. Every change is also",
+        "  reported this way by itself (editor, controller layer)",
         "disp <name>: outlet 3 gets disp <label> <value>,",
         "  two symbols for a display (OLED)",
         "oled <host> <port>: changed settings to O2O (an OLED) as",
@@ -525,24 +526,27 @@ def build():
         "voice <i> <p>, voiceoff <i>: play one voice directly"]))
     sections.append(("Editor (p8edit)", [
         "[p8edit $0-pdoly8] above: click it to open the editor. All 115 settings in rows of "
-        "8, as on the controller: left the CC rows 20-83, right DEG4, LFO2, LFO3, more and "
-        "the own DEG stages. Each cell: name and CC number, slider and number box 0-127 (the "
+        "8: rows 1-11 are the CC pages of the controller layer, then more and the own DEG stages. Each cell: name and CC number, slider and number box 0-127 (the "
         "value as from a pot, n <name> <value>) and the real value with its unit.",
-        "It sends to the bus [s $0-pdoly8] and reads the answers of outlet 3 from "
-        "[s $0-pdoly8-out], so presets, MIDI CC and every message on the bus show up in it. "
+        "It sends to the bus [s $0-pdoly8] and reads outlet 3 from [s $0-pdoly8-out]: pdoly8~ "
+        "reports every change there (info), so the Launchkey, presets and messages show up in it. "
         "In your own patch: [p8edit <name>] next to [r <name>] -> [pdoly8~] -> outlet 3 -> "
         "[s <name>-out]."], 0, True))
     import gen_bela as GB
-    cc = ["[p8cc] at the top turns MIDI CC and 14-bit NRPN into n <name> <value> (any channel), "
-          "here onto the bus, so the editor follows the knobs.",
-          "Made for 4 rows of 16 controller pots: 8 groups of 8, CC 20-83, no setting twice:"]
-    for t, c0, ns in GB.CC_GROUPS:
-        cc.append(f"{c0}-{c0 + 7} {t}: " + " ".join(ns))
-    ex = GB.CC_EXTRA
-    cc.append("Without a pot: " + ", ".join(f"{c} {n}" for c, n in ex) + ".")
-    cc.append("NRPN: CC 99 = 0, CC 98 = the setting's CC number, CC 6 = MSB, CC 38 = LSB (only right after a CC 6, else CC 38 = pw1).")
+    import ctlayer as CL
+    cc = ["[p8cc 1] above is the controller layer of pdoly8~: MIDI CC on channel 1 (the argument, "
+          "0 = all channels) -> n <name> <value> onto the bus. Every instrument gets its own channel "
+          "and the same CC pages, so the Launchkey keeps one setup: page k = row k in the editor.",
+          "Pages: 20-119 without 32, 38, 64-69, 84, 88, 96-101 (bank / data LSB, pedals, "
+          "portamento control, high-res velocity, NRPN / RPN).",
+          "Changes from elsewhere (presets, editor, messages) go back to the controller as CC "
+          "on the same channel and number. Pickup: after such a change an encoder acts only when "
+          "it reaches the value or crosses it (pickup 0 turns that off). Inlet: outlet 3 of "
+          "pdoly8~ (here [r $0-pdoly8-out]), pickup 0/1, sync (send all values to the controller)."]
+    for k, (t, ns) in enumerate(GB.CC_ROWS):
+        cc.append(f"page {k + 1} {t}, CC {CL.page_text(k)}: " + " ".join(ns))
     cc.append("Every continuous setting is smoothed over mrph ms (25), so CC steps become ramps.")
-    sections.append(("MIDI CC (p8cc)", cc, 0, True))
+    sections.append(("MIDI CC: controller layer (p8cc)", cc, 0, True))
     clines = [f"{i} {cn} ({dv}): {txt}" for i, (cn, dv, txt) in enumerate(CONTROLS)]
     sections.append(("Controls (index name default)", clines, 0, True))
     sections.append(("Timbre (har1 / har2)", [
@@ -624,9 +628,10 @@ def build():
         p.conn(a, 0, m, 0)
         p.conn(m, 0, snds[r], 0)
     # MIDI: CC, notes and bend go onto the bus (the editor follows), the object reads only the bus
-    pcc = p.add(f"#X obj {CX} {ni_y} p8cc;")
-    scc = p.add(f"#X obj {CX} {ni_y + STEP} s {bus};")
-    p.conn(pcc, 0, scc, 0)
+    rco = p.add(f"#X obj {CX} {ni_y} r {DOLLAR}0-{SHORT}-out;")
+    pcc = p.add(f"#X obj {CX} {ni_y + STEP} p8cc 1;")
+    scc = p.add(f"#X obj {CX} {ni_y + 2 * STEP} s {bus};")
+    p.conn(rco, 0, pcc, 0); p.conn(pcc, 0, scc, 0)
     nin = p.add(f"#X obj {CX + 180} {ni_y} notein;")
     pck = p.add(f"#X obj {CX + 180} {ni_y + STEP} pack f f f;")
     snn = p.add(f"#X obj {CX + 180} {ni_y + 2 * STEP} s {bus};")

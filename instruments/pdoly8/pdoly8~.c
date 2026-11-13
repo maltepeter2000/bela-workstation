@@ -73,6 +73,8 @@ typedef struct _pdoly8 {
     t_float  stack[16]; int nstack; /* mono: keys held, last on top */
     int      restoring;
     float   *buf; int bufn;
+    t_clock *rep_clk;              /* reports changed settings as "info" on outlet 3 */
+    t_float *rep_v[160]; float rep_last[160];
 #ifdef P8_OLED
     /* OLED via O2O: the audio thread only copies text (seqlock), a thread of
      * its own sends the OSC packet, so no network call runs in the audio
@@ -131,7 +133,11 @@ static void update_levels(t_pdoly8 *x)
     x->e.lev[0] = a1 * k; x->e.lev[1] = a2 * k;
 }
 
-static void apply_ctl(t_pdoly8 *x, int i, t_float v)
+static void rep_kick(t_pdoly8 *x);
+
+static void apply_ctl_(t_pdoly8 *x, int i, t_float v);
+static void apply_ctl(t_pdoly8 *x, int i, t_float v) { apply_ctl_(x, i, v); rep_kick(x); }
+static void apply_ctl_(t_pdoly8 *x, int i, t_float v)
 {
     if (i < 0 || i >= NCTL) return;
     p8_engine_t *e = &x->e;
@@ -160,7 +166,9 @@ static void apply_ctl(t_pdoly8 *x, int i, t_float v)
     p8_update(e);
 }
 
-static void apply_ext(t_pdoly8 *x, int i, t_float v)
+static void apply_ext_(t_pdoly8 *x, int i, t_float v);
+static void apply_ext(t_pdoly8 *x, int i, t_float v) { apply_ext_(x, i, v); rep_kick(x); }
+static void apply_ext_(t_pdoly8 *x, int i, t_float v)
 {
     p8_engine_t *e = &x->e;
     switch (i) {
@@ -592,6 +600,7 @@ static const t_p8range RANGE[] = {
     {"r4",'z',0,31,"Env 4 release",""},
     {"ch1",'z',0,16,"MIDI channel","all|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16"}};
 #define NRANGE ((int)(sizeof RANGE / sizeof RANGE[0]))
+typedef char p8_rep_fits[(sizeof RANGE / sizeof RANGE[0]) <= 160 ? 1 : -1];
 
 static const t_p8range *find_range(t_symbol *s)
 {
@@ -752,21 +761,39 @@ static void pdoly8_nget(t_pdoly8 *x, t_symbol *name, t_floatarg tag)
     outlet_anything(x->x_dump, gensym("norm"), 2, a);
 }
 
-/* ninfo <name>: outlet 3 gets "info <name> <0-127> <value text>" (for the editor p8edit) */
-static void pdoly8_ninfo(t_pdoly8 *x, t_symbol *name)
+/* info <name> <0-127> <value text> on outlet 3: the pot position and the value with its unit */
+static void emit_info(t_pdoly8 *x, const t_p8range *r, t_float v)
 {
-    const t_p8range *r = find_range(name);
-    t_float *v = find_value(x, name);
     const char *l; char buf[64];
-    if (!r || !v || !disp_text(x, name, &l, buf, sizeof buf)) return;
+    if (!disp_text(x, gensym(r->name), &l, buf, sizeof buf)) return;
     char nb[96]; size_t j = 0;                           /* spaces -> no-break space: one clean symbol */
     for (const char *c = buf; *c && j < sizeof nb - 3; c++) {
         if (*c == ' ') { nb[j++] = (char)0xc2; nb[j++] = (char)0xa0; } else nb[j++] = *c;
     }
     nb[j] = 0;
-    t_atom a[3]; SETSYMBOL(a, name); SETFLOAT(a + 1, range_to127(r, *v)); SETSYMBOL(a + 2, gensym(nb));
+    t_atom a[3]; SETSYMBOL(a, gensym(r->name)); SETFLOAT(a + 1, range_to127(r, v)); SETSYMBOL(a + 2, gensym(nb));
     outlet_anything(x->x_dump, gensym("info"), 3, a);
 }
+
+/* ninfo <name>: info for one setting now */
+static void pdoly8_ninfo(t_pdoly8 *x, t_symbol *name)
+{
+    const t_p8range *r = find_range(name);
+    t_float *v = find_value(x, name);
+    if (r && v) emit_info(x, r, *v);
+}
+
+/* every change (message, n, preset, defaults) is reported once as info, in the same logical
+ * time (clock 0): the controller layer sends it back to the controller, the editor shows it */
+static void rep_tick(t_pdoly8 *x)
+{
+    for (int i = 0; i < NRANGE; i++) {
+        if (!x->rep_v[i] || *x->rep_v[i] == x->rep_last[i]) continue;
+        x->rep_last[i] = *x->rep_v[i];
+        emit_info(x, &RANGE[i], *x->rep_v[i]);
+    }
+}
+static void rep_kick(t_pdoly8 *x) { if (x->rep_clk) clock_delay(x->rep_clk, 0); }
 
 static void pdoly8_params(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 {
@@ -844,6 +871,10 @@ static void *pdoly8_new(void)
     x->e.hsnap = 1.0f;                           /* exact original combinations +-1 step around each */            /* fading foot linear in power; original level changes */
     x->e.level = 0.5f;                           /* fixed output level (headroom for 4 voices, both DCOs) */
     x->last = -1;
+    for (int i = 0; i < NRANGE && i < 160; i++) {
+        x->rep_v[i] = find_value(x, gensym(RANGE[i].name)); x->rep_last[i] = NAN;   /* first tick: all */
+    }
+    x->rep_clk = clock_new(x, (t_method)rep_tick);
     set_defaults(x);
     p8_settle(&x->e);
     x->bufn = 3 * 64;
@@ -857,6 +888,7 @@ static void *pdoly8_new(void)
 
 static void pdoly8_free(t_pdoly8 *x)
 {
+    clock_free(x->rep_clk);
 #ifdef P8_OLED
     if (x->o_on) { x->o_quit = 1; pthread_join(x->o_th, 0); close(x->o_sock); x->o_on = 0; }
 #endif

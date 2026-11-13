@@ -1,6 +1,6 @@
 # pdoly8~ auf dem Bela mit OLED (ohne Pepper)
 
-Nur MIDI-Steuerung: Noten, Pitch Bend, Program Change für die Factory-Presets, MIDI-CC und 14-Bit-NRPN für alle Einstellungen. Das OLED zeigt die zuletzt geänderte Einstellung mit Wert und beim Presetwechsel das Programm.
+Nur MIDI-Steuerung: Noten, Pitch Bend, Program Change für die Factory-Presets, MIDI-CC (Controller-Schicht, Kanal 1) für 84 Einstellungen. Das OLED zeigt die zuletzt geänderte Einstellung mit Wert und beim Presetwechsel das Programm.
 
 ## MIDI
 
@@ -10,14 +10,12 @@ Nur MIDI-Steuerung: Noten, Pitch Bend, Program Change für die Factory-Presets, 
 | Noten | 4 Stimmen, Velocity (`vamp`, `vcut`) |
 | Pitch Bend | ±`bnd` Halbtöne (Standard 2) |
 | Program Change 1–64 | Factory-Preset 0–63 (Poly-800-Programm 11 … 88) |
-| CC | 8 Gruppen à 8 für 4 × 16 Pots plus LFO2/LFO3/DEG4 ohne Pot, Tabelle unten, jeder Kanal |
-| NRPN (14 Bit) | CC 99 = 0, CC 98 = die CC-Nummer der Einstellung, dann CC 6 (MSB) und CC 38 (LSB). Nur MSB geht auch (wie ein normaler CC) |
+| CC | Controller-Schicht `[p8cc 1]`: 11 Seiten à 8 auf Kanal 1, Rückmeldung an den Controller, Pickup; Tabelle unten |
 
 ## Keine Klicks mehr bei CC
 
 - `pdoly8~` glättet jetzt jede kontinuierliche Einstellung intern über `mrph` ms (Standard 25, überbrückt die 10–20 ms zwischen den Stufen eines gedrehten 7-Bit-Reglers): Cutoff, Resonanz, FM, Ring, Drive, Rauschen, DCO2-Tonhöhe, Detune, Vibrato, EG-Tiefe, FM-Verhältnis und -Versatz, Klangfarbe, Pegel, Walsh, Pulsbreite, Sync-Sweep-Tiefen, PWM, Key-Tracking, Velocity→Cutoff, EQ, Stereo-Breite und die Modulations-Slots (Stärke, Ziel, Kanten von Rechteck- und S&H-LFOs). Aus den 7-Bit-Stufen eines Controllers werden Rampen.
 - Das Delay schaltet bei jeder Änderung nicht mehr 40 ms stumm (das war beim Original so und die größte Quelle der Knackser): `dgld 1` (Standard) lässt die Zeit gleiten wie bei einem Bandecho, Feedback und Pegel werden geglättet. `dgld 0` = Verhalten des Originals.
-- Höhere Auflösung: über NRPN 14 Bit für jede Einstellung; Einstellungen mit mehr als 15 Werten werden stufenlos gesetzt. Schalter, Oktaven und Ziele bleiben in Stufen.
 - Gemessen (eine CC-Stufe, Sprung im Ausgang): Delay vorher 0,009–0,024, jetzt 0; Drive 0,0009 → 0,00014; FM 0,00037 → 0,00002; Cutoff/Resonanz 0,00005–0,00008 → 0.
 
 ## OLED
@@ -28,33 +26,29 @@ Gesendet wird von `pdoly8~` selbst aus einem eigenen Thread (`oled 127.0.0.1 756
 
 ## CC-Tabelle
 
-Für einen Controller mit 4 Reihen × 16 Pots: 8 Gruppen zu je 8, CC 20–83 durchgehend, kein Parameter doppelt. NRPN (14 Bit) mit denselben Nummern: CC 99 = 0, CC 98 = Nummer, CC 6 / 38 = MSB / LSB.
+Controller-Schicht `[p8cc 1]`: MIDI-Kanal 1 (Argument, 0 = alle Kanäle), dieselben CC-Seiten wie bei allen Instrumenten: Seite k am Launchkey = Reihe k im Editor. CC 20–119 ohne 32, 38, 64–69, 84, 88, 96–101 (Bank-/Data-LSB, Pedale, Portamento Control, High-Res Velocity, NRPN/RPN): 10 volle Seiten und eine mit 4 Plätzen.
 
-Achtung, in den Blöcken liegen Nummern, die manche Keyboards selbst senden: **32** (Bank-Select LSB, `kbd`), **38** (`pw1`; direkt nach einem CC 6 gilt er als NRPN-LSB), **64–67** (Pedale: ein Sustain-Pedal stellt `fms` um).
+Rückmeldung: Änderungen von woanders (Preset, Program Change, Editor) gehen als CC auf demselben Kanal und derselben Nummer an den Controller zurück. Pickup: danach wirkt ein Encoder erst, wenn er den Wert erreicht oder überquert (`pickup 0` schaltet das ab).
 
-| Reihe | Pots 1–8 | Pots 9–16 |
-|---|---|---|
-| **1** (CC 20–35) | PLAY | FILTER |
-| **2** (CC 36–51) | OSC | WALSH-RING |
-| **3** (CC 52–67) | SYNC-FM | MG-FMSOURCE-DEG3 |
-| **4** (CC 68–83) | DELAY-EQ | PERFORM |
+| Seite | CC | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|---|
+| **1** PLAY | 20-27 | `har1` | `har2` | `env1` | `env2` | `intv` | `detn` | `lev1` | `lev2` |
+| **2** FILTER | 28-31 33-36 | `cut` | `res` | `egi` | `env3` | `kbd` | `vcut` | `drv` | `nois` |
+| **3** OSC | 37 39-45 | `oct1` | `oct2` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
+| **4** WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
+| **5** SYNC-FM | 54-61 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
+| **6** MG-FMSOURCE-DEG3 | 62-63 70-75 | `mgr` | `mgi` | `mgd` | `mgv` | `fms` | `fmig` | `pol` | `trg` |
+| **7** DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
+| **8** PERFORM | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
+| **9** DEG4-DRIVE | 94-95 102-107 | `env4` | `trg4` | `d4t1` | `d4a1` | `d4t2` | `d4a2` | `drvp` | `tone` |
+| **10** LFO2 | 108-115 | `l2r` | `l2w` | `l2k` | `l2f` | `l2t1` | `l2a1` | `l2t2` | `l2a2` |
+| **11** LFO3 | 116-119 | `l3r` | `l3w` | `l3t1` | `l3a1` |  |  |  |  |
 
-| Gruppe | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
-|---|---|---|---|---|---|---|---|---|
-| **PLAY** 20–27 | `har1` | `har2` | `env1` | `env2` | `intv` | `detn` | `lev1` | `lev2` |
-| **FILTER** 28–35 | `cut` | `res` | `egi` | `env3` | `kbd` | `vcut` | `drv` | `nois` |
-| **OSC** 36–43 | `oct1` | `oct2` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
-| **WALSH-RING** 44–51 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
-| **SYNC-FM** 52–59 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
-| **MG-FMSOURCE-DEG3** 60–67 | `mgr` | `mgi` | `mgd` | `mgv` | `fms` | `fmig` | `pol` | `trg` |
-| **DELAY-EQ** 68–75 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
-| **PERFORM** 76–83 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
+Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `mgf`, `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4`.
 
-LFO2, LFO3, DEG4 und `drvp`, `tone`, `leak`, `mgf` liegen auf 84–93 und 102–117 (ohne Pot). Nicht per CC: `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4` (über `env1`–`env4` erreichbar).
-
-| CC / NRPN | Parameter | Anzeige (OLED) | Bereich |
+| CC | Parameter | Anzeige (OLED) | Bereich |
 |---|---|---|---|
-| **PLAY** | | | |
+| **Seite 1: PLAY** | | | |
 | 20 | `har1` | Timbre 1 | 0 … 127 |
 | 21 | `har2` | Timbre 2 | 0 … 127 |
 | 22 | `env1` | Env 1 morph | 0 … 127 |
@@ -63,96 +57,92 @@ LFO2, LFO3, DEG4 und `drvp`, `tone`, `leak`, `mgf` liegen auf 84–93 und 102–
 | 25 | `detn` | Detune | 0 … 127 |
 | 26 | `lev1` | Level 1 | 0 … 127 |
 | 27 | `lev2` | Level 2 | 0 … 127 |
-| **FILTER** | | | |
+| **Seite 2: FILTER** | | | |
 | 28 | `cut` | Cutoff | 0 … 99 |
 | 29 | `res` | Resonance | 0 … 15 |
 | 30 | `egi` | EG depth | 0 … 15 |
 | 31 | `env3` | Env 3 morph | 0 … 127 |
-| 32 | `kbd` | Key track | off / half / full |
-| 33 | `vcut` | Vel>cutoff | 0 … 127 |
-| 34 | `drv` | Drive | 0 … 127 |
-| 35 | `nois` | Noise | 0 … 15 |
-| **OSC** | | | |
-| 36 | `oct1` | Octave 1 | -1 / 0 / +1 / +2 / +3 / +4 |
-| 37 | `oct2` | Octave 2 | -1 / 0 / +1 / +2 / +3 / +4 |
-| 38 | `pw1` | Pulse width 1 | 0 … 127 |
-| 39 | `pw2` | Pulse width 2 | 0 … 127 |
-| 40 | `pwm1` | PWM 1 | 0 … 127 |
-| 41 | `pwm2` | PWM 2 | 0 … 127 |
-| 42 | `hmg` | MG>timbre | 0 … 127 |
-| 43 | `drft` | Drift | 0 … 127 |
-| **WALSH-RING** | | | |
-| 44 | `wsh1` | Walsh pos 1 | 0 … 127 |
-| 45 | `wsh2` | Walsh pos 2 | 0 … 127 |
-| 46 | `wmx1` | Walsh mix 1 | 0 … 127 |
-| 47 | `wmx2` | Walsh mix 2 | 0 … 127 |
-| 48 | `wsm` | MG>Walsh | 0 … 127 |
-| 49 | `wse` | EG3>Walsh | -127 … 127 |
-| 50 | `ring` | Ring mod | 0 … 127 |
-| 51 | `rmf` | Ring source | 0 … 14 |
-| **SYNC-FM** | | | |
-| 52 | `sync` | Sync | off / on |
-| 53 | `swp2` | DCO2 pitch | 0 … 72 st |
-| 54 | `swe` | EG3>DCO2 | 0 … 72 st |
-| 55 | `swm` | MG>DCO2 | 0 … 24 st |
-| 56 | `fm1` | FM depth 1 | 0 … 127 |
-| 57 | `fm2` | FM depth 2 | 0 … 127 |
-| 58 | `fmr` | FM ratio | 0.125f … 16 x |
-| 59 | `fmhz` | FM offset | -1000 … 1000 Hz |
-| **MG-FMSOURCE-DEG3** | | | |
-| 60 | `mgr` | MG rate | 0 … 15 |
-| 61 | `mgi` | Vibrato | 0 … 200 ct |
-| 62 | `mgd` | MG delay | 0 … 15 |
-| 63 | `mgv` | MG>cutoff | 0 … 15 |
-| 64 | `fms` | FM source | sine / other DCO / input |
-| 65 | `fmig` | FM input gain | 0 … 127 |
-| 66 | `pol` | EG polarity | down / up |
-| 67 | `trg` | Env 3 trigger | single / multi |
-| **DELAY-EQ** | | | |
-| 68 | `dtim` | Delay time | 0 … 99 |
-| 69 | `dfb` | Delay feedback | 0 … 15 |
-| 70 | `dmf` | Delay mod rate | 0 … 31 |
-| 71 | `dmi` | Delay mod depth | 0 … 31 |
-| 72 | `dlev` | Delay level | 0 … 15 |
-| 73 | `dgld` | Delay changes | mute / glide |
-| 74 | `treb` | Treble | -6 … 6 |
-| 75 | `bass` | Bass | -6 … 6 |
-| **PERFORM** | | | |
-| 76 | `port` | Portamento | 0 … 127 |
-| 77 | `pmod` | Glide mode | last / own / legato |
-| 78 | `mono` | Voice mode | poly / mono |
-| 79 | `retr` | Mono retrig | legato / retrig |
-| 80 | `vamp` | Vel>level | 0 … 127 |
-| 81 | `bnd` | Bend range | 0 … 12 st |
-| 82 | `sprd` | Stereo spread | 0 … 127 |
-| 83 | `mrph` | Smoothing | 0 … 100 ms |
-| **ohne Pot** | | | |
-| 84 | `env4` | Env 4 morph | 0 … 127 |
-| 85 | `trg4` | Env 4 trigger | single / multi |
-| 86 | `d4t1` | Env4 target 1 | Ziel 0–32 |
-| 87 | `d4a1` | Env4 amount 1 | -127 … 127 |
-| 88 | `d4t2` | Env4 target 2 | Ziel 0–32 |
-| 89 | `d4a2` | Env4 amount 2 | -127 … 127 |
-| 90 | `drvp` | Drive position | post / pre |
-| 91 | `tone` | Output stage | off / on |
-| 92 | `leak` | Leak | off / on |
-| 93 | `mgf` | MG rate | 0.1f … 30 Hz |
-| 102 | `l2r` | LFO2 rate | 0.01f … 50 Hz |
-| 103 | `l2w` | LFO2 wave | tri / sine / saw up / saw down / square / S&H |
-| 104 | `l2k` | LFO2 retrig | free / key / phrase |
-| 105 | `l2f` | LFO2 fade | 0 … 10 s |
-| 106 | `l2t1` | LFO2 target 1 | Ziel 0–32 |
-| 107 | `l2a1` | LFO2 amount 1 | -127 … 127 |
-| 108 | `l2t2` | LFO2 target 2 | Ziel 0–32 |
-| 109 | `l2a2` | LFO2 amount 2 | -127 … 127 |
-| 110 | `l3r` | LFO3 rate | 0.01f … 50 Hz |
-| 111 | `l3w` | LFO3 wave | tri / sine / saw up / saw down / square / S&H |
-| 112 | `l3k` | LFO3 retrig | free / key / phrase |
-| 113 | `l3f` | LFO3 fade | 0 … 10 s |
-| 114 | `l3t1` | LFO3 target 1 | Ziel 0–32 |
-| 115 | `l3a1` | LFO3 amount 1 | -127 … 127 |
-| 116 | `l3t2` | LFO3 target 2 | Ziel 0–32 |
-| 117 | `l3a2` | LFO3 amount 2 | -127 … 127 |
+| 33 | `kbd` | Key track | off / half / full |
+| 34 | `vcut` | Vel>cutoff | 0 … 127 |
+| 35 | `drv` | Drive | 0 … 127 |
+| 36 | `nois` | Noise | 0 … 15 |
+| **Seite 3: OSC** | | | |
+| 37 | `oct1` | Octave 1 | -1 / 0 / +1 / +2 / +3 / +4 |
+| 39 | `oct2` | Octave 2 | -1 / 0 / +1 / +2 / +3 / +4 |
+| 40 | `pw1` | Pulse width 1 | 0 … 127 |
+| 41 | `pw2` | Pulse width 2 | 0 … 127 |
+| 42 | `pwm1` | PWM 1 | 0 … 127 |
+| 43 | `pwm2` | PWM 2 | 0 … 127 |
+| 44 | `hmg` | MG>timbre | 0 … 127 |
+| 45 | `drft` | Drift | 0 … 127 |
+| **Seite 4: WALSH-RING** | | | |
+| 46 | `wsh1` | Walsh pos 1 | 0 … 127 |
+| 47 | `wsh2` | Walsh pos 2 | 0 … 127 |
+| 48 | `wmx1` | Walsh mix 1 | 0 … 127 |
+| 49 | `wmx2` | Walsh mix 2 | 0 … 127 |
+| 50 | `wsm` | MG>Walsh | 0 … 127 |
+| 51 | `wse` | EG3>Walsh | -127 … 127 |
+| 52 | `ring` | Ring mod | 0 … 127 |
+| 53 | `rmf` | Ring source | 0 … 14 |
+| **Seite 5: SYNC-FM** | | | |
+| 54 | `sync` | Sync | off / on |
+| 55 | `swp2` | DCO2 pitch | 0 … 72 st |
+| 56 | `swe` | EG3>DCO2 | 0 … 72 st |
+| 57 | `swm` | MG>DCO2 | 0 … 24 st |
+| 58 | `fm1` | FM depth 1 | 0 … 127 |
+| 59 | `fm2` | FM depth 2 | 0 … 127 |
+| 60 | `fmr` | FM ratio | 0.125f … 16 x |
+| 61 | `fmhz` | FM offset | -1000 … 1000 Hz |
+| **Seite 6: MG-FMSOURCE-DEG3** | | | |
+| 62 | `mgr` | MG rate | 0 … 15 |
+| 63 | `mgi` | Vibrato | 0 … 200 ct |
+| 70 | `mgd` | MG delay | 0 … 15 |
+| 71 | `mgv` | MG>cutoff | 0 … 15 |
+| 72 | `fms` | FM source | sine / other DCO / input |
+| 73 | `fmig` | FM input gain | 0 … 127 |
+| 74 | `pol` | EG polarity | down / up |
+| 75 | `trg` | Env 3 trigger | single / multi |
+| **Seite 7: DELAY-EQ** | | | |
+| 76 | `dtim` | Delay time | 0 … 99 |
+| 77 | `dfb` | Delay feedback | 0 … 15 |
+| 78 | `dmf` | Delay mod rate | 0 … 31 |
+| 79 | `dmi` | Delay mod depth | 0 … 31 |
+| 80 | `dlev` | Delay level | 0 … 15 |
+| 81 | `dgld` | Delay changes | mute / glide |
+| 82 | `treb` | Treble | -6 … 6 |
+| 83 | `bass` | Bass | -6 … 6 |
+| **Seite 8: PERFORM** | | | |
+| 85 | `port` | Portamento | 0 … 127 |
+| 86 | `pmod` | Glide mode | last / own / legato |
+| 87 | `mono` | Voice mode | poly / mono |
+| 89 | `retr` | Mono retrig | legato / retrig |
+| 90 | `vamp` | Vel>level | 0 … 127 |
+| 91 | `bnd` | Bend range | 0 … 12 st |
+| 92 | `sprd` | Stereo spread | 0 … 127 |
+| 93 | `mrph` | Smoothing | 0 … 100 ms |
+| **Seite 9: DEG4-DRIVE** | | | |
+| 94 | `env4` | Env 4 morph | 0 … 127 |
+| 95 | `trg4` | Env 4 trigger | single / multi |
+| 102 | `d4t1` | Env4 target 1 | Ziel 0–32 |
+| 103 | `d4a1` | Env4 amount 1 | -127 … 127 |
+| 104 | `d4t2` | Env4 target 2 | Ziel 0–32 |
+| 105 | `d4a2` | Env4 amount 2 | -127 … 127 |
+| 106 | `drvp` | Drive position | post / pre |
+| 107 | `tone` | Output stage | off / on |
+| **Seite 10: LFO2** | | | |
+| 108 | `l2r` | LFO2 rate | 0.01f … 50 Hz |
+| 109 | `l2w` | LFO2 wave | tri / sine / saw up / saw down / square / S&H |
+| 110 | `l2k` | LFO2 retrig | free / key / phrase |
+| 111 | `l2f` | LFO2 fade | 0 … 10 s |
+| 112 | `l2t1` | LFO2 target 1 | Ziel 0–32 |
+| 113 | `l2a1` | LFO2 amount 1 | -127 … 127 |
+| 114 | `l2t2` | LFO2 target 2 | Ziel 0–32 |
+| 115 | `l2a2` | LFO2 amount 2 | -127 … 127 |
+| **Seite 11: LFO3** | | | |
+| 116 | `l3r` | LFO3 rate | 0.01f … 50 Hz |
+| 117 | `l3w` | LFO3 wave | tri / sine / saw up / saw down / square / S&H |
+| 118 | `l3t1` | LFO3 target 1 | Ziel 0–32 |
+| 119 | `l3a1` | LFO3 amount 1 | -127 … 127 |
 
 ## Audio
 
@@ -174,11 +164,11 @@ scp bela-oled/project/* root@bela.local:/root/Bela/projects/pdoly8-oled/
 ## Dateien
 
 - `pdoly8~.pd_linux` — das External für den Bela (`make bela-zig` baut es neu und erzeugt beide Bela-Ordner neu).
-- `project/_main.pd` — der Patch: MIDI, CC/NRPN → `n <name> <wert>`, OLED über O2O.
+- `project/_main.pd` — der Patch: MIDI, CC über `p8cc` → `n <name> <wert>`, OLED über O2O.
 - `project/p8factory.pd` — die 64 Factory-Programme, im Patch gespeichert.
 - `../tools/gen_bela_oled.py` — erzeugt `project/` neu; die CC-Tabelle kommt aus `../tools/gen_bela.py` (`CCS`).
 
 ## Stand
 
-- Getestet in Pd (libpd 0.56) auf dem Desktop: Preset beim Start, CC, NRPN (14 Bit exakt), Program Change, Noten; die OSC-Nachrichten an O2O mit einem UDP-Empfänger mitgelesen.
+- Getestet in Pd (libpd 0.56) auf dem Desktop: Preset beim Start, CC mit Rückmeldung und Pickup, Program Change, Noten; die OSC-Nachrichten an O2O mit einem UDP-Empfänger mitgelesen.
 - Auf dem Bela noch nicht gelaufen: CPU-Last, MIDI-Ports, Darstellung auf dem OLED.

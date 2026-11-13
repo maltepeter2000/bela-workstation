@@ -7,8 +7,10 @@ pdoly8~ – Testversion für Pure Data auf dem Mac (Apple Silicon und Intel)
    Hilfe-Patch direkt aus dem Ordner öffnen).
 3. pdoly8~-help.pd öffnen, DSP einschalten. Unter "Presets": Werksklänge
    0-63 mit [p8factory], eigene Klänge mit [p8user] (store N speichert).
-4. MIDI-Controller: [p8cc] oben im Hilfe-Patch wertet CC 20-83 (8 Gruppen
-   zu 8 Reglern) und 14-Bit-NRPN aus, Tabelle unter "MIDI CC (p8cc)".
+4. MIDI-Controller: [p8cc 1] im Hilfe-Patch ist die Controller-Schicht:
+   CC-Seiten auf MIDI-Kanal 1, Tabelle unter "MIDI CC". Damit die Werte
+   an den Launchkey zurueckgehen: in Pd unter MIDI-Einstellungen den
+   Launchkey auch als MIDI-Ausgang waehlen.
 5. Editor: im Hilfe-Patch auf [p8edit $0-pdoly8] klicken. Alle Parameter in
    Reihen zu 8 wie am Controller, mit Schieberegler, Zahl und echtem Wert.
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the MIDI CC tables (from CC_GROUPS / CC_EXTRA in gen_bela.py) into
+"""Writes the MIDI CC tables (CC_ROWS in gen_bela.py, pages of tools/ctlayer.py) into
 bela/README.md (section "## MIDI-CC") and bela-oled/README.md ("## CC-Tabelle")."""
 import os
 import re
@@ -24,29 +24,23 @@ def rng(n):
     return f"{lo} … {hi}" + (f" {u}" if u else "")
 
 
-G = g.CC_GROUPS
-over = "| Reihe | Pots 1–8 | Pots 9–16 |\n|---|---|---|\n"
-for r in range(4):
-    a, b = G[2 * r], G[2 * r + 1]
-    over += f"| **{r + 1}** (CC {a[1]}–{b[1] + 7}) | {a[0]} | {b[0]} |\n"
-grid = "| Gruppe | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |\n|---|---|---|---|---|---|---|---|---|\n"
-for t, c0, ns in G:
-    grid += f"| **{t}** {c0}–{c0 + 7} | " + " | ".join(f"`{n}`" for n in ns) + " |\n"
-full = "| CC / NRPN | Parameter | Anzeige (OLED) | Bereich |\n|---|---|---|---|\n"
-for t, c0, ns in G:
-    full += f"| **{t}** | | | |\n"
-    for k, n in enumerate(ns):
-        full += f"| {c0 + k} | `{n}` | {lab[n][2]} | {rng(n)} |\n"
-full += "| **ohne Pot** | | | |\n"
-for cc, n in g.CC_EXTRA:
-    full += f"| {cc} | `{n}` | {lab[n][2]} | {rng(n)} |\n"
-body = f"""Für einen Controller mit 4 Reihen × 16 Pots: 8 Gruppen zu je 8, CC 20–83 durchgehend, kein Parameter doppelt. NRPN (14 Bit) mit denselben Nummern: CC 99 = 0, CC 98 = Nummer, CC 6 / 38 = MSB / LSB.
+import ctlayer as CL                             # noqa: E402
 
-Achtung, in den Blöcken liegen Nummern, die manche Keyboards selbst senden: **32** (Bank-Select LSB, `kbd`), **38** (`pw1`; direkt nach einem CC 6 gilt er als NRPN-LSB), **64–67** (Pedale: ein Sustain-Pedal stellt `fms` um).
+grid = "| Seite | CC | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |\n|---|---|---|---|---|---|---|---|---|---|\n"
+for k, (t, ns) in enumerate(g.CC_ROWS):
+    cells = [f"`{n}`" for n in ns] + [""] * (8 - len(ns))
+    grid += f"| **{k + 1}** {t} | {CL.page_text(k)} | " + " | ".join(cells) + " |\n"
+full = "| CC | Parameter | Anzeige (OLED) | Bereich |\n|---|---|---|---|\n"
+for k, (t, ns) in enumerate(g.CC_ROWS):
+    full += f"| **Seite {k + 1}: {t}** | | | |\n"
+    for n in ns:
+        full += f"| {g.CC_OF[n]} | `{n}` | {lab[n][2]} | {rng(n)} |\n"
+body = f"""Controller-Schicht `[p8cc 1]`: MIDI-Kanal 1 (Argument, 0 = alle Kanäle), dieselben CC-Seiten wie bei allen Instrumenten: Seite k am Launchkey = Reihe k im Editor. CC 20–119 ohne 32, 38, 64–69, 84, 88, 96–101 (Bank-/Data-LSB, Pedale, Portamento Control, High-Res Velocity, NRPN/RPN): 10 volle Seiten und eine mit 4 Plätzen.
 
-{over}
+Rückmeldung: Änderungen von woanders (Preset, Program Change, Editor) gehen als CC auf demselben Kanal und derselben Nummer an den Controller zurück. Pickup: danach wirkt ein Encoder erst, wenn er den Wert erreicht oder überquert (`pickup 0` schaltet das ab).
+
 {grid}
-LFO2, LFO3, DEG4 und `drvp`, `tone`, `leak`, `mgf` liegen auf 84–93 und 102–117 (ohne Pot). Nicht per CC: `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4` (über `env1`–`env4` erreichbar).
+Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `mgf`, `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4`.
 
 {full}
 """

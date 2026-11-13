@@ -39,32 +39,26 @@ PAGES = [
     ("LFO3",       ["l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2"]),
     ("FX-PERFORM", ["dtim", "dfb", "dmf", "dmi", "dlev", "port", "mono", "vamp"]),
 ]
-# MIDI CC -> parameter (any channel): 4 rows of 16 controller pots = 8 groups of 8,
-# CC 20-83 straight through; no parameter twice. Inside the blocks: 32 (bank
-# select LSB), 38 (NRPN data LSB, used as NRPN LSB only right after CC 6) and
-# 64-67 (pedals: a sustain pedal moves fms!)
-CC_GROUPS = [
-    ("PLAY",               20, ["har1", "har2", "env1", "env2", "intv", "detn", "lev1", "lev2"]),
-    ("FILTER",             28, ["cut", "res", "egi", "env3", "kbd", "vcut", "drv", "nois"]),
-    ("OSC",                36, ["oct1", "oct2", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
-    ("WALSH-RING",         44, ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "ring", "rmf"]),
-    ("SYNC-FM",            52, ["sync", "swp2", "swe", "swm", "fm1", "fm2", "fmr", "fmhz"]),
-    ("MG-FMSOURCE-DEG3",   60, ["mgr", "mgi", "mgd", "mgv", "fms", "fmig", "pol", "trg"]),
-    ("DELAY-EQ",           68, ["dtim", "dfb", "dmf", "dmi", "dlev", "dgld", "treb", "bass"]),
-    ("PERFORM",            76, ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
+# MIDI CC -> parameter: the controller layer (tools/ctlayer.py), one MIDI channel for
+# pdoly8~ (default 1), the same CC pages as every instrument: row k = page k on the
+# Launchkey, 20-119 without 32 38 64-69 84 88 96-101. No parameter twice.
+import ctlayer                                   # noqa: E402
+MIDI_CH = 1
+CC_ROWS = [
+    ("PLAY",             ["har1", "har2", "env1", "env2", "intv", "detn", "lev1", "lev2"]),
+    ("FILTER",           ["cut", "res", "egi", "env3", "kbd", "vcut", "drv", "nois"]),
+    ("OSC",              ["oct1", "oct2", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
+    ("WALSH-RING",       ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "ring", "rmf"]),
+    ("SYNC-FM",          ["sync", "swp2", "swe", "swm", "fm1", "fm2", "fmr", "fmhz"]),
+    ("MG-FMSOURCE-DEG3", ["mgr", "mgi", "mgd", "mgv", "fms", "fmig", "pol", "trg"]),
+    ("DELAY-EQ",         ["dtim", "dfb", "dmf", "dmi", "dlev", "dgld", "treb", "bass"]),
+    ("PERFORM",          ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
+    ("DEG4-DRIVE",       ["env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2", "drvp", "tone"]),
+    ("LFO2",             ["l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2"]),
+    ("LFO3",             ["l3r", "l3w", "l3t1", "l3a1"]),
 ]
-CC_EXTRA = [(84 + k, n) for k, n in enumerate(["env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2"])] + \
-           [(90, "drvp"), (91, "tone"), (92, "leak"), (93, "mgf")] + \
-           [(102 + k, n) for k, n in enumerate(["l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2"])] + \
-           [(110 + k, n) for k, n in enumerate(["l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2"])]
-CCS = {}
-for _, cc0, names in CC_GROUPS:
-    for k, nm in enumerate(names):
-        CCS[cc0 + k] = nm
-for cc, nm in CC_EXTRA:
-    CCS[cc] = nm
-assert len(set(CCS.values())) == len(CCS), "a parameter twice"
-assert not set(CCS) & {0, 1, 6, 96, 97, 98, 99, 100, 101} and max(CCS) < 120
+CC_OF = ctlayer.cc_map(CC_ROWS)                  # name -> CC
+CCS = {cc: nm for nm, cc in CC_OF.items()}       # CC -> name
 BUTTONS = [26, 25, 24, 23]                       # Pepper buttons 1-4, pressed = 0
 LEDS = [17, 18, 21, 13, 14, 11, 12, 15, 16, 19]  # Pepper LEDs 1-10
 # raw adc~ range of the Pepper pots, per pot (measured with beladrumrack/testprojects/potrange:
@@ -248,7 +242,7 @@ def sec_presets():
 
 def sec_midi():
     p = P("midi", 820, 420)
-    p.note("MIDI (USB): notes / pitch bend / program change = factory preset / CC and NRPN via p8cc on any channel",
+    p.note("MIDI (USB): notes / pitch bend / program change = factory preset / CC via the controller layer p8cc",
            10, 6)
     ni = p.add("notein", 10, 40); pk = p.add("pack f f f", 10, 70); s1 = p.add("s p8-in", 10, 100)
     p.con(ni, 0, pk, 0); p.con(ni, 1, pk, 1); p.con(ni, 2, pk, 2); p.con(pk, 0, s1, 0)
@@ -257,10 +251,12 @@ def sec_midi():
     p.con(bi, 0, be, 0); p.con(be, 0, bm, 0); p.con(bm, 0, s2, 0)
     pg = p.add("pgmin", 450, 40); mi = p.add("- 1", 450, 70); s3 = p.add("s p8-preset", 450, 100)
     p.con(pg, 0, mi, 0); p.con(mi, 0, s3, 0)
-    cc = p.add("p8cc", 10, 170); t = p.add("t a b", 10, 200)
+    rco = p.add("r p8-out", 10, 140)
+    cc = p.add(f"p8cc {MIDI_CH}", 10, 170); t = p.add("t a b", 10, 200)
     s4 = p.add("s p8-in", 10, 230); rf = p.add("s p8-refresh", 100, 230)
-    p.con(cc, 0, t, 0); p.con(t, 0, s4, 0); p.con(t, 1, rf, 0)
-    p.note("p8cc: CC and 14-bit NRPN -> n <name> <value> (table inside p8cc.pd); then the pots re-read their targets", 80, 170)
+    p.con(rco, 0, cc, 0); p.con(cc, 0, t, 0); p.con(t, 0, s4, 0); p.con(t, 1, rf, 0)
+    p.note(f"p8cc {MIDI_CH}: controller layer, CC pages on channel {MIDI_CH} -> n <name> <value>, changes back to the"
+           " controller (ctlout), pickup; then the pots re-read their targets", 100, 170)
     return p
 
 

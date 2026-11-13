@@ -3,9 +3,9 @@
 
   MIDI (USB host port hw:1 and the Bela as USB MIDI device hw:0 of the computer):
     notes, pitch bend, program change 1-64 = factory preset 0-63,
-    CC -> parameter (the same table as the Pepper version, see CCS in gen_bela.py),
-    NRPN 14-bit: CC 99 = 0, CC 98 = the parameter's CC number, CC 6 / 38 = data MSB / LSB
-  Every value goes through pdoly8~'s  n <name> <0-127>  (fractions from NRPN pass);
+    CC -> parameter: the controller layer p8cc (channel MIDI_CH, CC pages of tools/ctlayer.py),
+    changes go back to the controller as CC (ctlout), pickup avoids jumps
+  Every value goes through pdoly8~'s  n <name> <0-127>;
   pdoly8~ smooths continuous settings (mrph), the delay glides (dgld 1).
   OLED via O2O (OSC to 127.0.0.1:7562, as in tx81z-pd): pdoly8~ sends the changed setting
   and its value from a thread of its own (oled / oledtext), at most every 40 ms. Nothing
@@ -13,7 +13,7 @@
 
 Send/receive names
   p8-in      messages to pdoly8~          p8-out     outlet 3 of pdoly8~
-  p8-preset  load factory preset N        p8-set     "<number> <0-127>" from CC or NRPN
+  p8-preset  load factory preset N
 usage: python3 tools/gen_bela_oled.py
 """
 import os
@@ -55,7 +55,7 @@ def sec_presets():
 
 def sec_midi():
     p = P("midi", 900, 460)
-    p.note("MIDI: notes / pitch bend / program change / CC and NRPN (14 bit) -> p8-set <number> <0-127>", 10, 6)
+    p.note("MIDI: notes / pitch bend / program change / CC pages (controller layer p8cc) -> p8-in", 10, 6)
     ni = p.add("notein", 10, 40); pk = p.add("pack f f f", 10, 70); s1 = p.add("s p8-in", 10, 100)
     p.con(ni, 0, pk, 0); p.con(ni, 1, pk, 1); p.con(ni, 2, pk, 2); p.con(pk, 0, s1, 0)
     bi = p.add("bendin", 200, 40); be = p.add("expr ($f1 - 8192) / 8192", 200, 70)
@@ -63,9 +63,11 @@ def sec_midi():
     p.con(bi, 0, be, 0); p.con(be, 0, bm, 0); p.con(bm, 0, s2, 0)
     pg = p.add("pgmin", 450, 40); mi = p.add("- 1", 450, 70); s3 = p.add("s p8-preset", 450, 100)
     p.con(pg, 0, mi, 0); p.con(mi, 0, s3, 0)
-    cc = p.add("p8cc", 10, 170); s4 = p.add("s p8-in", 10, 200)
-    p.con(cc, 0, s4, 0)
-    p.note("p8cc: CC 20-83 (+ LFO2/3, DEG4 ...) and 14-bit NRPN -> n <name> <value> (table inside p8cc.pd)", 80, 170)
+    rco = p.add("r p8-out", 10, 140)
+    cc = p.add(f"p8cc {G.MIDI_CH}", 10, 170); s4 = p.add("s p8-in", 10, 200)
+    p.con(rco, 0, cc, 0); p.con(cc, 0, s4, 0)
+    p.note(f"p8cc {G.MIDI_CH}: controller layer - CC pages on channel {G.MIDI_CH} -> n <name> <value>,"
+           " changes back to the controller (ctlout), pickup (table inside p8cc.pd)", 100, 170)
     return p
 
 
@@ -102,7 +104,7 @@ def sec_oled():
 
 def sec_tables():
     p = P("tables", 600, 120)
-    p.note("TABLES: p8-cc = MIDI CC / NRPN number -> parameter", 10, 6)
+    p.note("TABLES: the CC table is inside p8cc.pd", 10, 6)
     p.add("text define -k p8-cc", 10, 40)
     return p
 
@@ -110,8 +112,8 @@ def sec_tables():
 def main_patch():
     p = P(None, 720, 470)
     lines = ["pdoly8~ on Bela with OLED (O2O) - no Pepper",
-             "MIDI: notes / pitch bend / program change 1-64 = factory preset / CC and 14-bit NRPN -> settings",
-             "  (table in README; NRPN: CC 99 = 0, CC 98 = the parameter's CC number, CC 6 / 38 = MSB / LSB)",
+             "MIDI: notes / pitch bend / program change 1-64 = factory preset / CC pages on channel 1 -> settings",
+             "  (controller layer p8cc: table in README, changes go back to the controller, pickup)",
              "pdoly8~ smooths every continuous setting (mrph ms), the delay glides (dgld 1): no zipper or pops.",
              "OLED: the changed setting and its value, the program on preset changes - sent by pdoly8~ from a",
              "  thread of its own (oled 127.0.0.1 7562), never from the audio thread: no network call, no print.",
@@ -120,7 +122,7 @@ def main_patch():
         p.note(l, 10, 6 + 15 * k)
     y = 110
     for sec, txt in [(sec_init(), "MIDI port / O2O / preset 0 at start"),
-                     (sec_presets(), "factory presets"), (sec_midi(), "notes / bend / program / CC and NRPN (p8cc)")]:
+                     (sec_presets(), "factory presets"), (sec_midi(), "notes / bend / program / CC (p8cc)")]:
         p.sub(sec, 10, y)
         p.note(txt, 140, y)
         y += 25

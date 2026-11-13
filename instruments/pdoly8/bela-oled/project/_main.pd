@@ -1,7 +1,7 @@
 #N canvas 0 50 720 470 10;
 #X text 10 6 pdoly8~ on Bela with OLED (O2O) - no Pepper, f 43;
-#X text 10 21 MIDI: notes / pitch bend / program change 1-64 = factory preset / CC and 14-bit NRPN -> settings, f 96;
-#X text 10 36   (table in README \; NRPN: CC 99 = 0 \, CC 98 = the parameter's CC number \, CC 6 / 38 = MSB / LSB), f 94;
+#X text 10 21 MIDI: notes / pitch bend / program change 1-64 = factory preset / CC pages on channel 1 -> settings, f 99;
+#X text 10 36   (controller layer p8cc: table in README \, changes go back to the controller \, pickup), f 85;
 #X text 10 51 pdoly8~ smooths every continuous setting (mrph ms) \, the delay glides (dgld 1): no zipper or pops., f 97;
 #X text 10 66 OLED: the changed setting and its value \, the program on preset changes - sent by pdoly8~ from a, f 95;
 #X text 10 81   thread of its own (oled 127.0.0.1 7562) \, never from the audio thread: no network call \, no print., f 98;
@@ -45,7 +45,7 @@
 #X restore 10 135 pd presets;
 #X text 140 135 factory presets, f 15;
 #N canvas 0 50 900 460 midi 0;
-#X text 10 6 MIDI: notes / pitch bend / program change / CC and NRPN (14 bit) -> p8-set <number> <0-127>, f 91;
+#X text 10 6 MIDI: notes / pitch bend / program change / CC pages (controller layer p8cc) -> p8-in, f 85;
 #X obj 10 40 notein;
 #X obj 10 70 pack f f f;
 #X obj 10 100 s p8-in;
@@ -56,9 +56,10 @@
 #X obj 450 40 pgmin;
 #X obj 450 70 - 1;
 #X obj 450 100 s p8-preset;
-#X obj 10 170 p8cc;
+#X obj 10 140 r p8-out;
+#X obj 10 170 p8cc 1;
 #X obj 10 200 s p8-in;
-#X text 80 170 p8cc: CC 20-83 (+ LFO2/3 \, DEG4 ...) and 14-bit NRPN -> n <name> <value> (table inside p8cc.pd), f 94;
+#X text 100 170 p8cc 1: controller layer - CC pages on channel 1 -> n <name> <value> \, changes back to the controller (ctlout) \, pickup (table inside p8cc.pd), f 100;
 #X connect 1 0 2 0;
 #X connect 1 1 2 1;
 #X connect 1 2 2 2;
@@ -69,8 +70,9 @@
 #X connect 8 0 9 0;
 #X connect 9 0 10 0;
 #X connect 11 0 12 0;
+#X connect 12 0 13 0;
 #X restore 10 160 pd midi;
-#X text 140 160 notes / bend / program / CC and NRPN (p8cc), f 43;
+#X text 140 160 notes / bend / program / CC (p8cc), f 34;
 #X obj 10 205 r p8-in;
 #X obj 150 205 adc~ 1;
 #X obj 10 235 pdoly8~;

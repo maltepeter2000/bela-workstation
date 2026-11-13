@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Generates p8edit.pd: an editor for pdoly8~ in rows of 8, like the CC rows of the controller.
+"""Generates p8edit.pd: an editor for pdoly8~ in rows of 8, row k = CC page k of the controller layer.
 
 usage: python3 tools/gen_editor.py [outfile]   (default: p8edit.pd next to the external)
 
 [p8edit <bus>]  e.g. [p8edit $0-pdoly8] in the help patch
   sends    n <name> <0-127>        to [s <bus>]      (the [r <bus>] in front of pdoly8~)
-  listens  info <name> <0-127> <t> on [r <bus>-out]  (outlet 3 of pdoly8~ into [s <bus>-out])
-  and to everything on <bus>: an n message updates its cell at once, any other setting,
-  preset or defaults message refreshes all cells 30 ms later.
+  listens  info <name> <0-127> <t> on [r <bus>-out]  (outlet 3 of pdoly8~ into [s <bus>-out]):
+  pdoly8~ reports every change itself (Launchkey, presets, messages); at load and with the
+  refresh button the editor asks for all values (ninfo).
 Every cell: name and CC number, label, slider and number box 0-127 (as from a pot), the value
 with its unit from pdoly8~ (ninfo). Ranges and labels come from the RANGE table in pdoly8~.c,
 the rows from the CC map in gen_bela.py, so editor, controller and help always agree.
@@ -47,15 +47,17 @@ def stages(g):
     return [f"{s}{g}" for s in ("a", "d", "bp", "sl", "su", "r")] + [None, None]
 
 
-LEFT = [(t, ns) for t, c0, ns in GB.CC_GROUPS]
-RIGHT = [("DEG4", ["env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2", None, None]),
-         ("LFO2", ["l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2"]),
-         ("LFO3", ["l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2"]),
-         ("MORE", ["drvp", "tone", "leak", "mgf", "ch1", None, None, None]),
+# rows 1-11 = the CC pages of the Launchkey (CC_ROWS in gen_bela.py), then rows without CC
+ROWS = [(f"PAGE {k + 1}  {t}", list(ns)) for k, (t, ns) in enumerate(GB.CC_ROWS)]
+ROWS[10] = (ROWS[10][0], ROWS[10][1] + ["l3k", "l3f", "l3t2", "l3a2"])   # page 11 has 4 CCs: the rest by mouse
+LEFT = ROWS[:8]
+RIGHT = ROWS[8:] + [
+         ("MORE", ["leak", "mgf", "ch1", None, None, None, None, None]),
          ("DEG1 stages (sets env1 to own)", stages(1)),
          ("DEG2 stages (sets env2 to own)", stages(2)),
          ("DEG3 stages (sets env3 to own)", stages(3)),
          ("DEG4 stages (sets env4 to own)", stages(4))]
+assert len(RIGHT) == 8
 ALL = [n for _, ns in LEFT + RIGHT for n in ns if n]
 assert len(ALL) == len(set(ALL)) and set(ALL) == set(RANGE), set(RANGE) ^ set(ALL)
 
@@ -68,6 +70,8 @@ def cc_text(ns):
     ccs = [CC[n] for n in ns if n in CC]
     if not ccs:
         return "no CC"
+    if len(ccs) < len([n for n in ns if n]):
+        return "CC " + " ".join(map(str, ccs)) + " (the rest by mouse)"
     return f"CC {min(ccs)}-{max(ccs)}" if max(ccs) - min(ccs) + 1 == len(ccs) else "CC " + " ".join(map(str, ccs))
 
 
@@ -84,10 +88,10 @@ class Canvas:
 
 
 def gui(c):
-    c.add(f"#X text {X0} 6 pdoly8~ editor: rows of 8 as on the controller (left = CC 20-83). Slider and number:"
+    c.add(f"#X text {X0} 6 pdoly8~ editor: rows of 8 as the pages of the controller (MIDI channel of [p8cc]). Slider and number:"
           f" the value as from a pot (0-127) {COMMA} the box right of it: the real value., f 200;")
     c.add(f"#X text {X0} 22 [p8edit <bus>] sends n <name> <value> to <bus> and reads outlet 3 of pdoly8~ from"
-          f" <bus>-out. Changes from MIDI CC {COMMA} presets and messages on the bus show up here., f 200;")
+          f" <bus>-out: every change (Launchkey {COMMA} presets {COMMA} messages) shows up here. Page k on the Launchkey = row k., f 200;")
     c.add(f"#X obj {X1 + 8 * CW - 90} 40 bng 17 250 50 0 {D}0-refresh empty refresh 22 9 0 10 #fcfcfc #000000 #000000;")
     for col, (x0, rows) in enumerate(((X0, LEFT), (X1, RIGHT))):
         for r, (title, ns) in enumerate(rows):
@@ -119,32 +123,15 @@ def logic():
         s = c.add(f"#X obj {x} {y + 60} s {D}1;")
         c.conn(r, 0, m, 0); c.conn(m, 0, s, 0)
     y = 40 + ((len(ALL) + 7) // 8) * 100 + 20
-    # bus -> refresh
-    rb = c.add(f"#X obj 10 {y} r {D}1;")
-    rt = c.add(f"#X obj 10 {y + 30} route n note bend ninfo nget disp info list float;")
-    c.conn(rb, 0, rt, 0)
-    ls = c.add(f"#X obj 10 {y + 60} list split 1;")      # "cut 30" (selector cut) -> cut
-    c.conn(rt, 0, ls, 0)
-    sy = c.add(f"#X obj 10 {y + 90} symbol;")
-    c.conn(ls, 0, sy, 0)
-    pp = c.add(f"#X obj 10 {y + 120} pipe s 0;")         # after pdoly8~ got the n message
-    c.conn(sy, 0, pp, 0)
-    one = c.add(f"#X msg 10 {y + 150} ninfo {D}1;")
-    c.conn(pp, 0, one, 0)
-    s1 = c.add(f"#X obj 10 {y + 180} s {D}1;")
-    c.conn(one, 0, s1, 0)
-    tb = c.add(f"#X obj 400 {y + 60} t b;")
-    c.conn(rt, 9, tb, 0)
-    lb = c.add(f"#X obj 500 {y} loadbang;")
-    rr = c.add(f"#X obj 600 {y} r {D}0-refresh;")
-    dl = c.add(f"#X obj 400 {y + 90} del 30;")
-    c.conn(tb, 0, dl, 0); c.conn(lb, 0, dl, 0); c.conn(rr, 0, dl, 0)
-    allm = c.add(f"#X msg 400 {y + 120} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + ", f 70;")
+    # start and refresh button: ask for all values (later changes are reported by pdoly8~ itself)
+    lb = c.add(f"#X obj 400 {y} loadbang;")
+    rr = c.add(f"#X obj 500 {y} r {D}0-refresh;")
+    dl = c.add(f"#X obj 400 {y + 30} del 30;")
+    c.conn(lb, 0, dl, 0); c.conn(rr, 0, dl, 0)
+    allm = c.add(f"#X msg 400 {y + 60} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + ", f 70;")
     c.conn(dl, 0, allm, 0)
-    s2 = c.add(f"#X obj 400 {y + 330} s {D}1;")
+    s2 = c.add(f"#X obj 400 {y + 270} s {D}1;")
     c.conn(allm, 0, s2, 0)
-    c.add(f"#X text 120 {y + 60} n from anywhere: update that cell at once;")
-    c.add(f"#X text 460 {y + 60} anything else (settings / presets / defaults): all cells;")
     # replies -> cells
     y2 = y + 380
     ro = c.add(f"#X obj 10 {y2} r {D}1-out;")
