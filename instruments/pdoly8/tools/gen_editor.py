@@ -113,8 +113,8 @@ def top_band(c):
     c.add(f"#X text {X0} {y + 50} delay;")
     for k, (msg, label) in enumerate(DELAYS):
         bng(c, X0 + 52 + k * 106, y + 50, f"dl-{msg}", label)
-    c.add(f"#X text {X0} {y + 74} user bank: p8user-bank.txt next to the editor (save bank writes it). "
-          f"store to N: the current sound into slot N., f 90;")
+    c.add(f"#X text {X0} {y + 74} user bank: p8user-bank.txt next to the editor. store to N puts the current sound "
+          f"into slot N and saves the bank file., f 90;")
     x1 = X1
     c.add(f"#X obj {x1 - 4} {y} cnv 15 {8 * CW} 112 empty empty POLY-800{SP}II{SP}SYSEX{SP}(the{SP}user{SP}bank)"
           f" 4 8 0 10 #f4ece4 #404040 0;")
@@ -128,8 +128,8 @@ def top_band(c):
     c.add(f"#X symbolatom {x1 + 50} {y + 50} 36 0 0 0 - {D}0-syxst -;")
     c.add(f"#X text {x1 + 380} {y + 50} Poly-800 MIDI channel;")
     c.add(f"#X floatatom {x1 + 540} {y + 50} 2 1 16 0 - {D}0-chv {D}0-syxch;")
-    c.add(f"#X text {x1} {y + 74} receive: start the data dump on the Poly-800 II {COMMA} the 64 programs land in the "
-          f"user bank. send: needs a dump received or read first (sequencer {COMMA} MIDI channel come from it) {COMMA} the channel must be the Poly-800's., f 90;")
+    c.add(f"#X text {x1} {y + 74} send bank / write .syx: the user bank as a Poly-800 II dump (set the channel "
+          f"first). receive (start the dump on the synth) and read .syx replace the user bank (save bank keeps it)., f 90;")
 
 
 def gui(c):
@@ -199,6 +199,7 @@ def logic():
     rd = c.add(f"#X msg 700 {yb + 30} read p8user-bank.txt;"); c.conn(lbf, 0, rd, 0); c.conn(rl, 0, rd, 0)
     rsv = c.add(f"#X obj 900 {yb} r {D}0-save;")
     wr = c.add(f"#X msg 900 {yb + 30} write p8user-bank.txt;"); c.conn(rsv, 0, wr, 0)
+    dst = c.add(f"#X obj 560 {yb} del 20;"); c.conn(rs, 0, dst, 0); c.conn(dst, 0, wr, 0)   # store saves the bank
     c.conn(rd, 0, td, 0); c.conn(wr, 0, td, 0)
     for k, (msg, _) in enumerate(DELAYS):
         r = c.add(f"#X obj {10 + 110 * k} {yb + 170} r {D}0-dl-{msg};")
@@ -227,6 +228,8 @@ def logic():
     rpt = c.add(f"#X obj 500 {ys} r {D}0-port;")
     c.conn(rpt, 0, mo, 1)
     lbp = c.add(f"#X obj 580 {ys} loadbang;")
+    mtp = c.add(f"#X msg 900 {ys + 180} syxtemplate presets/poly800mk2-factory.syx;"); c.conn(lbp, 0, mtp, 0)
+    stp = c.add(f"#X obj 900 {ys + 210} s {D}1;"); c.conn(mtp, 0, stp, 0)
     mpv = c.add(f"#X msg 580 {ys + 30} set 1;"); c.conn(lbp, 0, mpv, 0)
     spv = c.add(f"#X obj 580 {ys + 60} s {D}0-portv;"); c.conn(mpv, 0, spv, 0)
     lb1 = c.add(f"#X msg 660 {ys + 30} 1;"); c.conn(lbp, 0, lb1, 0); c.conn(lb1, 0, mo, 1)

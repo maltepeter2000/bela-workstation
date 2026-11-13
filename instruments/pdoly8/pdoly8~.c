@@ -873,6 +873,7 @@ static void pdoly8_dump(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
  *   syxbank <n> pdoly8 v ...   put a preset into program n (0-63) of the stored memory
  *   syxsend            the stored memory as a dump: "syxbyte <b>" on outlet 3 (-> [midiout])
  *   syxch <1-16>       the Poly-800's MIDI channel (header byte 2n); a dump received or read sets it
+ *   syxtemplate <file> only the memory outside the programs from a .syx file (no programs out)
  *   syxwrite <file>    the stored memory as a .syx file
  * The memory outside the programs (sequencer, chord memory, MIDI channel) is kept from the last
  * dump received or read, so syxsend / syxwrite need one first. */
@@ -1048,7 +1049,7 @@ static void syx_status(t_pdoly8 *x, const char *s)
 }
 
 /* a dump (from F0 to F7) -> the memory and the 64 programs as presets */
-static void syx_take(t_pdoly8 *x, const unsigned char *d, int n)
+static void syx_take(t_pdoly8 *x, const unsigned char *d, int n, int emit)
 {
     int i = 0;
     while (i + 4 <= n && !(d[i] == 0xF0 && d[i + 1] == 0x42 && (d[i + 2] & 0xF0) == 0x20 && d[i + 3] == 0x0C)) i++;
@@ -1058,6 +1059,7 @@ static void syx_take(t_pdoly8 *x, const unsigned char *d, int n)
     for (int k = 0; k < SYX_RAM; k++) { x->syx_ram[k] = (unsigned char)((b[2 * k] & 15) | ((b[2 * k + 1] & 15) << 4)); sum += x->syx_ram[k]; }
     unsigned cs = (b[2 * SYX_RAM] & 15) | ((b[2 * SYX_RAM + 1] & 15) << 4);
     x->syx_has = 1;
+    if (!emit) { syx_status(x, "ready"); return; }   /* template only: the programs stay as they are */
     x->syx_ch = (d[i + 2] & 15) + 1;
     t_atom a[2 + NCTL + NEXT]; float v[NCTL + NEXT];
     for (int p = 0; p < 64; p++) {
@@ -1076,10 +1078,10 @@ static void pdoly8_syxin(t_pdoly8 *x, t_floatarg f)
     int b = (int)f & 0xFF;
     if (b == 0xF0) x->syx_n = 0;
     if (x->syx_n < (int)sizeof x->syx_in) x->syx_in[x->syx_n++] = (unsigned char)b;
-    if (b == 0xF7) { syx_take(x, x->syx_in, x->syx_n); x->syx_n = 0; }
+    if (b == 0xF7) { syx_take(x, x->syx_in, x->syx_n, 1); x->syx_n = 0; }
 }
 
-static void pdoly8_syxread(t_pdoly8 *x, t_symbol *file)
+static void syx_file(t_pdoly8 *x, t_symbol *file, int emit)
 {
     char dir[MAXPDSTRING], *base; int fd = canvas_open(x->canvas, file->s_name, "", dir, &base, MAXPDSTRING, 1);
     if (fd < 0) { pd_error(x, "pdoly8~: syxread: can't open %s", file->s_name); syx_status(x, "file not found"); return; }
@@ -1089,9 +1091,13 @@ static void pdoly8_syxread(t_pdoly8 *x, t_symbol *file)
     if (!fp) { syx_status(x, "file not found"); return; }
     unsigned char *d = (unsigned char *)getbytes(0x4000);
     int n = (int)fread(d, 1, 0x4000, fp); fclose(fp);
-    syx_take(x, d, n);
+    syx_take(x, d, n, emit);
     freebytes(d, 0x4000);
 }
+static void pdoly8_syxread(t_pdoly8 *x, t_symbol *file) { syx_file(x, file, 1); }
+/* syxtemplate <file>: only the memory outside the programs (sequencer, chord memory ...) from a
+ * .syx file, nothing goes out; the editor loads the factory dump this way at start */
+static void pdoly8_syxtemplate(t_pdoly8 *x, t_symbol *file) { syx_file(x, file, 0); }
 
 static void pdoly8_syxbank(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 {
@@ -1125,7 +1131,7 @@ static void pdoly8_syxch(t_pdoly8 *x, t_floatarg f)
 
 static void pdoly8_syxsend(t_pdoly8 *x)
 {
-    if (!x->syx_has) { syx_status(x, "receive or read a dump first"); return; }
+    if (!x->syx_has) { syx_status(x, "no template: presets/poly800mk2-factory.syx missing"); return; }
     unsigned char d[4 + 2 * SYX_RAM + 3];
     int n = syx_bytes(x, d);
     t_atom a;
@@ -1135,7 +1141,7 @@ static void pdoly8_syxsend(t_pdoly8 *x)
 
 static void pdoly8_syxwrite(t_pdoly8 *x, t_symbol *file)
 {
-    if (!x->syx_has) { syx_status(x, "receive or read a dump first"); return; }
+    if (!x->syx_has) { syx_status(x, "no template: presets/poly800mk2-factory.syx missing"); return; }
     char path[MAXPDSTRING];
     canvas_makefilename(x->canvas, file->s_name, path, MAXPDSTRING);
     FILE *fp = sys_fopen(path, "wb");
@@ -1224,6 +1230,7 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxin, gensym("syxin"), A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxread, gensym("syxread"), A_SYMBOL, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxwrite, gensym("syxwrite"), A_SYMBOL, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_syxtemplate, gensym("syxtemplate"), A_SYMBOL, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxbank, gensym("syxbank"), A_GIMME, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxsend, gensym("syxsend"), 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxch, gensym("syxch"), A_FLOAT, 0);

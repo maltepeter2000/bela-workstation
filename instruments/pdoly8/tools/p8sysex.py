@@ -92,8 +92,10 @@ def setbits(b, byte, lo, n, v):
 
 def read_syx(path):
     d = open(path, "rb").read()
-    i = d.find(HEAD)
-    if i < 0: raise SystemExit(f"{path}: no Poly-800 II data dump (F0 42 21 0C)")
+    import re
+    m = re.search(rb"\xF0\x42[\x20-\x2F]\x0C", d)      # 2n: n = MIDI channel - 1
+    if not m: raise SystemExit(f"{path}: no Poly-800 II data dump (F0 42 2n 0C)")
+    i = m.start()
     body = d[i + 4: i + 4 + 2 * RAM_SIZE + 2]
     if len(body) < 2 * RAM_SIZE + 2: raise SystemExit(f"{path}: dump too short")
     ram = bytearray((body[2 * k] & 15) | ((body[2 * k + 1] & 15) << 4) for k in range(RAM_SIZE))
