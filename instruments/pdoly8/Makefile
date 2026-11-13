@@ -63,6 +63,7 @@ mac-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	$(LIPO) -create bin/macos/pdoly8~.aarch64 bin/macos/pdoly8~.x86_64 -output 'bin/macos/pdoly8~.pd_darwin'
 	rm -f bin/macos/pdoly8~.aarch64 bin/macos/pdoly8~.x86_64
 	cp 'pdoly8~-help.pd' p8factory.pd p8user.pd p8cc.pd p8edit.pd bin/macos/
+	cp -n p8user-bank.txt bin/macos/ || true
 	mkdir -p bin/macos/presets && cp presets/poly800mk2-factory.txt bin/macos/presets/
 
 test: pdoly8_test

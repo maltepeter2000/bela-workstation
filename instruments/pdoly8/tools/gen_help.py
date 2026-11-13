@@ -120,7 +120,9 @@ BLOCKS = [
       "FM: DCO2 into DCO1 and DCO1 into DCO2), 2 the signal at the right inlet (about "
       "-1..1: osc~, adc~, noise~ ...), here from the osc~ above.",
       "fmr (1): 0.125-16, whole ratios stay harmonic, others (1.41, 3.5) give bells "
-      "and metal that follow the key.",
+      "and metal that follow the key. From a pot, CC or the editor in harmonic steps "
+      "(1/8 1/4 1/3 1/2 2/3 3/4 1 5/4 4/3 3/2 2 5/2 3 7/2 4-16), so 1 is always found again. "
+      "Inharmonic: fmhz, or any ratio as a message (fmr 1.41).",
       "fmhz (0): -1000..1000 Hz added to the sine: a fixed, inharmonic offset with the "
       "same beat on every key (fmr 0.125, fmhz 200: almost a fixed modulator).",
       "fmig (64): gain of the signal at the right inlet (fms 2), 64 = 1, 127 = about 2."]),
@@ -483,7 +485,7 @@ def build():
     n = len(CONTROLS)
     rows = (n + 3) // 4
     top_y = YEL_Y + 3 * M + 24 + 28
-    util_y = top_y + 6 * STEP + BOX + 24
+    util_y = top_y
     ctl_y0 = util_y + STEP + BOX + 24
     ROW = 2 * STEP + BOX + 11
     ni_y = ctl_y0 + ROW * (rows - 1) + 2 * STEP + BOX + 24
@@ -523,7 +525,15 @@ def build():
         "print: voices, values and sample rate to the Pd window",
         "dump: send all values to outlet 2 as 'dump " + SHORT + " v0 ..'",
         "dump " + SHORT + " v0 v1 ...: restore such a dump (this voice only)",
-        "voice <i> <p>, voiceoff <i>: play one voice directly"]))
+        "voice <i> <p>, voiceoff <i>: play one voice directly",
+        "Poly-800 II sysex (the editor uses them):",
+        "syxin <byte>: bytes from [sysexin], a whole data dump gives",
+        "  bank <n> pdoly8 ... for the 64 programs on outlet 3",
+        "syxread <file>, syxwrite <file>: a .syx file",
+        "syxbank <n> pdoly8 ...: a preset into program n (0-63)",
+        "syxsend: the dump as syxbyte <b> on outlet 3 (-> [midiout])",
+        "  needs a dump received or read first (sequencer, chord",
+        "  memory and MIDI channel are kept from it)"]))
     sections.append(("Editor (p8edit)", [
         "[p8edit $0-pdoly8] above: click it to open the editor. All 115 settings in rows of "
         "8: rows 1-11 are the CC pages of the controller layer, then more and the own DEG stages. Each cell: name and CC number, slider and number box 0-127 (the "
@@ -531,7 +541,10 @@ def build():
         "It sends to the bus [s $0-pdoly8] and reads outlet 3 from [s $0-pdoly8-out]: pdoly8~ "
         "reports every change there (info), so the Launchkey, presets and messages show up in it. "
         "In your own patch: [p8edit <name>] next to [r <name>] -> [pdoly8~] -> outlet 3 -> "
-        "[s <name>-out]."], 0, True))
+        "[s <name>-out].",
+        "Above the rows: factory presets, the user bank (p8user-bank.txt next to the editor), "
+        "the delay presets and the Poly-800 II sysex (receive a data dump into the user bank, send "
+        "the user bank to the synth, read / write .syx files)."], 0, True))
     import gen_bela as GB
     import ctlayer as CL
     cc = ["[p8cc 1] above is the controller layer of pdoly8~: MIDI CC on channel 1 (the argument, "
@@ -599,21 +612,9 @@ def build():
     p.heading(HX, YEL_Y + 3 * M, SUBTITLE, 16)
 
     bus = DOLLAR + "0-" + SHORT
-    # demo: a chord every 500 ms, released after 250 ms - everything flows down
-    tgl = p.add(f"#X obj {CX} {top_y} tgl 19 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000 0 1;")
-    met = p.add(f"#X obj {CX} {top_y + STEP} metro 500;")
-    p.conn(tgl, 0, met, 0)
-    tbb = p.add(f"#X obj {CX + 200} {top_y + 2 * STEP} t b b;")
-    p.conn(met, 0, tbb, 0)
-    on = p.add(f"#X msg {CX} {top_y + 3 * STEP} note 48 100 {COMMA} note 55 90 {COMMA} note 60 80 {COMMA} note 64 70, f 24;")
-    dly = p.add(f"#X obj {CX + 200} {top_y + 3 * STEP} delay 250;")
-    off = p.add(f"#X msg {CX + 200} {top_y + 4 * STEP} note 48 0 {COMMA} note 55 0 {COMMA} note 60 0 {COMMA} note 64 0, f 22;")
-    p.conn(tbb, 1, on, 0); p.conn(tbb, 0, dly, 0); p.conn(dly, 0, off, 0)
-    snd0 = p.add(f"#X obj {CX} {top_y + 6 * STEP} s {bus};")
-    p.conn(on, 0, snd0, 0); p.conn(off, 0, snd0, 0)
     snd1 = p.add(f"#X obj {CX} {util_y + STEP} s {bus};")
     x = CX
-    for text in ("60 100", "60 0", "dump", "defaults", "panic", "print"):
+    for text in ("dump", "defaults", "panic", "print"):
         m = p.add(f"#X msg {x} {util_y} {text};")
         p.conn(m, 0, snd1, 0)
         x += 7 * len(text) + 8 + 16
@@ -650,12 +651,12 @@ def build():
     mull = p.add(f"#X obj {CX} {mul_y} *~ 0.3;")
     mulr = p.add(f"#X obj {CX + 100} {mul_y} *~ 0.3;")
     dac = p.add(f"#X obj {CX} {dac_y} dac~;")
-    rinf = p.add(f"#X obj {CX + 180} {mul_y} route info;")
+    rinf = p.add(f"#X obj {CX + 180} {mul_y} route info bank syxbyte;")
     pr = p.add(f"#X obj {CX + 180 + 40} {dac_y} print {SHORT.upper()};")
     sev = p.add(f"#X obj {CX + 310} {mul_y} s {DOLLAR}0-{SHORT}-out;")
     p.conn(o, 0, mull, 0); p.conn(o, 1, mulr, 0)
     p.conn(mull, 0, dac, 0); p.conn(mulr, 0, dac, 1)
-    p.conn(o, 2, rinf, 0); p.conn(rinf, 1, pr, 0); p.conn(o, 2, sev, 0)
+    p.conn(o, 2, rinf, 0); p.conn(rinf, 3, pr, 0); p.conn(o, 2, sev, 0)
     p.add(f"#X obj {CX + 180} {dac_y + STEP} p8edit {bus};")
     p.add(f"#X text {CX + 310} {dac_y + STEP} <- click: editor;")
 

@@ -74,6 +74,10 @@ typedef struct _pdoly8 {
     int      restoring;
     float   *buf; int bufn;
     t_clock *rep_clk;              /* reports changed settings as "info" on outlet 3 */
+    unsigned char syx_ram[0xA80];  /* Poly-800 II memory: last dump received or read (template) */
+    int      syx_has;              /* syx_ram holds a real dump */
+    unsigned char syx_in[0x1600]; int syx_n;   /* incoming sysex bytes ([sysexin] -> syxin) */
+    t_canvas *canvas;
     t_float *rep_v[160]; float rep_last[160];
 #ifdef P8_OLED
     /* OLED via O2O: the audio thread only copies text (seqlock), a thread of
@@ -522,7 +526,7 @@ static const t_p8range RANGE[] = {
     {"rmf",'i',0,14,"Ring source",""},
     {"fm1",'i',0,127,"FM depth 1",""},
     {"fm2",'i',0,127,"FM depth 2",""},
-    {"fmr",'l',0.125f,16,"FM ratio","x"},
+    {"fmr",'q',0.125f,16,"FM ratio","x"},
     {"fmhz",'c',-1000,1000,"FM offset","Hz"},
     {"fms",'i',0,2,"FM source","sine|other DCO|input"},
     {"fmig",'i',0,127,"FM input gain",""},
@@ -615,9 +619,16 @@ static t_float *find_value(t_pdoly8 *x, t_symbol *s)
     return 0;
 }
 
+/* fmr from a pot / CC: harmonic ratios in steps, so 1 (and every other one) can be found again;
+ * inharmonic FM: fmhz, or any ratio by message (fmr 1.41) */
+static const float FMR_Q[] = {0.125f, 0.25f, 1.0f / 3, 0.5f, 2.0f / 3, 0.75f, 1, 1.25f, 4.0f / 3, 1.5f, 2, 2.5f,
+                              3, 3.5f, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
+#define NFMR ((int)(sizeof FMR_Q / sizeof FMR_Q[0]))
+
 static float range_from127(const t_p8range *r, float c)
 {
     c = clampf_(c, 0.0f, 127.0f);
+    if (r->kind == 'q') return FMR_Q[(int)fminf(floorf(c * NFMR / 128.0f), NFMR - 1)];
     if (r->kind == 'l') return r->lo * powf(r->hi / r->lo, c / 127.0f);
     if (r->kind == 'f') return r->lo + (r->hi - r->lo) * c / 127.0f;
     if (r->kind == 'r') return r->lo + (r->hi - r->lo) * c / 127.0f;
@@ -631,6 +642,12 @@ static float range_from127(const t_p8range *r, float c)
 static float range_to127(const t_p8range *r, float v)
 {
     float c;
+    if (r->kind == 'q') {                                /* nearest step (in octaves), middle of its zone */
+        int b = 0;
+        for (int i = 1; i < NFMR; i++)
+            if (fabsf(log2f(fmaxf(v, 1e-3f) / FMR_Q[i])) < fabsf(log2f(fmaxf(v, 1e-3f) / FMR_Q[b]))) b = i;
+        return floorf((b + 0.5f) * 128.0f / NFMR);
+    }
     if (r->kind == 'l') c = 127.0f * logf(fmaxf(v, r->lo) / r->lo) / logf(r->hi / r->lo);
     else if (r->kind == 'f' || r->kind == 'r') c = 127.0f * (v - r->lo) / (r->hi - r->lo);
     else if (r->kind == 'b' || r->kind == 'c') c = 64.0f + v * 63.0f / r->hi;
@@ -845,6 +862,276 @@ static void pdoly8_dump(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
     for (int i = 1; i < argc && i <= NCTL; i++) apply_ctl(x, i - 1, atom_getfloatarg(i, argc, argv));
 }
 
+
+/* ------------------------------------------------- Poly-800 II sysex (as tools/p8sysex.py)
+ * Data dump: F0 42 21 0C, the RAM (2688 bytes) as 5376 nibbles (low first), the 8-bit sum of the
+ * RAM as two nibbles, F7. 64 programs of 26 bytes from 400H, fields = one bit stream, LSB first.
+ *   syxin <byte>       bytes from [sysexin]; a complete dump -> "bank <n> pdoly8 v ..." for every
+ *                      program on outlet 3, then "syxstatus received"
+ *   syxread <file>     the same from a .syx file
+ *   syxbank <n> pdoly8 v ...   put a preset into program n (0-63) of the stored memory
+ *   syxsend            the stored memory as a dump: "syxbyte <b>" on outlet 3 (-> [midiout])
+ *   syxwrite <file>    the stored memory as a .syx file
+ * The memory outside the programs (sequencer, chord memory, MIDI channel) is kept from the last
+ * dump received or read, so syxsend / syxwrite need one first. */
+#define SYX_RAM 0xA80
+#define SYX_PBASE 0x400
+#define SYX_PSIZE 26
+typedef struct { const char *name; int byte, lo, n; } t_syxf;
+static const t_syxf SYXF[] = {
+    {"oct1", 0, 0, 2}, {"oct2", 0, 2, 2}, {"wave1", 0, 4, 2}, {"wave2", 0, 6, 2},
+    {"feet1", 1, 0, 4}, {"feet2", 1, 4, 4}, {"detune", 2, 0, 2}, {"mode", 2, 6, 1},
+    {"interval", 3, 0, 4}, {"noise", 3, 4, 4}, {"egint", 4, 0, 4}, {"polarity", 4, 4, 1},
+    {"level1", 4, 5, 5}, {"level2", 5, 2, 5}, {"cutoff", 6, 0, 7}, {"trigger", 6, 7, 1},
+    {"mgfreq", 7, 0, 4}, {"mgdelay", 7, 4, 4}, {"mgdco", 8, 0, 4}, {"mgvcf", 8, 4, 4},
+    {"a1", 9, 0, 5}, {"d1", 9, 5, 5}, {"bp1", 10, 2, 5}, {"sl1", 10, 7, 5}, {"su1", 11, 4, 5}, {"r1", 12, 1, 5},
+    {"a2", 12, 6, 5}, {"d2", 13, 3, 5}, {"bp2", 14, 0, 5}, {"sl2", 14, 5, 5}, {"su2", 15, 2, 5}, {"r2", 15, 7, 5},
+    {"a3", 16, 4, 5}, {"d3", 17, 1, 5}, {"bp3", 17, 6, 5}, {"sl3", 18, 3, 5}, {"su3", 19, 0, 5}, {"r3", 19, 5, 5},
+    {"resonance", 20, 2, 4}, {"kbd", 20, 6, 2}, {"ddltime", 21, 0, 7}, {"ddlfb", 22, 0, 4},
+    {"ddllevel", 22, 4, 4}, {"ddlmf", 23, 0, 5}, {"ddlmi", 24, 0, 5}, {"treble", 25, 0, 4}, {"bass", 25, 4, 4}};
+#define NSYXF ((int)(sizeof SYXF / sizeof SYXF[0]))
+static const int SYX_TIMB[15] = {0x8, 0x9, 0xB, 0xA, 0xE, 0xF, 0xD, 0xC, 0xC, 0xE, 0xA, 0xB, 0xF, 0xD, 0x9};
+static const float SYX_MGSTEP[7] = {0, 3, 6, 8, 9, 12, 15};
+static const float SYX_MGHZ[7] = {0.291f, 1.262f, 3.39f, 5.22f, 6.493f, 11.09f, 19.08f};
+static const float SYX_KPOS[8] = {0, 1, 24, 48, 72, 92, 108, 127};
+static const float SYX_KNOT[8][6] = {{0, 0, 31, 0, 31, 0}, {0, 3, 0, 0, 0, 3}, {0, 14, 0, 0, 0, 12},
+    {0, 10, 20, 24, 0, 14}, {2, 16, 24, 0, 24, 26}, {16, 0, 31, 0, 31, 18}, {20, 22, 26, 0, 26, 24},
+    {30, 26, 26, 0, 26, 31}};
+#define SYX_SQ16 0.402717f                       /* 10^(-7.9/20): 16' alone, square net vs saw net */
+
+static int syx_field(const char *n) { for (int i = 0; i < NSYXF; i++) if (!strcmp(SYXF[i].name, n)) return i; return -1; }
+static int vidx(const char *n)                     /* index in a preset line (controls, then settings) */
+{
+    for (int i = 0; i < NCTL; i++) if (!strcmp(CTL_NAME[i], n)) return i;
+    for (int i = 0; i < NEXT; i++) if (!strcmp(EXT_NAME[i], n)) return NCTL + i;
+    return -1;
+}
+static int getbits(const unsigned char *b, int byte, int lo, int n)
+{
+    int v = 0;
+    for (int k = 0; k < n; k++) { int p = byte * 8 + lo + k; v |= ((b[p / 8] >> (p % 8)) & 1) << k; }
+    return v;
+}
+static void setbits(unsigned char *b, int byte, int lo, int n, int v)
+{
+    for (int k = 0; k < n; k++) {
+        int p = byte * 8 + lo + k;
+        if ((v >> k) & 1) b[p / 8] |= (unsigned char)(1 << (p % 8)); else b[p / 8] &= (unsigned char)~(1 << (p % 8));
+    }
+}
+static int feet_msb(int f) { int m = 0; for (int k = 0; k < 4; k++) m |= ((f >> k) & 1) << (3 - k); return m; }
+static float mg_hz(float step)
+{
+    int a = 0;
+    while (a < 5 && step > SYX_MGSTEP[a + 1]) a++;
+    float t = (step - SYX_MGSTEP[a]) / (SYX_MGSTEP[a + 1] - SYX_MGSTEP[a]);
+    return SYX_MGHZ[a] * powf(SYX_MGHZ[a + 1] / SYX_MGHZ[a], t);
+}
+static float rnd(float v, float q) { return roundf(v / q) * q; }
+
+/* program n of the memory -> preset line v[NCTL + NEXT] */
+static void syx_to_line(const unsigned char *ram, int n, float *v)
+{
+    const unsigned char *p = ram + SYX_PBASE + SYX_PSIZE * n;
+    int f[NSYXF];
+    for (int i = 0; i < NSYXF; i++) f[i] = getbits(p, SYXF[i].byte, SYXF[i].lo, SYXF[i].n);
+#define F(name) f[syx_field(name)]
+#define V(name) v[vidx(name)]
+    for (int i = 0; i < NCTL; i++) v[i] = CTL_DEFAULT[i];
+    for (int i = 0; i < NEXT; i++) v[NCTL + i] = EXT_DEFAULT[i];
+    int dbl = F("mode") == 1;
+    for (int g = 1; g <= 2; g++) {
+        char k[8];
+        int wave = f[syx_field(g == 1 ? "wave1" : "wave2")], m = feet_msb(f[syx_field(g == 1 ? "feet1" : "feet2")]);
+        float har = 45, lf = 0; int shift = 0;
+        if (m) {
+            while (!(m & 8)) { m = (m << 1) & 0xF; shift++; }
+            lf = 1;
+            if (m == 0x8) { har = 0; if (wave == 0) lf = SYX_SQ16; }
+            else for (int i = 0; i < 15; i++)
+                if (SYX_TIMB[i] == m && (i < 8) == (wave == 1)) { har = roundf(i * 127.0f / 14.0f); break; }
+        }
+        float lev = f[syx_field(g == 1 ? "level1" : "level2")] * 127.0f / 31.0f * lf;
+        if (g == 2 && !dbl) lev = 0;
+        snprintf(k, sizeof k, "har%d", g); V(k) = har;
+        snprintf(k, sizeof k, "oct%d", g); { int o = f[syx_field(g == 1 ? "oct1" : "oct2")] - 1 + shift; V(k) = o > 4 ? 4 : o; }
+        snprintf(k, sizeof k, "lev%d", g); V(k) = roundf(lev);
+        snprintf(k, sizeof k, "env%d", g); V(k) = -1;
+    }
+    static const float DET[4] = {0, 42, 85, 127};
+    V("intv") = F("interval"); V("detn") = DET[F("detune") & 3]; V("nois") = F("noise");
+    V("cut") = F("cutoff"); V("res") = F("resonance"); V("kbd") = F("kbd");
+    V("pol") = F("polarity") + 1; V("egi") = F("egint"); V("trg") = F("trigger") + 1; V("env3") = -1;
+    static const char *ST[6] = {"a", "d", "bp", "sl", "su", "r"};
+    for (int g = 1; g <= 3; g++) for (int k = 0; k < 6; k++) {
+        char nm[8]; snprintf(nm, sizeof nm, "%s%d", ST[k], g);
+        V(nm) = f[syx_field(nm)];
+    }
+    V("mgr") = F("mgfreq"); V("mgf") = rnd(mg_hz(F("mgfreq")), 0.001f); V("mgd") = F("mgdelay");
+    V("mgi") = rnd(F("mgdco") * 12.4f, 0.1f); V("mgv") = F("mgvcf");
+    V("dtim") = F("ddltime"); V("dfb") = F("ddlfb"); V("dmf") = F("ddlmf"); V("dmi") = F("ddlmi"); V("dlev") = F("ddllevel");
+    V("treb") = F("treble") - 6; V("bass") = F("bass") - 6;
+}
+
+static void env_morph_(float pos, float *out)
+{
+    if (pos < 0.5f) { for (int k = 0; k < 6; k++) out[k] = SYX_KNOT[0][k]; return; }
+    pos = clampf_(pos, 1, 127); int a = 1;
+    while (a < 6 && pos > SYX_KPOS[a + 1]) a++;
+    float x0 = SYX_KPOS[a], x1 = SYX_KPOS[a + 1], sn = fminf(1.0f, 0.45f * (x1 - x0));
+    float lo = a == 1 ? x0 : x0 + sn, hi = a + 1 == 7 ? x1 : x1 - sn;
+    float t = pos <= lo ? 0 : pos >= hi ? 1 : (pos - lo) / (hi - lo);
+    for (int k = 0; k < 6; k++) out[k] = SYX_KNOT[a][k] + t * (SYX_KNOT[a + 1][k] - SYX_KNOT[a][k]);
+}
+
+/* preset line -> program n of the memory (the nearest Poly-800 values) */
+static void syx_from_line(unsigned char *ram, int n, const float *v)
+{
+    int f[NSYXF];
+    unsigned char *p = ram + SYX_PBASE + SYX_PSIZE * n;
+    for (int i = 0; i < NSYXF; i++) f[i] = getbits(p, SYXF[i].byte, SYXF[i].lo, SYXF[i].n);
+    static const char *ST[6] = {"a", "d", "bp", "sl", "su", "r"};
+    for (int g = 1; g <= 2; g++) {
+        char k[8]; int oc;
+        snprintf(k, sizeof k, "oct%d", g); oc = (int)V(k);
+        snprintf(k, sizeof k, "har%d", g);
+        int i = (int)clampf_(roundf(V(k) * 14.0f / 127.0f), 0, 14), m = SYX_TIMB[i], wave = i < 8;
+        for (int e = oc - 1; e > 0; e--) m >>= 1;
+        int feet = 0; for (int b = 0; b < 4; b++) feet |= ((m >> (3 - b)) & 1) << b;
+        f[syx_field(g == 1 ? "wave1" : "wave2")] = wave;
+        f[syx_field(g == 1 ? "feet1" : "feet2")] = feet;
+        f[syx_field(g == 1 ? "oct1" : "oct2")] = (oc < 1 ? oc : 1) + 1;
+        snprintf(k, sizeof k, "lev%d", g); float lev = V(k);
+        if (feet == 1 && wave == 0) lev /= SYX_SQ16;
+        f[syx_field(g == 1 ? "level1" : "level2")] = (int)clampf_(roundf(lev * 31.0f / 127.0f), 0, 31);
+        snprintf(k, sizeof k, "env%d", g); float env = V(k), d[6];
+        if (env >= 0) env_morph_(env, d);
+        else for (int s = 0; s < 6; s++) { char nm[8]; snprintf(nm, sizeof nm, "%s%d", ST[s], g); d[s] = V(nm); }
+        for (int s = 0; s < 6; s++) { char nm[8]; snprintf(nm, sizeof nm, "%s%d", ST[s], g); f[syx_field(nm)] = (int)clampf_(roundf(d[s]), 0, 31); }
+    }
+    {
+        float d[6];
+        if (V("env3") >= 0) env_morph_(V("env3"), d);
+        else for (int s = 0; s < 6; s++) { char nm[8]; snprintf(nm, sizeof nm, "%s3", ST[s]); d[s] = V(nm); }
+        for (int s = 0; s < 6; s++) { char nm[8]; snprintf(nm, sizeof nm, "%s3", ST[s]); f[syx_field(nm)] = (int)clampf_(roundf(d[s]), 0, 31); }
+    }
+    F("mode") = V("lev2") > 0;
+    F("interval") = (int)clampf_(roundf(V("intv")), 0, 12);
+    F("detune") = (int)clampf_(roundf(V("detn") * 3.0f / 127.0f), 0, 3);
+    F("noise") = (int)clampf_(V("nois"), 0, 15);
+    F("cutoff") = (int)clampf_(roundf(V("cut")), 0, 99); F("resonance") = (int)clampf_(roundf(V("res")), 0, 15);
+    F("kbd") = (int)clampf_(V("kbd"), 0, 2);
+    F("polarity") = (int)V("pol") - 1 > 0; F("egint") = (int)clampf_(roundf(V("egi")), 0, 15); F("trigger") = (int)V("trg") - 1 > 0;
+    if (V("mgr") >= 0) F("mgfreq") = (int)clampf_(V("mgr"), 0, 15);
+    else {
+        int b = 0; float hz = fmaxf(V("mgf"), 1e-3f);
+        for (int s = 1; s < 16; s++) if (fabsf(logf(hz) - logf(mg_hz(s))) < fabsf(logf(hz) - logf(mg_hz(b)))) b = s;
+        F("mgfreq") = b;
+    }
+    F("mgdelay") = (int)clampf_(roundf(V("mgd")), 0, 15);
+    F("mgdco") = (int)clampf_(roundf(V("mgi") / 12.4f), 0, 15); F("mgvcf") = (int)clampf_(roundf(V("mgv")), 0, 15);
+    F("ddltime") = (int)clampf_(roundf(V("dtim")), 0, 99); F("ddlfb") = (int)clampf_(roundf(V("dfb")), 0, 15);
+    F("ddlmf") = (int)clampf_(roundf(V("dmf")), 0, 31); F("ddlmi") = (int)clampf_(roundf(V("dmi")), 0, 31);
+    F("ddllevel") = (int)clampf_(roundf(V("dlev")), 0, 15);
+    F("treble") = (int)clampf_(roundf(V("treb")) + 6, 0, 15); F("bass") = (int)clampf_(roundf(V("bass")) + 6, 0, 15);
+    for (int i = 0; i < NSYXF; i++) setbits(p, SYXF[i].byte, SYXF[i].lo, SYXF[i].n, f[i]);
+#undef F
+#undef V
+}
+
+static void syx_status(t_pdoly8 *x, const char *s)
+{
+    t_atom a; SETSYMBOL(&a, gensym(s));
+    outlet_anything(x->x_dump, gensym("syxstatus"), 1, &a);
+}
+
+/* a dump (from F0 to F7) -> the memory and the 64 programs as presets */
+static void syx_take(t_pdoly8 *x, const unsigned char *d, int n)
+{
+    int i = 0;
+    while (i + 4 <= n && !(d[i] == 0xF0 && d[i + 1] == 0x42 && (d[i + 2] & 0xF0) == 0x20 && d[i + 3] == 0x0C)) i++;
+    if (i + 4 + 2 * SYX_RAM + 2 > n) { syx_status(x, "no Poly-800 II dump"); return; }
+    const unsigned char *b = d + i + 4;
+    unsigned sum = 0;
+    for (int k = 0; k < SYX_RAM; k++) { x->syx_ram[k] = (unsigned char)((b[2 * k] & 15) | ((b[2 * k + 1] & 15) << 4)); sum += x->syx_ram[k]; }
+    unsigned cs = (b[2 * SYX_RAM] & 15) | ((b[2 * SYX_RAM + 1] & 15) << 4);
+    x->syx_has = 1;
+    t_atom a[2 + NCTL + NEXT]; float v[NCTL + NEXT];
+    for (int p = 0; p < 64; p++) {
+        syx_to_line(x->syx_ram, p, v);
+        SETFLOAT(a, p); SETSYMBOL(a + 1, gensym("pdoly8"));
+        for (int k = 0; k < NCTL + NEXT; k++) SETFLOAT(a + 2 + k, v[k]);
+        outlet_anything(x->x_dump, gensym("bank"), 2 + NCTL + NEXT, a);
+    }
+    syx_status(x, (sum & 0xFF) == cs ? "64 programs received" : "received, check sum differs");
+}
+
+static void pdoly8_syxin(t_pdoly8 *x, t_floatarg f)
+{
+    int b = (int)f & 0xFF;
+    if (b == 0xF0) x->syx_n = 0;
+    if (x->syx_n < (int)sizeof x->syx_in) x->syx_in[x->syx_n++] = (unsigned char)b;
+    if (b == 0xF7) { syx_take(x, x->syx_in, x->syx_n); x->syx_n = 0; }
+}
+
+static void pdoly8_syxread(t_pdoly8 *x, t_symbol *file)
+{
+    char dir[MAXPDSTRING], *base; int fd = canvas_open(x->canvas, file->s_name, "", dir, &base, MAXPDSTRING, 1);
+    if (fd < 0) { pd_error(x, "pdoly8~: syxread: can't open %s", file->s_name); syx_status(x, "file not found"); return; }
+    sys_close(fd);
+    char path[2 * MAXPDSTRING + 2]; snprintf(path, sizeof path, "%s/%s", dir, base);
+    FILE *fp = sys_fopen(path, "rb");
+    if (!fp) { syx_status(x, "file not found"); return; }
+    unsigned char *d = (unsigned char *)getbytes(0x4000);
+    int n = (int)fread(d, 1, 0x4000, fp); fclose(fp);
+    syx_take(x, d, n);
+    freebytes(d, 0x4000);
+}
+
+static void pdoly8_syxbank(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
+{
+    (void)s;
+    if (argc < 3 || argv[1].a_type != A_SYMBOL || argv[1].a_w.w_symbol != gensym("pdoly8")) return;
+    int n = (int)atom_getfloatarg(0, argc, argv);
+    if (n < 0 || n > 63) return;
+    float v[NCTL + NEXT];
+    for (int i = 0; i < NCTL; i++) v[i] = CTL_DEFAULT[i];
+    for (int i = 0; i < NEXT; i++) v[NCTL + i] = EXT_DEFAULT[i];
+    for (int i = 0; i < NCTL + NEXT && i + 2 < argc; i++) v[i] = atom_getfloatarg(i + 2, argc, argv);
+    syx_from_line(x->syx_ram, n, v);
+}
+
+static int syx_bytes(t_pdoly8 *x, unsigned char *out)
+{
+    int k = 0; unsigned sum = 0;
+    out[k++] = 0xF0; out[k++] = 0x42; out[k++] = 0x21; out[k++] = 0x0C;
+    for (int i = 0; i < SYX_RAM; i++) { out[k++] = x->syx_ram[i] & 15; out[k++] = x->syx_ram[i] >> 4; sum += x->syx_ram[i]; }
+    out[k++] = sum & 15; out[k++] = (sum >> 4) & 15; out[k++] = 0xF7;
+    return k;
+}
+
+static void pdoly8_syxsend(t_pdoly8 *x)
+{
+    if (!x->syx_has) { syx_status(x, "receive or read a dump first"); return; }
+    unsigned char d[4 + 2 * SYX_RAM + 3];
+    int n = syx_bytes(x, d);
+    t_atom a;
+    for (int i = 0; i < n; i++) { SETFLOAT(&a, d[i]); outlet_anything(x->x_dump, gensym("syxbyte"), 1, &a); }
+    syx_status(x, "64 programs sent");
+}
+
+static void pdoly8_syxwrite(t_pdoly8 *x, t_symbol *file)
+{
+    if (!x->syx_has) { syx_status(x, "receive or read a dump first"); return; }
+    char path[MAXPDSTRING];
+    canvas_makefilename(x->canvas, file->s_name, path, MAXPDSTRING);
+    FILE *fp = sys_fopen(path, "wb");
+    if (!fp) { pd_error(x, "pdoly8~: syxwrite: can't write %s", path); syx_status(x, "can't write"); return; }
+    unsigned char d[4 + 2 * SYX_RAM + 3];
+    fwrite(d, 1, (size_t)syx_bytes(x, d), fp); fclose(fp);
+    syx_status(x, "written");
+}
+
 static void pdoly8_print(t_pdoly8 *x)
 {
     char line[1024]; int n = 0;
@@ -875,6 +1162,7 @@ static void *pdoly8_new(void)
         x->rep_v[i] = find_value(x, gensym(RANGE[i].name)); x->rep_last[i] = NAN;   /* first tick: all */
     }
     x->rep_clk = clock_new(x, (t_method)rep_tick);
+    x->canvas = canvas_getcurrent();
     set_defaults(x);
     p8_settle(&x->e);
     x->bufn = 3 * 64;
@@ -919,6 +1207,11 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_n, gensym("n"), A_SYMBOL, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_nget, gensym("nget"), A_SYMBOL, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_ninfo, gensym("ninfo"), A_SYMBOL, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_syxin, gensym("syxin"), A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_syxread, gensym("syxread"), A_SYMBOL, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_syxwrite, gensym("syxwrite"), A_SYMBOL, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_syxbank, gensym("syxbank"), A_GIMME, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_syxsend, gensym("syxsend"), 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_disp, gensym("disp"), A_SYMBOL, 0);
 #ifdef P8_OLED
     class_addmethod(pdoly8_class, (t_method)pdoly8_oled, gensym("oled"), A_SYMBOL, A_FLOAT, 0);
