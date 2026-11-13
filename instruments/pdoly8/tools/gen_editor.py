@@ -125,9 +125,11 @@ def top_band(c):
     c.add(f"#X floatatom {x1 + 430} {y + 20} 2 1 16 0 - {D}0-portv {D}0-port;")
     bng(c, x1 + 8 * CW - 100, y + 20, "refresh", "refresh")
     c.add(f"#X text {x1} {y + 50} status;")
-    c.add(f"#X symbolatom {x1 + 50} {y + 50} 40 0 0 0 - {D}0-syxst -;")
+    c.add(f"#X symbolatom {x1 + 50} {y + 50} 36 0 0 0 - {D}0-syxst -;")
+    c.add(f"#X text {x1 + 380} {y + 50} Poly-800 MIDI channel;")
+    c.add(f"#X floatatom {x1 + 540} {y + 50} 2 1 16 0 - {D}0-chv {D}0-syxch;")
     c.add(f"#X text {x1} {y + 74} receive: start the data dump on the Poly-800 II {COMMA} the 64 programs land in the "
-          f"user bank. send: needs a dump received or read first (sequencer {COMMA} MIDI channel come from it)., f 90;")
+          f"user bank. send: needs a dump received or read first (sequencer {COMMA} MIDI channel come from it) {COMMA} the channel must be the Poly-800's., f 90;")
 
 
 def gui(c):
@@ -208,7 +210,15 @@ def logic():
     mi = c.add(f"#X msg 10 {ys + 30} syxin {D}1;"); c.conn(si, 0, mi, 0)
     ssi = c.add(f"#X obj 10 {ys + 60} s {D}1;"); c.conn(mi, 0, ssi, 0)
     ro3 = c.add(f"#X obj 200 {ys} r {D}1-out;")
-    rb = c.add(f"#X obj 200 {ys + 30} route bank syxbyte syxstatus;"); c.conn(ro3, 0, rb, 0)
+    rb = c.add(f"#X obj 200 {ys + 30} route bank syxbyte syxstatus syxch;"); c.conn(ro3, 0, rb, 0)
+    mch = c.add(f"#X msg 420 {ys + 120} set {D}1;"); c.conn(rb, 3, mch, 0)
+    sch = c.add(f"#X obj 420 {ys + 150} s {D}0-chv;"); c.conn(mch, 0, sch, 0)
+    rch = c.add(f"#X obj 1200 {ys} r {D}0-syxch;")
+    mch2 = c.add(f"#X msg 1200 {ys + 30} syxch {D}1;"); c.conn(rch, 0, mch2, 0)
+    sch2 = c.add(f"#X obj 1200 {ys + 60} s {D}1;"); c.conn(mch2, 0, sch2, 0)
+    lbc = c.add(f"#X obj 1200 {ys + 90} loadbang;")
+    m1c = c.add(f"#X msg 1200 {ys + 120} set 1;"); c.conn(lbc, 0, m1c, 0)
+    s1c = c.add(f"#X obj 1200 {ys + 150} s {D}0-chv;"); c.conn(m1c, 0, s1c, 0)
     tl = c.add(f"#X obj 200 {ys + 60} t l l;"); c.conn(rb, 0, tl, 0)
     ls1 = c.add(f"#X obj 260 {ys + 90} list split 1;"); c.conn(tl, 1, ls1, 0)
     ls2 = c.add(f"#X obj 200 {ys + 120} list split 1;"); c.conn(tl, 0, ls2, 0)

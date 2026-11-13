@@ -140,7 +140,7 @@ Targets (range at amount 127): 0 `off`, 1 `pitch` (±24 semitones), 2 `pitch2` (
 |---|---|
 | `n <name> <0-127>` | sets a setting from a 0–127 value (pot, CV, CC), scaled to its range: switches and small ranges in equal zones, −127…127 settings with 0 at 64, `fmr`/`l2r`/`l3r`/`mgf` logarithmic |
 | `nget <name> <tag>` | outlet 3 gets `norm <tag> <0-127>`: the setting as a pot position (pickup) |
-| `syxin <byte>`, `syxread <file>`, `syxwrite <file>`, `syxbank <n> pdoly8 …`, `syxsend` | Poly-800 II data dump in / out (as `tools/p8sysex.py`): outlet 3 gets `bank <n> pdoly8 …` per program, `syxbyte <b>` for [midiout], `syxstatus <text>` |
+| `syxin <byte>`, `syxread <file>`, `syxwrite <file>`, `syxbank <n> pdoly8 …`, `syxsend`, `syxch <1-16>` (the Poly-800's MIDI channel, header byte 2n; a dump received or read sets it) | Poly-800 II data dump in / out (as `tools/p8sysex.py`): outlet 3 gets `bank <n> pdoly8 …` per program, `syxbyte <b>` for [midiout], `syxstatus <text>` |
 | `ninfo <name>` | outlet 3 gets `info <name> <0-127> <value>`: pot position and the value with its unit (for the editor) |
 | `disp <name>` | outlet 3 gets `disp <label> <value>`: two symbols for a display, e.g. `Cutoff` `50.1`, `FM source` `other DCO`, `LFO2 target 1` `cut` |
 | `oled <host> <port>` | sends the changed setting (as `disp`) and `oledtext` as OSC `/display-strings-and-numbers` to O2O (an OLED), from a thread of its own: no network call in the audio thread (Linux, macOS) |

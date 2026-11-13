@@ -76,6 +76,7 @@ typedef struct _pdoly8 {
     t_clock *rep_clk;              /* reports changed settings as "info" on outlet 3 */
     unsigned char syx_ram[0xA80];  /* Poly-800 II memory: last dump received or read (template) */
     int      syx_has;              /* syx_ram holds a real dump */
+    int      syx_ch;               /* MIDI channel 1-16 of the dump header (2n): from the dump, or syxch */
     unsigned char syx_in[0x1600]; int syx_n;   /* incoming sysex bytes ([sysexin] -> syxin) */
     t_canvas *canvas;
     t_float *rep_v[160]; float rep_last[160];
@@ -871,6 +872,7 @@ static void pdoly8_dump(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
  *   syxread <file>     the same from a .syx file
  *   syxbank <n> pdoly8 v ...   put a preset into program n (0-63) of the stored memory
  *   syxsend            the stored memory as a dump: "syxbyte <b>" on outlet 3 (-> [midiout])
+ *   syxch <1-16>       the Poly-800's MIDI channel (header byte 2n); a dump received or read sets it
  *   syxwrite <file>    the stored memory as a .syx file
  * The memory outside the programs (sequencer, chord memory, MIDI channel) is kept from the last
  * dump received or read, so syxsend / syxwrite need one first. */
@@ -1056,6 +1058,7 @@ static void syx_take(t_pdoly8 *x, const unsigned char *d, int n)
     for (int k = 0; k < SYX_RAM; k++) { x->syx_ram[k] = (unsigned char)((b[2 * k] & 15) | ((b[2 * k + 1] & 15) << 4)); sum += x->syx_ram[k]; }
     unsigned cs = (b[2 * SYX_RAM] & 15) | ((b[2 * SYX_RAM + 1] & 15) << 4);
     x->syx_has = 1;
+    x->syx_ch = (d[i + 2] & 15) + 1;
     t_atom a[2 + NCTL + NEXT]; float v[NCTL + NEXT];
     for (int p = 0; p < 64; p++) {
         syx_to_line(x->syx_ram, p, v);
@@ -1063,6 +1066,8 @@ static void syx_take(t_pdoly8 *x, const unsigned char *d, int n)
         for (int k = 0; k < NCTL + NEXT; k++) SETFLOAT(a + 2 + k, v[k]);
         outlet_anything(x->x_dump, gensym("bank"), 2 + NCTL + NEXT, a);
     }
+    t_atom c; SETFLOAT(&c, x->syx_ch);
+    outlet_anything(x->x_dump, gensym("syxch"), 1, &c);
     syx_status(x, (sum & 0xFF) == cs ? "64 programs received" : "received, check sum differs");
 }
 
@@ -1104,10 +1109,18 @@ static void pdoly8_syxbank(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 static int syx_bytes(t_pdoly8 *x, unsigned char *out)
 {
     int k = 0; unsigned sum = 0;
-    out[k++] = 0xF0; out[k++] = 0x42; out[k++] = 0x21; out[k++] = 0x0C;
+    out[k++] = 0xF0; out[k++] = 0x42; out[k++] = (unsigned char)(0x20 | ((x->syx_ch - 1) & 15)); out[k++] = 0x0C;
     for (int i = 0; i < SYX_RAM; i++) { out[k++] = x->syx_ram[i] & 15; out[k++] = x->syx_ram[i] >> 4; sum += x->syx_ram[i]; }
     out[k++] = sum & 15; out[k++] = (sum >> 4) & 15; out[k++] = 0xF7;
     return k;
+}
+
+/* syxch <1-16>: the MIDI channel of the Poly-800 II (it only takes a dump on its own channel) */
+static void pdoly8_syxch(t_pdoly8 *x, t_floatarg f)
+{
+    x->syx_ch = (int)clampf_(f, 1, 16);
+    t_atom a; SETFLOAT(&a, x->syx_ch);
+    outlet_anything(x->x_dump, gensym("syxch"), 1, &a);
 }
 
 static void pdoly8_syxsend(t_pdoly8 *x)
@@ -1163,6 +1176,7 @@ static void *pdoly8_new(void)
     }
     x->rep_clk = clock_new(x, (t_method)rep_tick);
     x->canvas = canvas_getcurrent();
+    x->syx_ch = 1;
     set_defaults(x);
     p8_settle(&x->e);
     x->bufn = 3 * 64;
@@ -1212,6 +1226,7 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxwrite, gensym("syxwrite"), A_SYMBOL, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxbank, gensym("syxbank"), A_GIMME, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxsend, gensym("syxsend"), 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_syxch, gensym("syxch"), A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_disp, gensym("disp"), A_SYMBOL, 0);
 #ifdef P8_OLED
     class_addmethod(pdoly8_class, (t_method)pdoly8_oled, gensym("oled"), A_SYMBOL, A_FLOAT, 0);
