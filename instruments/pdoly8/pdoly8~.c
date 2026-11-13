@@ -565,7 +565,32 @@ static const t_p8range RANGE[] = {
     {"leak",'i',0,1,"Leak","off|on"},
     {"treb",'i',-6,6,"Treble",""},
     {"bass",'i',-6,6,"Bass",""},
-    {"sprd",'i',0,127,"Stereo spread",""}};
+    {"sprd",'i',0,127,"Stereo spread",""},
+    {"a1",'z',0,31,"Env 1 attack",""},
+    {"d1",'z',0,31,"Env 1 decay",""},
+    {"bp1",'z',0,31,"Env 1 break",""},
+    {"sl1",'z',0,31,"Env 1 slope",""},
+    {"su1",'z',0,31,"Env 1 sustain",""},
+    {"r1",'z',0,31,"Env 1 release",""},
+    {"a2",'z',0,31,"Env 2 attack",""},
+    {"d2",'z',0,31,"Env 2 decay",""},
+    {"bp2",'z',0,31,"Env 2 break",""},
+    {"sl2",'z',0,31,"Env 2 slope",""},
+    {"su2",'z',0,31,"Env 2 sustain",""},
+    {"r2",'z',0,31,"Env 2 release",""},
+    {"a3",'z',0,31,"Env 3 attack",""},
+    {"d3",'z',0,31,"Env 3 decay",""},
+    {"bp3",'z',0,31,"Env 3 break",""},
+    {"sl3",'z',0,31,"Env 3 slope",""},
+    {"su3",'z',0,31,"Env 3 sustain",""},
+    {"r3",'z',0,31,"Env 3 release",""},
+    {"a4",'z',0,31,"Env 4 attack",""},
+    {"d4",'z',0,31,"Env 4 decay",""},
+    {"bp4",'z',0,31,"Env 4 break",""},
+    {"sl4",'z',0,31,"Env 4 slope",""},
+    {"su4",'z',0,31,"Env 4 sustain",""},
+    {"r4",'z',0,31,"Env 4 release",""},
+    {"ch1",'z',0,16,"MIDI channel","all|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16"}};
 #define NRANGE ((int)(sizeof RANGE / sizeof RANGE[0]))
 
 static const t_p8range *find_range(t_symbol *s)
@@ -589,6 +614,7 @@ static float range_from127(const t_p8range *r, float c)
     if (r->kind == 'r') return r->lo + (r->hi - r->lo) * c / 127.0f;
     if (r->kind == 'b' || r->kind == 'c') return clampf_((c - 64.0f) * r->hi / 63.0f, -r->hi, r->hi);
     if (r->kind == 'i' && r->hi - r->lo >= 15.0f) return r->lo + (r->hi - r->lo) * c / 127.0f;   /* continuous */
+    /* 'z' and short 'i': integers in zones of equal width */
     float n = r->hi - r->lo + 1.0f;                      /* zones of equal width */
     return r->lo + fminf(floorf(c * n / 128.0f), n - 1.0f);
 }
@@ -701,7 +727,7 @@ static int disp_text(t_pdoly8 *x, t_symbol *name, const char **label, char *buf,
         q = strchr(p, '|'); int len = q ? (int)(q - p) : (int)strlen(p);
         snprintf(buf, nb, "%.*s", len, p);
     }
-    else if ((r->kind == 'i' && r->hi - r->lo < 15.0f) || r->kind == 't')
+    else if ((r->kind == 'i' && r->hi - r->lo < 15.0f) || r->kind == 't' || r->kind == 'z')
         snprintf(buf, nb, "%.0f%s%s", v, r->unit[0] ? " " : "", r->unit);
     else if (r->kind == 'l' || fabsf(v) < 10.0f) snprintf(buf, nb, "%.3g%s%s", v, r->unit[0] ? " " : "", r->unit);
     else snprintf(buf, nb, "%.1f%s%s", v, r->unit[0] ? " " : "", r->unit);
@@ -724,6 +750,22 @@ static void pdoly8_nget(t_pdoly8 *x, t_symbol *name, t_floatarg tag)
     if (!r || !v) return;
     t_atom a[2]; SETFLOAT(a, tag); SETFLOAT(a + 1, range_to127(r, *v));
     outlet_anything(x->x_dump, gensym("norm"), 2, a);
+}
+
+/* ninfo <name>: outlet 3 gets "info <name> <0-127> <value text>" (for the editor p8edit) */
+static void pdoly8_ninfo(t_pdoly8 *x, t_symbol *name)
+{
+    const t_p8range *r = find_range(name);
+    t_float *v = find_value(x, name);
+    const char *l; char buf[64];
+    if (!r || !v || !disp_text(x, name, &l, buf, sizeof buf)) return;
+    char nb[96]; size_t j = 0;                           /* spaces -> no-break space: one clean symbol */
+    for (const char *c = buf; *c && j < sizeof nb - 3; c++) {
+        if (*c == ' ') { nb[j++] = (char)0xc2; nb[j++] = (char)0xa0; } else nb[j++] = *c;
+    }
+    nb[j] = 0;
+    t_atom a[3]; SETSYMBOL(a, name); SETFLOAT(a + 1, range_to127(r, *v)); SETSYMBOL(a + 2, gensym(nb));
+    outlet_anything(x->x_dump, gensym("info"), 3, a);
 }
 
 static void pdoly8_params(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
@@ -844,6 +886,7 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_get, gensym("get"), A_SYMBOL, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_n, gensym("n"), A_SYMBOL, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_nget, gensym("nget"), A_SYMBOL, A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_ninfo, gensym("ninfo"), A_SYMBOL, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_disp, gensym("disp"), A_SYMBOL, 0);
 #ifdef P8_OLED
     class_addmethod(pdoly8_class, (t_method)pdoly8_oled, gensym("oled"), A_SYMBOL, A_FLOAT, 0);

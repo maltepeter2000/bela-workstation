@@ -20,11 +20,16 @@ PINK_TOP = YEL_Y + 3 * M
 BLUE_W = 200
 BLUE_X = YEL_X + YEL_W + M - BLUE_W
 BLUE_TOP = PINK_TOP + 3 * M
-CX = YEL_X + M
+HX = YEL_X + M          # heading squares
 LBL = 24
-TX = CX + LBL - 2
+TX = HX + LBL - 2       # text column
+CX = TX                 # objects flush with the text (pd-help-layout)
 LINE = 16
 MAXCH = 62
+TXT_GAP = 28            # after every text: to the next objects or the next heading
+OBJ_GAP = 22            # from the lowest box of a row to the text below it
+BOX = 21                # box height, font 12
+STEP = 30               # connected objects: receiver >= BOX + 8 below the sender, never above
 PINK, YELLOW, BLUE = "#ffcfd6", "#fafaf2", "#1e3791"
 
 OBJ, SHORT = "pdoly8~", "pdoly8"
@@ -408,48 +413,69 @@ def split_text(groups, paras):
     return intro, per
 
 
-ROWA = 62
-GAP = 4
+# a few example messages per settings block (everything else: the editor p8edit)
+EXAMPLES = {
+    "DCO settings": ["pw1 30", "sync 1, swe 50", "ring 100"],
+    "FM": ["fm1 60", "fmr 2", "fms 1"],
+    "Filter & DEG3 settings": ["cut 40", "res 12", "drv 80"],
+    "MG settings": ["mgr 8", "mgi 50", "mgv 5"],
+    "DEG4 settings": ["d4t1 cut, d4a1 90", "d4t1 swe, d4a1 70", "d4t1 fm1, d4a1 100"],
+    "LFO2 & LFO3 settings": ["l2t1 pitch, l2a1 20", "l2t1 har1, l2a1 90", "l3t1 cut, l3a1 60"],
+    "Delay settings": ["delay flanger", "delay chorus1", "delay chorus2", "delay slap", "delay long", "delay off"],
+    "DEG1 & DEG2 settings": ["env1 24", "env1 108", "vamp 100"],
+    "Portamento": ["port 60", "mono 1", "pmod 2"],
+    "Additional settings": ["bnd 12", "sprd 100", "drft 60"],
+}
+EXW = 150               # column distance of the example messages
 
 
 def draw_block(p, title, groups, presets, paras, y, bus):
-    """draws a settings block at y (p None: layout only), returns the y after it"""
-    if p: p.heading(CX, y, title, 14)
+    """a settings block at y (p None: layout only): heading, list of its settings, example
+    messages (-> [s bus] below them), the explanation. Returns the y after the block."""
+    if p: p.heading(HX, y, title, 14)
     y += 28
-    intro, per = split_text(groups, paras)
-    if intro:
-        if p: p.comment(TX, y, intro, para=True)
-        y += LINE * nlines(intro) + GAP
-    for gi, g in enumerate(groups):
-        for row in rows_of([g]):
-            if p:
-                snd = p.add(f"#X obj {CX + 400} {y + 24} s {bus};")
-                for c, (nm, lo, hi) in enumerate(row):
-                    a = p.add(f"#X floatatom {CX + c * 100} {y} 6 {lo} {hi} 0 - - -;")
-                    m = p.add(f"#X msg {CX + c * 100} {y + 24} {nm} {DOLLAR}1;")
-                    p.conn(a, 0, m, 0); p.conn(m, 0, snd, 0)
-            y += 54
-        last = gi == len(groups) - 1
-        if presets and (title == "FM" and gi == 1 or title != "FM" and last):
-            if p:
-                sp = p.add(f"#X obj {CX + 400} {y} s {bus};")
-                for i, txt in enumerate(presets):
-                    r, c = divmod(i, 3)
-                    m = p.add(f"#X msg {CX + c * 130} {y + 34 * r} {txt};")
-                    p.conn(m, 0, sp, 0)
-            y += 34 * ((len(presets) + 2) // 3)
-        if title == "FM" and gi == 1:                       # external modulator -> right inlet
-            if p:
-                fa = p.add(f"#X floatatom {CX} {y} 6 0 0 0 - - -;")
-                osc = p.add(f"#X obj {CX} {y + 28} osc~ 110;")
-                ss = p.add(f"#X obj {CX} {y + 56} s~ {DOLLAR}0-fmin;")
-                p.add(f"#X text {CX + 90} {y + 28} external modulator (fms 2);")
-                p.conn(fa, 0, osc, 0); p.conn(osc, 0, ss, 0)
-            y += 86
-        if per[gi]:
-            if p: p.comment(TX, y, per[gi], para=True)
-            y += LINE * nlines(per[gi]) + GAP
-    return y + 10
+    names = "Settings: " + " / ".join(" ".join(n for n, _, _ in g) for g in groups) + \
+        " - all of them in the editor (p8edit), as messages: <name> <value>."
+    if p: p.comment(TX, y, [names], para=True)
+    y += LINE * nlines([names]) + TXT_GAP
+    ex = EXAMPLES.get(title, [])
+    if ex:
+        nr = (len(ex) + 2) // 3
+        if p:
+            sp = p.add(f"#X obj {CX + 330} {y + STEP * nr} s {bus};")
+            for i, txt in enumerate(ex):
+                r, c = divmod(i, 3)
+                m = p.add(f"#X msg {CX + c * EXW} {y + STEP * r} {esc(txt)};")
+                p.conn(m, 0, sp, 0)
+        y += STEP * nr + BOX + 11
+    if title == "FM":                                   # external modulator -> right inlet
+        if p:
+            fa = p.add(f"#X floatatom {CX} {y} 6 0 0 0 - - -;")
+            osc = p.add(f"#X obj {CX} {y + STEP} osc~ 110;")
+            ss = p.add(f"#X obj {CX} {y + 2 * STEP} s~ {DOLLAR}0-fmin;")
+            p.add(f"#X text {CX + 90} {y + STEP} external modulator (fms 2);")
+            p.conn(fa, 0, osc, 0); p.conn(osc, 0, ss, 0)
+        y += 2 * STEP + BOX + 11
+    y += OBJ_GAP - 11
+    if p: p.comment(TX, y, paras, para=True)
+    return y + LINE * nlines(paras) + TXT_GAP
+
+
+def check(txt):
+    """every connection runs down (receiver >= BOX + 8 below the sender), none longer than 200 px,
+    nothing left of the text column"""
+    L = txt.split(";\n")
+    objs = [l for l in L[1:] if l.startswith("#X") and not l.startswith("#X connect")]
+    pos = [int(l.split()[3]) for l in objs]
+    bad = []
+    for l in L:
+        if l.startswith("#X connect"):
+            a, b = int(l.split()[2]), int(l.split()[4]); d = pos[b] - pos[a]
+            if d < BOX + 8 or d > 200: bad.append((objs[a][:50], objs[b][:50], d))
+    for l in objs:
+        x = int(l.split()[2])
+        if "cnv" not in l and x < TX: bad.append(("left of the text column", l[:60]))
+    assert not bad, bad
 
 
 def build():
@@ -457,20 +483,20 @@ def build():
     n = len(CONTROLS)
     rows = (n + 3) // 4
     top_y = YEL_Y + 3 * M + 24 + 28
-    util_y = top_y + 66
-    ctl_y0 = util_y + 56
-    ROW = 90
-    last_s = ctl_y0 + ROW * (rows - 1) + 58
-    r_y = last_s + 18 + 20
-    obj_y = r_y + 36
-    mul_y, dac_y = obj_y + 36, obj_y + 72
-    y = dac_y + 18 + 36
+    util_y = top_y + 6 * STEP + BOX + 24
+    ctl_y0 = util_y + STEP + BOX + 24
+    ROW = 2 * STEP + BOX + 11
+    ni_y = ctl_y0 + ROW * (rows - 1) + 2 * STEP + BOX + 24
+    r_y = ni_y + 3 * STEP + BOX + 24
+    obj_y = r_y + STEP
+    mul_y, dac_y = obj_y + STEP, obj_y + 2 * STEP
+    y = dac_y + STEP + BOX + 32
 
     sections = []
     sections.append(("Inlets", ["0: messages (see Messages below)",
                                  "1: signal, external FM modulator (fms 2, see FM)"]))
     sections.append(("Outlets", ["0: signal left", "1: signal right",
-                                 "2: events: value, dump"]))
+                                 "2: events: value, dump, norm, disp, info"]))
     sections.append(("Messages", [
         "<pitch> <velocity>, note <p> <v>: note on/off (0 = off)",
         "<p> <v> <channel>: from [notein], filtered by ch1",
@@ -483,6 +509,8 @@ def build():
         "  scaled to its range (switches in zones, 64 = 0 if bipolar)",
         "nget <name> <tag>: outlet 3 gets norm <tag> <0-127>,",
         "  the setting as a pot position (for pickup)",
+        "ninfo <name>: outlet 3 gets info <name> <0-127> <value>,",
+        "  pot position and value with unit (for the editor)",
         "disp <name>: outlet 3 gets disp <label> <value>,",
         "  two symbols for a display (OLED)",
         "oled <host> <port>: changed settings to O2O (an OLED) as",
@@ -495,8 +523,18 @@ def build():
         "dump: send all values to outlet 2 as 'dump " + SHORT + " v0 ..'",
         "dump " + SHORT + " v0 v1 ...: restore such a dump (this voice only)",
         "voice <i> <p>, voiceoff <i>: play one voice directly"]))
+    sections.append(("Editor (p8edit)", [
+        "[p8edit $0-pdoly8] above: click it to open the editor. All 115 settings in rows of "
+        "8, as on the controller: left the CC rows 20-83, right DEG4, LFO2, LFO3, more and "
+        "the own DEG stages. Each cell: name and CC number, slider and number box 0-127 (the "
+        "value as from a pot, n <name> <value>) and the real value with its unit.",
+        "It sends to the bus [s $0-pdoly8] and reads the answers of outlet 3 from "
+        "[s $0-pdoly8-out], so presets, MIDI CC and every message on the bus show up in it. "
+        "In your own patch: [p8edit <name>] next to [r <name>] -> [pdoly8~] -> outlet 3 -> "
+        "[s <name>-out]."], 0, True))
     import gen_bela as GB
-    cc = ["[p8cc] at the top turns MIDI CC and 14-bit NRPN into n <name> <value> (any channel).",
+    cc = ["[p8cc] at the top turns MIDI CC and 14-bit NRPN into n <name> <value> (any channel), "
+          "here onto the bus, so the editor follows the knobs.",
           "Made for 4 rows of 16 controller pots: 8 groups of 8, CC 20-83, no setting twice:"]
     for t, c0, ns in GB.CC_GROUPS:
         cc.append(f"{c0}-{c0 + 7} {t}: " + " ".join(ns))
@@ -516,6 +554,7 @@ def build():
         "One foot or the net per step. The combinations without 16'",
         "are the same waves higher: use oct1 / oct2 2-4.",
         "A fading foot rises in power, so the morph has no dips."]))
+    PRESET_H = 4 * STEP + BOX + 36
     sections.append(("Presets", [
         "Two read-only lists send presets to the object, changing",
         "slots never writes anything back. Both send 'dump pdoly8 ...'",
@@ -524,12 +563,12 @@ def build():
         "(0 = program 11, 7 = 18, 8 = 21 ... 63 = 88), read from",
         "presets/poly800mk2-factory.txt next to the abstraction.",
         "[p8user name]: your own sounds in a [text define -k name]",
-        "(saved with the patch). A slot number recalls; only",
+        "(saved with the patch). A slot number recalls, only",
         "'store N' writes: it stores the current sound in slot N",
         "(it needs outlet 2 of pdoly8~ at its right inlet, here",
         "via [s]/[r]). 'write file' / 'read file' on the text",
         "define save and load banks. tools/p8sysex.py converts",
-        "Poly-800 II sysex dumps to preset text and back."], 200))
+        "Poly-800 II sysex dumps to preset text and back."], PRESET_H))
 
     placed = []
     for sec in sections:
@@ -537,10 +576,7 @@ def build():
         extra = sec[2] if len(sec) > 2 else 0
         para = sec[3] if len(sec) > 3 else False
         placed.append((title, lines, y, extra, para))
-        y += 24 + LINE * (nlines(lines) if para else len(lines)) + 28 + extra
-    # setting blocks: number boxes (each row into its own [s $0-pdoly8]),
-    # preset messages, then the explanation
-    ROWA = 62
+        y += 28 + LINE * (nlines(lines) if para else len(lines)) + TXT_GAP + extra
     placed_b = []
     for title, items, presets, text in BLOCKS:
         placed_b.append((title, items, presets, text, y))
@@ -553,101 +589,99 @@ def build():
     p.cnv(PINK_X, PINK_TOP, PINK_W, bar_bottom - PINK_TOP, bg=PINK)
     p.cnv(BLUE_X, BLUE_TOP, BLUE_W, bar_bottom - BLUE_TOP, bg=BLUE)
 
-    p.heading(CX, YEL_Y + M, OBJ, 22)
-    p.heading(CX, YEL_Y + 3 * M, SUBTITLE, 16)
+    p.heading(HX, YEL_Y + M, OBJ, 22)
+    p.heading(HX, YEL_Y + 3 * M, SUBTITLE, 16)
 
     bus = DOLLAR + "0-" + SHORT
-    o = p.add(f"#X obj {CX} {obj_y} {OBJ};")
-    rcv = p.add(f"#X obj {CX} {r_y} r {bus};")
-    p.conn(rcv, 0, o, 0)
-    rfm = p.add(f"#X obj {CX + 100} {r_y} r~ {DOLLAR}0-fmin;")
-    p.conn(rfm, 0, o, 1)
-    snd0 = p.add(f"#X obj {CX} {util_y + 30} s {bus};")
-    # demo: a chord every 500 ms, released after 250 ms
+    # demo: a chord every 500 ms, released after 250 ms - everything flows down
     tgl = p.add(f"#X obj {CX} {top_y} tgl 19 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000 0 1;")
-    met = p.add(f"#X obj {CX} {top_y + 28} metro 500;")
+    met = p.add(f"#X obj {CX} {top_y + STEP} metro 500;")
     p.conn(tgl, 0, met, 0)
-    tbb = p.add(f"#X obj {CX + 100} {top_y} t b b;")
+    tbb = p.add(f"#X obj {CX + 200} {top_y + 2 * STEP} t b b;")
     p.conn(met, 0, tbb, 0)
-    on = p.add(f"#X msg {CX + 160} {top_y} note 48 100 {COMMA} note 55 90 {COMMA} note 60 80 {COMMA} note 64 70;")
-    dly = p.add(f"#X obj {CX + 100} {top_y + 28} delay 250;")
-    off = p.add(f"#X msg {CX + 190} {top_y + 28} note 48 0 {COMMA} note 55 0 {COMMA} note 60 0 {COMMA} note 64 0;")
+    on = p.add(f"#X msg {CX} {top_y + 3 * STEP} note 48 100 {COMMA} note 55 90 {COMMA} note 60 80 {COMMA} note 64 70, f 24;")
+    dly = p.add(f"#X obj {CX + 200} {top_y + 3 * STEP} delay 250;")
+    off = p.add(f"#X msg {CX + 200} {top_y + 4 * STEP} note 48 0 {COMMA} note 55 0 {COMMA} note 60 0 {COMMA} note 64 0, f 22;")
     p.conn(tbb, 1, on, 0); p.conn(tbb, 0, dly, 0); p.conn(dly, 0, off, 0)
+    snd0 = p.add(f"#X obj {CX} {top_y + 6 * STEP} s {bus};")
     p.conn(on, 0, snd0, 0); p.conn(off, 0, snd0, 0)
+    snd1 = p.add(f"#X obj {CX} {util_y + STEP} s {bus};")
     x = CX
     for text in ("60 100", "60 0", "dump", "defaults", "panic", "print"):
         m = p.add(f"#X msg {x} {util_y} {text};")
-        p.conn(m, 0, snd0, 0)
-        x += 7 * len(text) + 4 + 16
+        p.conn(m, 0, snd1, 0)
+        x += 7 * len(text) + 8 + 16
     snds = {}
     for i, (cname, _, _) in enumerate(CONTROLS):
         r, c = divmod(i, 4)
         cx = CX + c * 112
         ay = ctl_y0 + ROW * r
         if r not in snds:
-            snds[r] = p.add(f"#X obj {CX} {ay + 58} s {bus};")
+            snds[r] = p.add(f"#X obj {CX} {ay + 2 * STEP} s {bus};")
         hi = 12 if cname == "intv" else 127
         a = p.add(f"#X floatatom {cx} {ay} 4 0 {hi} 0 - - -;")
-        m = p.add(f"#X msg {cx} {ay + 30} {cname} {DOLLAR}1;")
+        m = p.add(f"#X msg {cx} {ay + STEP} {cname} {DOLLAR}1;")
         p.conn(a, 0, m, 0)
         p.conn(m, 0, snds[r], 0)
-    # MIDI keyboard straight into the object
-    nin = p.add(f"#X obj {CX + 200} {r_y - 36} notein;")
-    pck = p.add(f"#X obj {CX + 200} {r_y} pack f f f;")
-    p.conn(nin, 0, pck, 0); p.conn(nin, 1, pck, 1); p.conn(nin, 2, pck, 2)
-    p.conn(pck, 0, o, 0)
-    bin_ = p.add(f"#X obj {CX + 330} {r_y - 36} bendin;")
-    pcc = p.add(f"#X obj {CX + 200} {obj_y} p8cc;")
-    p.conn(pcc, 0, o, 0)
-    bex = p.add(f"#X obj {CX + 330} {r_y} expr ($f1 - 8192) / 8192;")
-    bms = p.add(f"#X msg {CX + 330} {obj_y} bend {DOLLAR}1;")
-    p.conn(bin_, 0, bex, 0); p.conn(bex, 0, bms, 0); p.conn(bms, 0, o, 0)
+    # MIDI: CC, notes and bend go onto the bus (the editor follows), the object reads only the bus
+    pcc = p.add(f"#X obj {CX} {ni_y} p8cc;")
+    scc = p.add(f"#X obj {CX} {ni_y + STEP} s {bus};")
+    p.conn(pcc, 0, scc, 0)
+    nin = p.add(f"#X obj {CX + 180} {ni_y} notein;")
+    pck = p.add(f"#X obj {CX + 180} {ni_y + STEP} pack f f f;")
+    snn = p.add(f"#X obj {CX + 180} {ni_y + 2 * STEP} s {bus};")
+    p.conn(nin, 0, pck, 0); p.conn(nin, 1, pck, 1); p.conn(nin, 2, pck, 2); p.conn(pck, 0, snn, 0)
+    bin_ = p.add(f"#X obj {CX + 270} {ni_y} bendin;")
+    bex = p.add(f"#X obj {CX + 270} {ni_y + STEP} expr ($f1 - 8192) / 8192;")
+    bms = p.add(f"#X msg {CX + 270} {ni_y + 2 * STEP} bend {DOLLAR}1;")
+    sbn = p.add(f"#X obj {CX + 270} {ni_y + 3 * STEP} s {bus};")
+    p.conn(bin_, 0, bex, 0); p.conn(bex, 0, bms, 0); p.conn(bms, 0, sbn, 0)
+    rcv = p.add(f"#X obj {CX} {r_y} r {bus};")
+    rfm = p.add(f"#X obj {CX + 100} {r_y} r~ {DOLLAR}0-fmin;")
+    o = p.add(f"#X obj {CX} {obj_y} {OBJ};")
+    p.conn(rcv, 0, o, 0); p.conn(rfm, 0, o, 1)
     mull = p.add(f"#X obj {CX} {mul_y} *~ 0.3;")
     mulr = p.add(f"#X obj {CX + 100} {mul_y} *~ 0.3;")
     dac = p.add(f"#X obj {CX} {dac_y} dac~;")
-    pr = p.add(f"#X obj {CX + 330} {mul_y} print {SHORT.upper()};")
+    rinf = p.add(f"#X obj {CX + 180} {mul_y} route info;")
+    pr = p.add(f"#X obj {CX + 180 + 40} {dac_y} print {SHORT.upper()};")
+    sev = p.add(f"#X obj {CX + 310} {mul_y} s {DOLLAR}0-{SHORT}-out;")
     p.conn(o, 0, mull, 0); p.conn(o, 1, mulr, 0)
     p.conn(mull, 0, dac, 0); p.conn(mulr, 0, dac, 1)
-    p.conn(o, 2, pr, 0)
-    sev = p.add(f"#X obj {CX + 330} {mul_y + 30} s {DOLLAR}0-{SHORT}-out;")
-    p.conn(o, 2, sev, 0)
+    p.conn(o, 2, rinf, 0); p.conn(rinf, 1, pr, 0); p.conn(o, 2, sev, 0)
+    p.add(f"#X obj {CX + 180} {dac_y + STEP} p8edit {bus};")
+    p.add(f"#X text {CX + 310} {dac_y + STEP} <- click: editor;")
 
     for title, lines, sy, extra, para in placed:
-        p.heading(CX, sy, title, 14)
-        p.comment(TX, sy + 24, lines, para=para)
-        if extra:
-            ly = sy + 24 + LINE * len(lines) + 10
-            if title.startswith("Presets"):
-                ev = DOLLAR + "0-" + SHORT + "-out"
-                f1 = p.add(f"#X floatatom {TX} {ly} 4 0 63 0 factory - -;")
-                pf = p.add(f"#X obj {TX} {ly + 30} p8factory;")
-                s1 = p.add(f"#X obj {TX} {ly + 60} s {bus};")
-                p.conn(f1, 0, pf, 0); p.conn(pf, 0, s1, 0)
-                f2 = p.add(f"#X floatatom {TX + 170} {ly} 4 0 0 0 user - -;")
-                f3 = p.add(f"#X floatatom {TX + 250} {ly} 4 0 0 0 store - -;")
-                m3 = p.add(f"#X msg {TX + 250} {ly + 26} store {DOLLAR}1;")
-                p.conn(f3, 0, m3, 0)
-                rv = p.add(f"#X obj {TX + 340} {ly + 26} r {ev};")
-                pu = p.add(f"#X obj {TX + 170} {ly + 56} p8user {DOLLAR}0-mine;")
-                p.conn(f2, 0, pu, 0); p.conn(m3, 0, pu, 0); p.conn(rv, 0, pu, 1)
-                s2 = p.add(f"#X obj {TX + 170} {ly + 86} s {bus};")
-                p.conn(pu, 0, s2, 0)
-                p.add(f"#X obj {TX + 170} {ly + 116} text define -k {DOLLAR}0-mine;")
-                continue
-            m1 = p.add(f"#X msg {TX} {ly} dir;")
-            pc = p.add(f"#X obj {TX} {ly + 26} pdcontrol;")
-            lp = p.add(f"#X obj {TX} {ly + 52} list prepend skpreset-help.pd;")
-            m2 = p.add(f"#X msg {TX} {ly + 78} {SEMI} pd open {DOLLAR}1 {DOLLAR}2;")
-            p.conn(m1, 0, pc, 0); p.conn(pc, 0, lp, 0); p.conn(lp, 0, m2, 0)
-            p.add(f"#X text {TX + 50} {ly} <- click to open skpreset-help.pd, f 40;")
+        p.heading(HX, sy, title, 14)
+        p.comment(TX, sy + 28, lines, para=para)
+        if extra and title.startswith("Presets"):
+            ly = sy + 28 + LINE * len(lines) + TXT_GAP
+            ev = DOLLAR + "0-" + SHORT + "-out"
+            f1 = p.add(f"#X floatatom {TX} {ly} 4 0 63 0 factory - -;")
+            pf = p.add(f"#X obj {TX} {ly + STEP} p8factory;")
+            s1 = p.add(f"#X obj {TX} {ly + 2 * STEP} s {bus};")
+            p.conn(f1, 0, pf, 0); p.conn(pf, 0, s1, 0)
+            f2 = p.add(f"#X floatatom {TX + 170} {ly} 4 0 0 0 user - -;")
+            f3 = p.add(f"#X floatatom {TX + 250} {ly} 4 0 0 0 store - -;")
+            m3 = p.add(f"#X msg {TX + 250} {ly + STEP} store {DOLLAR}1;")
+            p.conn(f3, 0, m3, 0)
+            rv = p.add(f"#X obj {TX + 340} {ly + STEP} r {ev};")
+            pu = p.add(f"#X obj {TX + 170} {ly + 2 * STEP} p8user {DOLLAR}0-mine;")
+            p.conn(f2, 0, pu, 0); p.conn(m3, 0, pu, 0); p.conn(rv, 0, pu, 1)
+            s2 = p.add(f"#X obj {TX + 170} {ly + 3 * STEP} s {bus};")
+            p.conn(pu, 0, s2, 0)
+            p.add(f"#X obj {TX + 170} {ly + 4 * STEP} text define -k {DOLLAR}0-mine;")
     for title, items, presets, text, y0 in placed_b:
         draw_block(p, title, items, presets, text, y0, bus)
-    p.comment(TX, credits_y, ["Credits: Modelled on the Korg Poly-800 service manual;",
-                              "MSM5232; scale ROM data as documented in MAME's",
+    p.comment(TX, credits_y, ["Credits: Modelled on the Korg Poly-800 service manual,",
+                              "MSM5232, scale ROM data as documented in MAME's",
                               "msm5232.cpp with help by Claude"])
 
     head = f"#N canvas 348 20 {YEL_X + YEL_W + 2 * M + 20} {bar_bottom + M} 12;"
-    return head + "\n" + "\n".join(p.lines) + "\n" + "\n".join(p.conns) + "\n"
+    txt = head + "\n" + "\n".join(p.lines) + "\n" + "\n".join(p.conns) + "\n"
+    check(txt)
+    return txt
 
 
 if __name__ == "__main__":
