@@ -236,8 +236,10 @@ def logic():
     # send bank: every line of the user bank -> syxbank n pdoly8 ..., then syxsend
     rsx = c.add(f"#X obj 700 {ys} r {D}0-syxsend;")
     tbb = c.add(f"#X obj 700 {ys + 30} t b b;"); c.conn(rsx, 0, tbb, 0)
-    n64 = c.add(f"#X msg 740 {ys + 60} 64;"); c.conn(tbb, 1, n64, 0)
-    z = c.add(f"#X msg 800 {ys + 60} 0;"); c.conn(tbb, 1, z, 0)
+    # the user bank into the Poly-800 memory of pdoly8~ (before send bank and write .syx)
+    push = c.add(f"#X obj 760 {ys + 30} t b b;"); c.conn(tbb, 1, push, 0)
+    n64 = c.add(f"#X msg 740 {ys + 60} 64;"); c.conn(push, 0, n64, 0)
+    z = c.add(f"#X msg 800 {ys + 60} 0;"); c.conn(push, 1, z, 0)
     un = c.add(f"#X obj 740 {ys + 90} until;"); c.conn(n64, 0, un, 0)
     cnt = c.add(f"#X obj 740 {ys + 120} f;"); c.conn(un, 0, cnt, 0); c.conn(z, 0, cnt, 1)
     inc = c.add(f"#X obj 800 {ys + 150} + 1;"); 
@@ -255,8 +257,9 @@ def logic():
     mrd = c.add(f"#X msg 950 {ys + 60} syxread {D}1;"); c.conn(op, 0, mrd, 0)
     rwr = c.add(f"#X obj 1080 {ys} r {D}0-syxwrite;")
     sv = c.add(f"#X obj 1080 {ys + 30} savepanel;"); c.conn(rwr, 0, sv, 0)
-    mwr = c.add(f"#X msg 1080 {ys + 60} syxwrite {D}1;"); c.conn(sv, 0, mwr, 0)
-    ss4 = c.add(f"#X obj 950 {ys + 90} s {D}1;"); c.conn(mrd, 0, ss4, 0); c.conn(mwr, 0, ss4, 0)
+    twr = c.add(f"#X obj 1080 {ys + 60} t a b;"); c.conn(sv, 0, twr, 0); c.conn(twr, 1, push, 0)
+    mwr = c.add(f"#X msg 1080 {ys + 90} syxwrite {D}1;"); c.conn(twr, 0, mwr, 0)
+    ss4 = c.add(f"#X obj 950 {ys + 120} s {D}1;"); c.conn(mrd, 0, ss4, 0); c.conn(mwr, 0, ss4, 0)
     y = ys + 330
     # replies -> cells
     y2 = y + 380
