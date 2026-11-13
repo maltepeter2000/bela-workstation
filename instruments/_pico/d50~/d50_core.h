@@ -43,6 +43,26 @@ int patch_count();
 bool have_bank();
 const char* patch_name(int index);
 
+// ---- patch memory ----------------------------------------------------------
+// A patch is 448 bytes: seven blocks of 64 in the order of the D-50's own
+// dump. This is also the machine's temporary area at SysEx address 00-00-00.
+enum Section { kU1 = 0, kU2, kUpper, kL1, kL2, kLower, kPatch, kSectionCount };
+
+struct Param {
+    const char* name;
+    uint8_t offset;   // inside its 64-byte block
+    uint8_t max;      // largest stored value
+    int8_t shift;     // panel value = stored value - shift
+};
+
+const char* section_name(int section);
+int section_from_name(const char* name);            // -1 if unknown
+const Param* section_params(int section, int& count);
+const Param* find_param(int section, const char* name);
+
+// Receives one complete SysEx message, F0 to F7.
+typedef void (*SysexOut)(void* ctx, const uint8_t* msg, int len);
+
 // ---- one instrument --------------------------------------------------------
 class Synth {
 public:
@@ -92,6 +112,27 @@ public:
     void set_eq_high_q(int v);                // 0..8
     void set_eq_high_gain(int db);            // -12..+12
     void set_tone_balance(int v);             // 0..100
+
+    // ---- patch editing (needs a loaded bank) ------------------------------
+    bool editable() const;
+    int peek(int address) const;                     // 0..447, -1 if not editable
+    // Writes into the playing patch; takes effect at once, without clearing
+    // the effects. Values are limited to the range of their parameter.
+    bool poke(int address, const uint8_t* data, int len);
+    bool set_param(int section, const Param& p, int panel_value);
+    int get_param(int section, const Param& p) const;
+    // Names: 18 characters for the patch, 10 for a tone (kUpper, kLower).
+    bool set_name(int section, const char* text);
+    std::string get_name(int section) const;
+    // Copies the playing patch into a slot of the loaded banks (in memory
+    // only). index < 0 means the slot it was selected from.
+    bool store(int index);
+
+    // One D-50 SysEx message in (DT1 writes, RQ1 is answered through `out`).
+    // Returns false if it was not a D-50 message or its checksum was wrong.
+    bool sysex(const uint8_t* msg, int len, SysexOut out, void* ctx);
+    // The playing patch as DT1 messages, the way the D-50 sends it.
+    void dump_sysex(SysexOut out, void* ctx, int device = 0) const;
 
     // Retire released tails when a block costs more than its time. Off by
     // default; meant for small machines.

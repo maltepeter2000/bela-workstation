@@ -21,6 +21,3 @@ endif
 
 PDLIBBUILDER_DIR = ../pd-lib-builder
 include $(PDLIBBUILDER_DIR)/Makefile.pdlibbuilder
-
-# The engine's headers are large inline functions by design.
-CXXFLAGS := $(filter-out -Winline,$(CXXFLAGS)) -Wno-cast-function-type

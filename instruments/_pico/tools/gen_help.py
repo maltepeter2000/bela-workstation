@@ -48,12 +48,15 @@ INLETS = [
     "1 anything: a message, see Messages.",
     "2 float: velocity for the next note, 0 to 127 (default 100).",
     "3 anything: a message, the same set as inlet 1.",
+    "3 float or list: bytes of a SysEx stream, as sysexin gives",
+    "  them.",
 ]
 
 OUTLETS = [
     "1 signal: left output.",
     "2 signal: right output.",
     "3 anything: preset names and state, as name and value.",
+    "3 float: SysEx bytes, see SysEx.",
 ]
 
 MESSAGES = [
@@ -76,6 +79,8 @@ MIDI = [
     "ctlin 64: hold pedal, sent as sustain.",
     "touchin: channel pressure, sent as aftertouch.",
     "pgmin: program change, minus 1, sent as preset.",
+    "sysexin: straight into inlet 3, see SysEx.",
+    "midiout: the floats of the third outlet.",
 ]
 
 DATA = [
@@ -101,6 +106,197 @@ PRESETS = [
 ]
 
 # (title, groups, examples, paragraphs); a group is a list of (name, min, max)
+EDIT_BLOCK = (
+    "Patch editing",
+    [[("u1 cutoff", 0, 100), ("u1 reso", 0, 30), ("u1 level", 0, 100),
+      ("u1 pcm", 1, 100)],
+     [("upper structure", 1, 7)],
+     [("patch keymode", 0, 8)]],
+    [],
+    ["A message that starts with a section edits the patch that is "
+     "playing, at once and without a gap in chorus and reverb. The "
+     "sections are u1 and u2 for the upper partials, upper for the upper "
+     "tone, l1, l2 and lower likewise, and patch.",
+     "Values are the ones the D-50 shows, fine for example runs from -50 "
+     "to 50. Without a value the message reports the current one at the "
+     "third outlet. All names are listed at the end of this patch.",
+     "An edit lasts until the next preset message unless store was sent. "
+     "This needs a loaded bank, the built-in presets cannot be edited.",
+     "u1 cutoff (patch): filter cutoff of the first upper partial. Only "
+     "synth partials have a filter, a PCM partial ignores it.",
+     "u1 reso (patch): filter resonance.",
+     "u1 level (patch): level of the partial.",
+     "u1 pcm (patch): PCM sample, used when the structure makes the "
+     "partial a PCM one.",
+     "upper structure (patch): which partials are synth or PCM and "
+     "whether they are ring modulated, see Tone parameters.",
+     "patch keymode (patch): whole, dual, split and their solo variants, "
+     "see Patch parameters."])
+
+MEMORY_BLOCK = (
+    "Patch memory",
+    [],
+    ["dump", "u1 cutoff", "store", "param 13 60", "param 13", "sysexdump"],
+    ["u1 cutoff: a section and a name without a value report the value.",
+     "dump: reports the three names and every named parameter, 311 "
+     "messages. A panel uses it to show the patch.",
+     "store n: copies the playing patch to slot n, or to its own slot "
+     "without n. In memory only, no .syx file is written.",
+     "param a v: sets one of the 448 bytes of the patch by address, with "
+     "the value a D-50 dump stores. The address is the section times 64 "
+     "plus the offset, sections counted from 0 in the order u1, u2, "
+     "upper, l1, l2, lower, patch. param a reports the byte.",
+     "name: patch name My Patch sets the patch name, up to 18 "
+     "characters. upper name and lower name take up to 10.",
+     "sysexdump: sends the playing patch as SysEx, see below."])
+
+SYSEX = [
+    "The object speaks the exclusive format of the D-50, so an editor or "
+    "librarian made for the D-50 can program it. Connect sysexin to the "
+    "third inlet and send the floats of the third outlet to midiout, as "
+    "the objects at the top of this patch do.",
+    "Data set (DT1) to address 00-00-00 edits the playing patch, the same "
+    "448 bytes that param reaches. Data set to 02-00-00 replaces patches "
+    "of the bank of 64 the playing patch is in, in memory.",
+    "A request (RQ1) for either area is answered at the third outlet. "
+    "sysexdump sends the playing patch without being asked.",
+    "sysex followed by the bytes of one message does the same from a "
+    "list. The device number is not checked, answers carry the number "
+    "of the request.",
+]
+
+# Names for the parameter lists. Ranges come from d50_core.cpp, so the lists
+# cannot drift from the object. A run such as tvft1..tvft5 shares one line.
+PARTIAL_DOC = [
+    ("coarse", "pitch in semitones, 0 is C1"),
+    ("fine", "fine tune"),
+    ("keyfollow", "pitch keyfollow step, 11 is a semitone per key"),
+    ("lfomode", "pitch LFO: off, +, -, aftertouch and lever"),
+    ("penvmode", "pitch envelope: off, +, -"),
+    ("bendmode", "bender: off, keyfollow, normal"),
+    ("wave", "synth waveform: square, sawtooth"),
+    ("pcm", "PCM sample"),
+    ("pw", "pulse width"),
+    ("pwvelo", "pulse width by velocity"),
+    ("pwlfo", "pulse width LFO: +1, -1, +2, -2, +3, -3"),
+    ("pwlfodepth", "pulse width LFO depth"),
+    ("pwat", "pulse width by aftertouch"),
+    ("cutoff", "filter cutoff"),
+    ("reso", "filter resonance"),
+    ("tvfkf", "cutoff keyfollow step"),
+    ("tvfbiaspoint", "cutoff bias point and direction"),
+    ("tvfbiaslevel", "cutoff bias level"),
+    ("tvfenv", "filter envelope depth"),
+    ("tvfvelo", "filter envelope depth by velocity"),
+    ("tvfdepthkf", "filter envelope depth keyfollow"),
+    ("tvftimekf", "filter envelope time keyfollow"),
+    ("tvft1 tvft2 tvft3 tvft4 tvft5", "filter envelope times"),
+    ("tvfl1 tvfl2 tvfl3", "filter envelope levels"),
+    ("tvfsustain", "filter envelope sustain level"),
+    ("tvfend", "filter envelope end level: 0, 100"),
+    ("tvflfo", "filter LFO, as pwlfo"),
+    ("tvflfodepth", "filter LFO depth"),
+    ("tvfat", "cutoff by aftertouch"),
+    ("level", "level of the partial"),
+    ("velo", "level by velocity"),
+    ("tvabiaspoint", "level bias point and direction"),
+    ("tvabiaslevel", "level bias level"),
+    ("tvat1 tvat2 tvat3 tvat4 tvat5", "level envelope times"),
+    ("tval1 tval2 tval3", "level envelope levels"),
+    ("tvasustain", "level envelope sustain level"),
+    ("tvaend", "level envelope end level: 0, 100"),
+    ("tvavelofollow", "level envelope time 1 by velocity"),
+    ("tvatimekf", "level envelope time keyfollow"),
+    ("tvalfo", "level LFO, as pwlfo"),
+    ("tvalfodepth", "level LFO depth"),
+    ("tvaat", "level by aftertouch"),
+]
+
+TONE_DOC = [
+    ("structure", "S+S, S+S ring, P+S, P+S ring, S+P ring, P+P, P+P ring"),
+    ("penvvelo", "pitch envelope by velocity"),
+    ("penvtimekf", "pitch envelope time keyfollow"),
+    ("penvt1 penvt2 penvt3 penvt4", "pitch envelope times"),
+    ("penvl0 penvl1 penvl2", "pitch envelope levels"),
+    ("penvsustain", "pitch envelope sustain level"),
+    ("penvend", "pitch envelope end level"),
+    ("pmodlfo", "pitch LFO depth"),
+    ("pmodlever", "pitch LFO depth by the lever"),
+    ("pmodat", "pitch LFO depth by aftertouch"),
+    ("lfo1wave", "triangle, sawtooth, square, random"),
+    ("lfo1rate", "LFO 1 rate"),
+    ("lfo1delay", "LFO 1 delay"),
+    ("lfo1sync", "off, on, key"),
+    ("lfo2wave", "as lfo1wave"),
+    ("lfo2rate", "LFO 2 rate"),
+    ("lfo2delay", "LFO 2 delay"),
+    ("lfo2sync", "off, on"),
+    ("lfo3wave", "as lfo1wave"),
+    ("lfo3rate", "LFO 3 rate"),
+    ("lfo3delay", "LFO 3 delay"),
+    ("lfo3sync", "off, on"),
+    ("eqlowfreq", "low shelf frequency step"),
+    ("eqlowgain", "low shelf gain in dB"),
+    ("eqhighfreq", "high band frequency step"),
+    ("eqhighq", "high band width step"),
+    ("eqhighgain", "high band gain in dB"),
+    ("chorustype", "chorus type"),
+    ("chorusrate", "chorus rate"),
+    ("chorusdepth", "chorus depth"),
+    ("chorus", "chorus balance"),
+    ("mute", "partials sounding: none, first, second, both"),
+    ("balance", "balance of the two partials"),
+]
+
+PATCH_DOC = [
+    ("keymode", "whole, dual, split, whole solo, dual solo, split "
+                "upper solo, split lower solo, separate, separate solo"),
+    ("split", "split point, 0 is C2"),
+    ("portamode", "portamento on upper, lower, both"),
+    ("ukeyshift lkeyshift", "key shift of each tone in semitones"),
+    ("ufine lfine", "fine tune of each tone"),
+    ("bendrange", "bender range in semitones"),
+    ("atbend", "pitch bend by aftertouch in semitones"),
+    ("portatime", "portamento time"),
+    ("outmode", "how the tones go to reverb and outputs"),
+    ("reverbtype", "reverb type"),
+    ("reverb", "reverb balance"),
+    ("volume", "level of the patch, the volume message is the master"),
+    ("balance", "balance of the two tones"),
+    ("porta", "portamento switch"),
+]
+
+
+def core_params():
+    """{array name: {param: (lo, hi)}} read from d50_core.cpp, panel values."""
+    import re
+    src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
+                            OBJ, "d50_core.cpp")).read()
+    out = {}
+    for arr in ("kPartialParams", "kCommonParams", "kPatchParams"):
+        body = src.split(f"const Param {arr}[] = {{")[1].split("};")[0]
+        out[arr] = {n: (-int(sh), int(mx) - int(sh)) for n, _, mx, sh in
+                    re.findall(r'\{"(\w+)", (\d+), (\d+), (-?\d+)\}', body)}
+    return out
+
+
+def param_lines(doc, ranges):
+    """One entry per line, 'name lo..hi: text', continued with an indent."""
+    named = [n for names, _ in doc for n in names.split()]
+    assert sorted(named) == sorted(ranges), set(named) ^ set(ranges)
+    lines = []
+    for names, text in doc:
+        ns = names.split()
+        lo, hi = ranges[ns[0]]
+        assert all(ranges[n] == (lo, hi) for n in ns)
+        label = ns[0] if len(ns) == 1 else f"{ns[0]} to {ns[-1]}"
+        first, *rest = wrap(f"{label} {lo}..{hi}: {text}")
+        lines.append(first)
+        for r in wrap(" ".join(rest), MAXCH - 2) if rest else []:
+            lines.append("  " + r)
+    return lines
+
+
 BLOCKS = [
     ("Performance",
      [[("bend", -1, 1), ("mod", 0, 1), ("aftertouch", 0, 1), ("sustain", 0, 1)],
@@ -233,6 +429,19 @@ def draw_block(p, title, groups, examples, paras, y):
         p.heading(CX, y, title, 14)
     y += 28
     intro, per = split_text(groups, paras)
+    if not groups:
+        # Messages only: they come first, their text directly below.
+        if examples:
+            if p:
+                sp = p.obj(CX + 400, y, f"s {BUS}")
+                for i, txt in enumerate(examples):
+                    r, c = divmod(i, 3)
+                    m = p.msg(CX + c * 130, y + 34 * r, txt)
+                    p.conn(m, 0, sp, 0)
+            y += 34 * ((len(examples) + 2) // 3)
+        if p:
+            p.comment(TX, y, intro, para=True)
+        return y + LINE * nlines(intro) + GAP + 10
     if intro:
         if p:
             p.comment(TX, y, intro, para=True)
@@ -334,14 +543,20 @@ def build(p):
         gl = p.obj(CX, y + 134, "*~ 0.3")
         gr = p.obj(CX + 60, y + 134, "*~ 0.3")
         da = p.obj(CX, y + 164, "dac~")
-        pr = p.obj(CX + 130, y + 134, "print D50")
-        so = p.obj(CX + 220, y + 134, f"s {BUS}-out")
+        sx = p.obj(CX + 330, y + 60, "sysexin")
+        p.conn(sx, 0, ob, 2)
+        rf = p.obj(CX + 130, y + 134, "route float")
+        mo = p.obj(CX + 130, y + 164, "midiout")
+        pr = p.obj(CX + 220, y + 164, "print D50")
+        so = p.obj(CX + 300, y + 164, f"s {BUS}-out")
         p.conn(ob, 0, gl, 0)
         p.conn(ob, 1, gr, 0)
         p.conn(gl, 0, da, 0)
         p.conn(gr, 0, da, 1)
-        p.conn(ob, 2, pr, 0)
-        p.conn(ob, 2, so, 0)
+        p.conn(ob, 2, rf, 0)
+        p.conn(rf, 0, mo, 0)
+        p.conn(rf, 1, pr, 0)
+        p.conn(rf, 1, so, 0)
     y += 200
 
     # ---- remaining MIDI, each next to its own send
@@ -393,8 +608,20 @@ def build(p):
     y += LINE * nlines(PRESETS) + GAP + 10
 
     # ---- settings blocks
+    y = draw_block(p, *EDIT_BLOCK, y)
+    y = draw_block(p, *MEMORY_BLOCK, y)
+    y = section(p, y, "SysEx", SYSEX, para=True)
     for title, groups, examples, paras in BLOCKS:
         y = draw_block(p, title, groups, examples, paras, y)
+
+    # ---- the names the sections understand
+    cp = core_params()
+    y = section(p, y, "Partial parameters: u1 u2 l1 l2",
+                param_lines(PARTIAL_DOC, cp["kPartialParams"]))
+    y = section(p, y, "Tone parameters: upper lower",
+                param_lines(TONE_DOC, cp["kCommonParams"]))
+    y = section(p, y, "Patch parameters: patch",
+                param_lines(PATCH_DOC, cp["kPatchParams"]))
 
     y += 6
     if p:

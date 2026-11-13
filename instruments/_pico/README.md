@@ -18,6 +18,19 @@ the velocity on the second inlet; everything else is a message such as
 `preset 62` or `reverb 40`. The third outlet reports preset names and state.
 `d50~-help.pd` documents every message.
 
+The patch itself can be edited while it plays, in two ways:
+
+- by name: `u1 cutoff 60`, `upper structure 3`, `patch keymode 1`. The
+  sections are `u1 u2 upper l1 l2 lower patch`; the help patch lists the
+  109 names. `param <address> <value>` reaches any of the 448 patch bytes.
+- by D-50 SysEx, for existing editors and librarians: `[sysexin]` into the
+  third inlet, the floats of the third outlet into `[midiout]`. Data set to
+  the temporary area (00-00-00) and to internal memory (02-00-00) and
+  requests for both are handled.
+
+`dump` reports every parameter, `store` keeps an edit in its bank slot until
+Pd closes. Writing a bank back to a `.syx` file is not implemented yet.
+
 ### What you need
 
 The repository contains no Roland data, and the object is silent without it.

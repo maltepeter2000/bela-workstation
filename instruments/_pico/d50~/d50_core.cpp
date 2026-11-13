@@ -5,6 +5,12 @@
 // d50_core.cpp -- see d50_core.h. The patch handling follows
 // instruments/PicoFaceD5/src/D5_Bridge.cpp of PicoVintageSynthCollection;
 // where a comment says "as the bridge", the reasoning is in that file.
+// The engine's headers are large inline functions by design, and Pd's method
+// tables are casts by design; the build helper's warnings for both are noise.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic ignored "-Winline"
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
 #include "d50_core.h"
 
 #include <array>
@@ -151,7 +157,7 @@ int load_syx(const char* path, std::string& err) {
             name += (v < static_cast<int>(sizeof(kChars)) - 1) ? kChars[v] : ' ';
         }
         while (!name.empty() && name.back() == ' ') name.pop_back();
-        s.names.push_back(name);
+        s.names.push_back(name);   // same decoding as decode_name() below
     }
     return found;
 }
@@ -305,7 +311,168 @@ const char* const kStructureNames[7] = {
 
 int clamp(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
 
+// The parameters the engine reads, by the names the messages use. Offsets
+// and ranges are the D-50's own; anything else in a block is still reachable
+// by address.
+const Param kPartialParams[] = {
+    {"coarse", 0, 72, 0},        {"fine", 1, 100, 50},
+    {"keyfollow", 2, 16, 0},     {"lfomode", 3, 3, 0},
+    {"penvmode", 4, 2, 0},       {"bendmode", 5, 2, 0},
+    {"wave", 6, 1, 0},           {"pcm", 7, 99, -1},
+    {"pw", 8, 100, 0},           {"pwvelo", 9, 14, 7},
+    {"pwlfo", 10, 5, 0},         {"pwlfodepth", 11, 100, 0},
+    {"pwat", 12, 14, 7},
+    {"cutoff", 13, 100, 0},      {"reso", 14, 30, 0},
+    {"tvfkf", 15, 14, 0},        {"tvfbiaspoint", 16, 127, 0},
+    {"tvfbiaslevel", 17, 14, 7}, {"tvfenv", 18, 100, 0},
+    {"tvfvelo", 19, 100, 0},     {"tvfdepthkf", 20, 4, 0},
+    {"tvftimekf", 21, 4, 0},
+    {"tvft1", 22, 100, 0}, {"tvft2", 23, 100, 0}, {"tvft3", 24, 100, 0},
+    {"tvft4", 25, 100, 0}, {"tvft5", 26, 100, 0},
+    {"tvfl1", 27, 100, 0}, {"tvfl2", 28, 100, 0}, {"tvfl3", 29, 100, 0},
+    {"tvfsustain", 30, 100, 0},  {"tvfend", 31, 1, 0},
+    {"tvflfo", 32, 5, 0},        {"tvflfodepth", 33, 100, 0},
+    {"tvfat", 34, 14, 7},
+    {"level", 35, 100, 0},       {"velo", 36, 100, 50},
+    {"tvabiaspoint", 37, 127, 0}, {"tvabiaslevel", 38, 12, 12},
+    {"tvat1", 39, 100, 0}, {"tvat2", 40, 100, 0}, {"tvat3", 41, 100, 0},
+    {"tvat4", 42, 100, 0}, {"tvat5", 43, 100, 0},
+    {"tval1", 44, 100, 0}, {"tval2", 45, 100, 0}, {"tval3", 46, 100, 0},
+    {"tvasustain", 47, 100, 0},  {"tvaend", 48, 1, 0},
+    {"tvavelofollow", 49, 4, 0}, {"tvatimekf", 50, 4, 0},
+    {"tvalfo", 51, 5, 0},        {"tvalfodepth", 52, 100, 0},
+    {"tvaat", 53, 14, 7},
+};
+
+const Param kCommonParams[] = {
+    {"structure", 10, 6, -1},
+    {"penvvelo", 11, 2, 0},      {"penvtimekf", 12, 4, 0},
+    {"penvt1", 13, 50, 0}, {"penvt2", 14, 50, 0},
+    {"penvt3", 15, 50, 0}, {"penvt4", 16, 50, 0},
+    {"penvl0", 17, 100, 50}, {"penvl1", 18, 100, 50}, {"penvl2", 19, 100, 50},
+    {"penvsustain", 20, 100, 50}, {"penvend", 21, 100, 50},
+    {"pmodlfo", 22, 100, 0}, {"pmodlever", 23, 100, 0}, {"pmodat", 24, 100, 0},
+    {"lfo1wave", 25, 3, 0}, {"lfo1rate", 26, 100, 0},
+    {"lfo1delay", 27, 100, 0}, {"lfo1sync", 28, 2, 0},
+    {"lfo2wave", 29, 3, 0}, {"lfo2rate", 30, 100, 0},
+    {"lfo2delay", 31, 100, 0}, {"lfo2sync", 32, 1, 0},
+    {"lfo3wave", 33, 3, 0}, {"lfo3rate", 34, 100, 0},
+    {"lfo3delay", 35, 100, 0}, {"lfo3sync", 36, 1, 0},
+    {"eqlowfreq", 37, 15, 0},    {"eqlowgain", 38, 24, 12},
+    {"eqhighfreq", 39, 21, 0},   {"eqhighq", 40, 8, 0},
+    {"eqhighgain", 41, 24, 12},
+    {"chorustype", 42, 7, -1},   {"chorusrate", 43, 100, 0},
+    {"chorusdepth", 44, 100, 0}, {"chorus", 45, 100, 0},
+    {"mute", 46, 3, 0},          {"balance", 47, 100, 0},
+};
+
+const Param kPatchParams[] = {
+    {"keymode", 18, 8, 0},       {"split", 19, 60, 0},
+    {"portamode", 20, 2, 0},
+    {"ukeyshift", 22, 48, 24},   {"lkeyshift", 23, 48, 24},
+    {"ufine", 24, 100, 50},      {"lfine", 25, 100, 50},
+    {"bendrange", 26, 12, 0},    {"atbend", 27, 24, 12},
+    {"portatime", 28, 100, 0},   {"outmode", 29, 3, -1},
+    {"reverbtype", 30, 31, -1},  {"reverb", 31, 100, 0},
+    {"volume", 32, 100, 0},      {"balance", 33, 100, 0},
+    {"porta", 41, 1, 0},
+};
+
+const char* const kSectionNames[kSectionCount] = {
+    "u1", "u2", "upper", "l1", "l2", "lower", "patch"};
+
+// Largest value each of the 448 bytes may hold. Names are six bits.
+struct Limits {
+    uint8_t max[kPatchBytes];
+    Limits() {
+        std::memset(max, 127, sizeof max);
+        for (int s = 0; s < kSectionCount; ++s) {
+            int n = 0;
+            const Param* p = section_params(s, n);
+            for (int i = 0; i < n; ++i) max[s * 64 + p[i].offset] = p[i].max;
+        }
+        for (int k = 0; k < 10; ++k) max[kUpper * 64 + k] = max[kLower * 64 + k] = 63;
+        for (int k = 0; k < 18; ++k) max[kPatch * 64 + k] = 63;
+    }
+};
+
+const Limits& limits() {
+    static const Limits l;
+    return l;
+}
+
+std::string decode_name(const uint8_t* bytes, int len) {
+    std::string name;
+    for (int k = 0; k < len; ++k) {
+        const int v = bytes[k] & 0x3F;
+        name += (v < static_cast<int>(sizeof(kChars)) - 1) ? kChars[v] : ' ';
+    }
+    while (!name.empty() && name.back() == ' ') name.pop_back();
+    return name;
+}
+
+uint8_t roland_checksum(const uint8_t* body, int len) {
+    unsigned sum = 0;
+    for (int i = 0; i < len; ++i) sum += body[i] & 0x7F;
+    return static_cast<uint8_t>((128 - sum % 128) % 128);
+}
+
+constexpr int kTempBase = 0x000000;
+constexpr int kIntBase = 0x008000;   // 02-00-00
+
+// 256 data bytes per message, the size of the machine's own dumps.
+void send_dt1(SysexOut out, void* ctx, int dev, int addr, const uint8_t* data, int len) {
+    while (len > 0) {
+        const int n = len > 256 ? 256 : len;
+        uint8_t msg[10 + 256];
+        msg[0] = 0xF0; msg[1] = 0x41; msg[2] = dev & 0x7F; msg[3] = 0x14; msg[4] = 0x12;
+        msg[5] = (addr >> 14) & 0x7F;
+        msg[6] = (addr >> 7) & 0x7F;
+        msg[7] = addr & 0x7F;
+        for (int i = 0; i < n; ++i) msg[8 + i] = data[i] & 0x7F;
+        msg[8 + n] = roland_checksum(msg + 5, 3 + n);
+        msg[9 + n] = 0xF7;
+        out(ctx, msg, 10 + n);
+        data += n; addr += n; len -= n;
+    }
+}
+
 }  // namespace
+
+const char* section_name(int section) {
+    return (section >= 0 && section < kSectionCount) ? kSectionNames[section] : "";
+}
+
+int section_from_name(const char* name) {
+    for (int s = 0; s < kSectionCount; ++s)
+        if (std::strcmp(name, kSectionNames[s]) == 0) return s;
+    return -1;
+}
+
+const Param* section_params(int section, int& count) {
+    switch (section) {
+        case kU1: case kU2: case kL1: case kL2:
+            count = static_cast<int>(sizeof kPartialParams / sizeof kPartialParams[0]);
+            return kPartialParams;
+        case kUpper: case kLower:
+            count = static_cast<int>(sizeof kCommonParams / sizeof kCommonParams[0]);
+            return kCommonParams;
+        case kPatch:
+            count = static_cast<int>(sizeof kPatchParams / sizeof kPatchParams[0]);
+            return kPatchParams;
+        default:
+            count = 0;
+            return nullptr;
+    }
+}
+
+const Param* find_param(int section, const char* name) {
+    int n = 0;
+    const Param* p = section_params(section, n);
+    for (int i = 0; i < n; ++i)
+        if (std::strcmp(p[i].name, name) == 0) return &p[i];
+    return nullptr;
+}
 
 // ---------------------------------------------------------------------------
 // Synth
@@ -362,35 +529,53 @@ struct Synth::Impl {
         patch.set_eq(e);
     }
 
+    // Reads everything back out of temp[]: the engine's patch and the
+    // values this layer mirrors for state(). `live` keeps the notes and the
+    // effect tails (an edit); otherwise it is a patch change.
+    void apply_temp(bool live) {
+        const Limits& lim = limits();
+        for (int k = 0; k < kPatchBytes; ++k)
+            if (temp[k] > lim.max[k]) temp[k] = lim.max[k];
+        d5::PatchSpec spec = d5::patch_from_bytes(temp, d50::store().pcm.data());
+        name = decode_name(temp + kPatch * 64, 18);
+        const uint8_t* pb = d5::patch_block(temp, d5::kBlkPatch);
+        const uint8_t* uc = d5::patch_block(temp, d5::kBlkUpperCommon);
+        reverb = pb[31];
+        chorus = uc[45];
+        cho_type = uc[42];
+        cho_rate = uc[43];
+        cho_depth = uc[44];
+        eq_lo_f = uc[37];
+        eq_lo_g = uc[38];
+        eq_hi_f = uc[39];
+        eq_hi_q = uc[40];
+        eq_hi_g = uc[41];
+        tone_bal = pb[33];
+        base_volume = spec.volume;
+        whole_mode = spec.key_mode == d5::KeyMode::kWhole;
+        porta = spec.upper.voice.porta_switch;
+        porta_time = spec.upper.voice.porta_time;
+        bend_range = spec.bend_range;
+        structure = spec.upper.voice.structure;
+        if (live) patch.reconfigure(spec);
+        else patch.configure(spec, kEngineRate);
+        apply_levels();
+        patch.set_bend_semis(bend * bend_range);
+    }
+
     void apply_patch() {
-        Store& s = store();
-        const int16_t* blob = s.pcm.data();
-        d5::PatchSpec spec;
+        Store& s = d50::store();
         if (have_bank()) {
             std::memcpy(temp, s.patches[patch_index].data(), kPatchBytes);
-            spec = d5::patch_from_bytes(temp, blob);
-            name = s.names[patch_index];
-            const uint8_t* pb = d5::patch_block(temp, d5::kBlkPatch);
-            const uint8_t* uc = d5::patch_block(temp, d5::kBlkUpperCommon);
-            reverb = clamp(pb[31], 0, 100);
-            chorus = clamp(uc[45], 0, 100);
-            cho_type = clamp(uc[42], 0, 7);
-            cho_rate = clamp(uc[43], 0, 100);
-            cho_depth = clamp(uc[44], 0, 100);
-            eq_lo_f = clamp(uc[37], 0, 15);
-            eq_lo_g = clamp(uc[38], 0, 24);
-            eq_hi_f = clamp(uc[39], 0, 21);
-            eq_hi_q = clamp(uc[40], 0, 8);
-            eq_hi_g = clamp(uc[41], 0, 24);
-            tone_bal = clamp(pb[33], 0, 100);
-        } else {
-            d5::Preset pr = d5::preset(patch_index % d5::kPresetCount);
-            d5::preset_bind(pr.spec, blob, pr.pcm1, pr.pcm2);
-            spec = pr.spec;
-            name = pr.name;
-            reverb = 30;
-            chorus = 50;
+            apply_temp(false);
+            return;
         }
+        d5::Preset pr = d5::preset(patch_index % d5::kPresetCount);
+        d5::preset_bind(pr.spec, s.pcm.data(), pr.pcm1, pr.pcm2);
+        const d5::PatchSpec& spec = pr.spec;
+        name = pr.name;
+        reverb = 30;
+        chorus = 50;
         base_volume = spec.volume;
         whole_mode = spec.key_mode == d5::KeyMode::kWhole;
         // A patch change ends the controller overrides, as on the D-50.
@@ -398,10 +583,15 @@ struct Synth::Impl {
         porta_time = spec.upper.voice.porta_time;
         bend_range = spec.bend_range;
         structure = spec.upper.voice.structure;
-
         patch.configure(spec, kEngineRate);
         apply_levels();
         patch.set_bend_semis(bend * bend_range);
+    }
+
+    // The messages that have a byte in the patch keep it up to date, so a
+    // dump or a store carries what is sounding.
+    void put(int section, int offset, int value) {
+        if (have_bank()) temp[section * 64 + offset] = static_cast<uint8_t>(value);
     }
 };
 
@@ -552,6 +742,7 @@ void Synth::set_bend(float normalized) {
 void Synth::set_bend_range(int semis) {
     if (!impl_) return;
     impl_->bend_range = clamp(semis, 0, 12);
+    impl_->put(kPatch, 26, impl_->bend_range);
     impl_->patch.set_bend_semis(impl_->bend * impl_->bend_range);
 }
 
@@ -580,12 +771,14 @@ void Synth::set_sustain(bool on) {
 void Synth::set_porta(bool on) {
     if (!impl_) return;
     impl_->porta = on;
+    impl_->put(kPatch, 41, on ? 1 : 0);
     impl_->patch.set_porta(on, impl_->porta_time);
 }
 
 void Synth::set_porta_time(int percent) {
     if (!impl_) return;
     impl_->porta_time = clamp(percent, 0, 100);
+    impl_->put(kPatch, 28, impl_->porta_time);
     impl_->patch.set_porta(impl_->porta, impl_->porta_time);
 }
 
@@ -596,71 +789,232 @@ void Synth::set_voice_limit(int voices) {
 void Synth::set_reverb(int balance) {
     if (!impl_) return;
     impl_->reverb = clamp(balance, 0, 100);
+    impl_->put(kPatch, 31, impl_->reverb);
     impl_->apply_levels();
 }
 
 void Synth::set_reverb_type(int type) {
-    if (impl_) impl_->patch.set_reverb_type(clamp(type, 1, 32) - 1);
+    if (!impl_) return;
+    impl_->put(kPatch, 30, clamp(type, 1, 32) - 1);
+    impl_->patch.set_reverb_type(clamp(type, 1, 32) - 1);
 }
 
 void Synth::set_chorus(int balance) {
     if (!impl_) return;
     impl_->chorus = clamp(balance, 0, 100);
+    impl_->put(kUpper, 45, impl_->chorus);
+    impl_->put(kLower, 45, impl_->chorus);
     impl_->apply_levels();
 }
 
 void Synth::set_chorus_type(int type) {
     if (!impl_) return;
     impl_->cho_type = clamp(type, 1, 8) - 1;
+    impl_->put(kUpper, 42, impl_->cho_type);
+    impl_->put(kLower, 42, impl_->cho_type);
     impl_->patch.set_chorus_type(impl_->cho_type);
 }
 
 void Synth::set_chorus_rate(int v) {
     if (!impl_) return;
     impl_->cho_rate = clamp(v, 0, 100);
+    impl_->put(kUpper, 43, impl_->cho_rate);
+    impl_->put(kLower, 43, impl_->cho_rate);
     impl_->patch.set_chorus_rate(impl_->cho_rate * 0.01f);
 }
 
 void Synth::set_chorus_depth(int v) {
     if (!impl_) return;
     impl_->cho_depth = clamp(v, 0, 100);
+    impl_->put(kUpper, 44, impl_->cho_depth);
+    impl_->put(kLower, 44, impl_->cho_depth);
     impl_->patch.set_chorus_depth(impl_->cho_depth / 100.0f);
 }
 
 void Synth::set_eq_low_freq(int v) {
     if (!impl_) return;
     impl_->eq_lo_f = clamp(v, 0, 15);
+    impl_->put(kUpper, 37, impl_->eq_lo_f);
+    impl_->put(kLower, 37, impl_->eq_lo_f);
     impl_->apply_eq();
 }
 
 void Synth::set_eq_low_gain(int db) {
     if (!impl_) return;
     impl_->eq_lo_g = clamp(db, -12, 12) + 12;
+    impl_->put(kUpper, 38, impl_->eq_lo_g);
+    impl_->put(kLower, 38, impl_->eq_lo_g);
     impl_->apply_eq();
 }
 
 void Synth::set_eq_high_freq(int v) {
     if (!impl_) return;
     impl_->eq_hi_f = clamp(v, 0, 21);
+    impl_->put(kUpper, 39, impl_->eq_hi_f);
+    impl_->put(kLower, 39, impl_->eq_hi_f);
     impl_->apply_eq();
 }
 
 void Synth::set_eq_high_q(int v) {
     if (!impl_) return;
     impl_->eq_hi_q = clamp(v, 0, 8);
+    impl_->put(kUpper, 40, impl_->eq_hi_q);
+    impl_->put(kLower, 40, impl_->eq_hi_q);
     impl_->apply_eq();
 }
 
 void Synth::set_eq_high_gain(int db) {
     if (!impl_) return;
     impl_->eq_hi_g = clamp(db, -12, 12) + 12;
+    impl_->put(kUpper, 41, impl_->eq_hi_g);
+    impl_->put(kLower, 41, impl_->eq_hi_g);
     impl_->apply_eq();
 }
 
 void Synth::set_tone_balance(int v) {
     if (!impl_) return;
     impl_->tone_bal = clamp(v, 0, 100);
+    impl_->put(kPatch, 33, impl_->tone_bal);
     impl_->patch.set_tone_balance(impl_->tone_bal * 0.01f);
+}
+
+// ---- patch editing ----------------------------------------------------------
+
+bool Synth::editable() const { return impl_ && have_bank(); }
+
+int Synth::peek(int address) const {
+    if (!editable() || address < 0 || address >= kPatchBytes) return -1;
+    return impl_->temp[address];
+}
+
+bool Synth::poke(int address, const uint8_t* data, int len) {
+    if (!editable() || address < 0 || address >= kPatchBytes || len <= 0) return false;
+    if (address + len > kPatchBytes) len = kPatchBytes - address;
+    for (int k = 0; k < len; ++k) impl_->temp[address + k] = data[k] & 0x7F;
+    impl_->apply_temp(true);
+    return true;
+}
+
+bool Synth::set_param(int section, const Param& p, int panel_value) {
+    const uint8_t v = static_cast<uint8_t>(clamp(panel_value + p.shift, 0, p.max));
+    return poke(section * 64 + p.offset, &v, 1);
+}
+
+int Synth::get_param(int section, const Param& p) const {
+    const int v = peek(section * 64 + p.offset);
+    return v < 0 ? 0 : v - p.shift;
+}
+
+bool Synth::set_name(int section, const char* text) {
+    if (section != kUpper && section != kLower && section != kPatch) return false;
+    const int len = section == kPatch ? 18 : 10;
+    uint8_t bytes[18];
+    bool end = false;
+    for (int k = 0; k < len; ++k) {
+        if (!end && text[k] == 0) end = true;
+        const char* at = end ? nullptr : std::strchr(kChars, text[k]);
+        bytes[k] = at ? static_cast<uint8_t>(at - kChars) : 0;
+    }
+    return poke(section * 64, bytes, len);
+}
+
+std::string Synth::get_name(int section) const {
+    if (!editable()) return impl_ ? impl_->name : std::string();
+    if (section != kUpper && section != kLower && section != kPatch) return std::string();
+    return decode_name(impl_->temp + section * 64, section == kPatch ? 18 : 10);
+}
+
+bool Synth::store(int index) {
+    if (!editable()) return false;
+    Store& s = d50::store();
+    if (index < 0) index = impl_->patch_index;
+    if (index >= static_cast<int>(s.patches.size())) return false;
+    std::memcpy(s.patches[index].data(), impl_->temp, kPatchBytes);
+    s.names[index] = decode_name(impl_->temp + kPatch * 64, 18);
+    return true;
+}
+
+// Roland's one-way exclusive, as the D-50 speaks it:
+//   F0 41 <device> 14 <command> <address, 3 bytes> <data ...> <checksum> F7
+// DT1 (12) carries data, RQ1 (11) asks for it by address and size. Two
+// regions exist, as in the firmware: 00-00-00, the 448 bytes being played,
+// and 02-00-00, the sixty-four patches of the bank the current one is in.
+bool Synth::sysex(const uint8_t* d, int n, SysexOut out, void* ctx) {
+    if (!editable()) return false;
+    if (n < 10 || d[0] != 0xF0 || d[n - 1] != 0xF7) return false;
+    if (d[1] != 0x41 || d[3] != 0x14) return false;
+    const int dev = d[2];
+    const int addr = ((d[5] & 0x7F) << 14) | ((d[6] & 0x7F) << 7) | (d[7] & 0x7F);
+    if (roland_checksum(d + 5, n - 7) != d[n - 2]) return false;
+    Store& s = d50::store();
+    const int bank = impl_->patch_index / 64;
+
+    if (d[4] == 0x12) {
+        const uint8_t* data = d + 8;
+        int len = n - 10;
+        if (addr >= kTempBase && addr < kTempBase + kPatchBytes) {
+            poke(addr - kTempBase, data, len);
+        } else if (addr >= kIntBase) {
+            const Limits& lim = limits();
+            int off = addr - kIntBase;
+            bool current = false;
+            while (len > 0) {
+                const int slot = off / kPatchBytes, in = off % kPatchBytes;
+                const int index = bank * 64 + slot;
+                if (slot >= 64 || index >= static_cast<int>(s.patches.size())) break;
+                int m = kPatchBytes - in;
+                if (m > len) m = len;
+                uint8_t* dst = s.patches[index].data();
+                for (int k = 0; k < m; ++k) {
+                    const uint8_t v = data[k] & 0x7F;
+                    dst[in + k] = v > lim.max[in + k] ? lim.max[in + k] : v;
+                }
+                s.names[index] = decode_name(dst + kPatch * 64, 18);
+                if (index == impl_->patch_index) current = true;
+                off += m; data += m; len -= m;
+            }
+            // The one being played follows, without a patch change.
+            if (current) {
+                std::memcpy(impl_->temp, s.patches[impl_->patch_index].data(), kPatchBytes);
+                impl_->apply_temp(true);
+            }
+        }
+        return true;
+    }
+
+    if (d[4] == 0x11 && n >= 13 && out) {
+        int size = ((d[8] & 0x7F) << 14) | ((d[9] & 0x7F) << 7) | (d[10] & 0x7F);
+        if (size <= 0 || size > 0x10000) return true;
+        if (addr >= kTempBase && addr < kTempBase + kPatchBytes) {
+            int m = kPatchBytes - (addr - kTempBase);
+            if (m > size) m = size;
+            send_dt1(out, ctx, dev, addr, impl_->temp + (addr - kTempBase), m);
+        } else if (addr >= kIntBase) {
+            // One run of bytes across the patch boundaries, so the messages
+            // step 256 bytes at a time exactly as the machine's own dump does.
+            int off = addr - kIntBase;
+            std::vector<uint8_t> run;
+            while (size > 0) {
+                const int slot = off / kPatchBytes, in = off % kPatchBytes;
+                const int index = bank * 64 + slot;
+                if (slot >= 64 || index >= static_cast<int>(s.patches.size())) break;
+                int m = kPatchBytes - in;
+                if (m > size) m = size;
+                const uint8_t* src = s.patches[index].data() + in;
+                run.insert(run.end(), src, src + m);
+                off += m; size -= m;
+            }
+            if (!run.empty())
+                send_dt1(out, ctx, dev, addr, run.data(), static_cast<int>(run.size()));
+        }
+        return true;
+    }
+    return true;
+}
+
+void Synth::dump_sysex(SysexOut out, void* ctx, int device) const {
+    if (!editable() || !out) return;
+    send_dt1(out, ctx, device, kTempBase, impl_->temp, kPatchBytes);
 }
 
 void Synth::set_governor(bool on) {

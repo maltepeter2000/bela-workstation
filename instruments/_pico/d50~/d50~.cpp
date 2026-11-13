@@ -8,9 +8,12 @@
 //             any:   a command, see below
 //   inlet 2   float: velocity for the next note, 0..127 (default 100)
 //   inlet 3   any:   a command (the same set as inlet 1)
+//             float: one byte of a MIDI SysEx stream, as [sysexin] gives it
+//             list:  several such bytes
 //   outlet 1  signal, left
 //   outlet 2  signal, right
 //   outlet 3  messages: preset names and state, for a GUI or a headless host
+//             floats:   SysEx bytes, answers to requests and "sysexdump"
 //
 // Commands:
 //   preset n          select a patch (0-based over all loaded banks)
@@ -28,7 +31,26 @@
 //   eqhighq n (0..8), eqhighgain n (-12..12)
 //   governor 0/1      drop released tails when the CPU runs out
 //   stop              all notes off               reset   notes and effect tails
+//
+// Patch editing (needs a loaded bank; every edit sounds at once):
+//   <section> <name> v   set a parameter by name, in panel values. Sections:
+//                        u1 u2 (upper partials), upper (upper common),
+//                        l1 l2, lower, patch. Without v: report the value.
+//   <section> name text  name of the patch or of a tone (upper, lower)
+//   param addr v         set one of the 448 patch bytes, stored value
+//   param addr           report it
+//   dump                 report every named parameter
+//   store [n]            copy the playing patch to slot n (default: its own)
+//   sysex b b b ...      one D-50 SysEx message as a list of bytes
+//   sysexdump            send the playing patch as SysEx bytes
+// The engine's headers are large inline functions by design, and Pd's method
+// tables are casts by design; the build helper's warnings for both are noise.
+#if defined(__GNUC__) && !defined(__clang__)
+#pragma GCC diagnostic ignored "-Winline"
+#pragma GCC diagnostic ignored "-Wcast-function-type"
+#endif
 #include <algorithm>
+#include <cstdint>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -61,6 +83,7 @@ struct t_d50 {
     t_float velocity;
     t_d50_proxy proxy;
     t_outlet* info;
+    std::vector<uint8_t>* sx;   // SysEx bytes arriving one at a time
 };
 
 // ---- data files -------------------------------------------------------------
@@ -144,6 +167,73 @@ void out_preset(t_d50* x, int index) {
     outlet_anything(x->info, gensym("preset"), 2, a);
 }
 
+// SysEx leaves the way it arrives: one float per byte, so the third outlet
+// goes through [route float] straight into [midiout] or another d50~.
+void out_sysex(void* ctx, const uint8_t* msg, int len) {
+    t_d50* x = static_cast<t_d50*>(ctx);
+    for (int i = 0; i < len; ++i) outlet_float(x->info, msg[i]);
+}
+
+void out_param(t_d50* x, int section, const d50::Param& p) {
+    t_atom a[2];
+    SETSYMBOL(&a[0], gensym(p.name));
+    SETFLOAT(&a[1], x->synth->get_param(section, p));
+    outlet_anything(x->info, gensym(d50::section_name(section)), 2, a);
+}
+
+void out_name(t_d50* x, int section) {
+    t_atom a[2];
+    SETSYMBOL(&a[0], gensym("name"));
+    SETSYMBOL(&a[1], gensym(x->synth->get_name(section).c_str()));
+    outlet_anything(x->info, gensym(d50::section_name(section)), 2, a);
+}
+
+bool need_bank(t_d50* x, const char* what) {
+    if (x->synth->editable()) return true;
+    pd_error(x, "d50~: %s: needs a loaded patch bank (.syx)", what);
+    return false;
+}
+
+// "<section> <name> [value]" and "<section> name <text ...>"
+void d50_section(t_d50* x, int section, int argc, t_atom* argv) {
+    const char* sec = d50::section_name(section);
+    if (!need_bank(x, sec)) return;
+    if (argc < 1 || argv[0].a_type != A_SYMBOL) {
+        pd_error(x, "d50~: %s: expected a parameter name", sec);
+        return;
+    }
+    const char* name = atom_getsymbol(argv)->s_name;
+    if (std::strcmp(name, "name") == 0 &&
+        (section == d50::kUpper || section == d50::kLower || section == d50::kPatch)) {
+        if (argc > 1) {
+            std::string text;
+            for (int i = 1; i < argc; ++i) {
+                char buf[64];
+                atom_string(argv + i, buf, sizeof buf);
+                if (i > 1) text += ' ';
+                text += buf;
+            }
+            x->synth->set_name(section, text.c_str());
+        } else {
+            out_name(x, section);
+        }
+        return;
+    }
+    const d50::Param* p = d50::find_param(section, name);
+    if (!p) {
+        pd_error(x, "d50~: %s: no parameter '%s'", sec, name);
+        return;
+    }
+    if (argc > 1) x->synth->set_param(section, *p, static_cast<int>(atom_getfloat(argv + 1)));
+    else out_param(x, section, *p);
+}
+
+void d50_sysex_bytes(t_d50* x, const std::vector<uint8_t>& msg) {
+    if (!need_bank(x, "sysex")) return;
+    if (!x->synth->sysex(msg.data(), static_cast<int>(msg.size()), out_sysex, x))
+        pd_error(x, "d50~: sysex: not a D-50 message, or a wrong checksum");
+}
+
 // ---- commands ---------------------------------------------------------------
 
 void d50_command(t_d50* x, t_symbol* s, int argc, t_atom* argv) {
@@ -153,7 +243,48 @@ void d50_command(t_d50* x, t_symbol* s, int argc, t_atom* argv) {
     const int n = static_cast<int>(f);
     auto is = [c](const char* k) { return std::strcmp(c, k) == 0; };
 
-    if (is("preset")) {
+    const int section = d50::section_from_name(c);
+    if (section >= 0) {
+        d50_section(x, section, argc, argv);
+    } else if (is("param")) {
+        if (!need_bank(x, "param")) return;
+        if (argc < 1 || n < 0 || n >= d50::kPatchBytes) {
+            pd_error(x, "d50~: param: expected an address 0..%d", d50::kPatchBytes - 1);
+        } else if (argc > 1) {
+            const int v = static_cast<int>(atom_getfloat(argv + 1));
+            const uint8_t b = static_cast<uint8_t>(v < 0 ? 0 : (v > 127 ? 127 : v));
+            y.poke(n, &b, 1);
+        } else {
+            t_atom a[2];
+            SETFLOAT(&a[0], n);
+            SETFLOAT(&a[1], y.peek(n));
+            outlet_anything(x->info, gensym("param"), 2, a);
+        }
+    } else if (is("dump")) {
+        if (!need_bank(x, "dump")) return;
+        out_name(x, d50::kPatch);
+        out_name(x, d50::kUpper);
+        out_name(x, d50::kLower);
+        for (int sec = 0; sec < d50::kSectionCount; ++sec) {
+            int count = 0;
+            const d50::Param* p = d50::section_params(sec, count);
+            for (int i = 0; i < count; ++i) out_param(x, sec, p[i]);
+        }
+    } else if (is("store")) {
+        if (!need_bank(x, "store")) return;
+        const int slot = argc > 0 ? n : -1;
+        if (!y.store(slot)) pd_error(x, "d50~: store: expected 0..%d", d50::patch_count() - 1);
+        else out_preset(x, slot < 0 ? y.patch() : slot);
+    } else if (is("sysex")) {
+        std::vector<uint8_t> msg;
+        if (argc > 0 && atom_getfloat(argv) != 0xF0) msg.push_back(0xF0);
+        for (int i = 0; i < argc; ++i)
+            msg.push_back(static_cast<uint8_t>(static_cast<int>(atom_getfloat(argv + i)) & 0xFF));
+        if (msg.empty() || msg.back() != 0xF7) msg.push_back(0xF7);
+        d50_sysex_bytes(x, msg);
+    } else if (is("sysexdump")) {
+        if (need_bank(x, "sysexdump")) y.dump_sysex(out_sysex, x);
+    } else if (is("preset")) {
         if (argc < 1 || !y.select_patch(n))
             pd_error(x, "d50~: preset: expected 0..%d", d50::patch_count() - 1);
         else out_preset(x, n);
@@ -236,6 +367,29 @@ void d50_proxy_anything(t_d50_proxy* p, t_symbol* s, int argc, t_atom* argv) {
     d50_command(p->owner, s, argc, argv);
 }
 
+// A MIDI SysEx stream, byte by byte: collected from F0 to F7.
+void d50_proxy_float(t_d50_proxy* p, t_float f) {
+    t_d50* x = p->owner;
+    const int b = static_cast<int>(f) & 0xFF;
+    std::vector<uint8_t>& sx = *x->sx;
+    if (b == 0xF0) sx.clear();
+    else if (sx.empty()) return;              // not inside a message
+    if (b >= 0x80 && b != 0xF0 && b != 0xF7) { sx.clear(); return; }
+    sx.push_back(static_cast<uint8_t>(b));
+    if (b == 0xF7) {
+        // Other makers' messages pass by silently on a shared MIDI line.
+        if (sx.size() >= 10 && sx[1] == 0x41 && sx[3] == 0x14) d50_sysex_bytes(x, sx);
+        sx.clear();
+    } else if (sx.size() > 4096) {
+        sx.clear();
+    }
+}
+
+// The same bytes as one list.
+void d50_proxy_list(t_d50_proxy* p, t_symbol*, int argc, t_atom* argv) {
+    for (int i = 0; i < argc; ++i) d50_proxy_float(p, atom_getfloat(argv + i));
+}
+
 // ---- dsp --------------------------------------------------------------------
 
 t_int* d50_perform(t_int* w) {
@@ -258,6 +412,7 @@ void* d50_new(t_symbol*, int argc, t_atom* argv) {
     t_d50* x = reinterpret_cast<t_d50*>(pd_new(d50_class));
     load_data(canvas_getcurrent());
     x->velocity = 100;
+    x->sx = new std::vector<uint8_t>();
     x->synth = new d50::Synth();
     if (!x->synth->ok() && d50::pcm_loaded()) pd_error(x, "d50~: out of memory");
 
@@ -275,7 +430,10 @@ void* d50_new(t_symbol*, int argc, t_atom* argv) {
     return x;
 }
 
-void d50_free(t_d50* x) { delete x->synth; }
+void d50_free(t_d50* x) {
+    delete x->synth;
+    delete x->sx;
+}
 
 }  // namespace
 
@@ -297,5 +455,7 @@ void d50_tilde_setup(void) {
     d50_proxy_class = class_new(gensym("d50~ commands"), nullptr, nullptr,
                                 sizeof(t_d50_proxy), CLASS_PD | CLASS_NOINLET, A_NULL);
     class_addanything(d50_proxy_class, reinterpret_cast<t_method>(d50_proxy_anything));
+    class_addfloat(d50_proxy_class, reinterpret_cast<t_method>(d50_proxy_float));
+    class_addlist(d50_proxy_class, reinterpret_cast<t_method>(d50_proxy_list));
 }
 }
