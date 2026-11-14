@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
+#include <time.h>
 #if !defined(_WIN32)
 #include <pthread.h>
 #include <time.h>
@@ -72,6 +73,8 @@ typedef struct _pdoly8 {
     t_float  last;                 /* last note played, -1 none */
     t_float  stack[16]; int nstack; /* mono: keys held, last on top */
     int      restoring;
+    int      inited;               /* ch1 is set up once, then kept by defaults and presets */
+    unsigned rnd;                  /* random voices */
     float   *buf; int bufn;
     t_clock *rep_clk;              /* reports changed settings as "info" on outlet 3 */
     unsigned char syx_ram[0xA80];  /* Poly-800 II memory: last dump received or read (template) */
@@ -809,6 +812,10 @@ static void rep_tick(t_pdoly8 *x)
         if (!x->rep_v[i] || *x->rep_v[i] == x->rep_last[i]) continue;
         x->rep_last[i] = *x->rep_v[i];
         emit_info(x, &RANGE[i], *x->rep_v[i]);
+        if (!strcmp(RANGE[i].name, "ch1")) {          /* the controller layer follows the channel */
+            t_atom a; SETFLOAT(&a, *x->rep_v[i]);
+            outlet_anything(x->x_dump, gensym("channel"), 1, &a);
+        }
     }
 }
 static void rep_kick(t_pdoly8 *x) { if (x->rep_clk) clock_delay(x->rep_clk, 0); }
@@ -819,12 +826,16 @@ static void pdoly8_params(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
     for (int i = 0; i < argc && i < NCTL; i++) apply_ctl(x, i, atom_getfloatarg(i, argc, argv));
 }
 
+/* the MIDI channel (ch1) is part of the setup, not of a sound: defaults and presets keep it;
+ * the first time it is 1 (one channel per instrument, see the controller layer) */
 static void set_defaults(t_pdoly8 *x)
 {
+    float ch = x->inited ? x->ext[X_CH1] : 1;
     x->restoring = 1;
-    for (int i = 0; i < NEXT; i++) apply_ext(x, i, EXT_DEFAULT[i]);
+    for (int i = 0; i < NEXT; i++) apply_ext(x, i, i == X_CH1 ? ch : EXT_DEFAULT[i]);
     x->restoring = 0;
     for (int i = 0; i < NCTL; i++) apply_ctl(x, i, CTL_DEFAULT[i]);
+    x->inited = 1;
 }
 static void pdoly8_defaults(t_pdoly8 *x) { set_defaults(x); }
 static void pdoly8_reset(t_pdoly8 *x) { pdoly8_panic(x); set_defaults(x); pdoly8_bend(x, 0); p8_settle(&x->e); }
@@ -858,7 +869,8 @@ static void pdoly8_dump(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
     if (argv[0].a_type != A_SYMBOL || argv[0].a_w.w_symbol != gensym("pdoly8")) return;
     /* settings first (mode decides the levels), then the controls */
     x->restoring = 1;
-    for (int i = 1 + NCTL; i < argc && i <= NCTL + NEXT; i++) apply_ext(x, i - 1 - NCTL, atom_getfloatarg(i, argc, argv));
+    for (int i = 1 + NCTL; i < argc && i <= NCTL + NEXT; i++)
+        if (i - 1 - NCTL != X_CH1) apply_ext(x, i - 1 - NCTL, atom_getfloatarg(i, argc, argv));
     x->restoring = 0;
     for (int i = 1; i < argc && i <= NCTL; i++) apply_ctl(x, i - 1, atom_getfloatarg(i, argc, argv));
 }
@@ -1151,6 +1163,105 @@ static void pdoly8_syxwrite(t_pdoly8 *x, t_symbol *file)
     syx_status(x, "written");
 }
 
+
+/* ------------------------------------------------- random voices (as tx81z~)
+ * random <pluck|bass|lead|brass|pad|strings|total> [seed]: a new sound from the defaults, with
+ * ranges per kind for the timbres, envelopes, filter, modulation and delay. MIDI channel stays. */
+static float rnd01(t_pdoly8 *x)
+{
+    x->rnd ^= x->rnd << 13; x->rnd ^= x->rnd >> 17; x->rnd ^= x->rnd << 5;
+    return (x->rnd >> 8) * (1.0f / 16777216.0f);
+}
+static float rf(t_pdoly8 *x, float lo, float hi) { return lo + (hi - lo) * rnd01(x); }
+static int ri(t_pdoly8 *x, int lo, int hi) { return lo + (int)fminf((float)(hi - lo), floorf(rnd01(x) * (hi - lo + 1))); }
+static int chance(t_pdoly8 *x, int pct) { return ri(x, 1, 100) <= pct; }
+static float pickf(t_pdoly8 *x, const float *v, int n) { return v[ri(x, 0, n - 1)]; }
+#define PICK(...) pickf(x, (const float[]){__VA_ARGS__}, (int)(sizeof((const float[]){__VA_ARGS__}) / sizeof(float)))
+
+static void setv(t_pdoly8 *x, const char *name, float v)
+{
+    for (int i = 0; i < NCTL; i++) if (!strcmp(CTL_NAME[i], name)) { apply_ctl(x, i, v); return; }
+    for (int i = 0; i < NEXT; i++) if (!strcmp(EXT_NAME[i], name)) { apply_ext(x, i, v); return; }
+}
+
+static void chorus(t_pdoly8 *x, int pct)
+{
+    if (!chance(x, pct)) return;
+    setv(x, "dtim", ri(x, 4, 18)); setv(x, "dfb", ri(x, 0, 3)); setv(x, "dmf", ri(x, 4, 14));
+    setv(x, "dmi", ri(x, 10, 26)); setv(x, "dlev", ri(x, 6, 12));
+}
+
+static void pdoly8_random(t_pdoly8 *x, t_symbol *kind, t_floatarg seed)
+{
+    const char *k = kind->s_name;
+    if (seed != 0) x->rnd = (unsigned)seed * 2654435761u | 1;
+    if (strcmp(k, "pluck") && strcmp(k, "bass") && strcmp(k, "lead") && strcmp(k, "brass") && strcmp(k, "pad")
+        && strcmp(k, "strings") && strcmp(k, "total")) {
+        pd_error(x, "pdoly8~: random pluck / bass / lead / brass / pad / strings / total"); return;
+    }
+    set_defaults(x);
+    float saw = ri(x, 0, 63), any = ri(x, 0, 127);
+    setv(x, "har1", any); setv(x, "har2", chance(x, 50) ? any : ri(x, 0, 127));
+    setv(x, "lev1", 127); setv(x, "kbd", ri(x, 1, 2)); setv(x, "vamp", ri(x, 20, 70));
+    if (!strcmp(k, "pluck")) {
+        setv(x, "env1", ri(x, 16, 44)); setv(x, "env2", ri(x, 16, 44)); setv(x, "env3", ri(x, 16, 48));
+        setv(x, "cut", ri(x, 20, 55)); setv(x, "res", ri(x, 0, 7)); setv(x, "egi", ri(x, 7, 15));
+        setv(x, "oct2", PICK(0, 0, 1)); setv(x, "intv", PICK(0, 0, 7, 12)); setv(x, "detn", ri(x, 0, 40));
+        setv(x, "lev2", ri(x, 0, 110)); setv(x, "vcut", ri(x, 20, 70));
+        if (chance(x, 30)) { setv(x, "dtim", ri(x, 30, 70)); setv(x, "dfb", ri(x, 2, 7)); setv(x, "dlev", ri(x, 4, 9)); }
+    } else if (!strcmp(k, "bass")) {
+        setv(x, "oct1", -1); setv(x, "oct2", PICK(-1, 0)); setv(x, "intv", PICK(0, 0, 12, 7));
+        setv(x, "env1", ri(x, 20, 60)); setv(x, "env2", ri(x, 20, 60)); setv(x, "env3", ri(x, 14, 40));
+        setv(x, "cut", ri(x, 10, 40)); setv(x, "res", ri(x, 2, 11)); setv(x, "egi", ri(x, 8, 15));
+        setv(x, "lev2", ri(x, 0, 90)); setv(x, "detn", ri(x, 0, 20)); setv(x, "drv", ri(x, 0, 60));
+        if (chance(x, 30)) { setv(x, "mono", 1); setv(x, "port", ri(x, 10, 40)); }
+    } else if (!strcmp(k, "lead")) {
+        setv(x, "oct1", PICK(0, 0, 1)); setv(x, "oct2", PICK(0, 1));
+        setv(x, "env1", ri(x, 64, 80)); setv(x, "env2", ri(x, 64, 80)); setv(x, "env3", ri(x, 50, 80));
+        setv(x, "cut", ri(x, 40, 80)); setv(x, "res", ri(x, 2, 9)); setv(x, "egi", ri(x, 3, 10));
+        setv(x, "lev2", ri(x, 60, 127)); setv(x, "detn", ri(x, 20, 60));
+        setv(x, "mgr", ri(x, 5, 9)); setv(x, "mgd", ri(x, 3, 8)); setv(x, "mgi", rf(x, 10, 40));
+        if (chance(x, 50)) { setv(x, "mono", 1); setv(x, "port", ri(x, 10, 40)); }
+        if (chance(x, 30)) { setv(x, "sync", 1); setv(x, "swp2", ri(x, 0, 12)); setv(x, "swe", ri(x, 12, 36)); }
+        setv(x, "drv", ri(x, 0, 50));
+    } else if (!strcmp(k, "brass")) {
+        setv(x, "har1", saw); setv(x, "har2", saw);
+        setv(x, "env1", ri(x, 84, 100)); setv(x, "env2", ri(x, 84, 100)); setv(x, "env3", ri(x, 80, 100));
+        setv(x, "cut", ri(x, 25, 45)); setv(x, "res", ri(x, 0, 4)); setv(x, "egi", ri(x, 8, 13));
+        setv(x, "intv", PICK(0, 0, 12)); setv(x, "lev2", ri(x, 60, 127)); setv(x, "detn", ri(x, 30, 60));
+        setv(x, "mgr", ri(x, 5, 8)); setv(x, "mgd", ri(x, 4, 9)); setv(x, "mgi", rf(x, 5, 15));
+    } else if (!strcmp(k, "pad")) {
+        setv(x, "env1", ri(x, 104, 127)); setv(x, "env2", ri(x, 104, 127)); setv(x, "env3", ri(x, 100, 127));
+        setv(x, "cut", ri(x, 40, 75)); setv(x, "res", ri(x, 0, 6)); setv(x, "egi", ri(x, 2, 8));
+        setv(x, "intv", PICK(0, 7, 12, 0)); setv(x, "lev2", ri(x, 80, 127)); setv(x, "detn", ri(x, 40, 90));
+        setv(x, "pwm1", ri(x, 0, 60)); setv(x, "pwm2", ri(x, 0, 60)); setv(x, "mgr", ri(x, 2, 6));
+        setv(x, "mgi", rf(x, 0, 15)); setv(x, "sprd", ri(x, 60, 127)); chorus(x, 80);
+    } else if (!strcmp(k, "strings")) {
+        setv(x, "har1", ri(x, 0, 40)); setv(x, "har2", ri(x, 0, 40));
+        setv(x, "env1", ri(x, 90, 110)); setv(x, "env2", ri(x, 90, 110)); setv(x, "env3", ri(x, 90, 110));
+        setv(x, "cut", ri(x, 35, 60)); setv(x, "egi", ri(x, 3, 8)); setv(x, "lev2", ri(x, 100, 127));
+        setv(x, "detn", ri(x, 50, 100)); setv(x, "intv", PICK(0, 0, 12));
+        setv(x, "mgr", ri(x, 5, 8)); setv(x, "mgd", ri(x, 5, 10)); setv(x, "mgi", rf(x, 8, 20));
+        setv(x, "sprd", ri(x, 70, 127)); chorus(x, 90);
+    } else {                                          /* total: anything that still sounds */
+        setv(x, "oct1", ri(x, -1, 2)); setv(x, "oct2", ri(x, -1, 2)); setv(x, "intv", ri(x, 0, 12));
+        setv(x, "detn", ri(x, 0, 127)); setv(x, "lev1", ri(x, 90, 127)); setv(x, "lev2", ri(x, 0, 127));
+        setv(x, "env1", ri(x, 0, 127)); setv(x, "env2", ri(x, 0, 127)); setv(x, "env3", ri(x, 0, 127));
+        setv(x, "cut", ri(x, 15, 99)); setv(x, "res", ri(x, 0, 15)); setv(x, "egi", ri(x, 0, 15));
+        setv(x, "pw1", ri(x, 0, 127)); setv(x, "pw2", ri(x, 0, 127));
+        setv(x, "pwm1", ri(x, 0, 80)); setv(x, "pwm2", ri(x, 0, 80));
+        if (chance(x, 30)) { setv(x, "sync", 1); setv(x, "swp2", ri(x, 0, 24)); setv(x, "swe", ri(x, 0, 48)); }
+        if (chance(x, 30)) setv(x, "ring", ri(x, 20, 110));
+        if (chance(x, 30)) { setv(x, "fm1", ri(x, 10, 80)); setv(x, "fmr", PICK(0.5f, 1, 2, 3, 4, 1.5f)); }
+        if (chance(x, 20)) { setv(x, "wmx1", ri(x, 20, 80)); setv(x, "wsh1", ri(x, 0, 127)); }
+        setv(x, "mgr", ri(x, 0, 15)); setv(x, "mgi", rf(x, 0, 40)); setv(x, "mgv", ri(x, 0, 8));
+        setv(x, "drv", ri(x, 0, 80)); setv(x, "nois", chance(x, 15) ? ri(x, 1, 8) : 0);
+        if (chance(x, 40)) { setv(x, "dtim", ri(x, 0, 99)); setv(x, "dfb", ri(x, 0, 12)); setv(x, "dmf", ri(x, 0, 31));
+                             setv(x, "dmi", ri(x, 0, 31)); setv(x, "dlev", ri(x, 3, 12)); }
+    }
+}
+#undef PICK
+
 static void pdoly8_print(t_pdoly8 *x)
 {
     char line[1024]; int n = 0;
@@ -1183,6 +1294,7 @@ static void *pdoly8_new(void)
     x->rep_clk = clock_new(x, (t_method)rep_tick);
     x->canvas = canvas_getcurrent();
     x->syx_ch = 1;
+    x->rnd = (unsigned)time(NULL) * 2654435761u | 1;
     set_defaults(x);
     p8_settle(&x->e);
     x->bufn = 3 * 64;
@@ -1234,6 +1346,7 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxbank, gensym("syxbank"), A_GIMME, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxsend, gensym("syxsend"), 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxch, gensym("syxch"), A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_random, gensym("random"), A_SYMBOL, A_DEFFLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_disp, gensym("disp"), A_SYMBOL, 0);
 #ifdef P8_OLED
     class_addmethod(pdoly8_class, (t_method)pdoly8_oled, gensym("oled"), A_SYMBOL, A_FLOAT, 0);

@@ -317,7 +317,8 @@ BLOCKS = [
       [("sprd", 0, 127), ("mrph", 0, 100)], [("tone", 0, 1), ("leak", 0, 1)], [("drft", 0, 127)]], [],
      ["bnd (2): bend range in semitones (original: up to 7). Pitch bend from a MIDI "
       "keyboard comes in through [bendin] at the top.",
-      "ch1 (0): MIDI channel for p v ch lists, 0 = any.",
+      "ch1 (1): MIDI channel for p v ch lists and for the controller layer, 0 = any. It belongs to "
+      "the setup: defaults and presets keep it (set it here or with MIDI ch in the editor).",
       "treb, bass (0): EQ -6..6 (76/77, measured: about 4 dB at 3, 10 dB at 6, "
       "shelves at 4.3 kHz and 115 Hz).",
       "sprd (0): stereo spread of the 4 voices 0-127.",
@@ -498,7 +499,7 @@ def build():
     sections.append(("Inlets", ["0: messages (see Messages below)",
                                  "1: signal, external FM modulator (fms 2, see FM)"]))
     sections.append(("Outlets", ["0: signal left", "1: signal right",
-                                 "2: events: value, dump, norm, disp, info"]))
+                                 "2: events: value, dump, norm, disp, info, channel"]))
     sections.append(("Messages", [
         "<pitch> <velocity>, note <p> <v>: note on/off (0 = off)",
         "<p> <v> <channel>: from [notein], filtered by ch1",
@@ -526,6 +527,8 @@ def build():
         "dump: send all values to outlet 2 as 'dump " + SHORT + " v0 ..'",
         "dump " + SHORT + " v0 v1 ...: restore such a dump (this voice only)",
         "voice <i> <p>, voiceoff <i>: play one voice directly",
+        "random <kind> [seed]: a new sound, kind = pluck, bass, lead,",
+        "  brass, pad, strings or total (the MIDI channel stays)",
         "Poly-800 II sysex (the editor uses them):",
         "syxin <byte>: bytes from [sysexin], a whole data dump gives",
         "  bank <n> pdoly8 ... for the 64 programs on outlet 3",
@@ -542,9 +545,10 @@ def build():
         "reports every change there (info), so the Launchkey, presets and messages show up in it. "
         "In your own patch: [p8edit <name>] next to [r <name>] -> [pdoly8~] -> outlet 3 -> "
         "[s <name>-out].",
-        "Above the rows: factory presets, the user bank (p8user-bank.txt next to the editor), "
-        "the delay presets and the Poly-800 II sysex (receive a data dump into the user bank, send "
-        "the user bank to the synth, read / write .syx files)."], 0, True))
+        "Above the rows: factory presets, MIDI channel, the user bank (p8user-bank.txt next to the "
+        "editor: store to N chooses the slot, save patch stores and writes the file, factory init), "
+        "the delay presets, random sounds (pluck, bass, lead, brass, pad, strings, total) and the "
+        "Poly-800 II sysex. How it all works: [pd readme] inside the editor."], 0, True))
     import gen_bela as GB
     import ctlayer as CL
     cc = ["[p8cc 1] above is the controller layer of pdoly8~: MIDI CC on channel 1 (the argument, "
@@ -651,12 +655,12 @@ def build():
     mull = p.add(f"#X obj {CX} {mul_y} *~ 0.3;")
     mulr = p.add(f"#X obj {CX + 100} {mul_y} *~ 0.3;")
     dac = p.add(f"#X obj {CX} {dac_y} dac~;")
-    rinf = p.add(f"#X obj {CX + 180} {mul_y} route info bank syxbyte;")
+    rinf = p.add(f"#X obj {CX + 180} {mul_y} route info bank syxbyte syxstatus channel;")
     pr = p.add(f"#X obj {CX + 180 + 40} {dac_y} print {SHORT.upper()};")
     sev = p.add(f"#X obj {CX + 310} {mul_y} s {DOLLAR}0-{SHORT}-out;")
     p.conn(o, 0, mull, 0); p.conn(o, 1, mulr, 0)
     p.conn(mull, 0, dac, 0); p.conn(mulr, 0, dac, 1)
-    p.conn(o, 2, rinf, 0); p.conn(rinf, 3, pr, 0); p.conn(o, 2, sev, 0)
+    p.conn(o, 2, rinf, 0); p.conn(rinf, 5, pr, 0); p.conn(o, 2, sev, 0)
     p.add(f"#X obj {CX + 180} {dac_y + STEP} p8edit {bus};")
     p.add(f"#X text {CX + 310} {dac_y + STEP} <- click: editor;")
 

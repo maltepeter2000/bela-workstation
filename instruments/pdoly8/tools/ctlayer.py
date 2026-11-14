@@ -17,6 +17,7 @@ build(rows) makes the layer abstraction [<name> <channel>] (channel 0 = all):
   [ctlin] inside, CC on its channel -> outlet: n <name> <0-127>  (to the instrument)
   inlet: the instrument's reports "info <name> <0-127> <text>" (every change, also its own)
          pickup 0/1   (default 1)      sync   (asks for all its settings: ninfo ...)
+         channel <0-16>  the instrument reports its MIDI channel: the layer follows it
   CC 3 on its channel (any value) = sync request from the controller (the Launchkey firmware sends
   it before its first CC on a new channel): all values go back to the controller.
   Feedback: a change that did not come from the encoder itself (preset, editor, message)
@@ -68,7 +69,7 @@ def build(title, rows):
     p = G.P(None, 900, 900)
     p.note(f"{title}: controller layer - CC pages 20-119 (without 32 38 64-69 84 88 96-101) on channel $1 "
            "(0 = all) -> n <name> <0-127>. Inlet: info <name> <0-127> <text> from the instrument, "
-           "pickup 0/1, sync (also CC 3 from the controller). Changes from elsewhere go back to the controller as CC (ctlout), "
+           "pickup 0/1, sync (also CC 3 from the controller), channel <n> (0 = all; the instrument reports its channel). Changes from elsewhere go back to the controller as CC (ctlout), "
            "pickup avoids jumps. Table: line = CC number, the setting or -.", 10, 6)
     # ---- init: two timers (logical time since load), arrays, channel
     lb = p.add("loadbang", 10, 60)
@@ -129,7 +130,8 @@ def build(title, rows):
     out = p.add("outlet", 120, 880); p.con(ltr2, 0, out, 0)
     # ---- inlet: info <name> <0-127> <text> / pickup 0/1 / sync
     inl = p.add("inlet", 10, 940)
-    ri = p.add("route info pickup sync", 10, 970); p.con(inl, 0, ri, 0)
+    ri = p.add("route info pickup sync channel", 10, 970); p.con(inl, 0, ri, 0)
+    p.con(ri, 3, ch, 0)   # channel <0-16> from the instrument: follow it (0 = all)
     p.con(ri, 1, pass_, 4)
     allm = p.msg(", ".join(f"ninfo {n}" for n in m), 560, 1000)
     p.con(ri, 2, allm, 0); p.con(dl, 0, allm, 0); p.con(allm, 0, out, 0)
