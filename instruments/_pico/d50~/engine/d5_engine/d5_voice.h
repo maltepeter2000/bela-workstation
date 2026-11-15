@@ -432,6 +432,7 @@ public:
             mod_[i].pw = kPwLfoSwing * spec_.pw_lfo[i].depth * lfo_value(l, spec_.pw_lfo[i])
                        + 0.65f * spec_.pw_at[i] * at_;
             mod_[i].cutoff = (kTvfLfoUnits / 100.0f) * spec_.tvf_lfo[i].depth * lfo_value(l, spec_.tvf_lfo[i])
+                           + perf_cutoff_                    // d50~ addition, see set_perf_cutoff
                            + 0.85f * spec_.tvf_at[i] * at_;   // VST: range 14 at full pressure lifts the centroid 583 -> 1018 Hz
             // A PCM partial has no TVA modulation at all in Roland's D-50
             // VST: LFO depth 100 on either route and an aftertouch range of
@@ -559,6 +560,12 @@ public:
     // sounding voices, and like the wheel it survives a patch change
     // (the firmware's FE03/FE0B mirrors do).
     void set_aftertouch(float a) { at_ = a < 0.0f ? 0.0f : (a > 1.0f ? 1.0f : a); }
+    // d50~ addition (not in PicoVintageSynthCollection): a cutoff offset for
+    // every synth partial of the voice, on the scale of the panel byte / 100.
+    // It joins the LFO and aftertouch term above, so it moves notes that are
+    // already sounding -- which a patch edit cannot, a voice copies its
+    // parameters at note-on.
+    void set_perf_cutoff(float u) { perf_cutoff_ = u; }
     void set_porta(bool sw, int time) {
         spec_.porta_switch = sw;
         spec_.porta_time = time < 0 ? 0 : (time > 100 ? 100 : time);
@@ -608,6 +615,7 @@ private:
     float ctl_bend_st_ = 0.0f;  // wheel + AT bend after the +/-12 st clamp
     float wheel_ = 0.0f;
     float at_ = 0.0f;
+    float perf_cutoff_ = 0.0f;   // d50~ addition
     Modulation mod_[2]{};
     // The glide state survives note_on: the firmware's pitch word CB20 is
     // per slot and keeps walking toward its target after release, so the

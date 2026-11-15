@@ -59,6 +59,17 @@ public:
     // sending a parameter every few milliseconds needs; configure() would
     // click on every one of them.
     void reconfigure(const ToneSpec& spec) {
+        // d50~ addition: an LFO whose settings changed starts again with
+        // them. Upstream leaves the three running as configured, so an
+        // edited rate, wave or delay was not heard until the next patch.
+        for (int i = 0; i < 3; ++i) {
+            const LfoSpec& a = spec_.voice.lfo[i];
+            const LfoSpec& b = spec.voice.lfo[i];
+            if (a.wave != b.wave || a.rate != b.rate ||
+                a.delay_byte != b.delay_byte || a.sync != b.sync) {
+                lfo_[i].start(b, sr_, 0x9E3779B9u * (i + 1));
+            }
+        }
         spec_ = spec;
         eq_.retune(spec.eq, sr_);
         chorus_.set_type(spec.chorus.type);
@@ -258,6 +269,9 @@ public:
     }
     void set_aftertouch(float a) {
         for (int i = 0; i < kVoices; ++i) voices_[i].set_aftertouch(a);
+    }
+    void set_perf_cutoff(float u) {   // d50~ addition
+        for (int i = 0; i < kVoices; ++i) voices_[i].set_perf_cutoff(u);
     }
 
     // CC65/CC5 override the patch's portamento while it plays; the mode
@@ -570,6 +584,12 @@ public:
         upper_.set_master_cents(c);
         lower_.set_master_cents(c);
     }
+    // d50~ addition: the patch stores a fine tune per tone; one value for
+    // both would overwrite it.
+    void set_master_cents(float upper, float lower) {
+        upper_.set_master_cents(upper);
+        lower_.set_master_cents(lower);
+    }
     void set_bend_semis(float st) {
         upper_.set_bend_semis(st);
         lower_.set_bend_semis(st);
@@ -581,6 +601,10 @@ public:
     void set_aftertouch(float a) {
         upper_.set_aftertouch(a);
         lower_.set_aftertouch(a);
+    }
+    void set_perf_cutoff(float u) {   // d50~ addition
+        upper_.set_perf_cutoff(u);
+        lower_.set_perf_cutoff(u);
     }
     void set_porta(bool sw, int time) {
         upper_.set_porta(sw, time);

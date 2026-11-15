@@ -1,0 +1,30 @@
+d50~ – Roland D-50 für Pure Data auf dem Mac (Apple Silicon und Intel)
+
+1. Einen Ordner "d50~" anlegen, z. B. in ~/Documents/Pd/externals, und
+   hineinkopieren: d50~.pd_darwin, d50~-help.pd, d50cc.pd, d50edit.pd.
+2. Die eigenen Daten in denselben Ordner legen (sie sind nicht Teil dieses
+   Pakets): d50_pcm.bin (aus den eigenen ROMs, tools/make_d50_data.py) und
+   die Factory-Bank PND50-00.syx. Weitere .syx-Dateien werden als weitere
+   Factory-Bänke gelesen.
+3. In Pd: Datei > Einstellungen > Pfad: diesen Ordner hinzufügen (oder den
+   Hilfe-Patch direkt aus dem Ordner öffnen).
+4. d50~-help.pd öffnen, DSP einschalten. Oben: Demo, die acht
+   Performance-Regler, [midiin] / [midiout], Controller-Schicht und Editor.
+5. MIDI-Controller: [d50cc 1] ist die Controller-Schicht: CC-Seiten auf
+   MIDI-Kanal 1 wie bei pdoly8~ und tx81z~. Seite 1 = Performance, ab
+   Seite 2 das gewählte Partial (part: U1 U2 L1 L2) und sein Tone. Damit die
+   Werte an den Launchkey zurückgehen: in Pd unter MIDI-Einstellungen den
+   Launchkey auch als MIDI-Ausgang wählen.
+6. Editor: im Hilfe-Patch auf [d50edit $0-d50] klicken. Alle 117 Regler in
+   Reihen zu 8, Factory-Presets, eigene Bank, MIDI-Kanäle, SysEx.
+   "store to N" wählt nur den Platz, "save patch" speichert und schreibt
+   d50user-bank.syx in diesen Ordner.
+7. SysEx: [midiin] in den dritten Inlet, die Floats des dritten Outlets an
+   [midiout]. Ein Bulk-Dump eines D-50 ersetzt die eigene Bank im Speicher
+   ("write bank" behält ihn), "send bank" schickt sie an den D-50.
+
+Falls macOS das Laden blockiert ("kann nicht geöffnet werden" / "beschädigt"),
+einmal im Terminal ausführen:
+   xattr -dr com.apple.quarantine ~/Documents/Pd/externals/d50~
+
+Gebaut mit zig c++ (macOS 11 und neuer, universal arm64 + x86_64, ad-hoc signiert).

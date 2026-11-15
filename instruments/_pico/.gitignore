@@ -9,6 +9,7 @@ roms/
 *.o
 *.pd_linux
 *.pd_darwin
+!bin/macos/*.pd_darwin
 *.dll
 *.d_fat
 *.l_*
