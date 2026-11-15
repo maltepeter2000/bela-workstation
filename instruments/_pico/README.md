@@ -67,8 +67,11 @@ and the editor (`tools/d50_params.py` is the single table):
 - SysEx, for editors, librarians and a real D-50: data set and request for the
   temporary area (00-00-00, the playing patch) and the internal memory
   (02-00-00, the user bank). `usersend` and `sysexdump` send without being asked.
-  The user bank file is a D-50 bulk dump of the 64 patches (112 messages,
-  without the reverb data a D-50 appends).
+  The user bank file is a complete D-50 bulk dump: the 64 patches and the
+  reverb data a D-50 keeps behind them (the definitions of its reverb types
+  17–32, address 03-60-00). The engine has its own reverbs and does not use
+  that block; it is taken from the dump it arrived in — the first factory
+  bank until the user bank brings its own — and passed on unchanged.
 
 ### What you need
 

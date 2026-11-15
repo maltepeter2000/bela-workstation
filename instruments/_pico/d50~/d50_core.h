@@ -46,7 +46,9 @@ const char* patch_name(int index);
 
 // The user bank: 64 patches that can be stored to, shared by every instance.
 // It starts as 64 init patches; a D-50 bulk dump replaces it. The file is
-// the machine's own format, patches only (112 messages).
+// the machine's own format: the patches (112 messages) and, once a dump has
+// brought it, the reverb data a D-50 keeps behind them (24 messages). The
+// engine does not use that data, it is only passed on.
 int load_user(const char* path, std::string& err);       // patches read, or -1
 bool write_user(const char* path, std::string& err);
 const char* user_name(int slot);

@@ -133,7 +133,8 @@ README = [
     "storing. name: type a new patch name and press enter, up to 18 characters (upper / lower tone: 10).",
     "send bank / send patch: the user bank or the playing patch as D-50 SysEx on the third outlet of "
     "d50~ (to [midiout]: a real D-50 or a librarian). A bulk dump that arrives at d50~ replaces the "
-    "user bank in memory, write bank keeps it.",
+    "user bank in memory, write bank keeps it. Bank files and send bank also carry the reverb data of "
+    "the D-50 (reverb types 17-32), unchanged from the dump they came with.",
     "MIDI in: receive channel of d50~ for raw MIDI and note lists, 0 = all. out: the channel of the "
     "controller feedback and the device number of SysEx dumps. The controller layer follows both.",
 ]

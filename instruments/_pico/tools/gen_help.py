@@ -127,6 +127,10 @@ DATA = [
     "one the object plays eight built-in presets, which cannot be edited.",
     "d50user-bank.syx: the user bank, in the same format. Until it has "
     "been written the user bank holds 64 init patches.",
+    "A D-50 dump ends with the data of its reverb types 17 to 32. The "
+    "object does not use them, its reverbs are built in, but it keeps the "
+    "block of the dump it came with and puts it into every bank it writes "
+    "or sends, so a D-50 gets a complete dump back.",
     "The engine runs at 32 kHz, the rate of the original, and is resampled "
     "to the rate of Pd.",
 ]

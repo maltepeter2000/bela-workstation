@@ -42,6 +42,9 @@ constexpr size_t kPcmWords = 262144;
 
 typedef std::array<uint8_t, kPatchBytes> PatchBytes;
 
+constexpr int kBankBytes = kUserSlots * kPatchBytes;   // 02-00-00 up to 03-60-00
+constexpr int kReverbBytes = 16 * 376;                 // sixteen reverb types
+
 void init_patch(uint8_t* b);
 std::string decode_name(const uint8_t* bytes, int len);
 
@@ -51,6 +54,11 @@ struct Store {
     std::vector<std::string> names;
     PatchBytes user[kUserSlots];
     std::string user_names[kUserSlots];
+    // What a D-50 keeps behind its 64 patches: the definitions of the reverb
+    // types 17 to 32 (address 03-60-00). The engine has its own reverbs and
+    // does not read this; it is carried along so that a bank written or sent
+    // from here is a complete dump. Empty until a dump has brought one.
+    std::vector<uint8_t> reverb;
 
     Store() {
         for (int i = 0; i < kUserSlots; ++i) {
@@ -109,13 +117,14 @@ bool pcm_loaded() { return store().pcm.size() == kPcmWords; }
 // is tools/d5_extract/d5_syx_to_patches.py in C++, including its range checks
 // -- a file that is not a D-50 bank is refused rather than played.
 namespace {
-int read_syx(const char* path, std::vector<PatchBytes>& out, std::string& err) {
+int read_syx(const char* path, std::vector<PatchBytes>& out, std::vector<uint8_t>& reverb,
+             std::string& err) {
     std::vector<uint8_t> raw;
     if (!read_file(path, raw, err)) return -1;
 
     constexpr int kBase = 0x8000, kSlots = 64;
-    std::vector<uint8_t> mem(kSlots * kPatchBytes, 0);
-    std::vector<uint8_t> have(kSlots * kPatchBytes, 0);
+    std::vector<uint8_t> mem(kBankBytes + kReverbBytes, 0);
+    std::vector<uint8_t> have(kBankBytes + kReverbBytes, 0);
     int messages = 0;
     size_t i = 0;
     while (i < raw.size()) {
@@ -167,15 +176,24 @@ int read_syx(const char* path, std::vector<PatchBytes>& out, std::string& err) {
         std::memcpy(bytes.data(), &mem[p * kPatchBytes], kPatchBytes);
         out.push_back(bytes);
     }
+    // The reverb block counts only when all of it is there.
+    reverb.clear();
+    bool whole = true;
+    for (int k = 0; k < kReverbBytes && whole; ++k) whole = have[kBankBytes + k] != 0;
+    if (whole) reverb.assign(mem.begin() + kBankBytes, mem.end());
     return found;
 }
 }  // namespace
 
 int load_syx(const char* path, std::string& err) {
     std::vector<PatchBytes> got;
-    const int n = read_syx(path, got, err);
+    std::vector<uint8_t> reverb;
+    const int n = read_syx(path, got, reverb, err);
     if (n < 0) return n;
     Store& s = store();
+    // Until the user bank brings its own, it carries the reverb data of the
+    // first factory bank -- what a D-50 with that card holds.
+    if (s.reverb.empty() && !reverb.empty()) s.reverb = reverb;
     for (const PatchBytes& b : got) {
         s.patches.push_back(b);
         s.names.push_back(decode_name(b.data() + 6 * 64, 18));
@@ -401,16 +419,25 @@ void send_dt1(SysexOut out, void* ctx, int dev, int addr, const uint8_t* data, i
 // time across the patch boundaries, exactly as the machine's own dump does.
 void user_run(std::vector<uint8_t>& run, int from, int size) {
     Store& s = store();
-    while (size > 0) {
+    while (size > 0 && from < kBankBytes) {
         const int slot = from / kPatchBytes, in = from % kPatchBytes;
-        if (slot >= kUserSlots) break;
         int m = kPatchBytes - in;
         if (m > size) m = size;
         const uint8_t* src = s.user[slot].data() + in;
         run.insert(run.end(), src, src + m);
         from += m; size -= m;
     }
+    // ... and on into the reverb data, if a dump has brought any.
+    const int rv = static_cast<int>(s.reverb.size());
+    if (size > 0 && from - kBankBytes < rv) {
+        int m = rv - (from - kBankBytes);
+        if (m > size) m = size;
+        run.insert(run.end(), s.reverb.begin() + (from - kBankBytes),
+                   s.reverb.begin() + (from - kBankBytes) + m);
+    }
 }
+
+int user_bytes() { return kBankBytes + static_cast<int>(store().reverb.size()); }
 
 struct Collect {
     std::vector<uint8_t> bytes;
@@ -533,9 +560,11 @@ int control_to127(const Control& c, int v) {
 
 int load_user(const char* path, std::string& err) {
     std::vector<PatchBytes> got;
-    const int n = read_syx(path, got, err);
+    std::vector<uint8_t> reverb;
+    const int n = read_syx(path, got, reverb, err);
     if (n < 0) return n;
     Store& s = store();
+    if (!reverb.empty()) s.reverb = reverb;     // a file without the block keeps the one held
     for (int i = 0; i < n && i < kUserSlots; ++i) {
         s.user[i] = got[i];
         sanitize(s.user[i].data());
@@ -546,7 +575,7 @@ int load_user(const char* path, std::string& err) {
 
 bool write_user(const char* path, std::string& err) {
     std::vector<uint8_t> run;
-    user_run(run, 0, kUserSlots * kPatchBytes);
+    user_run(run, 0, user_bytes());
     Collect c;
     send_dt1(Collect::put, &c, 0, kIntBase, run.data(), static_cast<int>(run.size()));
     FILE* f = std::fopen(path, "wb");
@@ -1066,8 +1095,17 @@ bool Synth::sysex(const uint8_t* d, int n, SysexOut out, void* ctx) {
             int off = addr - kIntBase;
             bool current = false;
             while (len > 0) {
+                if (off >= kBankBytes) {
+                    // Behind the patches: the reverb data, kept as it comes.
+                    const int at = off - kBankBytes;
+                    if (at >= kReverbBytes) break;
+                    if (s.reverb.empty()) s.reverb.assign(kReverbBytes, 0);
+                    int m = kReverbBytes - at;
+                    if (m > len) m = len;
+                    for (int k = 0; k < m; ++k) s.reverb[at + k] = data[k] & 0x7F;
+                    break;
+                }
                 const int slot = off / kPatchBytes, in = off % kPatchBytes;
-                if (slot >= kUserSlots) break;
                 int m = kPatchBytes - in;
                 if (m > len) m = len;
                 uint8_t* dst = s.user[slot].data();
@@ -1115,7 +1153,7 @@ void Synth::dump_sysex(SysexOut out, void* ctx, int device) const {
 void Synth::dump_user(SysexOut out, void* ctx, int device) const {
     if (!impl_ || !out) return;
     std::vector<uint8_t> run;
-    user_run(run, 0, kUserSlots * kPatchBytes);
+    user_run(run, 0, user_bytes());
     send_dt1(out, ctx, device, kIntBase, run.data(), static_cast<int>(run.size()));
 }
 
