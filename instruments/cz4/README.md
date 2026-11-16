@@ -7,7 +7,7 @@ Two Pd externals around one phase-distortion core (the uPD933 chip of the Casio 
 | **`cz4~`** (CZ4) | a full Casio CZ-1: 16 polyphonic voices, two lines each, six 8-step envelopes per voice, CZ tones (128 and 144 bytes) with factory and user bank, the CZ-1 operation memory (split, tone mix, portamento, glide), chorus, the CZ SysEx with its handshake both ways, controller layer `[cz4cc]`, editor `[cz4edit]` | this file |
 | **`cz1~`** (CZ1) | the oscillator alone, for the Eurorack (Bela Pepper): 4 voices paraphonic, continuous wave morph, vintage layer, no envelopes | [cz1/README.md](cz1/README.md) |
 
-`cz1~` was called `cz4~` until November 2026 (tag `v0.9-cz4-osc`).
+`cz1~` was called `cz4~` until November 2026 (last state under that name: branch `v0.9-cz4-osc`).
 
 ## cz4~
 

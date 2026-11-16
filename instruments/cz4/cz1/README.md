@@ -1,6 +1,6 @@
 # cz1~ (CZ1)
 
-The oscillator of this repository, for the Eurorack. Until November 2026 it was called `cz4~`; that name now belongs to the full instrument (see the main README). Old patches: replace `[cz4~]` with `[cz1~]`. Dump lines `dump cz4 …` written by the old object are still read. The last state under the old name is the tag `v0.9-cz4-osc`.
+The oscillator of this repository, for the Eurorack. Until November 2026 it was called `cz4~`; that name now belongs to the full instrument (see the main README). Old patches: replace `[cz4~]` with `[cz1~]`. Dump lines `dump cz4 …` written by the old object are still read. The last state under the old name is the branch `v0.9-cz4-osc` (also a local tag).
 
 Paraphonic 4-voice Casio CZ phase-distortion voice for Pure Data, built for the Bela Pepper (Eurorack) and running in any Pd (macOS, Linux, Bela). Continuous wave morph, two lines per voice with their own wave and DCW, and a switchable vintage layer. Line 2 follows line 1 or plays its own notes from a second MIDI channel. Control is MIDI only; envelopes and VCA live outside the object.
 
