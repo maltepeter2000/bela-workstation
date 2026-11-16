@@ -168,6 +168,20 @@ float cz_wave_chip(unsigned wave, unsigned window, uint32_t ph, float dcw);
 /* the patent 8-bit resonance alone (window 0..6), for tests */
 float cz_wave_p8_test(unsigned window, uint32_t ph, float dcw);
 
+/* ---- one line of a CZ voice, for the full instrument (cz4~) ----------------
+ * The chip waves exactly as a CZ tone asks for them: a wave pair (wave0 on
+ * even cycles, wave1 on odd ones) and a window, at a DCW that moves from
+ * dcw0 to dcw1 across the block (chip units 0..1023). inc[i] is the phase
+ * increment of sample i (2^32 = one cycle), so pitch can move per sample
+ * (vibrato, noise modulation). chip 1: the chip-quantized path, 0: clean.
+ * Writes n samples in -1..1, centred as the chip centres them. */
+typedef struct { uint32_t ph, tog; } cz_osc_t;
+void  cz_osc_reset(cz_osc_t *o, uint32_t phase);
+void  cz_osc_render(cz_osc_t *o, float *out, unsigned n, unsigned wave0, unsigned wave1,
+                    unsigned window, float dcw0, float dcw1, const uint32_t *inc, int chip);
+/* Call once before rendering (cz_init does it too). */
+void  cz_tables_init(void);
+
 #ifdef __cplusplus
 }
 #endif

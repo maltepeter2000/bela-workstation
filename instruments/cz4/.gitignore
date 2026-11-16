@@ -5,3 +5,6 @@
 cz_test
 demos/
 dist/
+tone_test
+cz4_render
+__pycache__/

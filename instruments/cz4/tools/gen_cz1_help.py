@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Generate cz4~-help.pd in the layout of the skandrums-pd help patches.
+"""Generate cz1~-help.pd in the layout of the skandrums-pd help patches.
 
-usage: gen_help.py [outfile]   (default: cz4~-help.pd)
+usage: gen_help.py [outfile]   (default: cz1~-help.pd)
 
 Same grid, colours and section order as skandrums-pd/tools/gen_help.py:
 yellow writing surface, pink strip, blue panel, blue heading squares,
@@ -27,7 +27,7 @@ LINE = 16
 MAXCH = 62
 PINK, YELLOW, BLUE = "#ffcfd6", "#fafaf2", "#1e3791"
 
-OBJ, SHORT = "cz4~", "cz4"
+OBJ, SHORT = "cz1~", "cz1"
 SUBTITLE = "Paraphonic 4-Voice Synth (CZ-1) - phase distortion synthesis"
 
 # controls: name, default, description (index = position)
@@ -156,6 +156,7 @@ def build():
         "print: voices, values and sample rate to the Pd window",
         "dump: send all values to outlet 2 as 'dump " + SHORT + " v0 ..'",
         "dump " + SHORT + " v0 v1 ...: restore such a dump (this voice only)",
+        "  old lines 'dump cz4 ...' from before the rename work too",
         "voice <i> <p>, voiceoff <i>: play one voice directly",
         "tone b0 ... b127: waves, levels and detune from a CZ-1 tone",
         "quant, chiprate, bits, dacerr, hiss, lpf, drive: single",
@@ -186,7 +187,7 @@ def build():
         "tracks on one voice, levelled by amp1 and amp2, joined by",
         "ring or noise. detn and fine tune line 2 against line 1."]))
     sections.append(("Envelopes", [
-        "cz4~ has no envelopes. A note-on restarts its voice's phase,",
+        "cz1~ has no envelopes. A note-on restarts its voice's phase,",
         "velocity opens the DCW (dvel), and the level is shaped by an",
         "external VCA. With hold 1 a released chord keeps sounding",
         "until the next phrase, so the VCA's release stays intact."]))
@@ -203,7 +204,7 @@ def build():
         placed.append((title, lines, y, extra))
         y += 24 + LINE * len(lines) + 28 + extra
     # bottom panel: number boxes for the settings and the vintage stages,
-    # each row into its own [s $0-cz4] (the [r] above the object picks it up)
+    # each row into its own [s $0-cz1] (the [r] above the object picks it up)
     ROWA = 76
     adv_y = y
     adv_rows = (len(ADV) + 3) // 4
@@ -295,7 +296,7 @@ def build():
     panel(vint_y, "Vintage stages", "Single stages instead of era (era sets them all again).", VINT)
     p.comment(TX, credits_y, ["Credits: CZ engine from melodee by Kerem Kilic and the",
                               "uPD933 model by Devin Acker (MAME), BSD-3-Clause",
-                              "Pd wrapper cz4~, built with Claude (Anthropic)"])
+                              "Pd wrapper cz1~, built with Claude (Anthropic)"])
 
     head = f"#N canvas 348 20 {YEL_X + YEL_W + 2 * M + 20} {bar_bottom + M} 12;"
     return head + "\n" + "\n".join(p.lines) + "\n" + "\n".join(p.conns) + "\n"

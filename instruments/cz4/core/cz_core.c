@@ -467,6 +467,37 @@ void cz_set_era(cz_engine_t *e, float era)
     if (!e->era_active) { e->era = e->era_target; e->era_active = 1; }
 }
 
+/* ------------------------------------------- one line of a CZ voice */
+void cz_tables_init(void) { tables_init(); }
+
+void cz_osc_reset(cz_osc_t *o, uint32_t phase) { o->ph = phase; o->tog = 0; }
+
+/* The DCW is set up every 4 samples (two reciprocals each): a ramp across a
+ * control block of 16 samples moves in 4 small steps. */
+void cz_osc_render(cz_osc_t *o, float *out, unsigned n, unsigned wave0, unsigned wave1,
+                   unsigned window, float dcw0, float dcw1, const uint32_t *inc, int chip)
+{
+    uint32_t ph = o->ph, tog = o->tog;
+    unsigned w[2] = { wave0 & 7u, wave1 & 7u };
+    window &= 7u;
+    if (window == 6u) window = 5u;   /* windows 6, 7 of the chip: double saw as well */
+    if (window == 7u) window = 5u;
+    float step = n > 4u ? (dcw1 - dcw0) / (float)n : 0.0f;
+    for (unsigned i = 0; i < n; ) {
+        pd_t p;
+        pd_make(&p, dcw0 + step * ((float)i + 2.0f));
+        unsigned end = i + 4u < n ? i + 4u : n;
+        for (; i < end; i++) {
+            out[i] = chip ? wave_chip_pd(w[tog & 1u], window, ph, &p)
+                          : wave_clean_pd(w[tog & 1u], window, ph, &p);
+            uint32_t old = ph;
+            ph += inc[i];
+            if (ph < old) tog ^= 1u;
+        }
+    }
+    o->ph = ph; o->tog = tog;
+}
+
 /* -------------------------------------------------------------------- API */
 void cz_init(cz_engine_t *e, float fs)
 {
