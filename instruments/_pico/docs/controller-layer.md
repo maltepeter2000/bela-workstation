@@ -103,6 +103,16 @@ Rückmeldung nicht an.
 - Bausteine: `tools/d50_params.py` (Tabelle, Reihen), `tools/gen_d50cc.py`, `tools/gen_editor.py`,
   `tools/gen_help.py`; alles neu erzeugen mit `make gen` in `d50~/`.
 
+## juno~
+
+Keine Ebenen, keine Makros: 30 Regler auf vier Seiten (`tools/juno_params.py`).
+Seite 1 ist Filter und Hüllkurve, Seiten 2 und 3 der Rest des Patches, Seite 4
+die Einstellungen des Instruments, die kein Patch speichert (volume, tune,
+bend, octave, vellevel, velcutoff). Schieberegler laufen 0–127 wie im
+Juno-106-Patch, Pot und Wert sind also dieselbe Zahl. `junocc.pd` und
+`junoedit.pd` entstehen mit `make gen` in `juno~/`.
+
 ## Stand
 
 - d50~: 11 Seiten belegt (Seite 1 Performance, 2–6 gewähltes Partial, 7–11 sein Tone), Kanal einstellbar.
+- juno~: 4 Seiten belegt (Seite 1 Filter und Hüllkurve, 2–3 Patch, 4 Setup), Kanal einstellbar.

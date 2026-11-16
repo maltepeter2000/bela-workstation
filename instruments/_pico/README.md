@@ -8,6 +8,7 @@ synthesizers written for the RP2350; here they run as Pd objects.
 | Object | Instrument | State |
 |---|---|---|
 | `d50~` | Roland D-50 | macOS and Linux; no Bela version yet |
+| `juno~` | Roland Juno-60, with Juno-106 patches and SysEx | macOS and Linux; no Bela version yet |
 
 ## d50~
 
@@ -111,14 +112,88 @@ looks for them in the folder of the external, then in the folder of the patch.
 - Portamento glides each voice from its own last note, as the engine models
   the hardware; it is heard once the voices have played.
 
+## juno~
+
+A Juno-60 as one object: six voices, the switched high-pass, the IR3109
+low-pass, the chorus, stereo out. It needs no data files. Patches are kept in
+the format of the Juno-106, whose panel is nearly the same and which, unlike
+the Juno-60, has MIDI — so Juno-106 patch collections play, and patches go to
+a Juno-106 or an editor for it and back.
+
+Inlets, outlets and messages are those of `d50~`; inlet 3 takes notes with
+velocity, bend, program change, CC 1 7 64 and Juno-106 SysEx.
+
+### Controls
+
+30 controls, one name each (`tools/juno_params.py` is the single table):
+
+| Page | CC | Controls |
+|---|---|---|
+| 1 VCF / ENV | 20–27 | `cutoff res env attack decay sustain release chorus` |
+| 2 DCO | 28–31, 33–36 | `range pulse saw sub noise pwm pwmmode dcolfo` |
+| 3 LFO / VCF / VCA | 37, 39–45 | `lforate lfodelay vcflfo kybd envpol hpf level vcamode` |
+| 4 SETUP | 46–51 | `volume tune bend octave vellevel velcutoff` |
+
+Pages 1 to 3 are the patch: the 16 sliders (0–127) and 8 switches of a
+Juno-106. Page 4 belongs to the instrument and is not stored. `<name> <value>`
+sets a control, `n <name> <0-127>` sets it from a pot, and every change is
+reported as `info <name> <0-127> <text>`. Edits are heard at once.
+`[junocc <channel>]` is the controller layer, `[junoedit <bus>]` the editor.
+
+### What differs from the instruments
+
+| | Juno-60 | Juno-106 | `juno~` |
+|---|---|---|---|
+| Engine | | | Juno-60 (PicoFaceJ6) |
+| Patch format, SysEx | none | 18 bytes | Juno-106 |
+| Chorus | off, I, II, I+II | off, I, II | all four; I+II is stored in a bit a Juno-106 ignores, which plays it as I |
+| Pulse width | LFO, manual, envelope | LFO, manual | LFO, manual |
+| Sub oscillator | switch and level | level | level, 0 is off |
+| Arpeggiator | yes | no | no |
+| Velocity | no | no | optional: `vellevel`, `velcutoff`, 0 by default |
+| Modulation wheel | no | vibrato | vibrato |
+| Voices | 6 | 6 | 6, handed out in turn |
+
+The nine factory sounds that used pulse width from the envelope have the
+fixed width instead, at the value it had while a key is held. The engine's
+oscillator and filter run at twice the sample rate (`make OVERSAMPLE=1` for
+none).
+
+### Patches
+
+- `preset n`: 0–55 are the factory sounds of the Juno-60, from the chart in
+  its owner's manual as transcribed in PicoFaceJ6. Every `.syx` file of
+  Juno-106 patches in the folder of the external follows from 56 on.
+- `user n`: the user bank, 56 slots as on the Juno-60 (shown as bank and
+  number, 11–78). `store n` keeps the playing patch, `userwrite` writes
+  `junouser-bank.syx`: 56 Juno-106 patch messages of 24 bytes.
+- `usersend` and `sysexdump` send the bank or the playing patch as Juno-106
+  SysEx. A Juno-106 plays a patch it receives but stores it only from its own
+  panel, so after `usersend` it holds the last one.
+- A patch message (`F0 41 30 …`, `31`) replaces the playing patch, a
+  parameter message (`F0 41 32 ch param value F7`) changes one byte.
+  `sysexout 1` makes the object send those itself for every change, like a
+  Juno-106.
+
+### Build
+
+```
+cd juno~
+make                 # this machine
+make mac-zig         # universal macOS binary into ../bin/macos (zig, llvm-lipo)
+make gen             # parameter header, controller layer, editor, help
+```
+
 ## Layout
 
 ```
 d50~/                 the external, d50cc.pd, d50edit.pd, help patch, Makefile
 d50~/engine/          PicoFaceD5 engine headers and the sample table
+juno~/                the external, junocc.pd, junoedit.pd, help patch, Makefile
+juno~/engine/         PicoFaceJ6 engine, see its README for the changes
 bin/macos/            the Mac package (no ROM data)
 docs/                 controller-layer.md
-tools/                d50_params.py, generators, ctlayer.py, make_d50_data.py
+tools/                d50_params.py, juno_params.py, generators, ctlayer.py, make_d50_data.py
 tools/d5_extract/     ROM converter from PicoVintageSynthCollection
 third_party/pd/       m_pd.h for the cross build
 pd-lib-builder/       build helper (public domain, Katja Vetter)
