@@ -83,6 +83,7 @@ typedef struct _pdoly8 {
     unsigned char syx_in[0x1600]; int syx_n;   /* incoming sysex bytes ([sysexin] -> syxin) */
     t_canvas *canvas;
     t_float *rep_v[160]; float rep_last[160];
+    int      txch;                 /* send channel for the controller's feedback, 0 = the receive channel */
 #ifdef P8_OLED
     /* OLED via O2O: the audio thread only copies text (seqlock), a thread of
      * its own sends the OSC packet, so no network call runs in the audio
@@ -1133,6 +1134,15 @@ static int syx_bytes(t_pdoly8 *x, unsigned char *out)
     return k;
 }
 
+/* txchannel <0-16>: the channel the controller layer sends its feedback on (0 = the receive
+ * channel ch1). Reported, so the layer follows it; the same message in every instrument. */
+static void pdoly8_txchannel(t_pdoly8 *x, t_floatarg f)
+{
+    x->txch = (int)clampf_(f, 0, 16);
+    t_atom a; SETFLOAT(&a, x->txch);
+    outlet_anything(x->x_dump, gensym("txchannel"), 1, &a);
+}
+
 /* syxch <1-16>: the MIDI channel of the Poly-800 II (it only takes a dump on its own channel) */
 static void pdoly8_syxch(t_pdoly8 *x, t_floatarg f)
 {
@@ -1346,6 +1356,7 @@ void pdoly8_tilde_setup(void)
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxbank, gensym("syxbank"), A_GIMME, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxsend, gensym("syxsend"), 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_syxch, gensym("syxch"), A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_txchannel, gensym("txchannel"), A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_random, gensym("random"), A_SYMBOL, A_DEFFLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_disp, gensym("disp"), A_SYMBOL, 0);
 #ifdef P8_OLED

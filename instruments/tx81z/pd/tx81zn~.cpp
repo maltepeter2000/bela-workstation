@@ -14,7 +14,7 @@
 //   bank <I|A|B|C|D> <1-32>                 select a voice of a bank directly
 //   <name> <value>, n <name> <0-127>, ninfo <name>, vced <p> <d>, aced <p> <d>
 //   getvoice, voicedata <name> <93 VCED> <23 ACED>, random <kind> [seed]
-//   channel <0 omni | 1-16>, gain <f>, dumpreq (report every parameter again)
+//   channel <0 omni | 1-16>, txchannel <0-16> (feedback channel), gain <f>, dumpreq (report every parameter again)
 //   tune <0-127>                            master tune (64 = centre)
 //   factoryinit                             all notes off, voice A01 (nothing is written)
 //   fm <control> <0-127>, fminfo <control>  FM view (txfm.h): roles C / A / B from the algorithm
@@ -54,6 +54,7 @@ struct t_txn
 	bool ready;
 	float gain;
 	int channel;                      // 0 = omni, 1-16
+	int txchannel;                    // feedback to the controller, 0 = the receive channel
 	int reported[NTXPARAMS];
 	int fm_reported[64];
 	char fm_text[64][16];
@@ -473,6 +474,18 @@ static void report_channel(t_txn *x)
 	outlet_anything(x->out_msg, gensym("channel"), 1, &a);
 }
 
+// txchannel <0-16>: the channel the controller layer sends its feedback on (0 = the receive
+// channel). Reported, so the layer follows it; the same message in every instrument.
+static void txn_txchannel(t_txn *x, t_floatarg f)
+{
+	int c = (int)f;
+	if (c < 0 || c > 16) { pd_error(x, "tx81zn~: txchannel 0 (= receive channel) / 1-16"); return; }
+	x->txchannel = c;
+	t_atom a;
+	SETFLOAT(&a, x->txchannel);
+	outlet_anything(x->out_msg, gensym("txchannel"), 1, &a);
+}
+
 static void txn_channel(t_txn *x, t_floatarg f)
 {
 	int c = int(f);
@@ -610,6 +623,7 @@ static void *txn_new(t_symbol *, int argc, t_atom *argv)
 	x->ready = false;
 	x->gain = 1.0f;
 	x->channel = 0;          // omni until the battery RAM says otherwise
+	x->txchannel = 0;
 	for (int i = 0; i < NTXPARAMS; i++) x->reported[i] = -1;
 	for (int i = 0; i < 64; i++) x->fm_reported[i] = INT32_MIN;
 	x->status = 0;
@@ -675,6 +689,7 @@ void tx81zn_tilde_setup(void)
 	class_addmethod(txn_class, (t_method)txn_voicedata, gensym("voicedata"), A_GIMME, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_random, gensym("random"), A_SYMBOL, A_DEFFLOAT, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_channel, gensym("channel"), A_FLOAT, A_NULL);
+	class_addmethod(txn_class, (t_method)txn_txchannel, gensym("txchannel"), A_FLOAT, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_factoryinit, gensym("factoryinit"), A_NULL);
 	class_addmethod(txn_class, (t_method)txn_gain, gensym("gain"), A_FLOAT, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_tune, gensym("tune"), A_FLOAT, A_NULL);
