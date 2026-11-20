@@ -106,8 +106,11 @@ public:
     // ---- patch bytes ------------------------------------------------------
     int peek(int address) const;                        // 0..17
     bool poke(int address, int value);
+    // The next (by = 1) or previous (-1) factory preset or user slot, counted
+    // from the one selected last in that bank, wrapping round.
+    bool step(Source src, int by);
     // Copies the playing patch into a slot of the user bank (in memory; see
-    // write_user). slot < 0: the slot it came from, or 0.
+    // write_user). slot < 0: the user slot selected or stored last (0 at first).
     bool store(int slot);
 
     // One Juno-106 message in: a patch (30, 31) replaces the playing patch, a

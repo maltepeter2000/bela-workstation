@@ -207,7 +207,7 @@ void make_patch(uint8_t* msg, int channel, int number, const Bytes& b) {
 }
 constexpr int kPatchMessage = kPatchBytes + 6;
 
-float step(int k, int steps) { return (static_cast<float>(k) + 0.5f) / static_cast<float>(steps); }
+float zone(int k, int steps) { return (static_cast<float>(k) + 0.5f) / static_cast<float>(steps); }
 
 }  // namespace
 
@@ -305,6 +305,7 @@ struct Synth::Impl {
     int setting[kSettingCount];
     Source source = kFactory;
     bool model106 = false;
+    int lastFactory = 0, lastUser = 0;   // where the step and save messages start from
     int index = 0;
     bool sustain = false;
 
@@ -346,20 +347,20 @@ struct Synth::Impl {
         slider(JUNO_ENV_RELEASE, 14, k106Release);
         slider(JUNO_DCO_SUB_LEVEL, 15);
         set(JUNO_DCO_SUB, temp[15] > 0 ? 1.0f : 0.0f);
-        set(JUNO_DCO_RANGE, step(get_switch(temp, kSw_range), JUNO_RANGE_COUNT));
+        set(JUNO_DCO_RANGE, zone(get_switch(temp, kSw_range), JUNO_RANGE_COUNT));
         set(JUNO_DCO_PULSE, static_cast<float>(get_switch(temp, kSw_pulse)));
         set(JUNO_DCO_SAW, static_cast<float>(get_switch(temp, kSw_saw)));
-        set(JUNO_CHORUS, step(get_switch(temp, kSw_chorus), 4));
-        set(JUNO_DCO_PWM_MODE, step(get_switch(temp, kSw_pwmmode), 3));
-        set(JUNO_VCF_POLARITY, step(get_switch(temp, kSw_envpol) ? 0 : 1, 2));
-        set(JUNO_VCA_MODE, step(get_switch(temp, kSw_vcamode), 2));
-        set(JUNO_HPF, step(get_switch(temp, kSw_hpf), JUNO_HPF_POSITIONS));
+        set(JUNO_CHORUS, zone(get_switch(temp, kSw_chorus), 4));
+        set(JUNO_DCO_PWM_MODE, zone(get_switch(temp, kSw_pwmmode), 3));
+        set(JUNO_VCF_POLARITY, zone(get_switch(temp, kSw_envpol) ? 0 : 1, 2));
+        set(JUNO_VCA_MODE, zone(get_switch(temp, kSw_vcamode), 2));
+        set(JUNO_HPF, zone(get_switch(temp, kSw_hpf), JUNO_HPF_POSITIONS));
 
         set(JUNO_MASTER, static_cast<float>(setting[kSet_volume]) / 127.0f);
         set(JUNO_TUNE, static_cast<float>(setting[kSet_tune] + 50) / 100.0f);
-        set(JUNO_BEND_RANGE, step(setting[kSet_bend], 8));
-        set(JUNO_TRANSPOSE, step(setting[kSet_octave] + 2, 5));
-        set(JUNO_LFO_TRIG, step(0, 2));
+        set(JUNO_BEND_RANGE, zone(setting[kSet_bend], 8));
+        set(JUNO_TRANSPOSE, zone(setting[kSet_octave] + 2, 5));
+        set(JUNO_LFO_TRIG, zone(0, 2));
         set(JUNO_ARP_ON, 0.0f);
         set(JUNO_HOLD, 0.0f);
         engine.setCalibration(static_cast<float>(setting[kSet_calibrate]) / 127.0f);
@@ -411,6 +412,7 @@ bool Synth::select_patch(int index) {
     if (index < 0 || index >= patch_count()) return false;
     impl_->source = kFactory;
     impl_->index = index;
+    impl_->lastFactory = index;
     reload();
     return true;
 }
@@ -418,8 +420,17 @@ bool Synth::select_user(int slot) {
     if (slot < 0 || slot >= kUserSlots) return false;
     impl_->source = kUser;
     impl_->index = slot;
+    impl_->lastUser = slot;
     reload();
     return true;
+}
+
+bool Synth::step(Source src, int by) {
+    if (src == kFactory) {
+        const int n = patch_count();
+        return select_patch(((impl_->lastFactory + by) % n + n) % n);
+    }
+    return select_user(((impl_->lastUser + by) % kUserSlots + kUserSlots) % kUserSlots);
 }
 void Synth::select_init() {
     impl_->source = kInit;
@@ -475,11 +486,12 @@ bool Synth::poke(int address, int value) {
 }
 
 bool Synth::store(int slot) {
-    if (slot < 0) slot = impl_->source == kUser ? impl_->index : 0;
+    if (slot < 0) slot = impl_->lastUser;
     if (slot >= kUserSlots) return false;
     mem().user[slot] = impl_->temp;
     impl_->source = kUser;
     impl_->index = slot;
+    impl_->lastUser = slot;
     return true;
 }
 

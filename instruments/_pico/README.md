@@ -182,6 +182,22 @@ fixed width instead, at the value it had while a key is held. The engine's
 oscillator and filter run at twice the sample rate (`make OVERSAMPLE=1` for
 none).
 
+### Control pads
+
+`[junopads <channel>]` (default 10) turns the Launchkey's pads in Drum mode into buttons
+(`tools/ctpads.py`, the same places as the TX81Z on Bela). With the Launchkey custom firmware the
+pads send notes 36–43 (top row) and 44–51 (bottom row) on the Drums Channel:
+
+| Pad | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| top | factory + | user + | chorus off | chorus I | chorus II | chorus I+II | Juno-6/60 | Juno-106 |
+| bottom | – | factory − | user − | save | – | init (2×) | – | – |
+
+`save` stores into the user slot chosen last and writes the bank file; `init` needs two presses
+within a second. The messages behind them work on their own too: `presetstep 1|-1`,
+`userstep 1|-1`, `save`. Set `juno~` to a channel other than the pads' (the help patch sends
+`channel 1`), or the pads play notes.
+
 ### Patches
 
 - `preset n`: 0–55 are the factory sounds of the Juno-60, from the chart in

@@ -12,7 +12,7 @@ ENGINE = engine/juno.cpp engine/juno_params.cpp engine/juno_presets.cpp engine/j
 lib.name = juno~
 class.sources = juno~.cpp
 common.sources = juno_core.cpp $(ENGINE)
-datafiles = juno~-help.pd junocc.pd junoedit.pd
+datafiles = juno~-help.pd junocc.pd junopads.pd junoedit.pd
 
 DEFS = -DJUNO_HOST_BUILD -DJUNO_OVERSAMPLE=$(OVERSAMPLE)
 cflags = -std=c++17 $(DEFS) -Iengine -fvisibility=hidden
@@ -41,7 +41,7 @@ mac-zig: juno~.cpp juno_core.cpp juno_core.h juno_params.h
 	done
 	$(LIPO) -create $(MACDIR)/juno.aarch64 $(MACDIR)/juno.x86_64 -output '$(MACDIR)/juno~.pd_darwin'
 	rm -f $(MACDIR)/juno.aarch64 $(MACDIR)/juno.x86_64
-	cp 'juno~-help.pd' junocc.pd junoedit.pd $(MACDIR)/
+	cp 'juno~-help.pd' junocc.pd junopads.pd junoedit.pd $(MACDIR)/
 
 # ---- generated files ---------------------------------------------------------
 #   make gen        parameter header, controller layer, editor and help patch

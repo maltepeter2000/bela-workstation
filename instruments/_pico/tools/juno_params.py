@@ -75,6 +75,19 @@ CC_ROWS = [
     ("VOICES", ["calibrate", "chorusnoise"]),
 ]
 EXTRA_ROWS = []
+
+# Control pads ([junopads], tools/ctpads.py): Launchkey pads in Drum mode, notes on the Drums
+# Channel. Same places as the TX81Z on Bela for presets and save.
+PADS = {
+    36: "presetstep 1", 37: "userstep 1",
+    38: "chorus 0", 39: "chorus 1", 40: "chorus 2", 41: "chorus 3",
+    42: "model 0", 43: "model 1",
+    45: "presetstep -1", 46: "userstep -1", 47: "save",
+    49: ("twice", "init"),
+}
+PAD_TEXT = {36: "factory +", 37: "user +", 38: "chorus off", 39: "chorus I", 40: "chorus II",
+            41: "chorus I+II", 42: "Juno-6/60", 43: "Juno-106", 45: "factory -", 46: "user -",
+            47: "save", 49: "init (2x)"}
 ALL_ROWS = CC_ROWS + EXTRA_ROWS
 
 # name -> (kind, index, lo, hi, label, names, help); kind P: slider byte, W: switch number,

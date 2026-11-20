@@ -2,7 +2,8 @@ juno~ – Roland Juno-60 für Pure Data auf dem Mac (Apple Silicon und Intel),
 mit Patch-Format und SysEx des Juno-106
 
 1. Einen Ordner "juno~" anlegen, z. B. in ~/Documents/Pd/externals, und
-   hineinkopieren: juno~.pd_darwin, juno~-help.pd, junocc.pd, junoedit.pd.
+   hineinkopieren: juno~.pd_darwin, juno~-help.pd, junocc.pd, junopads.pd,
+   junoedit.pd.
    Weitere Dateien braucht es nicht, die 56 Werksklänge sind eingebaut.
 2. In Pd: Datei > Einstellungen > Pfad: diesen Ordner hinzufügen (oder den
    Hilfe-Patch direkt aus dem Ordner öffnen).
@@ -37,7 +38,14 @@ mit Patch-Format und SysEx des Juno-106
    Sendekanal. Mit "SysEx for every change" spielt ein Juno-106 oder der
    DCO-106 am MIDI-Ausgang parallel mit: gleiche Noten, gleiches Patch, jede
    Änderung. Ausschalten, wenn der MIDI-Ausgang zurück zum Eingang führt.
-9. Anschlagstärke: vellevel und velcutoff auf Seite 4, 0 = aus wie beim
+9. Pads: [junopads 10] macht die Pads des Launchkey im Drum-Modus (Shift +
+   erster Pad unten, Drums Channel 10, eigene Firmware) zu Tastern:
+     oben   factory +, user +, Chorus aus, I, II, I+II, Juno-6/60, Juno-106
+     unten  -, factory -, user -, save, -, init (2x drücken), -, -
+   save speichert in den zuletzt gewählten User-Platz und schreibt die Datei.
+   juno~ selbst auf Kanal 1 stellen (macht der Hilfe-Patch), sonst spielen
+   die Pads Noten.
+10. Anschlagstärke: vellevel und velcutoff auf Seite 4, 0 = aus wie beim
    Original.
 
 Falls macOS das Laden blockiert ("kann nicht geöffnet werden" / "beschädigt"),

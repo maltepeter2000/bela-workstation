@@ -73,6 +73,10 @@ MESSAGES = [
     "init: a plain sawtooth patch to start from.",
     "reload: the same patch again, edits dropped.",
     "store n: the playing patch into user slot n, in memory.",
+    "  Without n: the user slot chosen or stored last.",
+    "presetstep 1 or -1, userstep 1 or -1: the next or previous",
+    "  factory preset or user slot, from the one chosen last.",
+    "save: store, then userwrite (the pads' save).",
     "userwrite: write the user bank to junouser-bank.syx.",
     "userread: read it again. Both also take a file name.",
     "usersend: the user bank as SysEx on outlet 3.",
@@ -98,6 +102,9 @@ MIDI = [
     "  (volume), 64 (hold) and Juno-106 SysEx.",
     "midiout: the floats of outlet 3, SysEx patches and dumps.",
     "junocc 1: the CC pages from 20 on, on channel 1.",
+    "junopads 10: the Launchkey pads in Drum mode, channel 10.",
+    "channel 1 at load: juno~ plays channel 1 only, so the pads",
+    "  on channel 10 do not play notes.",
     "Without midiin: send note lists and bend, mod, sustain.",
 ]
 
@@ -111,6 +118,14 @@ LAYER = [
     "junoedit is the editor: click it in the object area above. All 33 "
     "controls in rows of 8, the factory presets and the user bank, the "
     "MIDI channels and SysEx. It explains itself in its readme.",
+    "junopads are the Launchkey's pads in Drum mode as buttons, on the "
+    "Drums Channel (10, the argument). With the Launchkey custom firmware "
+    "they send notes 36 to 43 on the top row and 44 to 51 on the bottom "
+    "row, left to right.",
+    "Top row: factory +, user +, chorus off, chorus I, chorus II, chorus "
+    "I+II, Juno-6/60, Juno-106. Bottom row: second pad factory -, third user "
+    "-, fourth save (into the user slot chosen last, and the bank file), "
+    "sixth init (press twice within a second).",
     "All names are listed at the end of this patch with their CC numbers.",
 ]
 
@@ -276,10 +291,17 @@ def build(p):
         p.conn(ro, 0, cc, 0)
         p.conn(cc, 0, sc, 0)
         p.obj(CX + 250, y + 30, f"junoedit {BUS}")
+        pd_ = p.obj(CX + 250, y + 60, "junopads 10")
+        ps = p.obj(CX + 250, y + 90, f"s {BUS}")
+        p.conn(pd_, 0, ps, 0)
+        lb = p.obj(CX, y, "loadbang")
+        ch1 = p.msg(CX, y + 30, "channel 1")
+        p.conn(lb, 0, ch1, 0)
         mi = p.obj(CX + 400, y + 60, "midiin")
         rc = p.obj(CX, y + 60, f"r {BUS}")
         ob = p.obj(CX, y + 100, OBJ)
         p.conn(rc, 0, ob, 0)
+        p.conn(ch1, 0, ob, 0)
         p.conn(mi, 0, ob, 2)
         gl = p.obj(CX, y + 134, "*~ 0.3")
         gr = p.obj(CX + 60, y + 134, "*~ 0.3")

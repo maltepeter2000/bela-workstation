@@ -105,14 +105,29 @@ Rückmeldung nicht an.
 
 ## juno~
 
-Keine Ebenen, keine Makros: 30 Regler auf vier Seiten (`tools/juno_params.py`).
+Keine Ebenen, keine Makros: 33 Regler auf fünf Seiten (`tools/juno_params.py`).
 Seite 1 ist Filter und Hüllkurve, Seiten 2 und 3 der Rest des Patches, Seite 4
 die Einstellungen des Instruments, die kein Patch speichert (volume, tune,
-bend, octave, vellevel, velcutoff). Schieberegler laufen 0–127 wie im
-Juno-106-Patch, Pot und Wert sind also dieselbe Zahl. `junocc.pd` und
-`junoedit.pd` entstehen mit `make gen` in `juno~/`.
+bend, octave, vellevel, velcutoff, model), Seite 5 die Stimmen (calibrate,
+chorusnoise). Schieberegler laufen 0–127 wie im Juno-106-Patch, Pot und Wert
+sind also dieselbe Zahl. `junocc.pd`, `junopads.pd` und `junoedit.pd`
+entstehen mit `make gen` in `juno~/`.
+
+### Pads
+
+`[junopads 10]` (`tools/ctpads.py`, Belegung in `PADS` von `tools/juno_params.py`):
+Launchkey im Drum-Modus, eigene Firmware, Drums Channel 10, Noten 36–43 oben,
+44–51 unten. Preset- und Save-Pads an denselben Stellen wie beim TX81Z auf Bela.
+
+| Pad | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
+|---|---|---|---|---|---|---|---|---|
+| oben | factory + | user + | Chorus aus | I | II | I+II | Juno-6/60 | Juno-106 |
+| unten | – | factory − | user − | save | – | init (2×) | – | – |
+
+`save` speichert in den zuletzt gewählten User-Platz und schreibt die Bankdatei.
+`juno~` muss auf einem anderen Kanal hören (Hilfe-Patch: `channel 1`).
 
 ## Stand
 
 - d50~: 11 Seiten belegt (Seite 1 Performance, 2–6 gewähltes Partial, 7–11 sein Tone), Kanal einstellbar.
-- juno~: 4 Seiten belegt (Seite 1 Filter und Hüllkurve, 2–3 Patch, 4 Setup), Kanal einstellbar.
+- juno~: 5 Seiten belegt (Seite 1 Filter und Hüllkurve, 2–3 Patch, 4 Setup, 5 Stimmen), Kanal einstellbar; Pads auf Kanal 10.

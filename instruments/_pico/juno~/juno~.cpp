@@ -28,7 +28,11 @@
 //                       Juno-106 banks (.syx) beside the external
 //   user n              a slot of the user bank, 0..55
 //   init / reload       the init patch / the same patch again, edits dropped
-//   store [n]           the playing patch into user slot n (in memory)
+//   store [n]           the playing patch into user slot n (in memory); without
+//                       n the user slot selected or stored last
+//   save                store [no n] and userwrite in one
+//   presetstep [n]      the next factory preset (n = -1: the previous one)
+//   userstep [n]        the same for the user bank
 //   userwrite [file]    write the user bank (default: junouser-bank.syx)
 //   userread [file]     read it
 //   usersend            the user bank as Juno-106 SysEx bytes
@@ -308,6 +312,19 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
     } else if (is("reload")) {
         y.reload();
         x->shown->source = -2;
+    } else if (is("presetstep") || is("userstep")) {
+        y.step(is("presetstep") ? juno::Synth::kFactory : juno::Synth::kUser, argc > 0 ? n : 1);
+        x->shown->source = -2;
+    } else if (is("save")) {
+        // store into the user slot selected or stored last, and write the bank
+        y.store(-1);
+        if (!g_data_dir.empty()) {
+            std::string err;
+            const std::string path = g_data_dir + "/" + kUserFile;
+            if (!juno::write_user(path.c_str(), err)) pd_error(x, "juno~: save: %s", err.c_str());
+        }
+        x->shown->source = -2;
+        echo = false;
     } else if (is("store")) {
         if (!y.store(argc > 0 ? n : -1))
             pd_error(x, "juno~: store: expected 0..%d", juno::kUserSlots - 1);

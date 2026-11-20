@@ -22,3 +22,7 @@ if __name__ == "__main__":
     out = os.path.join(ROOT, "juno~", "junocc.pd")
     m = ctlayer.write(out, "junocc (juno~)", T.CC_ROWS)
     print("wrote", out, f"({len(m)} settings on CC)")
+    import ctpads
+    out = os.path.join(ROOT, "juno~", "junopads.pd")
+    ctpads.write(out, "junopads (juno~)", T.PADS)
+    print("wrote", out, f"({len(T.PADS)} pads)")
