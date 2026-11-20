@@ -23,7 +23,7 @@ Files in `tx81z-pd/` (the Bela project folder):
 |---|---|
 | `_main.pd` | the patch |
 | `txcc.pd` | controller layer (CC pages, same as on the desktop) |
-| `txuser-bank.txt` | user bank, 64 slots (same format as the desktop editor's) |
+| `txuser-bank.syx` | user bank, 64 voices as two TX81Z voice bulk dumps (written on the first store; the desktop file works too) |
 | `tx81z~.pd_linux` | the external for Bela (prebuilt, or `build_on_bela.sh`) |
 | `tx81z-v1.6.bin` | the firmware (yours, not included) |
 | `tx81z.nvram` | battery RAM, made by the factory init on the first run |
@@ -53,9 +53,9 @@ its MIDI ports itself (the patch does not set a port).
 `tx81zn-pd` (native engine) uses the pad layout every instrument shares
 (`launchkey/README.md` in bela-workstation): 36 factory +, 37 user +, 38 init (twice: the
 TX81Z Init Voice), 44 factory -, 45 user -, 46 save (the voice into the user slot recalled
-last, `txuser-bank.txt` written); its own pads: 39-43 random pluck, bass, lead, brass, pad,
-47 strings, 48 total. `[txpads 10]` -> `[txnav]` -> tx81zn~; `[txnav]` sends the display
-lines to the Launchkey (`[lkdisplay]`) and the OLED. Program change on channel 10 is not
+last, `txuser-bank.syx` written); its own pads: 39-43 random pluck, bass, lead, brass, pad,
+47 strings, 48 total. `[txpads 10]` -> tx81zn~, which understands the pad messages itself and
+sends the display lines to the Launchkey (`[lkdisplay]`) and the OLED. Program change on channel 10 is not
 used there.
 
 The table below is `tx81z-pd` (firmware emulation), unchanged:
@@ -67,12 +67,12 @@ Channel 10 = the Drums Channel of the Launchkey. With the Launchkey custom firmw
 | Note | |
 |---|---|
 | 36 | next factory patch (I01 ... C32) |
-| 37 | next user patch (slot of txuser-bank.txt) |
+| 37 | next user patch (slot of txuser-bank.syx) |
 | 38-43 | random: pluck, bass, lead, brass, pad, strings |
 | 44 | random: total |
 | 45 | previous factory patch |
 | 46 | previous user patch |
-| 47 | store the current voice into the current user slot (writes txuser-bank.txt) |
+| 47 | store the current voice into the current user slot (writes txuser-bank.syx) |
 | 48 | save the battery RAM now |
 | 49 | twice within 1 s: factory init |
 | program change 1-64 on channel 10 | load user slot 0-63 |

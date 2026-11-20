@@ -231,7 +231,7 @@ def build():
         ("Editor (txedit)", [
             "[txedit " + bus.replace(BS, "") + "] above: click it to open the editor (how it works: "
             "[pd readme] in the editor). All 100 voice parameters in rows of 8, rows 1-11 = the CC pages. "
-            "On top: voice name, program change, MIDI channel, user bank (txuser-bank.txt, store to + "
+            "On top: voice name, program change, MIDI channel, user bank (txuser-bank.syx, kept by the object, store to + "
             "save patch), factory init, random voices (pluck bass lead brass pad strings total), the LCD.",
             "In your own patch: [r tx1] -> [tx81z~ <rom> <nvram>] -> outlet 2 -> [s tx1-out] and "
             "[txedit tx1]."], True),

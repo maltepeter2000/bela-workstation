@@ -95,8 +95,9 @@ the same folder as the patch (with `txcc.pd` and `txedit.pd`); the battery RAM f
 - `[txcc <channel>]`: controller layer (MIDI CC pages 20-119, feedback, pickup,
   CC 3 = sync), the same layout as `p8cc` of pdoly8~. `[txedit <bus>]`: editor
   with all parameters in rows of 8 (rows 1-11 = CC pages), voice name, program
-  change, LCD, MIDI channel and a user bank (64 slots in `txuser-bank.txt` next to
-  the editor: recall a slot, store to a slot, save / load the bank). `txcc` follows
+  change, LCD, MIDI channel and the user bank of the object (64 voices in
+  `txuser-bank.syx` beside the patch, two TX81Z voice bulk dumps, so the file loads into
+  a real TX81Z: recall a slot, store to a slot, load the bank). `txcc` follows
   the channel `tx81z~` reports. Both are wired up in the help patch.
 
 ### `tx81zn~`: native engine

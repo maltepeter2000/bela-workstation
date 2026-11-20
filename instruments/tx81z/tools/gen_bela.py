@@ -113,7 +113,7 @@ def control_sub():
     p.note(f"Control channel {CTL_CH}: " + ", ".join(
         f"{n} {PAD_TEXT.get(a, 'random ' + a)}" for n, a in PADS) +
         f". Program change 1-{NSLOTS} on channel {CTL_CH}: user slot 0-{NSLOTS - 1} "
-        "(txuser-bank.txt in the project folder).", 10, 10)
+        "(txuser-bank.syx in the project folder, kept by tx81z~).", 10, 10)
     rn = p.add("r tx-ctl-note", 10, 70)
     un = p.add("unpack f f", 10, 100); p.con(rn, 0, un, 0)
     gt = p.add("> 0", 90, 130); p.con(un, 1, gt, 0)
@@ -132,48 +132,21 @@ def control_sub():
     tff = p.add("t f f", 300, 210); p.con(md, 0, tff, 0); p.con(tff, 1, add, 1)
     rcp = p.add("r tx-cur-pgm", 420, 130); p.con(rcp, 0, add, 1)
     pgm = p.msg("pgm $1", 300, 270); p.con(tff, 0, pgm, 0); p.con(pgm, 0, stx, 0)
-    # user patch + / -: slot 0-63, through the recall below
-    up_ = p.msg("1", 520, 130); um_ = p.msg(str(NSLOTS - 1), 560, 130)
+    # user patch + / -, store: the object's user bank (txuser-bank.syx, two TX81Z voice bulk dumps)
+    up_ = p.msg("userstep 1", 520, 130); um_ = p.msg("userstep -1", 620, 130)
     p.con(sel, out["user+"], up_, 0); p.con(sel, out["user-"], um_, 0)
-    uad = p.add("+", 520, 160); p.con(up_, 0, uad, 0); p.con(um_, 0, uad, 0)
-    umd = p.add(f"mod {NSLOTS}", 520, 185); p.con(uad, 0, umd, 0)
-    usp = p.add("s tx-ctl-pgm", 520, 210); p.con(umd, 0, usp, 0)
-    # user bank
-    td = p.add("text define -k tx-bank", 600, 640)
-    lb = p.add("loadbang", 600, 520)
-    rd = p.msg("read txuser-bank.txt", 600, 550); p.con(lb, 0, rd, 0)
-    p.con(rd, 0, td, 0)
-    wr = p.msg("write txuser-bank.txt", 760, 600); p.con(wr, 0, td, 0)
+    p.con(up_, 0, stx, 0); p.con(um_, 0, stx, 0)
     # recall: program change on the control channel
     rp = p.add("r tx-ctl-pgm", 10, 360)
     cl = p.add(f"clip 0 {NSLOTS - 1}", 10, 390); p.con(rp, 0, cl, 0)
-    tf = p.add("t f f", 10, 420); p.con(cl, 0, tf, 0); p.con(tf, 1, uad, 1)
-    slot = p.add("f", 150, 470); p.con(tf, 1, slot, 1)
-    tg = p.add("text get tx-bank", 10, 450); p.con(tf, 0, tg, 0)
-    lt = p.add("list trim", 10, 480); p.con(tg, 0, lt, 0)
-    rdash = p.add("route -", 10, 510); p.con(lt, 0, rdash, 0)
-    fe = p.add("f", 10, 540); p.con(rdash, 0, fe, 0); p.con(tf, 1, fe, 1)
-    emp = p.msg("user $1 empty", 10, 570); p.con(fe, 0, emp, 0)
-    lp = p.add("list prepend voicedata", 80, 540); p.con(rdash, 1, lp, 0)
-    lt2 = p.add("list trim", 80, 570); p.con(lp, 0, lt2, 0)
-    s2 = p.add("s tx", 80, 600); p.con(lt2, 0, s2, 0)
-    o1 = p.add("s tx-oled-note", 10, 630); p.con(emp, 0, o1, 0)
-    # store: getvoice, voicedata into the slot, write the file
-    tb = p.add("t b b", 300, 360); p.con(sel, out["store"], tb, 0)
-    one = p.msg("1", 360, 390); p.con(tb, 1, one, 0)
-    gv = p.msg("getvoice", 300, 420); p.con(tb, 0, gv, 0); p.con(gv, 0, stx, 0)
+    us = p.msg("user $1", 10, 420); p.con(cl, 0, us, 0)
+    s2 = p.add("s tx", 10, 450); p.con(us, 0, s2, 0)
+    st = p.msg("store", 300, 360); p.con(sel, out["store"], st, 0)
+    s3 = p.add("s tx", 300, 390); p.con(st, 0, s3, 0)
+    # the display line of user / store onto the OLED
     ro = p.add("r tx-out", 450, 360)
-    rv = p.add("route voicedata", 450, 390); p.con(ro, 0, rv, 0)
-    ls = p.add("list", 450, 420); p.con(rv, 0, ls, 0)
-    gate = p.add("spigot", 450, 450); p.con(ls, 0, gate, 0); p.con(one, 0, gate, 1)
-    tbl = p.add("t b l b", 450, 480); p.con(gate, 0, tbl, 0)    # slot number first, then the voice
-    ts = p.add("text set tx-bank", 450, 610); p.con(tbl, 1, ts, 0); p.con(slot, 0, ts, 1)
-    p.con(tbl, 2, slot, 0)
-    zero = p.msg("0", 600, 450); p.con(tbl, 0, zero, 0); p.con(zero, 0, gate, 1)
-    dw = p.add("del 10", 760, 570); p.con(tbl, 0, dw, 0); p.con(dw, 0, wr, 0)
-    fs = p.add("f", 860, 480); p.con(tbl, 0, fs, 0); p.con(slot, 0, fs, 1)
-    sm = p.msg("stored slot $1", 860, 510); p.con(fs, 0, sm, 0)
-    o2 = p.add("s tx-oled-note", 860, 540); p.con(sm, 0, o2, 0)
+    rv = p.add("route display", 450, 390); p.con(ro, 0, rv, 0)
+    o2 = p.add("s tx-oled-note", 450, 420); p.con(rv, 0, o2, 0)
     if not NATIVE:
         save_ram(p, sel, out, stx)
     # factory init: twice within 1 s
@@ -190,21 +163,21 @@ def control_sub():
 
 
 def nav_sub():
-    """tx81zn~: the pads in the layout every instrument shares (txpads), the pad translator
-    (txnav: pgm, the user bank txuser-bank.txt, init, save) and the Launchkey display"""
+    """tx81zn~: the pads in the layout every instrument shares (txpads; tx81zn~ understands the pad
+    messages itself) and the Launchkey display"""
     p = G.P("pads", 900, 400)
     p.note(f"Control channel {CTL_CH}: the Launchkey pads as in every instrument (common/tools/ctpads.py): "
            "36 factory +, 37 user +, 38 init (twice), 44 factory -, 45 user -, 46 save; own: 39-43 random "
-           "pluck bass lead brass pad, 47 strings, 48 total. [txnav] turns them into pgm / voicedata / init "
-           "(user bank: txuser-bank.txt) and sends display lines to the Launchkey and the OLED.", 10, 10)
+           "pluck bass lead brass pad, 47 strings, 48 total. tx81zn~ takes them itself (user bank: "
+           "txuser-bank.syx, two TX81Z voice bulk dumps) and sends display lines to the Launchkey and the OLED.", 10, 10)
     pads = p.add(f"txpads {CTL_CH}", 10, 90)
-    nav = p.add("txnav", 10, 130); p.con(pads, 0, nav, 0)
-    stx = p.add("s tx", 10, 170); p.con(nav, 0, stx, 0)
-    ro = p.add("r tx-out", 200, 90); p.con(ro, 0, nav, 1)
-    lk = p.add("lkdisplay", 200, 200); p.con(nav, 1, lk, 0)
+    stx = p.add("s tx", 10, 130); p.con(pads, 0, stx, 0)
+    ro = p.add("r tx-out", 200, 90)
+    rd = p.add("route display", 200, 130); p.con(ro, 0, rd, 0)
+    dm = p.msg("display $1 $2", 200, 160); p.con(rd, 0, dm, 0)
+    lk = p.add("lkdisplay", 200, 200); p.con(dm, 0, lk, 0)
     mo = p.add("midiout", 200, 230); p.con(lk, 0, mo, 0)
-    rd = p.add("route display", 400, 200); p.con(nav, 1, rd, 0)
-    so = p.add("s tx-oled-note", 400, 230); p.con(rd, 0, so, 0)
+    so = p.add("s tx-oled-note", 400, 200); p.con(rd, 0, so, 0)
     return p
 
 
@@ -295,13 +268,13 @@ def build():
     top = G.P(None, 900, 420)
     if NATIVE:
         top.note("TX81Z on Bela: tx81zn~ (native engine) - MIDI in, controller layer, OLED, "
-                 "Launchkey pads and display, OSC remote. Files: tx81zn~.pd_linux, txfmcc.pd, txpads.pd, txnav.pd, "
+                 "Launchkey pads and display, OSC remote. Files: tx81zn~.pd_linux, txfmcc.pd, txpads.pd, lkdisplay.pd, "
                  "lkdisplay.pd, tx81z-v1.6.bin, tx81z.nvram (optional, read only: bank I and MIDI channel), "
-                 "txuser-bank.txt.", 10, 10)
+                 "txuser-bank.syx.", 10, 10)
     else:
         top.note("TX81Z on Bela: tx81z~ (original firmware) - MIDI in, controller layer, OLED, "
                  "control channel, OSC remote. Files: tx81z~.pd_linux, txcc.pd, tx81z-v1.6.bin, "
-                 "tx81z.nvram (made by the factory init), txuser-bank.txt.", 10, 10)
+                 "tx81z.nvram (made by the factory init), txuser-bank.syx.", 10, 10)
     r = top.add("r tx", 10, 70)
     t = top.add(f"{OBJ} tx81z-v1.6.bin tx81z.nvram", 10, 100); top.con(r, 0, t, 0)
     d = top.add("dac~ 1 2", 10, 150); top.con(t, 0, d, 0); top.con(t, 1, d, 1)
@@ -317,12 +290,7 @@ def build():
     top.sub(nav_sub() if NATIVE else control_sub(), 110, 320)
     top.sub(oled_sub(), 230, 320)
     top.sub(remote_sub(), 330, 320)
-    out = []
-    for ln in top.lines(top=True):
-        out.append(ln)
-        if ln.endswith("text define -k tx-bank;"):
-            out.append(G.table_data(["-"] * NSLOTS))
-    return "\n".join(out) + "\n"
+    return "\n".join(top.lines(top=True)) + "\n"
 
 
 if __name__ == "__main__":

@@ -50,11 +50,11 @@ CXX ?= c++
 
 all: tx81z~.$(EXT) tx81zn~.$(EXT)
 
-tx81z~.$(EXT): $(SRC) $(ROOT)/src/*.h $(ROOT)/src/cpu/*.h txshared.h tx81z_params.h
-	$(CXX) -std=c++14 $(CXXFLAGS) -I$(YMFM) $(SRC) $(LDFLAGS) -o $@
+tx81z~.$(EXT): $(SRC) $(ROOT)/src/*.h $(ROOT)/src/cpu/*.h txshared.h txbank.h tx81z_params.h
+	$(CXX) -std=c++14 $(CXXFLAGS) -I$(YMFM) -I$(NATIVE) $(SRC) $(LDFLAGS) -o $@
 	@echo "built $@ (Pd headers: $(PD_INCLUDE))"
 
-tx81zn~.$(EXT): $(NSRC) $(NATIVE)/*.h $(NATIVE)/opz/*.h $(NATIVE)/opz/*.ipp txshared.h tx81z_params.h
+tx81zn~.$(EXT): $(NSRC) $(NATIVE)/*.h $(NATIVE)/opz/*.h $(NATIVE)/opz/*.ipp txshared.h txbank.h tx81z_params.h
 	$(CXX) -std=c++17 $(CXXFLAGS) -I$(NATIVE) $(NSRC) $(LDFLAGS) -o $@
 	@echo "built $@ (Pd headers: $(PD_INCLUDE))"
 
@@ -66,8 +66,8 @@ GEM := $(ZIG) c++ -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O3 -fPIC -fvi
        -I$(ROOT)/third_party/pd -I$(ROOT)/src -shared -s
 bela-gem:
 	$(GEM) -std=c++17 -I$(NATIVE) $(NSRC) -o ../bela-pd/tx81zn-pd/tx81zn~.pd_linux
-	$(GEM) -std=c++14 -I$(YMFM) $(SRC) -o ../bela-pd/tx81z-pd/tx81z~.pd_linux
-	cp txfmcc.pd txpads.pd txnav.pd ../../../launchkey/lkdisplay.pd ../bela-pd/tx81zn-pd/
+	$(GEM) -std=c++14 -I$(YMFM) -I$(NATIVE) $(SRC) -o ../bela-pd/tx81z-pd/tx81z~.pd_linux
+	cp txfmcc.pd txpads.pd ../../../launchkey/lkdisplay.pd ../bela-pd/tx81zn-pd/
 	cp txcc.pd ../bela-pd/tx81z-pd/
 
 clean:

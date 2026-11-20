@@ -18,15 +18,25 @@
 //   tune <0-127>                            master tune (64 = centre)
 //   factoryinit                             all notes off, voice A01 (nothing is written)
 //   fm <control> <0-127>, fminfo <control>  FM view (txfm.h): roles C / A / B from the algorithm
+//   presetstep [n], userstep [n]            the ROM preset (A01-D32) / user slot n after the one
+//                                           played last (wrapping), as in every instrument
+//   user <0-63>, store [0-63], save         recall / store a user slot (save = the slot played or
+//                                           stored last); storing writes the user bank file
+//   userread [file], userwrite [file]       the user bank: 64 voices as two TX81Z voice bulk dumps
+//                                           (VMEM, 32 voices each), default txuser-bank.syx beside
+//                                           the patch; missing slots are the Init Voice
 // Program change: 0-31 internal I01-I32, 32-127 presets A01-C32 (the TX81Z's initial table).
 // Outlets: left / right audio, messages: info <name> <0-127> <text>, voice <name>, voicedata ...,
-//   fm <control> <0-127> <text>, channel <n>, status <text>, lcd <line1> <line2> (the splash screen, once on load)
+//   fm <control> <0-127> <text>, channel <n>, status <text>, lcd <line1> <line2> (the splash screen, once on load),
+//   display <title> <value> (for the Launchkey display: a setting turned, Preset A01 / User 11 /
+//   Init / Stored and the voice name)
 
 #include "m_pd.h"
 #include "txnative.h"
 #include "txvoice.h"
 #include "txshared.h"
 #include "txfm.h"
+#include "txbank.h"
 
 #ifndef _WIN32
 #include <dirent.h>
@@ -51,6 +61,9 @@ struct t_txn
 	t_symbol *dir;
 	std::vector<uint8_t> *rom;
 	std::vector<uint8_t> *internal;   // 32 voice records
+	std::vector<uint8_t> *user;       // 64 voice records: the user bank (txuser-bank.syx)
+	int last_preset;                  // ROM preset 0-127 (A01-D32) played last
+	int last_user;                    // user slot 0-63 played or stored last
 	bool ready;
 	float gain;
 	int channel;                      // 0 = omni, 1-16
@@ -206,6 +219,29 @@ static void emit_voice_name(t_txn *x)
 	outlet_anything(x->out_msg, gensym("voice"), 1, &a);
 }
 
+// display <title> <value>: two lines for the Launchkey display (through [lkdisplay]) (a setting turned,
+// a voice recalled or stored), as juno~, d50~, cz4~ and pdoly8~ send them
+static void out_display(t_txn *x, const char *title, const char *value)
+{
+	t_atom a[2];
+	SETSYMBOL(&a[0], gensym(title));
+	SETSYMBOL(&a[1], gensym(value));
+	outlet_anything(x->out_msg, gensym("display"), 2, a);
+}
+
+// the voice name for the display: spaces kept, trailing ones dropped
+static std::string display_name(t_txn *x)
+{
+	std::string n;
+	for (int i = 0; i < 10; i++)
+	{
+		int c = x->eng->get_param('V', 77 + i);
+		n += (c >= 32 && c < 127) ? char(c) : ' ';
+	}
+	while (!n.empty() && n.back() == ' ') n.pop_back();
+	return n.empty() ? "-" : n;
+}
+
 static void set_param(t_txn *x, char g, int num, int v)
 {
 	if (!x->ready) return;
@@ -232,13 +268,20 @@ static void load_record(t_txn *x, const uint8_t *rec)
 static void select_voice(t_txn *x, int bank, int slot)
 {
 	if (!x->ready || slot < 0 || slot > 31) return;
+	char title[16];
 	if (bank == 0)
 	{
 		if (x->internal->size() < 32 * txn::VOICE_RECORD) { status(x, "no internal bank (nvram)"); return; }
 		load_record(x, x->internal->data() + slot * txn::VOICE_RECORD);
+		snprintf(title, sizeof title, "Internal I%02d", slot + 1);
 	}
 	else
+	{
 		load_record(x, x->rom->data() + txn::ROM_PRESETS + ((bank - 1) * 32 + slot) * txn::VOICE_RECORD);
+		x->last_preset = (bank - 1) * 32 + slot;
+		snprintf(title, sizeof title, "Preset %c%02d", "ABCD"[bank - 1], slot + 1);
+	}
+	out_display(x, title, display_name(x).c_str());
 }
 
 static void program(t_txn *x, int pc)
@@ -379,16 +422,6 @@ static void txn_bank(t_txn *x, t_symbol *b, t_floatarg n)
 // ---------------------------------------------------------------------------
 // parameters (as tx81z~)
 
-// display <title> <value>: two lines for the Launchkey display (through [lkdisplay]) after a
-// setting was turned, as juno~, d50~, cz4~ and pdoly8~ send them
-static void out_display(t_txn *x, const char *title, const char *value)
-{
-	t_atom a[2];
-	SETSYMBOL(&a[0], gensym(title));
-	SETSYMBOL(&a[1], gensym(value));
-	outlet_anything(x->out_msg, gensym("display"), 2, a);
-}
-
 static void txn_n(t_txn *x, t_symbol *name, t_floatarg c)
 {
 	if (name == gensym("none")) return;
@@ -475,34 +508,13 @@ static void txn_voicedata(t_txn *x, t_symbol *, int argc, t_atom *argv)
 	load_voice(x, vc, ac);
 }
 
-// init: the TX81Z's "Init Voice" (owner's manual, Init Voice? in SINGLE: Edit): algorithm 1,
-// only OP1 sounding (out 90), all operators sine at ratio 1.00, AR 31 D1R 31 D1L 15 D2R 0 RR 15,
-// LFO triangle speed 35, transpose C3, bend range 4, full-time portamento 0, FC volume 40,
-// MW pitch 50, name INIT VOICE. The same message as init in the other instruments.
+// init: the TX81Z's Init Voice (txbank.h). The same message as init in the other instruments.
 static void txn_init(t_txn *x)
 {
-	uint8_t vc[93] = {}, ac[23] = {};
-	for (int op = 0; op < 4; op++)        // VCED order: OP4, OP3, OP2, OP1
-	{
-		uint8_t *v = vc + op * 13;
-		v[0] = 31; v[1] = 31; v[2] = 0; v[3] = 15; v[4] = 15;   // AR D1R D2R RR D1L
-		v[10] = op == 3 ? 90 : 0;                              // OUT: OP1 only
-		v[11] = 4;                                             // CRS: ratio 1.00
-		v[12] = 3;                                             // DET: 0
-	}
-	vc[52] = 0; vc[53] = 0;                 // algorithm 1, feedback 0
-	vc[54] = 35; vc[59] = 2;                // LFO speed 35, triangle
-	vc[62] = 24;                            // transpose C3
-	vc[64] = 4;                             // pitch bend range
-	vc[67] = 40;                            // FC volume
-	vc[68] = 1;                             // sustain foot switch on
-	vc[71] = 50;                            // MW pitch
-	vc[75] = 50;                            // BC pitch bias 0
-	const char name[] = "INIT VOICE";
-	for (int k = 0; k < 10; k++) vc[77 + k] = uint8_t(name[k]);
-	const uint8_t peg[6] = { 99, 99, 99, 50, 50, 50 };   // DX21 pitch EG, unused
-	for (int k = 0; k < 6; k++) vc[87 + k] = peg[k];
+	uint8_t vc[93], ac[23];
+	txbank::init_voice(vc, ac);
 	load_voice(x, vc, ac);
+	if (x->ready) out_display(x, "Init", "");
 }
 
 static void txn_random(t_txn *x, t_symbol *s, t_floatarg seed)
@@ -514,6 +526,68 @@ static void txn_random(t_txn *x, t_symbol *s, t_floatarg seed)
 		return;
 	}
 	load_voice(x, vc, ac);
+}
+
+// ---------------------------------------------------------------------------
+// user bank (64 voices, txuser-bank.syx) and the pad messages
+
+static void recall_user(t_txn *x, int slot)
+{
+	if (!x->ready) return;
+	x->last_user = slot;
+	load_record(x, x->user->data() + slot * txn::VOICE_RECORD);
+	out_display(x, ("User " + txbank::slot_label(slot)).c_str(), display_name(x).c_str());
+}
+
+static int wrap(int v, int n) { return ((v % n) + n) % n; }
+
+static void txn_presetstep(t_txn *x, t_floatarg f)
+{
+	int n = f == 0 ? 1 : int(f);
+	int i = wrap(x->last_preset + n, 128);
+	select_voice(x, 1 + i / 32, i % 32);
+}
+
+static void txn_userstep(t_txn *x, t_floatarg f)
+{
+	int n = f == 0 ? 1 : int(f);
+	recall_user(x, wrap(x->last_user + n, txbank::SLOTS));
+}
+
+static void txn_user(t_txn *x, t_floatarg f)
+{
+	int slot = int(f);
+	if (slot < 0 || slot >= txbank::SLOTS) { pd_error(x, "tx81zn~: user 0-63"); return; }
+	recall_user(x, slot);
+}
+
+static void txn_store(t_txn *x, t_symbol *, int argc, t_atom *argv)
+{
+	if (!x->ready) return;
+	int slot = argc > 0 ? int(atom_getfloat(argv)) : x->last_user;
+	if (slot < 0 || slot >= txbank::SLOTS) { pd_error(x, "tx81zn~: store 0-63"); return; }
+	uint8_t vc[93], ac[23];
+	for (int i = 0; i < 93; i++) vc[i] = uint8_t(x->eng->get_param('V', i));
+	for (int i = 0; i < 23; i++) ac[i] = uint8_t(x->eng->get_param('A', i));
+	txn::pack_voice(vc, ac, x->user->data() + slot * txn::VOICE_RECORD);
+	x->last_user = slot;
+	if (txbank::write(x, "tx81zn~", resolve(x, gensym(txbank::FILE_NAME)), *x->user, x->channel))
+		out_display(x, "Stored", ("User " + txbank::slot_label(slot)).c_str());
+}
+
+static void txn_save(t_txn *x) { txn_store(x, nullptr, 0, nullptr); }
+
+static void txn_userread(t_txn *x, t_symbol *s, int argc, t_atom *argv)
+{
+	t_symbol *f = argc > 0 ? atom_getsymbol(argv) : gensym(txbank::FILE_NAME);
+	txbank::read(x, "tx81zn~", find_nocase(resolve(x, f)), *x->user, false);
+}
+
+static void txn_userwrite(t_txn *x, t_symbol *s, int argc, t_atom *argv)
+{
+	t_symbol *f = argc > 0 ? atom_getsymbol(argv) : gensym(txbank::FILE_NAME);
+	std::string p = resolve(x, f);
+	if (txbank::write(x, "tx81zn~", p, *x->user, x->channel)) post("tx81zn~: wrote %s", p.c_str());
 }
 
 static void report_channel(t_txn *x)
@@ -668,7 +742,12 @@ static void *txn_new(t_symbol *, int argc, t_atom *argv)
 	x->eng = nullptr;
 	x->rom = new std::vector<uint8_t>();
 	x->internal = new std::vector<uint8_t>();
+	x->user = new std::vector<uint8_t>();
+	x->last_preset = 0;
+	x->last_user = 0;
 	x->dir = canvas_getdir(canvas_getcurrent());
+	txbank::clear(*x->user);
+	txbank::read(x, "tx81zn~", find_nocase(resolve(x, gensym(txbank::FILE_NAME))), *x->user, true);
 	x->ready = false;
 	x->gain = 1.0f;
 	x->channel = 0;          // omni until the battery RAM says otherwise
@@ -705,6 +784,7 @@ static void txn_free(t_txn *x)
 	delete x->eng;
 	delete x->rom;
 	delete x->internal;
+	delete x->user;
 	delete x->sx;
 }
 
@@ -742,6 +822,13 @@ void tx81zn_tilde_setup(void)
 	class_addmethod(txn_class, (t_method)txn_txchannel, gensym("txchannel"), A_FLOAT, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_factoryinit, gensym("factoryinit"), A_NULL);
 	class_addmethod(txn_class, (t_method)txn_gain, gensym("gain"), A_FLOAT, A_NULL);
+	class_addmethod(txn_class, (t_method)txn_presetstep, gensym("presetstep"), A_DEFFLOAT, A_NULL);
+	class_addmethod(txn_class, (t_method)txn_userstep, gensym("userstep"), A_DEFFLOAT, A_NULL);
+	class_addmethod(txn_class, (t_method)txn_user, gensym("user"), A_FLOAT, A_NULL);
+	class_addmethod(txn_class, (t_method)txn_store, gensym("store"), A_GIMME, A_NULL);
+	class_addmethod(txn_class, (t_method)txn_save, gensym("save"), A_NULL);
+	class_addmethod(txn_class, (t_method)txn_userread, gensym("userread"), A_GIMME, A_NULL);
+	class_addmethod(txn_class, (t_method)txn_userwrite, gensym("userwrite"), A_GIMME, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_tune, gensym("tune"), A_FLOAT, A_NULL);
 	class_addfloat(txn_class, (t_method)txn_float);
 	class_addlist(txn_class, (t_method)txn_list);

@@ -114,10 +114,11 @@ README = [
     "bank + patch: program change I01-C32. In EDIT mode tx81z~ presses PLAY first (the firmware ignores "
     "program changes while editing), then it reads the new voice for the editor.",
     "MIDI ch: receive channel of the TX81Z, 0 = omni. Notes, the controller layer and SysEx follow it.",
-    "user N: load slot N of txuser-bank.txt (64 slots, next to txedit.pd). store to N chooses a slot, "
-    "save patch stores the current voice there and writes the file. load bank reads the file again.",
+    "user N: recall slot N of the user bank (64 voices in txuser-bank.syx beside the patch, two TX81Z "
+    "voice bulk dumps, kept by tx81z~ / tx81zn~). store to N chooses a slot, save patch stores the "
+    "current voice there and writes the file. load bank reads the file again.",
     "factory init: factory voices in bank I and the factory setup of the TX81Z (about 26 s, DSP on). "
-    "It overwrites what you stored in bank I with STORE on the TX81Z, not txuser-bank.txt.",
+    "It overwrites what you stored in bank I with STORE on the TX81Z, not txuser-bank.syx.",
     "random: a new voice of that kind into the edit buffer - pluck (harp, piano, guitar: fast attack, "
     "decaying), bass (ratio 0.5, short decay), lead (sustained, vibrato, sometimes mono with portamento), "
     "brass (slower attack, 1:1 and 1:2 ratios, feedback), pad (slow attack, several carriers, detune, LFO), "
@@ -219,14 +220,11 @@ def logic():
     sch = c.add(f"#X obj 650 {y2 + 150} s {D}1;"); c.conn(mch, 0, sch, 0)
     mcv = c.add(f"#X msg 600 {y2 + 90} set {D}1;"); c.conn(ri, 3, mcv, 0)
     scv = c.add(f"#X obj 600 {y2 + 120} s {D}0-chv;"); c.conn(mcv, 0, scv, 0)
-    # user bank: 64 slots in txuser-bank.txt next to the editor (- = empty)
+    # user bank: kept by the object (txuser-bank.syx beside the patch, txbank.h)
     yu = y2 + 220
-    td = c.add(f"#X obj 10 {yu + 330} text define -k {D}0-ubank;")
-    lbu = c.add(f"#X obj 10 {yu} loadbang;")
     rld = c.add(f"#X obj 100 {yu} r {D}0-uload;")
-    mrd = c.add(f"#X msg 10 {yu + 30} read txuser-bank.txt;"); c.conn(lbu, 0, mrd, 0); c.conn(rld, 0, mrd, 0)
-    c.conn(mrd, 0, td, 0)
-    mwr = c.add(f"#X msg 200 {yu + 60} write txuser-bank.txt;"); c.conn(mwr, 0, td, 0)
+    mrd = c.add(f"#X msg 100 {yu + 30} userread;"); c.conn(rld, 0, mrd, 0)
+    smr = c.add(f"#X obj 100 {yu + 60} s {D}1;"); c.conn(mrd, 0, smr, 0)
     # random voices
     for k, cat in enumerate(RANDOM):
         rr_ = c.add(f"#X obj {380 + k * 110} {yu + 400} r {D}0-rnd-{cat};")
@@ -236,29 +234,15 @@ def logic():
     rfi = c.add(f"#X obj 200 {yu + 120} r {D}0-finit;")
     mfi = c.add(f"#X msg 200 {yu + 150} factoryinit;"); c.conn(rfi, 0, mfi, 0)
     sfi = c.add(f"#X obj 200 {yu + 180} s {D}1;"); c.conn(mfi, 0, sfi, 0)
-    # recall: slot -> text get -> voicedata ... -> tx81z~
+    # recall: user <slot>; store to N only chooses the slot, save patch: store <slot>
     rrc = c.add(f"#X obj 400 {yu} r {D}0-urecall;")
-    tgu = c.add(f"#X obj 400 {yu + 30} text get {D}0-ubank;"); c.conn(rrc, 0, tgu, 0)
-    lt1 = c.add(f"#X obj 400 {yu + 60} list trim;"); c.conn(tgu, 0, lt1, 0)
-    rdu = c.add(f"#X obj 400 {yu + 90} route -;"); c.conn(lt1, 0, rdu, 0)
-    lpv = c.add(f"#X obj 450 {yu + 120} list prepend voicedata;"); c.conn(rdu, 1, lpv, 0)
-    lt2 = c.add(f"#X obj 450 {yu + 150} list trim;"); c.conn(lpv, 0, lt2, 0)
-    su = c.add(f"#X obj 450 {yu + 180} s {D}1;"); c.conn(lt2, 0, su, 0)
-    # store to N (only the slot) + save patch: getvoice, the answer voicedata ... into line N,
-    # then write the file
+    mus = c.add(f"#X msg 400 {yu + 30} user {D}1;"); c.conn(rrc, 0, mus, 0)
+    su = c.add(f"#X obj 400 {yu + 60} s {D}1;"); c.conn(mus, 0, su, 0)
     rsl = c.add(f"#X obj 750 {yu - 60} r {D}0-uslot;")
     rsv = c.add(f"#X obj 650 {yu - 60} r {D}0-usave;")
     fsl = c.add(f"#X obj 650 {yu - 30} f;"); c.conn(rsv, 0, fsl, 0); c.conn(rsl, 0, fsl, 1)
-    tst = c.add(f"#X obj 650 {yu + 30} t b b f;"); c.conn(fsl, 0, tst, 0)
-    one = c.add(f"#X msg 700 {yu + 60} 1;"); c.conn(tst, 1, one, 0)
-    mgv = c.add(f"#X msg 650 {yu + 90} getvoice;"); c.conn(tst, 0, mgv, 0)
-    sgv = c.add(f"#X obj 650 {yu + 120} s {D}1;"); c.conn(mgv, 0, sgv, 0)
-    lvd = c.add(f"#X obj 850 {y2 + 60} list;"); c.conn(ri, 4, lvd, 0)
-    spg = c.add(f"#X obj 850 {yu + 90} spigot;"); c.conn(lvd, 0, spg, 0); c.conn(one, 0, spg, 1)
-    tsu = c.add(f"#X obj 850 {yu + 150} t b l;"); c.conn(spg, 0, tsu, 0)
-    tse = c.add(f"#X obj 850 {yu + 300} text set {D}0-ubank;"); c.conn(tsu, 1, tse, 0); c.conn(tst, 2, tse, 1)
-    zero = c.add(f"#X msg 950 {yu + 180} 0;"); c.conn(tsu, 0, zero, 0); c.conn(zero, 0, spg, 1)
-    dlw = c.add(f"#X obj 950 {yu + 210} del 10;"); c.conn(tsu, 0, dlw, 0); c.conn(dlw, 0, mwr, 0)
+    mst = c.add(f"#X msg 650 {yu} store {D}1;"); c.conn(fsl, 0, mst, 0)
+    sst = c.add(f"#X obj 650 {yu + 30} s {D}1;"); c.conn(mst, 0, sst, 0)
     return c
 
 
@@ -270,8 +254,6 @@ def build():
     body = []
     for ln in lg.lines:
         body.append(ln)
-        if ln.endswith("text define -k " + D + "0-ubank;"):   # 64 empty slots until the file is read
-            body.append("#A set " + " ".join(["- " + SEMI] * NSLOTS) + ";")
     sub = ["#N canvas 40 40 1260 900 logic 0;"] + body + lg.conns + [f"#X restore {X0} {TOP + rows * ROWH + 4} pd logic;"]
     h = TOP + rows * ROWH + 34
     return "\n".join([f"#N canvas 20 20 {X1 + 8 * CW + 10} {h} 10;"] + c.lines + sub + c.conns) + "\n"
@@ -280,7 +262,4 @@ def build():
 if __name__ == "__main__":
     out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "pd", "txedit.pd")
     open(out, "w").write(build())
-    bank = os.path.join(os.path.dirname(out), "txuser-bank.txt")
-    if not os.path.exists(bank):   # the empty user bank (never overwrite your sounds)
-        open(bank, "w").write("-;\n" * NSLOTS)
     print("wrote", out, f"({len(ALL)} settings)")

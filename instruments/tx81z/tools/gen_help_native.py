@@ -107,7 +107,7 @@ def build():
         ("Inlets and outlets", ["Inlet: messages (see Messages)",
                                 "Outlet 0, 1: signal left / right (~55.9 kHz resampled)",
                                 "Outlet 2: info, fm, voice, voicedata, channel, status,",
-                                "  lcd (the splash screen, once)"]),
+                                "  display <title> <value> (Launchkey), lcd (splash, once)"]),
         ("Messages", [
             "note <p> <v> [ch], cc <n> <v> [ch], pgm <n> [ch],",
             "  bend <-8192..8191> [ch]",
@@ -126,6 +126,13 @@ def build():
             "  <23 ACED>, voicedata ...: load that voice",
             "random <kind> [seed]: a new voice,",
             "  kind: pluck bass lead brass pad strings total",
+            "presetstep [n], userstep [n]: ROM preset A01-D32 / user",
+            "  slot n after the one played last (the Launchkey pads)",
+            "init: the TX81Z Init Voice",
+            "user <0-63>: recall a slot of the user bank",
+            "store [0-63], save: the voice into a slot (save: the last",
+            "  one), writes txuser-bank.syx (two TX81Z voice dumps)",
+            "userread [file], userwrite [file]: the user bank",
             "channel <0-16>: receive channel, 0 = omni",
             "tune <0-127>: master tune (64 = centre)",
             "rom <file>, nvram <file>: load (the nvram is only read)",
@@ -135,7 +142,7 @@ def build():
             "[txfm " + bus.replace(BS, "") + "] above: the FM editor, 7 rows of 8 controls = the "
             "Launchkey pages of txfmcc. On top: voice name, bank I A B C D and patch, the algorithm with "
             "its roles, random voices. [txedit " + bus.replace(BS, "") + "]: all 100 voice parameters in "
-            "rows of 8, voice name, program change, MIDI channel, user bank (txuser-bank.txt). Both work "
+            "rows of 8, voice name, program change, MIDI channel, user bank (txuser-bank.syx: 64 voices as two TX81Z voice bulk dumps, kept by the object). Both work "
             "on the same bus and stay in sync, click to open them.",
             "In your own patch: [r tx1] -> [tx81zn~ <rom> <nvram>] -> outlet 2 -> [s tx1-out], "
             "[txfm tx1], [txedit tx1], [r tx1-out] -> [txfmcc 0] -> [s tx1]."], True),

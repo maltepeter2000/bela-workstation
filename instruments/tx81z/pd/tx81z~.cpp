@@ -38,6 +38,11 @@
 //   The firmware sends ACED + VCED dumps when a voice is selected (PLAY SINGLE);
 //   tx81z~ reads them from its MIDI Out, so it always knows the current values.
 //
+// User bank (txbank.h, the same as tx81zn~): 64 voices in txuser-bank.syx beside the patch, two
+// TX81Z voice bulk dumps. user <0-63> recalls a slot into the edit buffer, userstep [n] the slot
+// n after the last one, store [0-63] puts the edit buffer into a slot and writes the file,
+// userread [file] / userwrite [file], init (the Init Voice). Answered with display <title> <value>.
+//
 // Outlets: left / right audio, messages:
 //   lcd <line1> <line2>   on every LCD change (symbols)
 //   led <1-4 bitmask>
@@ -65,6 +70,7 @@
 static t_class *tx81z_class;
 
 #include "txshared.h"
+#include "txbank.h"
 
 static const int GROUP_SIZE[2] = { 94, 23 };
 
@@ -116,6 +122,8 @@ struct t_tx81z
 	// resampler
 	double phase, step;
 	float hl[4], hr[4];
+	std::vector<uint8_t> *user;   // user bank: 64 voice records (txbank.h, txuser-bank.syx)
+	int last_user;                // slot recalled or stored last
 };
 
 static std::string resolve(t_tx81z *x, t_symbol *s)
@@ -910,6 +918,10 @@ static void *tx81z_new(t_symbol *, int argc, t_atom *argv)
 	x->lcd0 = new std::string();
 	x->lcd1 = new std::string();
 	x->dir = canvas_getdir(canvas_getcurrent());
+	x->user = new std::vector<uint8_t>();
+	x->last_user = 0;
+	txbank::clear(*x->user);
+	txbank::read(x, "tx81z~", find_nocase(resolve(x, gensym(txbank::FILE_NAME))), *x->user, true);
 	x->rom_loaded = false;
 	x->gain = 1.0f;
 	x->last_leds = 0xff;
@@ -984,6 +996,7 @@ static void tx81z_free(t_tx81z *x)
 	delete x->midi_out;
 	delete x->lcd0;
 	delete x->lcd1;
+	delete x->user;
 }
 
 static void tx81z_random(t_tx81z *x, t_symbol *s, t_floatarg seed)
@@ -995,6 +1008,76 @@ static void tx81z_random(t_tx81z *x, t_symbol *s, t_floatarg seed)
 		return;
 	}
 	send_voice(x, vc, ac);
+}
+
+// user bank (txbank.h): the same messages as tx81zn~, for the editor (txedit) and the pads.
+// save stays the battery RAM; store [slot] puts the edit buffer into the user bank.
+static void out_display(t_tx81z *x, const std::string &title, const std::string &value)
+{
+	t_atom a[2];
+	SETSYMBOL(&a[0], gensym(title.c_str()));
+	SETSYMBOL(&a[1], gensym(value.c_str()));
+	outlet_anything(x->out_msg, gensym("display"), 2, a);
+}
+
+static std::string record_name(const uint8_t *rec)
+{
+	std::string n(reinterpret_cast<const char *>(rec + 57), 10);
+	for (char &c : n) if (c < 32 || c > 126) c = ' ';
+	while (!n.empty() && n.back() == ' ') n.pop_back();
+	return n.empty() ? "-" : n;
+}
+
+static void tx81z_user(t_tx81z *x, t_floatarg f)
+{
+	int slot = int(f);
+	if (slot < 0 || slot >= txbank::SLOTS) { pd_error(x, "tx81z~: user 0-63"); return; }
+	const uint8_t *rec = x->user->data() + slot * txn::VOICE_RECORD;
+	uint8_t vc[93], ac[23];
+	txn::unpack_voice(rec, vc, ac);
+	x->last_user = slot;
+	send_voice(x, vc, ac);
+	out_display(x, "User " + txbank::slot_label(slot), record_name(rec));
+}
+
+static void tx81z_userstep(t_tx81z *x, t_floatarg f)
+{
+	int n = f == 0 ? 1 : int(f);
+	tx81z_user(x, float(((x->last_user + n) % txbank::SLOTS + txbank::SLOTS) % txbank::SLOTS));
+}
+
+static void tx81z_store(t_tx81z *x, t_symbol *, int argc, t_atom *argv)
+{
+	int slot = argc > 0 ? int(atom_getfloat(argv)) : x->last_user;
+	if (slot < 0 || slot >= txbank::SLOTS) { pd_error(x, "tx81z~: store 0-63"); return; }
+	uint8_t vc[93], ac[23];
+	for (int i = 0; i < 93; i++) { if (x->shadow[G_V][i] < 0) { pd_error(x, "tx81z~: voice not known yet (dumpreq first)"); return; } vc[i] = uint8_t(x->shadow[G_V][i]); }
+	for (int i = 0; i < 23; i++) { if (x->shadow[G_A][i] < 0) { pd_error(x, "tx81z~: voice not known yet (dumpreq first)"); return; } ac[i] = uint8_t(x->shadow[G_A][i]); }
+	txn::pack_voice(vc, ac, x->user->data() + slot * txn::VOICE_RECORD);
+	x->last_user = slot;
+	if (txbank::write(x, "tx81z~", resolve(x, gensym(txbank::FILE_NAME)), *x->user, 0))
+		out_display(x, "Stored", "User " + txbank::slot_label(slot));
+}
+
+static void tx81z_init(t_tx81z *x)
+{
+	uint8_t vc[93], ac[23];
+	txbank::init_voice(vc, ac);
+	send_voice(x, vc, ac);
+	out_display(x, "Init", "");
+}
+
+static void tx81z_userread(t_tx81z *x, t_symbol *, int argc, t_atom *argv)
+{
+	t_symbol *f = argc > 0 ? atom_getsymbol(argv) : gensym(txbank::FILE_NAME);
+	txbank::read(x, "tx81z~", find_nocase(resolve(x, f)), *x->user, false);
+}
+
+static void tx81z_userwrite(t_tx81z *x, t_symbol *, int argc, t_atom *argv)
+{
+	t_symbol *f = argc > 0 ? atom_getsymbol(argv) : gensym(txbank::FILE_NAME);
+	std::string p = resolve(x, f);
+	if (txbank::write(x, "tx81z~", p, *x->user, 0)) post("tx81z~: wrote %s", p.c_str());
 }
 
 extern "C" {
@@ -1034,6 +1117,12 @@ void tx81z_tilde_setup(void)
 	class_addmethod(tx81z_class, (t_method)tx81z_getvoice, gensym("getvoice"), A_NULL);
 	class_addmethod(tx81z_class, (t_method)tx81z_random, gensym("random"), A_SYMBOL, A_DEFFLOAT, A_NULL);
 	class_addmethod(tx81z_class, (t_method)tx81z_voicedata, gensym("voicedata"), A_GIMME, A_NULL);
+	class_addmethod(tx81z_class, (t_method)tx81z_user, gensym("user"), A_FLOAT, A_NULL);
+	class_addmethod(tx81z_class, (t_method)tx81z_userstep, gensym("userstep"), A_DEFFLOAT, A_NULL);
+	class_addmethod(tx81z_class, (t_method)tx81z_store, gensym("store"), A_GIMME, A_NULL);
+	class_addmethod(tx81z_class, (t_method)tx81z_init, gensym("init"), A_NULL);
+	class_addmethod(tx81z_class, (t_method)tx81z_userread, gensym("userread"), A_GIMME, A_NULL);
+	class_addmethod(tx81z_class, (t_method)tx81z_userwrite, gensym("userwrite"), A_GIMME, A_NULL);
 	class_addanything(tx81z_class, (t_method)tx81z_anything);
 }
 }
