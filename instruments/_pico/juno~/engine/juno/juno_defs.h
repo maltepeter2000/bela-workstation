@@ -431,6 +431,12 @@
 #define JUNO_CHORUS_III_HZ    9.75f    /* I+II, mono */
 #define JUNO_CHORUS_BUF_MS    8.0f
 /* juno~: the Juno-106 model's chorus, measured on Cherry Audio's DCO-106. */
+/* juno~: the largest hiss of the chorus lines, white, before their output
+ * filters. */
+#define JUNO_BBD_NOISE_MAX         0.004f
+/* juno~: the Juno-106's D/A cycle, after which every CV is rewritten. */
+#define JUNO106_CV_PERIOD_S        0.0042f
+#define JUNO106_CV_SMOOTH_S        0.0003f
 #define JUNO106_CHORUS_I_HZ        1.00f
 #define JUNO106_CHORUS_II_HZ       1.84f
 #define JUNO106_CHORUS_I_SPAN_MS   1.94f

@@ -102,12 +102,35 @@ void Juno::setModel106(bool on)
     model106_  = on;
     subTrim_   = on ? 2.15f : 1.0f;
     noiseTrim_ = on ? 3.40f : 1.0f;
-    for (int i = 0; i < JUNO_VOICES; ++i) voice_[i].setEnvTimeScale(on ? 2.0f : 1.0f);
+    for (int i = 0; i < JUNO_VOICES; ++i) {
+        voice_[i].setEnvTimeScale(on ? 2.0f : 1.0f);
+        voice_[i].setCvStep(on ? (int) (JUNO106_CV_PERIOD_S * samplerate_ + 0.5f) : 0,
+                            1.0f - expf(-1.0f / (JUNO106_CV_SMOOTH_S * samplerate_)));
+    }
     lfo_.setDelayScale(on ? 2.0f : 1.0f);
     hpf_.setModel106(on);
     chorus_.setModel106(on);
     applyParameter(JUNO_DCO_SUB_LEVEL);
     applyParameter(JUNO_DCO_NOISE);
+}
+
+/* juno~ addition: each voice card's own calibration. Fixed offsets per card,
+ * scaled by amount: at 1 up to +-4 cents, +-0.25 octave of cutoff, +-10 %
+ * resonance and +-1 dB level. */
+void Juno::setCalibration(float amount)
+{
+    static const float kDev[JUNO_VOICES][4] = {
+        {  0.62f, -0.41f,  0.35f, -0.70f }, { -0.88f,  0.73f, -0.52f,  0.24f },
+        {  0.15f,  0.94f,  0.81f,  0.57f }, { -0.47f, -0.85f, -0.19f, -0.93f },
+        {  0.97f,  0.12f, -0.76f,  0.41f }, { -0.29f, -0.58f,  0.66f, -0.18f },
+    };
+    for (int i = 0; i < JUNO_VOICES; ++i) {
+        const float* d = kDev[i];
+        voice_[i].setCalibration(exp2f(amount * d[0] * 4.0f / 1200.0f),
+                                 amount * d[1] * 0.25f,
+                                 1.0f + amount * d[2] * 0.10f,
+                                 powf(10.0f, amount * d[3] / 20.0f));
+    }
 }
 
 void Juno::applyParameter(int id)

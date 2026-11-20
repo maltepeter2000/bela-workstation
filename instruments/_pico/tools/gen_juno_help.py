@@ -105,7 +105,7 @@ LAYER = [
     "message and sends every change made elsewhere back to the controller "
     "as CC. Its argument is the MIDI channel, and it follows the channels "
     "juno~ reports.",
-    "junoedit is the editor: click it in the object area above. All 30 "
+    "junoedit is the editor: click it in the object area above. All 33 "
     "controls in rows of 8, the factory presets and the user bank, the "
     "MIDI channels and SysEx. It explains itself in its readme.",
     "All names are listed at the end of this patch with their CC numbers.",
@@ -203,9 +203,9 @@ def blocks():
     for title, names in T.CC_ROWS[1:]:
         groups = [[(n,) + rng(n) for n in names[k:k + 4]] for k in range(0, len(names), 4)]
         intro = []
-        if title == "SETUP":
+        if title in ("SETUP", "VOICES"):
             intro = ["These belong to the instrument and are not stored in a patch."]
-        nice = {"DCO": "DCO", "LFO / VCF / VCA": "LFO VCF VCA", "SETUP": "Setup"}[title]
+        nice = {"DCO": "DCO", "LFO / VCF / VCA": "LFO VCF VCA", "SETUP": "Setup", "VOICES": "Voices"}[title]
         out.append((nice, groups, [], intro + [para(n) for n in names]))
     return out
 

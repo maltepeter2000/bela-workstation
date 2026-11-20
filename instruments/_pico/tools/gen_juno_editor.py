@@ -35,7 +35,7 @@ TOP = BAND_Y + BAND_H + 10
 X1 = X0 + 8 * CW + 30
 BAND = ("#ececec", "#dcdcdc")
 # The row that is not stored in a patch gets its own tint.
-TINT = {"SETUP": ("#f3ecdf", "#e8dfcc")}
+TINT = {"SETUP": ("#f3ecdf", "#e8dfcc"), "VOICES": ("#f3ecdf", "#e8dfcc")}
 
 
 def label(nm):

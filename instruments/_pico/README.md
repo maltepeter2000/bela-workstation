@@ -125,7 +125,7 @@ velocity, bend, program change, CC 1 7 64 and Juno-106 SysEx.
 
 ### Controls
 
-30 controls, one name each (`tools/juno_params.py` is the single table):
+33 controls, one name each (`tools/juno_params.py` is the single table):
 
 | Page | CC | Controls |
 |---|---|---|
@@ -133,9 +133,12 @@ velocity, bend, program change, CC 1 7 64 and Juno-106 SysEx.
 | 2 DCO | 28–31, 33–36 | `range pulse saw sub noise pwm pwmmode dcolfo` |
 | 3 LFO / VCF / VCA | 37, 39–45 | `lforate lfodelay vcflfo kybd envpol hpf level vcamode` |
 | 4 SETUP | 46–52 | `volume tune bend octave vellevel velcutoff model` |
+| 5 VOICES | 53–54 | `calibrate chorusnoise` |
 
 Pages 1 to 3 are the patch: the 16 sliders (0–127) and 8 switches of a
-Juno-106. Page 4 belongs to the instrument and is not stored. `<name> <value>`
+Juno-106. Pages 4 and 5 belong to the instrument and are not stored: `calibrate`
+lets the six voices drift apart in tuning, cutoff, resonance and level as on an
+instrument out of calibration, `chorusnoise` adds the hiss of the chorus lines. `<name> <value>`
 sets a control, `n <name> <0-127>` sets it from a pot, and every change is
 reported as `info <name> <0-127> <text>`. Edits are heard at once.
 `[junocc <channel>]` is the controller layer, `[junoedit <bus>]` the editor.
@@ -149,7 +152,8 @@ about 104), the contour's depth (linear, 10 octaves) and times (decay and releas
 15 s), LFO rate (0.1 to 20 Hz), delay and depth, the VCF LFO, the pulse width (down to 5 %), the
 VCA level, the high-pass (position 0 a small bass lift, 1 flat, 2 and 3 at 226 and 720 Hz, as in
 the Juno-106 service notes), the chorus (twice the rate over half the sweep), and the sub and
-noise levels. The model is the Juno-60 engine with remapped sliders (`juno~/juno106_tables.h`,
+noise levels. In this model the contour and the LFO move in the steps of the Juno-106's
+D/A cycle (4.2 ms). The model is the Juno-60 engine with remapped sliders (`juno~/juno106_tables.h`,
 from `tools/make_juno106_tables.py`) and a few switches in the engine. Like the other setup
 controls it is not stored in a patch.
 

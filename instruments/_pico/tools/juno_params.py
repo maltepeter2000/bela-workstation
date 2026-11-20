@@ -58,6 +58,11 @@ SETTINGS = [
      "which Juno the patch plays on: the Juno-60, or the Juno-106 as measured on Cherry Audio's "
      "DCO-106 (cutoff and resonance, contour times and depth, LFO, high-pass, chorus, sub and "
      "noise levels, pulse width, VCA level)"),
+    ("calibrate", 0, 127, 0, "Calibrate", "",
+     "how far the six voices drift apart, as on an instrument out of calibration: each voice "
+     "its own tuning, cutoff, resonance and level. 0 is six identical voices"),
+    ("chorusnoise", 0, 127, 0, "Chorus hiss", "",
+     "hiss of the chorus lines, heard while the chorus is on. 0 is none"),
 ]
 
 # Controller pages (row k = CC page k of tools/ctlayer.py).
@@ -67,6 +72,7 @@ CC_ROWS = [
     ("LFO / VCF / VCA", ["lforate", "lfodelay", "vcflfo", "kybd", "envpol", "hpf", "level",
                          "vcamode"]),
     ("SETUP", ["volume", "tune", "bend", "octave", "vellevel", "velcutoff", "model"]),
+    ("VOICES", ["calibrate", "chorusnoise"]),
 ]
 EXTRA_ROWS = []
 ALL_ROWS = CC_ROWS + EXTRA_ROWS

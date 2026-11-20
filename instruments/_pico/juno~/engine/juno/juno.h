@@ -62,6 +62,10 @@ public:
     void setModel106(bool on);
     void setLfoRateHz(float hz) { lfo_.setRateHz(hz > 0.0f ? hz : 0.0f); }
     void setVcaGain(float g) { vcaGain_ = g; applyParameter(JUNO_VCA_LEVEL); }
+    /* juno~ additions: spread between the six voice cards, 0..1 (0 = all
+     * alike), and the hiss of the chorus lines, 0..1. */
+    void setCalibration(float amount);
+    void setChorusNoise(float amount) { chorus_.setNoise(amount); }
     void resetVoices();
     void stopVoices();
     void resetControllers();

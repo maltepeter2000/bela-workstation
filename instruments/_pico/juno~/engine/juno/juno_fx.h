@@ -57,6 +57,9 @@ public:
     void reset();
     void setMode(int mode);
     void setModel106(bool on) { model106_ = on; setMode(mode_); }   /* juno~ addition */
+    /* juno~ addition: hiss of the bucket-brigade lines, 0..1. Added inside
+     * each line, so the output filters shape it as they do the signal. */
+    void setNoise(float amount) { noise_ = amount * amount * JUNO_BBD_NOISE_MAX; }
 
     bool isOff() const { return mode_ == JUNO_CH_OFF; }
 
@@ -75,6 +78,8 @@ private:
     float    maxMs_ = JUNO_CHORUS_MAX_MS;
     bool     mono_  = false;
     bool     model106_ = false;
+    float    noise_ = 0.0f;
+    JunoNoise hissL_, hissR_;
     int      mode_  = JUNO_CH_OFF;
     /* juno~ change: the filters of the chorus board (service notes p. 11).
      * Ahead of the lines R15/C7 (7.2 kHz) and the two Sallen-Key stages

@@ -13,6 +13,8 @@
 void JunoChorus::init(float sampleRate)
 {
     sr_ = sampleRate;
+    hissL_.seed(0x5bd1e995u);
+    hissR_.seed(0x27d4eb2du);
     /* juno~ change: the chorus board's filters. Each Sallen-Key stage has
      * 22k + 22k with C1 in the feedback and C2 to ground, so
      *   f0 = 1 / (2 pi 22k sqrt(C1 C2)),  Q = sqrt(C1 / C2) / 2:
@@ -117,6 +119,10 @@ void JunoChorus::process(float* l, float* r, int n)
         float wetL = buf_[0][aL] + (buf_[0][bL] - buf_[0][aL]) * fL;
         float wetR = buf_[1][aR] + (buf_[1][bR] - buf_[1][aR]) * fR;
 
+        if (noise_ > 0.0f) {
+            wetL += noise_ * hissL_.white();
+            wetR += noise_ * hissR_.white();
+        }
         wetL = outSk_[0][1].process(outSk_[0][0].process(wetL));
         wetR = outSk_[1][1].process(outSk_[1][0].process(wetR));
 

@@ -362,6 +362,8 @@ struct Synth::Impl {
         set(JUNO_LFO_TRIG, step(0, 2));
         set(JUNO_ARP_ON, 0.0f);
         set(JUNO_HOLD, 0.0f);
+        engine.setCalibration(static_cast<float>(setting[kSet_calibrate]) / 127.0f);
+        engine.setChorusNoise(static_cast<float>(setting[kSet_chorusnoise]) / 127.0f);
         engine.setVelocitySens(static_cast<float>(setting[kSet_vellevel]) / 127.0f,
                                static_cast<float>(setting[kSet_velcutoff]) / 127.0f);
     }

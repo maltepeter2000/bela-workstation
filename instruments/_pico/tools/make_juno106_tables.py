@@ -54,6 +54,7 @@ DCO106 = {
 ENV_OCT_PER_STEP = 0.0788          # the 106's contour depth is linear: 127 -> 10 octaves
 VCF_LFO = (2.76, 3.07)             # +- octaves = 2.76 * (v/127)^3.07
 TIME_SCALE = 2.0                   # contour and LFO delay times of the engine in this model
+ATTACK_CORR = 0.85                 # see main()
 
 
 def interp(points, x, log=False):
@@ -107,7 +108,10 @@ def main():
     tabs["Env"] = table(lambda b: 0.0 if b == 0 else invert(env_oct, ENV_OCT_PER_STEP * b))
     tabs["VcfLfo"] = table(lambda b: 0.0 if b == 0 else invert(J["vcflfo"], VCF_LFO[0] * (b / 127.0) ** VCF_LFO[1]))
     for k in ("attack", "decay", "release"):
-        cur = [(v, m * TIME_SCALE) for v, m in J[k] if m == m and m > 0]
+        # The attack of the 60's curve, doubled, comes out about 15 % long once it runs in the
+        # 106 model (measured on the result): the target is shortened by that much.
+        corr = ATTACK_CORR if k == "attack" else 1.0
+        cur = [(v, m * TIME_SCALE / corr) for v, m in J[k] if m == m and m > 0]
         tabs[k.capitalize()] = table(lambda b, k=k, cur=cur: 0.0 if b == 0 else invert(cur, interp(DCO106[k], b, log=True), log=True))
     cur = [(v, m * TIME_SCALE) for v, m in J["lfodelay"]]
     tabs["LfoDelay"] = table(lambda b: 0.0 if b == 0 else invert(cur, interp(DCO106["lfodelay"], b)))

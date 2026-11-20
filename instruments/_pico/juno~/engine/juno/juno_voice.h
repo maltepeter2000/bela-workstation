@@ -173,16 +173,33 @@ public:
      * low-pass on a held signal: aliasing as at 1x, and highs taken away. */
     void process(const JunoVoiceParams& p, float lfo, float lfoRaw, float* acc)
     {
-        const float e = env_.process();
+        float e = env_.process();
         /* The filter always gets the contour; only the amplifier is switched. */
-        const float a = gateMode_ ? amp_.process() : e;
+        float a = gateMode_ ? amp_.process() : e;
 
         if (env_.isIdle()) {
             active_ = false;
             return;
         }
 
-        dco_.setIncrement(baseInc_);
+        /* juno~ addition, Juno-106 model: the contour and the LFO are
+         * computed by the CPU and reach the voice through sample-and-holds
+         * that are rewritten once per D/A cycle (4.2 ms, service notes p. 8),
+         * so they move in steps. The hold capacitors round the steps a
+         * little. */
+        if (cvStep_ > 0) {
+            if (--cvCount_ <= 0) {
+                cvCount_ = cvStep_;
+                hE_ = e; hA_ = a; hLfo_ = lfo; hRaw_ = lfoRaw;
+            }
+            sE_ += cvSmooth_ * (hE_ - sE_);
+            sA_ += cvSmooth_ * (hA_ - sA_);
+            sLfo_ += cvSmooth_ * (hLfo_ - sLfo_);
+            sRaw_ += cvSmooth_ * (hRaw_ - sRaw_);
+            e = sE_; a = sA_; lfo = sLfo_; lfoRaw = sRaw_;
+        }
+
+        dco_.setIncrement(baseInc_ * calPitch_);   /* juno~: calPitch_ */
 
         /* --- Pulse width ------------------------------------------------ */
         /* The mode selector decides what moves it: the LFO, nothing, or the
@@ -211,10 +228,10 @@ public:
                   + p.lfoOct * lfo
                   + p.keyFollow * ((float) note_ - (float) JUNO_CENTER_NOTE)
                                 * (1.0f / 12.0f)
-                  + velOct_;
+                  + velOct_ + calOct_;   /* juno~: calOct_ */
 
         vcf_.setCutoffOct(oct);
-        vcf_.setResonance(p.resonance);
+        vcf_.setResonance(p.resonance * calRes_);   /* juno~: calRes_ */
 
         /* --- Audio ------------------------------------------------------ */
         /* juno~ addition: the wheel's share, from the LFO before its delay. */
@@ -231,7 +248,7 @@ public:
          * oscillation" for a sound source and which carry no waveform at all
          * -- are silent. It sits inside the loop, where the original's is.
          * Far too quiet to hear on a patch that has an oscillator. */
-        const float gain = a * velGain_;
+        const float gain = a * velGain_ * calGain_;   /* juno~: calGain_ */
         for (int os = 0; os < JUNO_OVERSAMPLE; ++os)
             acc[os] += gain * vcf_.process(dco_.process(pitchMul) * 0.4f
                                            + hiss_.white() * JUNO_VCF_NOISE_FLOOR);
@@ -248,6 +265,25 @@ private:
     float baseInc_ = 0.0f;
     bool  active_  = false;
     float velGain_ = 1.0f;     /* juno~ addition */
+public:
+    /* juno~ additions. CV steps in samples (0 = continuous) and the rounding
+     * of the hold capacitors as a one-pole coefficient. */
+    void setCvStep(int samples, float smooth)
+    {
+        cvStep_ = samples; cvCount_ = 0; cvSmooth_ = smooth;
+    }
+    /* This voice card's own calibration: pitch as a ratio, cutoff in
+     * octaves, resonance and level as factors. */
+    void setCalibration(float pitch, float oct, float res, float gain)
+    {
+        calPitch_ = pitch; calOct_ = oct; calRes_ = res; calGain_ = gain;
+    }
+private:
+    int   cvStep_ = 0, cvCount_ = 0;
+    float cvSmooth_ = 1.0f;
+    float hE_ = 0.0f, hA_ = 0.0f, hLfo_ = 0.0f, hRaw_ = 0.0f;
+    float sE_ = 0.0f, sA_ = 0.0f, sLfo_ = 0.0f, sRaw_ = 0.0f;
+    float calPitch_ = 1.0f, calOct_ = 0.0f, calRes_ = 1.0f, calGain_ = 1.0f;
     float velOct_  = 0.0f;
     bool  held_    = false;
     bool       gateMode_ = false;
