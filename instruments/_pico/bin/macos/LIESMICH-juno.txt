@@ -3,7 +3,7 @@ mit Patch-Format und SysEx des Juno-106
 
 1. Einen Ordner "juno~" anlegen, z. B. in ~/Documents/Pd/externals, und
    hineinkopieren: juno~.pd_darwin, juno~-help.pd, junocc.pd, junopads.pd,
-   junoedit.pd.
+   junoedit.pd, lkdisplay.pd.
    Weitere Dateien braucht es nicht, die 56 Werksklänge sind eingebaut.
 2. In Pd: Datei > Einstellungen > Pfad: diesen Ordner hinzufügen (oder den
    Hilfe-Patch direkt aus dem Ordner öffnen).
@@ -45,7 +45,10 @@ mit Patch-Format und SysEx des Juno-106
    save speichert in den zuletzt gewählten User-Platz und schreibt die Datei.
    juno~ selbst auf Kanal 1 stellen (macht der Hilfe-Patch), sonst spielen
    die Pads Noten.
-10. Anschlagstärke: vellevel und velcutoff auf Seite 4, 0 = aus wie beim
+10. Launchkey-Display: [lkdisplay] schickt den Namen und Wert des gedrehten
+   Reglers und den Patchnamen als SysEx an den Launchkey (eigene Firmware
+   mit Display-Text nötig). Im Hilfe-Patch hängt es schon am [midiout].
+11. Anschlagstärke: vellevel und velcutoff auf Seite 4, 0 = aus wie beim
    Original.
 
 Falls macOS das Laden blockiert ("kann nicht geöffnet werden" / "beschädigt"),
