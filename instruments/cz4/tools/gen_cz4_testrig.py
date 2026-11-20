@@ -52,8 +52,10 @@ def build():
     p = P()
     p.text(20, 40, "cz4~ against Arturia CZ V: comparison recordings", 0)
     howto = [
-        "1. Import test/tones/test01.syx ... test12.syx into CZ V (or the whole "
-        "test/cz4test-bank.syx). "
+        "1. Import the test tones into CZ V: test/tones/cz101/test01.syx ... test12.syx "
+        "(CZ-101 data, the usual form). If CZ V does not take them, try tones/dump, tones/cz1 "
+        "or tones/cz1dump, or the banks test/cz4test-bank-*.syx. With CZ-101 data set the "
+        "velocity by hand for test 5 (DCA 15, DCW 8 on line 1). "
         "Leave the CZ V settings at their defaults (volume, effects off, no unison, poly).",
         "2. Route: Pd MIDI out -> CZ V MIDI in (IAC driver on the Mac), CZ V audio out -> Pd "
         "audio in 1+2 (a loopback such as BlackHole 2ch, or the interface). The meter below "

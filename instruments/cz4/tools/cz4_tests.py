@@ -75,6 +75,8 @@ TESTS = [
     dict(name="T05 VELOCITY", length=9000, measure="velocity",
          about="CZ-1 velocity on the DCA (15) and DCW (8), DCW static at 40: the same note "
                "at velocities 127, 100, 80, 60, 40, 20, 1.",
+         czv="If the tone came as CZ-101 data (128 bytes): set the velocity of the DCA "
+             "envelope of line 1 to 15 and of the DCW envelope to 8.",
          tone=[("VELA", 0, 0, 15), ("VELW", 0, 0, 8)] + env(0, DCW, [(99, 40), (99, 0)], 1),
          events=[e for k, v in enumerate((127, 100, 80, 60, 40, 20, 1))
                  for e in held(57, k * 1200, k * 1200 + 800, v)]),
@@ -166,10 +168,31 @@ def make_tone(lib, ids, settings, name):
     return b
 
 
-def syx(lib, tone, prog):
-    out = (ctypes.c_uint8 * 400)()
-    n = lib.cz_syx_tone(tone, 0, prog, 1, out)
-    return bytes(out[:n])
+# The same tone in the forms CZ files come in. Which one a program reads differs:
+#   cz101   F0 44 00 00 70 20 pp + 256 nibbles (128 bytes) + F7   a computer sending to a CZ-101
+#           (receive request with the data in the same message): most CZ files on the net
+#   dump    F0 44 00 00 70 30 + 256 nibbles + F7                    what a CZ sends when asked
+#   cz1     F0 44 00 00 70 21 pp + 288 nibbles (144 bytes) + F7   a CZ-1 tone with name, line
+#           levels and velocity (as melodee's editor and cz4~ write it)
+#   cz1dump F0 44 00 00 70 30 + 288 nibbles + F7
+FORMATS = ("cz101", "dump", "cz1", "cz1dump")
+
+
+def syx(lib, tone, prog, form="cz1"):
+    data = bytearray(bytes(tone))
+    n = 128 if form in ("cz101", "dump") else 144
+    if n == 128:
+        # plain CZ-101 data: without the CZ-1's line levels and velocity nibbles
+        for o in (14, 71):
+            data[o + 2] &= 0x0F
+            for e in (6, 23, 40):
+                data[o + e] &= 0x0F
+    nib = b"".join(bytes((x & 15, x >> 4)) for x in data[:n])
+    if form in ("cz101", "cz1"):
+        head = bytes((0xF0, 0x44, 0, 0, 0x70, 0x20 if n == 128 else 0x21, prog))
+    else:
+        head = bytes((0xF0, 0x44, 0, 0, 0x70, 0x30))
+    return head + nib + b"\xF7"
 
 
 def sequence_text(t):
@@ -195,14 +218,21 @@ def sequence_text(t):
 
 if __name__ == "__main__":
     os.makedirs(os.path.join(OUT, "seq"), exist_ok=True)
-    os.makedirs(os.path.join(OUT, "tones"), exist_ok=True)
+    for f in FORMATS:
+        os.makedirs(os.path.join(OUT, "tones", f), exist_ok=True)
+    for old in os.listdir(os.path.join(OUT, "tones")):
+        if old.endswith(".syx"):
+            os.remove(os.path.join(OUT, "tones", old))
     lib, ids = cz_lib(), czp_ids()
-    bank = b""
+    banks = {f: b"" for f in FORMATS}
     for k, t in enumerate(TESTS):
         tone = make_tone(lib, ids, t["tone"], t["name"])
-        # bank: program 0x20 + k = user slot k of cz4~
-        bank += syx(lib, tone, 0x20 + k)
-        open(os.path.join(OUT, "tones", f"test{k + 1:02d}.syx"), "wb").write(syx(lib, tone, 0x60))
+        for f in FORMATS:
+            # banks: program 0x20 + k (user slot k of cz4~), single tones: 0x60
+            banks[f] += syx(lib, tone, 0x20 + k, f)
+            open(os.path.join(OUT, "tones", f, f"test{k + 1:02d}.syx"), "wb").write(syx(lib, tone, 0x60, f))
         open(os.path.join(OUT, "seq", f"test{k + 1:02d}.txt"), "w").write(sequence_text(t))
-    open(os.path.join(OUT, "cz4test-bank.syx"), "wb").write(bank)
-    print(f"wrote {len(TESTS)} test tones and sequences to {OUT}")
+    for f in FORMATS:
+        name = "cz4test-bank.syx" if f == "cz1" else f"cz4test-bank-{f}.syx"
+        open(os.path.join(OUT, name), "wb").write(banks[f])
+    print(f"wrote {len(TESTS)} test tones in {len(FORMATS)} formats and the sequences to {OUT}")

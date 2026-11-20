@@ -78,7 +78,7 @@ Nothing is needed. Every `.syx` beside the external is read for CZ tones (CZ-101
 
 ### Comparison with Arturia CZ V (or a real CZ)
 
-`cz4/cz4test.pd` plays 12 test sequences to CZ V over MIDI and to `cz4~` at the same time and records both (`test/rec/czv-testNN.wav`, `cz4-testNN.wav`). The test tones are in `cz4/test/tones/` (one `.syx` per test) and `cz4/test/cz4test-bank.syx`: import them into CZ V. They isolate one property each: DCA rates and level law, DCW sweep, pitch envelope, vibrato with wheel and aftertouch, CZ-1 velocity, key follow, portamento and bend, ring and noise modulation, fine detune, resonance, level of chords. `python3 tools/cz_compare.py cz4/test/rec` measures both sides and writes `report.md` with plots. Tests, tones and sequences come from `tools/cz4_tests.py`, the patch from `tools/gen_cz4_testrig.py`.
+`cz4/cz4test.pd` plays 12 test sequences to CZ V over MIDI and to `cz4~` at the same time and records both (`test/rec/czv-testNN.wav`, `cz4-testNN.wav`). The test tones are in `cz4/test/tones/` in four SysEx forms (`cz101`: 128 bytes as a computer sends them to a CZ-101, the usual form of CZ files; `dump`: as a CZ sends them; `cz1`, `cz1dump`: the CZ-1's 144 bytes), one `.syx` per test, and as banks `cz4test-bank*.syx`: import the form CZ V takes. They isolate one property each: DCA rates and level law, DCW sweep, pitch envelope, vibrato with wheel and aftertouch, CZ-1 velocity, key follow, portamento and bend, ring and noise modulation, fine detune, resonance, level of chords. `python3 tools/cz_compare.py cz4/test/rec` measures both sides and writes `report.md` with plots. Tests, tones and sequences come from `tools/cz4_tests.py`, the patch from `tools/gen_cz4_testrig.py`.
 
 ## Build
 
