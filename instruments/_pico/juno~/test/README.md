@@ -16,3 +16,9 @@ mode, bend range irrelevant. SysEx reception on (on a Juno-106: function switch 
 
 The synth must receive the SysEx: a DAW that drops SysEx on its way to plugins (Ableton Live)
 will not do; use the instrument's standalone application with the MIDI port as its input.
+
+`juno106test2.pd` is a second pass (57 steps, about five minutes): the filter frequency over the
+whole cutoff range, key follow, envelope depth and VCF LFO measured on the self-oscillating
+filter, the resonance threshold, the chorus on a sine, the bass end of the high-pass, and long
+envelope and LFO times. Open only one of the two patches at a time; they share their receive
+names.

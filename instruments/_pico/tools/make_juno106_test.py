@@ -86,8 +86,42 @@ for lv in (32, 64, 127):
 step("sync", "C4 open sawtooth (end)", [60], 0.5, 1.5)
 
 
-def main():
-    os.makedirs(OUT, exist_ok=True)
+STEPS_1 = STEPS
+STEPS = []
+# ---- second pass: what the first one could not measure, or measured through the
+# demo noise of the plug-in. Self-oscillation (no oscillator, res 127) gives the
+# filter's frequency directly.
+step("sync", "C4 open sawtooth", [60], 0.5, 1.5)
+for c in range(0, 128, 8):
+    step("selfosc_curve", f"self-oscillation, cutoff {c}", [60], 2.5 if c < 24 else 1.5, 0.5, saw=0, res=127, cutoff=c)
+step("selfosc_curve", "self-oscillation, cutoff 127", [60], 1.5, 0.5, saw=0, res=127, cutoff=127)
+for r in (100, 104, 108, 112, 116, 120):
+    step("threshold", f"no oscillator, cutoff 64, res {r}", [60], 1.5, 0.5, saw=0, res=r, cutoff=64)
+for k in (127, 64, 32):
+    for n in (36, 60, 84):
+        step("kybd_so", f"self-oscillation, cutoff 48, kybd {k}, note {n}", [n], 1.5, 0.5, saw=0, res=127, cutoff=48, kybd=k)
+for e in (16, 32, 64, 96, 127):
+    step("env_so", f"self-oscillation, cutoff 0, env {e}, sustain 127", [60], 1.5, 0.5, saw=0, res=127, cutoff=0, env=e)
+for v in (32, 64, 127):
+    step("vcflfo_so", f"self-oscillation, cutoff 64, vcflfo {v}, rate 64", [60], 4.0, 0.5, saw=0, res=127, cutoff=64, vcflfo=v)
+for ch in (1, 2):
+    step("chorus_so", f"self-oscillation, cutoff 72, chorus {['', 'I', 'II'][ch]}", [60], 8.0, 0.5, saw=0, res=127, cutoff=72, chorus=ch)
+for h in (0, 1):
+    step("hpf_low", f"C1 sawtooth, hpf {h}", [24], 2.0, 0.5, hpf=h)
+for a in (64, 96):
+    step("attack", f"attack {a}", [48], 5.0, 1.0, attack=a)
+for d in (96, 112, 127):
+    step("decay", f"decay {d} sustain 0", [48], 22.0, 1.0, decay=d, sustain=0)
+for r in (112, 127):
+    step("release", f"release {r}", [48], 0.5, 22.0, release=r)
+for r, hold in ((0, 12.0), (16, 6.0), (127, 3.0)):
+    step("lforate", f"LFO rate {r}, dcolfo 64", [60], hold, 0.5, lforate=r, dcolfo=64)
+step("dcolfo", "dcolfo 32, rate 64", [60], 4.0, 0.5, dcolfo=32)
+step("sync", "C4 open sawtooth (end)", [60], 0.5, 1.5)
+STEPS_2 = STEPS
+
+
+def build(STEPS, name):
     lines, plan, t, last = [], [], 1.0, 0.0
     for group, label, ov, notes, hold, tail in STEPS:
         p = dict(BASE, **ov)
@@ -104,8 +138,8 @@ def main():
                          on=round(on, 3), off=round(off, 3)))
         t = off + tail
     lines.append(f"{round((t - last) * 1000)} j106done bang;")
-    open(os.path.join(OUT, "juno106test.txt"), "w").write("\n".join(lines) + "\n")
-    json.dump(dict(length=round(t, 2), steps=plan), open(os.path.join(OUT, "juno106test.json"), "w"), indent=1)
+    open(os.path.join(OUT, name + ".txt"), "w").write("\n".join(lines) + "\n")
+    json.dump(dict(length=round(t, 2), steps=plan), open(os.path.join(OUT, name + ".json"), "w"), indent=1)
     pd = """#N canvas 100 80 680 560 12;
 #X text 20 14 juno106test - plays the Juno-106 measurement through midiout;
 #X text 20 40 1) Pd MIDI output: the port that reaches the synth (e.g. IAC). 2) Pd audio input: the synth's output (e.g. BlackHole) - or record elsewhere and leave rec off. 3) Click start. Patches go out as Juno-106 SysEx \\, notes on channel 1. About %d seconds. With rec on \\, juno106test-rec.wav is written next to this patch., f 76;
@@ -179,8 +213,14 @@ def main():
 #X connect 31 0 32 0;
 #X connect 25 0 33 0;
 """ % round(t)
-    open(os.path.join(OUT, "juno106test.pd"), "w").write(pd)
-    print(f"{len(plan)} steps, {t:.0f} s")
+    open(os.path.join(OUT, name + ".pd"), "w").write(pd.replace("juno106test", name))
+    print(f"{name}: {len(plan)} steps, {t:.0f} s")
+
+
+def main():
+    os.makedirs(OUT, exist_ok=True)
+    build(STEPS_1, "juno106test")
+    build(STEPS_2, "juno106test2")
 
 
 if __name__ == "__main__":
