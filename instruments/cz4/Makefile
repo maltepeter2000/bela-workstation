@@ -80,7 +80,9 @@ mac-zig:
 	$(LIPO) -create $(MACDIR)/cz1.aarch64 $(MACDIR)/cz1.x86_64 -output '$(MACDIR)/cz1~.pd_darwin'
 	$(LIPO) -create $(MACDIR)/cz4.aarch64 $(MACDIR)/cz4.x86_64 -output '$(MACDIR)/cz4~.pd_darwin'
 	rm -f $(MACDIR)/*.aarch64 $(MACDIR)/*.x86_64 $(MACDIR)/*.o
-	cp 'cz1/cz1~-help.pd' 'cz4/cz4~-help.pd' cz4/cz4cc.pd cz4/cz4edit.pd $(MACDIR)/
+	cp 'cz1/cz1~-help.pd' 'cz4/cz4~-help.pd' cz4/cz4cc.pd cz4/cz4edit.pd cz4/cz4test.pd $(MACDIR)/
+	mkdir -p $(MACDIR)/test && cp -r cz4/test/seq cz4/test/tones cz4/test/cz4test-bank.syx $(MACDIR)/test/
+	cp tools/cz_compare.py tools/cz4_tests.py $(MACDIR)/test/
 	cd dist && rm -f cz-macos-universal.zip && zip -qr cz-macos-universal.zip macos
 
 test: cz_test tone_test cz4_render
@@ -104,6 +106,8 @@ generate:
 	python3 tools/gen_cz4_editor.py
 	python3 tools/gen_cz4_help.py
 	python3 tools/gen_cz1_help.py 'cz1/cz1~-help.pd'
+	python3 tools/cz4_tests.py
+	python3 tools/gen_cz4_testrig.py
 
 clean:
 	rm -f cz_test tone_test cz4_render *.o cz4/*.o 'cz1/cz1~.pd_linux' 'cz1/cz1~.pd_darwin' \

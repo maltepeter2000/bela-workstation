@@ -8,3 +8,4 @@ dist/
 tone_test
 cz4_render
 __pycache__/
+cz4/test/rec/

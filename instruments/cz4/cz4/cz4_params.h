@@ -16,7 +16,7 @@ static const Control kControls[] = {
     {"wave", 'L', CZP_WAVE, 0, 7, 0, "Wave", "saw|square|pulse|null|dsine|sawpuls|reso|pulse2"},
     {"wave2", 'L', CZP_WAVE2, 0, 8, 0, "Wave 2", "off|saw|square|pulse|null|dsine|sawpuls|reso|pulse2"},
     {"window", 'L', CZP_WINDOW, 0, 7, 0, "Window", "off|saw|tri|trap|pulse|dsaw|dsaw6|dsaw7"},
-    {"mod", 'T', CZP_MOD, 0, 2, 0, "Modulation", "off|ring|noise"},
+    {"ringmod", 'T', CZP_MOD, 0, 2, 0, "Modulation", "off|ring|noise"},
     {"octave", 'T', CZP_OCTAVE, -1, 1, 0, "Octave", "-1|0|+1"},
     {"level", 'L', CZP_LEVEL, 1, 15, 15, "Line level", ""},
     {"dsign", 'T', CZP_DSIGN, 0, 1, 0, "Det. sign", "+|-"},
@@ -75,14 +75,14 @@ static const Control kControls[] = {
     {"gnote", 'O', 16, -24, 24, -12, "Glide note", ""},
     {"gtime", 'O', 17, 0, 99, 30, "Glide time", ""},
     {"solo", 'O', 18, 0, 1, 0, "Solo", "poly|solo"},
-    {"bend", 'O', 19, 0, 12, 2, "Bend range", ""},
+    {"bendrange", 'O', 19, 0, 12, 2, "Bend range", ""},
     {"voices", 'G', 0, 1, 16, 8, "Voices", ""},
     {"tune", 'G', 1, -64, 63, 0, "Tune", ""},
     {"transpose", 'G', 2, -24, 24, 0, "Transpose", ""},
     {"chip", 'G', 3, 0, 1, 1, "Waves", "clean|chip"},
 };
 
-enum Op { kOp_wheel, kOp_atvib, kOp_atamp, kOp_keymode, kOp_split, kOp_bsrc, kOp_bnum, kOp_avol, kOp_bvol, kOp_boct, kOp_bdet, kOp_achorus, kOp_bchorus, kOp_porta, kOp_ptime, kOp_glide, kOp_gnote, kOp_gtime, kOp_solo, kOp_bend, kOpCount };
+enum Op { kOp_wheel, kOp_atvib, kOp_atamp, kOp_keymode, kOp_split, kOp_bsrc, kOp_bnum, kOp_avol, kOp_bvol, kOp_boct, kOp_bdet, kOp_achorus, kOp_bchorus, kOp_porta, kOp_ptime, kOp_glide, kOp_gnote, kOp_gtime, kOp_solo, kOp_bendrange, kOpCount };
 static const int kOpDefaults[] = { 50, 0, 0, 0, 60, 0, 1, 99, 99, 0, 0, 0, 0, 0, 30, 0, -12, 30, 0, 2 };
 enum Perf { kPerf_dcw, kPerf_attack, kPerf_release, kPerf_balance, kPerf_detune, kPerf_vibrato, kPerf_chorus, kPerf_volume, kPerfCount };
 static const int kPerfDefaults[] = { 0, 0, 0, 0, 0, 0, 64, 100 };

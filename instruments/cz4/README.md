@@ -34,7 +34,7 @@ Hardware reference is the CZ-1, software reference Arturia's CZ V: everything a 
 | Page (CC) | Controls | Kind |
 |---|---|---|
 | 1 PERFORM (20–27) | `dcw attack release balance detune vibrato chorus volume` | acts at once, not stored |
-| 2 LINE / WAVE | `line linesel wave wave2 window mod octave level` | tone; `line` selects line 1/2 |
+| 2 LINE / WAVE | `line linesel wave wave2 window ringmod octave level` | tone; `line` selects line 1/2 |
 | 3 DETUNE / VIBRATO | `dsign doct dnote dfine vwave vdelay vrate vdepth` | tone |
 | 4 ENVELOPE | `env sus end kfw kfa velp velw vela` | `env` selects DCO / DCW / DCA |
 | 5 RATES | `r1` … `r8` | selected envelope |
@@ -42,7 +42,7 @@ Hardware reference is the CZ-1, software reference Arturia's CZ V: everything a 
 | 7 EASY ENV / TOUCH | `eattack edecay esustain erelease edit wheel atvib atamp` | easy envelope writes steps 1–3; `edit` selects tone A/B |
 | 8 OPERATION | `keymode split bsrc bnum avol bvol boct bdet` | operation memory |
 | 9 OPERATION 2 | `achorus bchorus porta ptime glide gnote gtime solo` | operation memory |
-| 10 SETUP | `bend voices tune transpose chip` | `bend` operation memory, the rest instrument |
+| 10 SETUP | `bendrange voices tune transpose chip` | `bendrange` operation memory, the rest instrument |
 
 The CC numbers follow the controller layer of pdoly8~, tx81z~, d50~ and juno~ (pages of 8 from CC 20, see `tools/ctlayer.py`).
 
@@ -75,6 +75,10 @@ Nothing is needed. Every `.syx` beside the external is read for CZ tones (CZ-101
 - Envelopes: the chip's rate law (`(8 | r&7) << (r>>3)` per chip sample at 40 kHz), its targets and the logarithmic DCA (about 78 dB over 128 levels); sustain and end as Casio documents them; the end step falls to zero.
 - Tone data: all 64 tones of a CZ-1 bank decode to panel values and encode back to the same bytes (`tone_test`).
 - Estimates until compared with recordings (Arturia CZ V or a real CZ): vibrato clock, velocity and key-follow curves, portamento and glide times, chorus, output level.
+
+### Comparison with Arturia CZ V (or a real CZ)
+
+`cz4/cz4test.pd` plays 12 test sequences to CZ V over MIDI and to `cz4~` at the same time and records both (`test/rec/czv-testNN.wav`, `cz4-testNN.wav`). The test tones are in `cz4/test/tones/` (one `.syx` per test) and `cz4/test/cz4test-bank.syx`: import them into CZ V. They isolate one property each: DCA rates and level law, DCW sweep, pitch envelope, vibrato with wheel and aftertouch, CZ-1 velocity, key follow, portamento and bend, ring and noise modulation, fine detune, resonance, level of chords. `python3 tools/cz_compare.py cz4/test/rec` measures both sides and writes `report.md` with plots. Tests, tones and sequences come from `tools/cz4_tests.py`, the patch from `tools/gen_cz4_testrig.py`.
 
 ## Build
 

@@ -605,8 +605,8 @@ struct Synth::Impl {
     void render_voice(Voice& v, float* out, int n) {
         const ToneDef& d = def[v.tone];
         const float chip = static_cast<float>(n) * kChipRate / fs;
-        const float k_att = std::exp2(static_cast<float>(perf[kPerf_attack]) / 16.0f);
-        const float k_rel = std::exp2(static_cast<float>(perf[kPerf_release]) / 16.0f);
+        const float k_att = std::exp2(-static_cast<float>(perf[kPerf_attack]) / 16.0f);   // + slower
+        const float k_rel = std::exp2(-static_cast<float>(perf[kPerf_release]) / 16.0f);
         const float kfn = static_cast<float>(std::max(0, v.key - 36));
         const float dt = static_cast<float>(n) / fs;
 
@@ -636,7 +636,7 @@ struct Synth::Impl {
             vib = w * depth;
         }
         const float velf = (127.0f - v.vel) / 127.0f;
-        const float base = v.note + v.slide + vib + bend * static_cast<float>(op[kOp_bend]);
+        const float base = v.note + v.slide + vib + bend * static_cast<float>(op[kOp_bendrange]);
         const float vol = static_cast<float>(v.tone ? op[kOp_bvol] : op[kOp_avol]) / 99.0f;
         const float bal = static_cast<float>(perf[kPerf_balance]) / 64.0f;
         const float at_amp = 1.0f + at * static_cast<float>(op[kOp_atamp]) / 15.0f;

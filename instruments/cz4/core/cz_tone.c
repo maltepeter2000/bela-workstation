@@ -263,9 +263,14 @@ void cz_copy_line(uint8_t *b, int from, int to)
 void cz_tone_init(uint8_t *b)
 {
     memset(b, 0, CZ_TONE_BYTES);
-    cz_set(b, CZP_VWAVE, 0, 0, 0);
-    for (int k = 0; k < 3; k++) cz_set(b, CZP_VDELAY + k, 0, 0, 0);
+    b[CZB_PVK] = 8;                        /* triangle */
+    for (int k = 0; k < 3; k++) {          /* write the machine values of 0 as well */
+        cz_set(b, CZP_VDELAY + k, 0, 0, 1);
+        cz_set(b, CZP_VDELAY + k, 0, 0, 0);
+    }
     for (int l = 0; l < 2; l++) {
+        /* rate 0 of a DCW step is byte 8 */
+        for (int j = 0; j < 8; j++) b[env_base(l, CZ_ENV_DCW) + 1 + 2 * j] = 8;
         cz_set(b, CZP_LEVEL, l, 0, 15);
         for (int e = 0; e < 3; e++) {
             int o = env_base(l, e);

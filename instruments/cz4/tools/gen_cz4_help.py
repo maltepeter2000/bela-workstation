@@ -202,7 +202,7 @@ PLAYING = (
     "Playing",
     [[("bend", -1, 1), ("mod", 0, 1), ("at", 0, 1), ("sustain", 0, 1)]],
     [],
-    ["bend (0): pitch wheel, -1 to 1. The range in semitones is the control bend.",
+    ["bend (0): pitch wheel, -1 to 1. The range in semitones is the control bendrange.",
      "mod (0): modulation wheel, 0 to 1. Adds vibrato, as deep as wheel says.",
      "at (0): aftertouch, 0 to 1: vibrato (atvib) and level (atamp).",
      "sustain (0): hold pedal. Notes released while it is 1 sound until it returns to 0."])

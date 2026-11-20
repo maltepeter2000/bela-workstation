@@ -45,7 +45,7 @@ TABLE = [
      "second wave: the line alternates the two every cycle"),
     ("window", "L", "CZP_WINDOW", 0, 7, 0, "Window", WINDOWS,
      "window of the resonance waves (CZ waves 6, 7, 8 = saw, tri, trap)"),
-    ("mod", "T", "CZP_MOD", 0, 2, 0, "Modulation", "off|ring|noise",
+    ("ringmod", "T", "CZP_MOD", 0, 2, 0, "Modulation", "off|ring|noise",
      "line 2 ring-modulated by line 1, or its pitch by noise (1+1' and 1+2')"),
     ("octave", "T", "CZP_OCTAVE", -1, 1, 0, "Octave", "-1|0|+1", "octave of the tone"),
     ("level", "L", "CZP_LEVEL", 1, 15, 15, "Line level", "", "level of the line (CZ-1)"),
@@ -105,7 +105,7 @@ TABLE = [
     ("gtime", "O", 17, 0, 99, 30, "Glide time", "", "glide time"),
     ("solo", "O", 18, 0, 1, 0, "Solo", "poly|solo", "one voice, the last key. Legato keeps the envelopes"),
     # ---- SETUP
-    ("bend", "O", 19, 0, 12, 2, "Bend range", "", "pitch bend range in semitones"),
+    ("bendrange", "O", 19, 0, 12, 2, "Bend range", "", "pitch bend range in semitones"),
     ("voices", "G", 0, 1, 16, 8, "Voices", "",
      "notes of a one-line tone (the CZ: 8), a two-line tone plays half as many"),
     ("tune", "G", 1, -64, 63, 0, "Tune", "", "master tune in cents"),
@@ -116,7 +116,7 @@ TABLE = [
 
 CC_ROWS = [
     ("PERFORM", ["dcw", "attack", "release", "balance", "detune", "vibrato", "chorus", "volume"]),
-    ("LINE / WAVE", ["line", "linesel", "wave", "wave2", "window", "mod", "octave", "level"]),
+    ("LINE / WAVE", ["line", "linesel", "wave", "wave2", "window", "ringmod", "octave", "level"]),
     ("DETUNE / VIBRATO", ["dsign", "doct", "dnote", "dfine", "vwave", "vdelay", "vrate", "vdepth"]),
     ("ENVELOPE", ["env", "sus", "end", "kfw", "kfa", "velp", "velw", "vela"]),
     ("RATES", [f"r{j + 1}" for j in range(8)]),
@@ -125,7 +125,7 @@ CC_ROWS = [
                           "atamp"]),
     ("OPERATION", ["keymode", "split", "bsrc", "bnum", "avol", "bvol", "boct", "bdet"]),
     ("OPERATION 2", ["achorus", "bchorus", "porta", "ptime", "glide", "gnote", "gtime", "solo"]),
-    ("SETUP", ["bend", "voices", "tune", "transpose", "chip"]),
+    ("SETUP", ["bendrange", "voices", "tune", "transpose", "chip"]),
 ]
 EXTRA_ROWS = []
 ALL_ROWS = CC_ROWS + EXTRA_ROWS
@@ -150,6 +150,14 @@ def value_names(names, lo, hi):
     assert len(v) == hi - lo + 1, (names, lo, hi)
     return v
 
+
+# messages of cz4~ that a control must not shadow (cz4~ looks controls up first)
+RESERVED = {"n", "ninfo", "dump", "preset", "user", "init", "reload", "compare", "store", "name",
+            "copyline", "copyenv", "userwrite", "userread", "usersend", "presets", "users", "op",
+            "opstore", "opinit", "opwrite", "opread", "ops", "sysex", "sysexdump", "czget", "czsend",
+            "czmodel", "channel", "txchannel", "status", "bend", "mod", "at", "sustain", "stop",
+            "reset"}
+assert not RESERVED & set(CONTROLS), RESERVED & set(CONTROLS)
 
 for _nm, _c in CONTROLS.items():
     value_names(_c[5], _c[2], _c[3])
