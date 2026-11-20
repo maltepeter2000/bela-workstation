@@ -50,6 +50,16 @@ its MIDI ports itself (the patch does not set a port).
 
 ## Control channel 10 (pads)
 
+`tx81zn-pd` (native engine) uses the pad layout every instrument shares
+(`launchkey/README.md` in bela-workstation): 36 factory +, 37 user +, 38 init (twice: the
+TX81Z Init Voice), 44 factory -, 45 user -, 46 save (the voice into the user slot recalled
+last, `txuser-bank.txt` written); its own pads: 39-43 random pluck, bass, lead, brass, pad,
+47 strings, 48 total. `[txpads 10]` -> `[txnav]` -> tx81zn~; `[txnav]` sends the display
+lines to the Launchkey (`[lkdisplay]`) and the OLED. Program change on channel 10 is not
+used there.
+
+The table below is `tx81z-pd` (firmware emulation), unchanged:
+
 Channel 10 = the Drums Channel of the Launchkey. With the Launchkey custom firmware
 (maltepeter2000/launchkey_firmware) the pads in Drum mode send notes in rows: top row
 36-43, bottom row 44-51.

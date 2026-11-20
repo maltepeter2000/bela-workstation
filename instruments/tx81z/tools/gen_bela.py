@@ -189,6 +189,25 @@ def control_sub():
     return p
 
 
+def nav_sub():
+    """tx81zn~: the pads in the layout every instrument shares (txpads), the pad translator
+    (txnav: pgm, the user bank txuser-bank.txt, init, save) and the Launchkey display"""
+    p = G.P("pads", 900, 400)
+    p.note(f"Control channel {CTL_CH}: the Launchkey pads as in every instrument (common/tools/ctpads.py): "
+           "36 factory +, 37 user +, 38 init (twice), 44 factory -, 45 user -, 46 save; own: 39-43 random "
+           "pluck bass lead brass pad, 47 strings, 48 total. [txnav] turns them into pgm / voicedata / init "
+           "(user bank: txuser-bank.txt) and sends display lines to the Launchkey and the OLED.", 10, 10)
+    pads = p.add(f"txpads {CTL_CH}", 10, 90)
+    nav = p.add("txnav", 10, 130); p.con(pads, 0, nav, 0)
+    stx = p.add("s tx", 10, 170); p.con(nav, 0, stx, 0)
+    ro = p.add("r tx-out", 200, 90); p.con(ro, 0, nav, 1)
+    lk = p.add("lkdisplay", 200, 200); p.con(nav, 1, lk, 0)
+    mo = p.add("midiout", 200, 230); p.con(lk, 0, mo, 0)
+    rd = p.add("route display", 400, 200); p.con(nav, 1, rd, 0)
+    so = p.add("s tx-oled-note", 400, 230); p.con(rd, 0, so, 0)
+    return p
+
+
 def save_ram(p, sel, out, stx):
     """save the battery RAM: now, and every minute"""
     sv = p.msg("save", 300, 480); p.con(sel, out["save"], sv, 0); p.con(sv, 0, stx, 0)
@@ -276,8 +295,9 @@ def build():
     top = G.P(None, 900, 420)
     if NATIVE:
         top.note("TX81Z on Bela: tx81zn~ (native engine) - MIDI in, controller layer, OLED, "
-                 "control channel, OSC remote. Files: tx81zn~.pd_linux, txfmcc.pd, tx81z-v1.6.bin, "
-                 "tx81z.nvram (optional, read only: bank I and MIDI channel), txuser-bank.txt.", 10, 10)
+                 "Launchkey pads and display, OSC remote. Files: tx81zn~.pd_linux, txfmcc.pd, txpads.pd, txnav.pd, "
+                 "lkdisplay.pd, tx81z-v1.6.bin, tx81z.nvram (optional, read only: bank I and MIDI channel), "
+                 "txuser-bank.txt.", 10, 10)
     else:
         top.note("TX81Z on Bela: tx81z~ (original firmware) - MIDI in, controller layer, OLED, "
                  "control channel, OSC remote. Files: tx81z~.pd_linux, txcc.pd, tx81z-v1.6.bin, "
@@ -294,7 +314,7 @@ def build():
              "controller layer: CC pages 20-119, follows the TX81Z receive channel", 80, 240)
     m, _ = midi_sub()
     top.sub(m, 10, 320)
-    top.sub(control_sub(), 110, 320)
+    top.sub(nav_sub() if NATIVE else control_sub(), 110, 320)
     top.sub(oled_sub(), 230, 320)
     top.sub(remote_sub(), 330, 320)
     out = []

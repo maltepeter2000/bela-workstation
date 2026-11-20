@@ -31,8 +31,11 @@ The pads send the same messages to every instrument: `presetstep 1` / `presetste
 | juno | `junopads.pd` | 39 chorus I > II > I+II > off, 47 Juno-106 / 60 |
 | d50 | `d50pads.pd` | – |
 | cz4 | `cz4pads.pd` | – |
-| pdoly8 | open, see `docs/instrument-contract.md` | |
-| tx81zn | open, still its own layout inside its Bela patch | |
+| pdoly8 | `p8pads.pd` → `p8nav.pd` | 39–43 random pluck, bass, lead, brass, pad; 47 strings, 48 total |
+| tx81zn | `txpads.pd` → `txnav.pd` (in its Bela patch) | the same random pads |
+
+pdoly8~ and tx81zn~ keep their user bank in Pd; `[<x>nav]` (common/tools/ctnav.py) turns the
+pad messages into what they understand and sends the display lines itself.
 
 On Bela every MIDI byte that Pd sends is a system call in the audio thread, which is why
 feedback and display messages are throttled.

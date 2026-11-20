@@ -61,7 +61,9 @@ bela-gem: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	mkdir -p bela-gem
 	$(ZIG) cc -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O3 -ffast-math -std=c99 -fPIC -fvisibility=hidden \
 	    -Ithird_party/pd -shared -s -o 'bela-gem/pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm -lpthread
-	cp p8cc.pd ../../launchkey/lkdisplay.pd bela-gem/
+	cp p8cc.pd p8pads.pd p8nav.pd ../../launchkey/lkdisplay.pd bela-gem/
+	mkdir -p bela-gem/presets && cp presets/poly800mk2-factory.txt bela-gem/presets/
+	test -f bela-gem/p8user-bank.txt || cp p8user-bank.txt bela-gem/
 
 LIPO ?= llvm-lipo-18
 mac-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h

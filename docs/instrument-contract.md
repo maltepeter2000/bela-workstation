@@ -46,9 +46,9 @@ an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
 | `n` / `ninfo` / `info` | yes | yes | yes | yes, plus `fm` / `fminfo` for the FM view | yes |
 | Controller layer, receive + send channel | common | common | common | common (`txcc`, `txfmcc` with own selectors) | common |
 | User bank | `junouser-bank.syx`, 56, Juno-106 SysEx | `d50user-bank.syx`, 64, D-50 SysEx | `p8user-bank.txt` | `txuser-bank.txt`, 64 | `cz4user-bank.syx`, CZ SysEx |
-| Pad messages in the object | yes | yes | no: user bank and presets live in Pd (editor, `p8user`, `p8factory`) | no: user bank lives in Pd (editor, Bela patch); no init voice | yes |
-| `display` | yes | yes | no (OLED text of its own) | no (OLED text of its own) | yes |
-| Pads | `junopads.pd`, common layout | `d50pads.pd`, common layout | – | own layout inside its Bela `_main.pd` | `cz4pads.pd`, common layout |
+| Pad messages | in the object | in the object | `p8nav.pd` (bank in Pd) | `txnav.pd` (bank in Pd); `init` = Init Voice in the object | in the object |
+| `display` | object: patch, control, store | object: patch, control, store | `p8nav`: patch, store | `txnav`: patch, store | object: patch, control, store |
+| Pads | `junopads.pd` | `d50pads.pd` | `p8pads.pd` | `txpads.pd`, used in `bela-pd/tx81zn-pd` | `cz4pads.pd` |
 | Bela project | `bela/juno` (Bela Gem) | – | `bela/` (Pepper), `bela-oled/` (first Bela) | `bela-pd/tx81zn-pd` (Bela Gem) | – |
 | Bela Gem build | `make bela-gem` | `make bela-gem` | `make bela-gem` | `make -C pd bela-gem` | `make bela-gem` |
 | CPU, Bela Gem | 21–27 %, 6 voices, block 64 | not measured | not measured | not measured | not measured |
@@ -62,21 +62,22 @@ an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
 2. **One pad layout** (`common/tools/ctpads.py`, see `launchkey/README.md`); juno, d50, cz4
    understand the pad messages and report `display`.
 3. **Bela Gem builds for all** (`make bela-gem`, cross-built with zig).
+4. **Pads for pdoly8 and tx81zn** through a Pd translator (`common/tools/ctnav.py`), same
+   layout, messages and display lines; tx81zn~ got the Init Voice.
 
 ## Next
 
-1. **pdoly8 and tx81zn: pads and display.** Their user bank lives in Pd today, so the pad
-   messages have no counterpart in the object, and tx81zn has no init voice. Open: move the
-   bank into the object as in juno/d50/cz4, or translate the pad messages in Pd. Both
-   should also report `display`.
-2. **Measure CPU** of every instrument on the Bela Gem at block size 64.
-3. **One Bela generator.** A shared generator writes the instrument part of a Bela patch
+1. **Pad LEDs**: one colour code for all instruments (see below, proposal).
+2. **Display of turned controls** for pdoly8 and tx81zn (their objects do not send
+   `display` yet; the translators only cover patch changes and stores).
+3. **Measure CPU** of every instrument on the Bela Gem at block size 64.
+4. **One Bela generator.** A shared generator writes the instrument part of a Bela patch
    (object, layer, pads, display, OSC) from a small table per instrument, instead of five
    hand-grown `_main.pd` generators.
-4. **The rack.** One Pd patch on the Bela Gem: each instrument in a slot with `[switch~]`,
+5. **The rack.** One Pd patch on the Bela Gem: each instrument in a slot with `[switch~]`,
    switched on and off, an output target and two sends per slot, `vrs23` as send effect,
    a mixer. Pd first; a C++ host using Bela's multi-core API only if one core is not enough.
-5. **Effects for Bela.** `vrs23~` is heavy (estimated far above one core of the first Bela;
+6. **Effects for Bela.** `vrs23~` is heavy (estimated far above one core of the first Bela;
    not measured on the Gem). The minimal reverb + delay from the beladrumrack chat
    (`fx.pd`, `vrsm-*.pd`, delivered as `beladrumrack-patch.zip`, never committed) is the
    candidate for the rack.
