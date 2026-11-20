@@ -1,0 +1,9 @@
+*.o
+*.pd_linux
+*.pd_darwin
+*.dll
+pdoly8_test
+demos/
+dist/
+__pycache__/
+*.pyc
