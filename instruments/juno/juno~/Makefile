@@ -62,5 +62,5 @@ gen:
 	python3 ../tools/gen_junocc.py
 	python3 ../tools/gen_juno_editor.py
 	python3 ../tools/gen_juno_help.py
-	python3 ../tools/lkdisplay.py lkdisplay.pd
+	python3 ../../../common/tools/lkdisplay.py lkdisplay.pd
 	python3 ../tools/gen_juno_bela.py

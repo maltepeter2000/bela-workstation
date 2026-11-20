@@ -9,7 +9,7 @@
 lib.name = d50~
 class.sources = d50~.cpp
 common.sources = d50_core.cpp
-datafiles = d50~-help.pd d50cc.pd d50edit.pd
+datafiles = d50~-help.pd d50cc.pd d50pads.pd d50edit.pd
 
 cflags = -std=c++17 -DD5_HOST_BUILD -Iengine -fvisibility=hidden
 suppress-wunused = yes
@@ -37,7 +37,19 @@ mac-zig: d50~.cpp d50_core.cpp d50_core.h d50_params.h
 	done
 	$(LIPO) -create $(MACDIR)/d50.aarch64 $(MACDIR)/d50.x86_64 -output '$(MACDIR)/d50~.pd_darwin'
 	rm -f $(MACDIR)/d50.aarch64 $(MACDIR)/d50.x86_64
-	cp 'd50~-help.pd' d50cc.pd d50edit.pd $(MACDIR)/
+	cp 'd50~-help.pd' d50cc.pd d50pads.pd d50edit.pd $(MACDIR)/
+
+# ---- Bela Gem (64-bit ARM, Cortex-A53), cross-built from Linux (as juno~) ----------
+#   make bela-gem   d50~.pd_linux and the abstractions into ../bela/d50
+# glibc 2.31 or newer on the board. On the board itself a plain make works too.
+# d50_pcm.bin (from your own ROMs) goes beside it by hand.
+BELADIR = ../bela/d50
+bela-gem: d50~.cpp d50_core.cpp d50_core.h d50_params.h
+	mkdir -p $(BELADIR)
+	$(ZIG) c++ -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O2 -std=c++17 \
+	  -DD5_HOST_BUILD -Iengine -I../third_party/pd \
+	  -fPIC -fvisibility=hidden -shared -s -o '$(BELADIR)/d50~.pd_linux' 'd50~.cpp' d50_core.cpp
+	cp d50cc.pd d50pads.pd ../../../launchkey/lkdisplay.pd $(BELADIR)/
 
 # ---- generated files ---------------------------------------------------------
 #   make gen        parameter header, controller layer, editor and help patch

@@ -1,6 +1,7 @@
 # pdoly8~ -- Pd external and desktop test
 #
 #   make            build pdoly8~ for this machine (needs Pd's m_pd.h, see PDINCLUDE)
+#   make bela-gem   cross-build for the Bela Gem (aarch64) into bela-gem/ (needs zig)
 #   make bela       build on the Bela board itself (Cortex-A8, NEON, hard float)
 #   make bela-zig   cross-build the Bela binary (ARMv7 Cortex-A8, NEON, hard float) into bela/
 #                   from Linux, with zig; and regenerate bela/project/
@@ -53,6 +54,15 @@ bela-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	python3 tools/gen_bela_oled.py
 	python3 tools/gen_cc_readme.py
 
+# ---- Bela Gem (64-bit ARM, Cortex-A53), cross-built from Linux (as juno~) ----------
+#   make bela-gem   pdoly8~.pd_linux and the abstractions into bela-gem/
+# glibc 2.31 or newer on the board. On the board itself: make PDINCLUDE=/usr/local/include/libpd
+bela-gem: pdoly8~.c pdoly8_core.c pdoly8_core.h
+	mkdir -p bela-gem
+	$(ZIG) cc -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O3 -ffast-math -std=c99 -fPIC -fvisibility=hidden \
+	    -Ithird_party/pd -shared -s -o 'bela-gem/pdoly8~.pd_linux' pdoly8~.c pdoly8_core.c -lm -lpthread
+	cp p8cc.pd ../../launchkey/lkdisplay.pd bela-gem/
+
 LIPO ?= llvm-lipo-18
 mac-zig: pdoly8~.c pdoly8_core.c pdoly8_core.h
 	mkdir -p bin/macos
@@ -86,4 +96,4 @@ clean:
 	rm -f pdoly8_test pdoly8_core.o 'pdoly8~.pd_linux' 'pdoly8~.pd_darwin'
 	rm -rf demos
 
-.PHONY: external bela bela-zig mac-zig test demos help presets clean
+.PHONY: external bela bela-zig bela-gem mac-zig test demos help presets clean

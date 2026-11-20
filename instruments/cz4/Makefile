@@ -2,7 +2,8 @@
 #
 #   make                 build cz1~ and cz4~ for this machine (needs Pd's m_pd.h, see PDINCLUDE)
 #   make cz1 / make cz4  one of them
-#   make bela            build both on the Bela board itself (Cortex-A8, NEON, hard float)
+#   make bela            build both on the first Bela board itself (Cortex-A8, NEON, hard float)
+#   make bela-gem        cross-build both for the Bela Gem (aarch64) into bela/cz4 (needs zig)
 #   make test            desktop tests: ./cz_test, ./tone_test <file.syx>, ./cz4_render [file.syx]
 #   make demos           cz1 demo WAVs in demos/
 #   make generate        cz4_params.h, cz4cc.pd, cz4edit.pd and both help patches from tools/
@@ -80,10 +81,24 @@ mac-zig:
 	$(LIPO) -create $(MACDIR)/cz1.aarch64 $(MACDIR)/cz1.x86_64 -output '$(MACDIR)/cz1~.pd_darwin'
 	$(LIPO) -create $(MACDIR)/cz4.aarch64 $(MACDIR)/cz4.x86_64 -output '$(MACDIR)/cz4~.pd_darwin'
 	rm -f $(MACDIR)/*.aarch64 $(MACDIR)/*.x86_64 $(MACDIR)/*.o
-	cp 'cz1/cz1~-help.pd' 'cz4/cz4~-help.pd' cz4/cz4cc.pd cz4/cz4edit.pd cz4/cz4test.pd $(MACDIR)/
+	cp 'cz1/cz1~-help.pd' 'cz4/cz4~-help.pd' cz4/cz4cc.pd cz4/cz4pads.pd cz4/cz4edit.pd cz4/cz4test.pd $(MACDIR)/
 	mkdir -p $(MACDIR)/test && cp -r cz4/test/seq cz4/test/tones cz4/test/cz4test-bank*.syx $(MACDIR)/test/
 	cp tools/cz_compare.py tools/cz4_tests.py $(MACDIR)/test/
 	cd dist && rm -f cz-macos-universal.zip && zip -qr cz-macos-universal.zip macos
+
+# ---- Bela Gem (64-bit ARM, Cortex-A53), cross-built from Linux (as juno~) ----------
+# glibc 2.31 or newer on the board. On the board itself a plain make works too.
+BELADIR = bela/cz4
+bela-gem:
+	mkdir -p $(BELADIR)
+	$(ZIG) cc -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O2 -std=c99 -Icore -Ithird_party/pd -fPIC \
+	  -fvisibility=hidden -shared -s -o '$(BELADIR)/cz1~.pd_linux' cz1/cz1~.c core/cz_core.c -lm
+	$(ZIG) cc -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O2 -std=c99 $(INC) -fPIC -c core/cz_core.c -o $(BELADIR)/core.o
+	$(ZIG) cc -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O2 -std=c99 $(INC) -fPIC -c core/cz_tone.c -o $(BELADIR)/tone.o
+	$(ZIG) c++ -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O2 -std=c++17 $(INC) -Ithird_party/pd -fPIC \
+	  -fvisibility=hidden -shared -s -o '$(BELADIR)/cz4~.pd_linux' $(CZ4_SRC) $(BELADIR)/core.o $(BELADIR)/tone.o
+	rm -f $(BELADIR)/core.o $(BELADIR)/tone.o
+	cp cz4/cz4cc.pd cz4/cz4pads.pd ../../launchkey/lkdisplay.pd $(BELADIR)/
 
 test: cz_test tone_test cz4_render
 cz_core.o: core/cz_core.c core/cz_core.h
@@ -114,4 +129,4 @@ clean:
 	    'cz4/cz4~.pd_linux' 'cz4/cz4~.pd_darwin'
 	rm -rf demos
 
-.PHONY: all cz1 cz4 bela test demos generate mac-zig clean
+.PHONY: all cz1 cz4 bela bela-gem test demos generate mac-zig clean

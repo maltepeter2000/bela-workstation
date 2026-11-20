@@ -1,3 +1,8 @@
 __pycache__/
 *.pyc
 .DS_Store
+
+# Bela Gem build output (make bela-gem) until these folders become Bela projects
+instruments/d50/bela/
+instruments/cz4/bela/
+instruments/pdoly8/bela-gem/
