@@ -46,15 +46,41 @@ def read_wav(path):
     return x, fs
 
 
-def align(x, fs):
-    """cut everything before the first note: the first 5 ms frame within 45 dB of the peak"""
+def onset(x, fs):
+    """time of the first 5 ms frame within 45 dB of the peak (None if silent)"""
     hop = int(fs * 0.005)
     n = len(x) // hop
-    if n == 0:
-        return x
+    if n == 0 or np.max(np.abs(x)) < 1e-4:
+        return None
     r = np.sqrt(np.mean(x[:n * hop].reshape(n, hop) ** 2, axis=1) + 1e-20)
     k = int(np.argmax(r > r.max() * 10 ** (-45 / 20)))
-    return x[max(0, k * hop - hop):]
+    return max(0, k - 1) * hop / fs
+
+
+def cut(x, fs, t0):
+    return x[int(round(t0 * fs)):]
+
+
+# Both files of a test start at the same moment (cz4test.pd opens them together), so
+# one time base serves both: the first note of cz4~, plus the latency of the reference
+# (MIDI, plugin, audio), found where the reference starts in time.
+MAX_LATENCY = 0.3
+
+
+def latencies(rec):
+    lat = {}
+    for k in range(len(T.TESTS)):
+        a = os.path.join(rec, f"czv-test{k + 1:02d}.wav")
+        b = os.path.join(rec, f"cz4-test{k + 1:02d}.wav")
+        if not (os.path.exists(a) and os.path.exists(b)):
+            continue
+        xa, fs = read_wav(a)
+        xb, fsb = read_wav(b)
+        oa, ob = onset(xa, fs), onset(xb, fsb)
+        if oa is not None and ob is not None:
+            lat[k] = oa - ob
+    good = [v for v in lat.values() if -0.01 <= v <= MAX_LATENCY]
+    return lat, (float(np.median(good)) if good else 0.0)
 
 
 # ---- measures --------------------------------------------------------------------------
@@ -344,6 +370,8 @@ def compare(rec):
     lines = ["# cz4~ against the reference", "",
              f"Recordings in `{rec}`. Reference = czv-testNN.wav, cz4 = cz4-testNN.wav. "
              "Ratio = cz4 / reference (1 = equal), diff = cz4 − reference.", ""]
+    lat, lat_all = latencies(rec)
+    lines += [f"Latency of the reference (median): {lat_all * 1000:.0f} ms.", ""]
     for k, t in enumerate(T.TESTS):
         a = os.path.join(rec, f"czv-test{k + 1:02d}.wav")
         b = os.path.join(rec, f"cz4-test{k + 1:02d}.wav")
@@ -356,7 +384,13 @@ def compare(rec):
             continue
         xa, fs = read_wav(a)
         xb, fsb = read_wav(b)
-        xa, xb = align(xa, fs), align(xb, fsb)
+        ob = onset(xb, fsb) or 0.0
+        own = lat.get(k)
+        if own is not None and own > MAX_LATENCY:
+            lines += [f"**The reference starts {own:.2f} s late: its first notes are missing "
+                      "(tone not ready?). Measures of that part are not valid.**", ""]
+        latency = own if own is not None and -0.01 <= own <= MAX_LATENCY else lat_all
+        xa, xb = cut(xa, fs, max(0.0, ob + latency)), cut(xb, fsb, ob)
         if np.max(np.abs(xa)) < 1e-4:
             lines += ["(the reference recording is silent)", ""]
             continue

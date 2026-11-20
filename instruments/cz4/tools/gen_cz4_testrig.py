@@ -62,8 +62,9 @@ def build():
         "shows the input level. Set channel to CZ V's MIDI channel.",
         "3. Choose a test, select its tone in CZ V, press run. The sequence goes to CZ V and to "
         "cz4~ at once, both are recorded into test/rec/ (czv-testNN.wav, cz4-testNN.wav). "
-        "With all on, the tests run one after the other: for that CZ V must change tones on "
-        "program change (pc on, program = test number - 1), otherwise run them one by one.",
+        "With all on, the next test is chosen when one ends: select its tone in CZ V, then "
+        "press run (no hurry: nothing plays before). Only with pc on (CZ V follows program "
+        "change, program = test number - 1) does the next test start by itself.",
         "4. Test 7 needs portamento on (time 50) and bend range 2 in CZ V. All others: "
         "portamento off. Then: python3 test/cz_compare.py test/rec (in the repository: "
         "tools/cz_compare.py cz4/test/rec) writes test/rec/report.md with plots. Needs numpy.",
@@ -250,16 +251,29 @@ def build():
     p.c(sall, 0, nxt, 0)
     inc = p.obj(60, Y + 820, "+ 1")
     p.c(nxt, 0, inc, 0)
-    dn = p.obj(60, Y + 850, "pipe 1500")
-    p.c(inc, 0, dn, 0)
-    setsel = p.obj(60, Y + 880, "t b f")
-    p.c(dn, 0, setsel, 0)
-    ss = p.obj(160, Y + 910, "s czt-sel")
-    sv = p.msg(260, Y + 910, "set $1")
-    svs = p.obj(260, Y + 940, "s czt-selv")
-    p.c(setsel, 1, ss, 0); p.c(setsel, 1, sv, 0); p.c(sv, 0, svs, 0)
-    sr = p.obj(60, Y + 910, "s czt-run")
-    p.c(setsel, 0, sr, 0)
+    # the next test is chosen at once; it starts by itself only when CZ V follows program
+    # change (pc on), otherwise it waits for run: time to select the tone in CZ V
+    tn = p.obj(60, Y + 850, "t f f f")
+    p.c(inc, 0, tn, 0)
+    ss = p.obj(260, Y + 880, "s czt-sel")
+    sv = p.msg(360, Y + 880, "set $1")
+    svs = p.obj(360, Y + 910, "s czt-selv")
+    p.c(tn, 2, ss, 0); p.c(tn, 2, sv, 0); p.c(sv, 0, svs, 0)
+    p.c(tn, 2, sel, 0)
+    nmsg = p.msg(160, Y + 880, "next: test $1 - select its tone in CZ V then press run")
+    rpc2 = p.obj(160, Y + 910, "r czt-pc")
+    sp2 = p.obj(160, Y + 940, "spigot 1")
+    inv = p.obj(260, Y + 940, "== 0")
+    p.c(rpc2, 0, inv, 0); p.c(inv, 0, sp2, 1)
+    p.c(tn, 1, sp2, 0); p.c(sp2, 0, nmsg, 0); p.c(nmsg, 0, pr, 0)
+    spa = p.obj(60, Y + 880, "spigot")
+    p.c(tn, 0, spa, 0); p.c(rpc2, 0, spa, 1)
+    dn = p.obj(60, Y + 910, "pipe 1500")
+    p.c(spa, 0, dn, 0)
+    dnb = p.obj(60, Y + 940, "t b")
+    p.c(dn, 0, dnb, 0)
+    sr = p.obj(60, Y + 970, "s czt-run")
+    p.c(dnb, 0, sr, 0)
     fin = p.msg(120, Y + 820, "all tests done")
     p.c(nxt, 1, fin, 0); p.c(fin, 0, pr, 0)
 

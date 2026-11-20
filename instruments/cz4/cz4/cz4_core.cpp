@@ -561,6 +561,7 @@ struct Synth::Impl {
         for (Voice& v : voice) v.active = false;
         held[0].clear();
         held[1].clear();
+        last_note[0] = last_note[1] = -1000;   // no portamento from before a reset
     }
 
     void release(Voice& v) {
