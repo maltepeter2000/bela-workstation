@@ -64,20 +64,22 @@ an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
 3. **Bela Gem builds for all** (`make bela-gem`, cross-built with zig).
 4. **Pads for pdoly8 and tx81zn** through a Pd translator (`common/tools/ctnav.py`), same
    layout, messages and display lines; tx81zn~ got the Init Voice.
+5. **Pad LEDs**: one colour code for all instruments, sent by `<x>pads.pd` (factory blue,
+   user green, init orange, save red, own pads purple, free pads off; see
+   `launchkey/README.md`). Firmware side: launchkey_firmware branch `pad-leds`.
 
 ## Next
 
-1. **Pad LEDs**: one colour code for all instruments (see below, proposal).
-2. **Display of turned controls** for pdoly8 and tx81zn (their objects do not send
+1. **Display of turned controls** for pdoly8 and tx81zn (their objects do not send
    `display` yet; the translators only cover patch changes and stores).
-3. **Measure CPU** of every instrument on the Bela Gem at block size 64.
-4. **One Bela generator.** A shared generator writes the instrument part of a Bela patch
+2. **Measure CPU** of every instrument on the Bela Gem at block size 64.
+3. **One Bela generator.** A shared generator writes the instrument part of a Bela patch
    (object, layer, pads, display, OSC) from a small table per instrument, instead of five
    hand-grown `_main.pd` generators.
-5. **The rack.** One Pd patch on the Bela Gem: each instrument in a slot with `[switch~]`,
+4. **The rack.** One Pd patch on the Bela Gem: each instrument in a slot with `[switch~]`,
    switched on and off, an output target and two sends per slot, `vrs23` as send effect,
    a mixer. Pd first; a C++ host using Bela's multi-core API only if one core is not enough.
-6. **Effects for Bela.** `vrs23~` is heavy (estimated far above one core of the first Bela;
+5. **Effects for Bela.** `vrs23~` is heavy (estimated far above one core of the first Bela;
    not measured on the Gem). The minimal reverb + delay from the beladrumrack chat
    (`fx.pd`, `vrsm-*.pd`, delivered as `beladrumrack-patch.zip`, never committed) is the
    candidate for the rack.
