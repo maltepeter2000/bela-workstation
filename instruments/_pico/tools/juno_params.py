@@ -54,6 +54,10 @@ SETTINGS = [
     ("vellevel", 0, 127, 0, "Velo level", "",
      "velocity to level. 0 is the instrument, which has no velocity"),
     ("velcutoff", 0, 127, 0, "Velo cutoff", "", "velocity to cutoff, a soft key is darker"),
+    ("model", 0, 1, 0, "Model", "60|106",
+     "which Juno the patch plays on: the Juno-60, or the Juno-106 as measured on Cherry Audio's "
+     "DCO-106 (cutoff and resonance, contour times and depth, LFO, high-pass, chorus, sub and "
+     "noise levels, pulse width, VCA level)"),
 ]
 
 # Controller pages (row k = CC page k of tools/ctlayer.py).
@@ -62,7 +66,7 @@ CC_ROWS = [
     ("DCO", ["range", "pulse", "saw", "sub", "noise", "pwm", "pwmmode", "dcolfo"]),
     ("LFO / VCF / VCA", ["lforate", "lfodelay", "vcflfo", "kybd", "envpol", "hpf", "level",
                          "vcamode"]),
-    ("SETUP", ["volume", "tune", "bend", "octave", "vellevel", "velcutoff"]),
+    ("SETUP", ["volume", "tune", "bend", "octave", "vellevel", "velcutoff", "model"]),
 ]
 EXTRA_ROWS = []
 ALL_ROWS = CC_ROWS + EXTRA_ROWS

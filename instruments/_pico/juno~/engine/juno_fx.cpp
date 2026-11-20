@@ -68,6 +68,13 @@ void JunoChorus::setMode(int mode)
             mono_ = false;
             break;
     }
+    /* juno~ addition: the Juno-106's chorus, measured on Cherry Audio's
+     * DCO-106 -- about twice the rate over half the sweep, so the lines move
+     * at the same speed but drift apart less: a narrower image. */
+    if (model106_ && (mode_ == JUNO_CH_I || mode_ == JUNO_CH_II)) {
+        hz = (mode_ == JUNO_CH_I) ? JUNO106_CHORUS_I_HZ : JUNO106_CHORUS_II_HZ;
+        maxMs_ = minMs_ + ((mode_ == JUNO_CH_I) ? JUNO106_CHORUS_I_SPAN_MS : JUNO106_CHORUS_II_SPAN_MS);
+    }
     inc_ = hz / sr_;
 }
 

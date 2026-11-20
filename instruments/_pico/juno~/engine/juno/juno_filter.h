@@ -199,6 +199,12 @@ inline float JunoFilter::tableSr_ = 0.0f;
 /* one pole each. junox uses 250 / 520 / 1220 Hz and says in a comment that it */
 /* kept them because they sound good rather than because they are right.       */
 /* ------------------------------------------------------------------------ */
+/* juno~: the bass lift of the Juno-106's high-pass position 0, as the low
+ * band added back: in + g * lowpass(in). Fitted to +2.6 dB at 33 Hz and
+ * +0.8 dB at 65 Hz on the DCO-106. */
+#define JUNO106_SHELF_HZ    40.0f
+#define JUNO106_SHELF_GAIN  0.42f
+
 class JunoHpf
 {
 public:
@@ -222,8 +228,19 @@ public:
             0.0f, JUNO_HPF_HZ_1, JUNO_HPF_HZ_2, JUNO_HPF_HZ_3
         };
         hz_ = kHz[pos_];
+        shelf_ = false;
+        if (model106_) {
+            /* juno~ addition, measured on Cherry Audio's DCO-106: position 0
+             * lifts the bass a little (+2.6 dB at 33 Hz, +0.8 at 65 Hz),
+             * position 1 is flat, 2 and 3 are one pole at 226 and 720 Hz --
+             * 47k with 0.015 uF and 0.0047 uF on the Juno-106's jack board. */
+            static const float k106[JUNO_HPF_POSITIONS] = { 0.0f, 0.0f, 226.0f, 720.0f };
+            hz_ = k106[pos_];
+            if (pos_ == 0) { shelf_ = true; lp_.setCutoff(JUNO106_SHELF_HZ, sr_); }
+        }
         if (hz_ > 0.0f) lp_.setCutoff(hz_, sr_);
     }
+    void setModel106(bool on) { model106_ = on; setPosition(pos_); }   /* juno~ */
 
     void reset() { lp_.reset(); }
 
@@ -231,6 +248,7 @@ public:
     {
         /* Position 0 is a straight bypass, not a very low corner: the switch
          * takes the capacitor out of circuit entirely. */
+        if (shelf_) return in + JUNO106_SHELF_GAIN * lp_.process(in);
         if (hz_ <= 0.0f) return in;
         /* A one-pole high-pass as the difference from its low-pass. */
         return in - lp_.process(in);
@@ -238,6 +256,8 @@ public:
 
 private:
     JunoLPF1 lp_;
+    bool     model106_ = false;   /* juno~ additions */
+    bool     shelf_    = false;
     float    hz_  = 0.0f;
     int      pos_ = 0;
     float    sr_  = (float) SAMPLING_RATE;

@@ -56,6 +56,12 @@ public:
      * the instrument; the modulation wheel as on a Juno-106, 0..1. */
     void setVelocitySens(float level, float cutoff) { velLevel_ = level; velCutoff_ = cutoff; }
     void setModWheel(float w) { vp_.modLfo = w * w * 0.5f; }
+    /* juno~ additions for the Juno-106 model: its high-pass, chorus, longer
+     * contour and LFO delay, louder sub and noise; an LFO rate in Hz and the
+     * VCA level as a gain, both overriding the panel when >= 0. */
+    void setModel106(bool on);
+    void setLfoRateHz(float hz) { lfo_.setRateHz(hz > 0.0f ? hz : 0.0f); }
+    void setVcaGain(float g) { vcaGain_ = g; applyParameter(JUNO_VCA_LEVEL); }
     void resetVoices();
     void stopVoices();
     void resetControllers();
@@ -119,6 +125,10 @@ private:
     int   transpose_ = 0;
     bool  lfoAuto_   = true;
     float velLevel_  = 0.0f;   /* juno~ additions */
+    bool  model106_  = false;
+    float vcaGain_   = -1.0f;
+    float subTrim_   = 1.0f;
+    float noiseTrim_ = 1.0f;
     float velCutoff_ = 0.0f;
     bool  sustain_   = false;
     bool  arpOn_     = false;

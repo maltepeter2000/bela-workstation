@@ -94,6 +94,22 @@ void Juno::applyAll()
     for (int i = 0; i < JUNO_TOTAL_COUNT; ++i) applyParameter(i);
 }
 
+/* juno~ addition: see juno.h. Sub +6.6 dB and noise +10.6 dB at full level,
+ * contour and LFO delay times doubled (the remapped sliders in juno_core
+ * take it from there), the 106's high-pass and chorus. */
+void Juno::setModel106(bool on)
+{
+    model106_  = on;
+    subTrim_   = on ? 2.15f : 1.0f;
+    noiseTrim_ = on ? 3.40f : 1.0f;
+    for (int i = 0; i < JUNO_VOICES; ++i) voice_[i].setEnvTimeScale(on ? 2.0f : 1.0f);
+    lfo_.setDelayScale(on ? 2.0f : 1.0f);
+    hpf_.setModel106(on);
+    chorus_.setModel106(on);
+    applyParameter(JUNO_DCO_SUB_LEVEL);
+    applyParameter(JUNO_DCO_NOISE);
+}
+
 void Juno::applyParameter(int id)
 {
     const float v = p_[id];
@@ -133,8 +149,8 @@ void Juno::applyParameter(int id)
     case JUNO_DCO_PULSE:     vp_.pulse    = junoParamOn(v); break;
     case JUNO_DCO_SUB:       vp_.subOn    = junoParamOn(v); break;
     /* Through the measured fader taper, once here rather than per sample. */
-    case JUNO_DCO_SUB_LEVEL: vp_.subLevel = junoDcoLevel(v); break;
-    case JUNO_DCO_NOISE:     vp_.noise    = junoDcoLevel(v); break;
+    case JUNO_DCO_SUB_LEVEL: vp_.subLevel = junoDcoLevel(v) * subTrim_; break;
+    case JUNO_DCO_NOISE:     vp_.noise    = junoDcoLevel(v) * noiseTrim_; break;
 
     /* --- HPF ------------------------------------------------------------ */
     case JUNO_HPF:
@@ -198,7 +214,7 @@ void Juno::applyParameter(int id)
          * level that drives the chorus, so it decides how hard the
          * bucket-brigade lines are pushed.
          */
-        volume_ = v * v;
+        volume_ = (vcaGain_ >= 0.0f) ? vcaGain_ : v * v;   /* juno~: vcaGain_ */
         break;
     case JUNO_VCA_MODE: {
         const bool gate = (junoParamStep(v, 2) == 1);

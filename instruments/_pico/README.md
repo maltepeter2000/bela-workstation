@@ -132,13 +132,26 @@ velocity, bend, program change, CC 1 7 64 and Juno-106 SysEx.
 | 1 VCF / ENV | 20–27 | `cutoff res env attack decay sustain release chorus` |
 | 2 DCO | 28–31, 33–36 | `range pulse saw sub noise pwm pwmmode dcolfo` |
 | 3 LFO / VCF / VCA | 37, 39–45 | `lforate lfodelay vcflfo kybd envpol hpf level vcamode` |
-| 4 SETUP | 46–51 | `volume tune bend octave vellevel velcutoff` |
+| 4 SETUP | 46–52 | `volume tune bend octave vellevel velcutoff model` |
 
 Pages 1 to 3 are the patch: the 16 sliders (0–127) and 8 switches of a
 Juno-106. Page 4 belongs to the instrument and is not stored. `<name> <value>`
 sets a control, `n <name> <0-127>` sets it from a pot, and every change is
 reported as `info <name> <0-127> <text>`. Edits are heard at once.
 `[junocc <channel>]` is the controller layer, `[junoedit <bus>]` the editor.
+
+### Juno-60 or Juno-106
+
+`model` switches the instrument the patch plays on. `60` is the engine as it is: a Juno-60.
+`106` is the Juno-106 as measured on Cherry Audio's DCO-106 with the kit in `juno~/test`
+(`juno106test`, `juno106test2`): the cutoff curve and resonance (self-oscillation only from
+about 104), the contour's depth (linear, 10 octaves) and times (decay and release up to about
+15 s), LFO rate (0.1 to 20 Hz), delay and depth, the VCF LFO, the pulse width (down to 5 %), the
+VCA level, the high-pass (position 0 a small bass lift, 1 flat, 2 and 3 at 226 and 720 Hz, as in
+the Juno-106 service notes), the chorus (twice the rate over half the sweep), and the sub and
+noise levels. The model is the Juno-60 engine with remapped sliders (`juno~/juno106_tables.h`,
+from `tools/make_juno106_tables.py`) and a few switches in the engine. Like the other setup
+controls it is not stored in a patch.
 
 ### What differs from the instruments
 

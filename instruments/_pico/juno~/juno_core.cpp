@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "juno/juno.h"
+#include "juno106_tables.h"
 
 namespace juno {
 
@@ -303,6 +304,7 @@ struct Synth::Impl {
     Bytes temp = kInitPatch;
     int setting[kSettingCount];
     Source source = kFactory;
+    bool model106 = false;
     int index = 0;
     bool sustain = false;
 
@@ -318,22 +320,30 @@ struct Synth::Impl {
     void apply(bool all = false) {
         if (all)
             for (int i = 0; i < JUNO_TOTAL_COUNT; ++i) engine.setParameter(i, engine.getParameter(i));
-        auto slider = [&](int id, int byte) { set(id, static_cast<float>(temp[byte]) / 127.0f); };
+        // The Juno-106 model remaps most sliders: k106*[value] is the Juno-60 slider
+        // at which the engine does what the Juno-106 does (juno106_tables.h).
+        const bool m106 = setting[kSet_model] == 1;
+        if (m106 != model106) { engine.setModel106(m106); model106 = m106; }
+        auto slider = [&](int id, int byte, const float* t106 = nullptr) {
+            set(id, (m106 && t106) ? t106[temp[byte]] : static_cast<float>(temp[byte]) / 127.0f);
+        };
         slider(JUNO_LFO_RATE, 0);
-        slider(JUNO_LFO_DELAY, 1);
-        slider(JUNO_DCO_LFO, 2);
-        slider(JUNO_DCO_PWM, 3);
+        engine.setLfoRateHz(m106 ? k106LfoHz[temp[0]] : 0.0f);
+        slider(JUNO_LFO_DELAY, 1, k106LfoDelay);
+        slider(JUNO_DCO_LFO, 2, k106DcoLfo);
+        slider(JUNO_DCO_PWM, 3, k106Pwm);
         slider(JUNO_DCO_NOISE, 4);
-        slider(JUNO_VCF_FREQ, 5);
-        slider(JUNO_VCF_RES, 6);
-        slider(JUNO_VCF_ENV, 7);
-        slider(JUNO_VCF_LFO, 8);
+        slider(JUNO_VCF_FREQ, 5, k106Cutoff);
+        slider(JUNO_VCF_RES, 6, k106Res);
+        slider(JUNO_VCF_ENV, 7, k106Env);
+        slider(JUNO_VCF_LFO, 8, k106VcfLfo);
         slider(JUNO_VCF_KYBD, 9);
         slider(JUNO_VCA_LEVEL, 10);
-        slider(JUNO_ENV_ATTACK, 11);
-        slider(JUNO_ENV_DECAY, 12);
+        engine.setVcaGain(m106 ? k106VcaGain[temp[10]] : -1.0f);
+        slider(JUNO_ENV_ATTACK, 11, k106Attack);
+        slider(JUNO_ENV_DECAY, 12, k106Decay);
         slider(JUNO_ENV_SUSTAIN, 13);
-        slider(JUNO_ENV_RELEASE, 14);
+        slider(JUNO_ENV_RELEASE, 14, k106Release);
         slider(JUNO_DCO_SUB_LEVEL, 15);
         set(JUNO_DCO_SUB, temp[15] > 0 ? 1.0f : 0.0f);
         set(JUNO_DCO_RANGE, step(get_switch(temp, kSw_range), JUNO_RANGE_COUNT));
@@ -368,6 +378,8 @@ Synth::~Synth() { delete impl_; }
 
 void Synth::set_sample_rate(float sr) {
     impl_->engine.setSampleRate(sr);
+    impl_->engine.setModel106(false);   // apply() sets the model again
+    impl_->model106 = false;
     impl_->apply(true);
 }
 

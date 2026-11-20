@@ -139,6 +139,8 @@ public:
      * releasing voice with a quiet contour is the cheapest one to take. */
     float claim() const   { return gateMode_ ? amp_.value() : env_.value(); }
 
+    void setEnvTimeScale(float k) { env_.setTimeScale(k); }   /* juno~ addition */
+
     void setEnvelope(float a, float d, float s, float r)
     {
         env_.setAttack(a);

@@ -37,3 +37,8 @@ Changes, each marked `juno~ addition` in the source:
   0.7 : 0.7). Chorus on is therefore louder than off, as on the instrument.
 
 The arpeggiator and the engine's own CC map are present but not used.
+- Juno-106 model (`juno.h`, `juno.cpp`, `juno_env.h`, `juno_voice.h`, `juno_dco.h`,
+  `juno_filter.h`, `juno_fx.h`, `juno_fx.cpp`, `juno_defs.h`): `Juno::setModel106` switches the
+  high-pass to the Juno-106's positions, the chorus to its rate and sweep, doubles the contour
+  and LFO delay times and lifts sub and noise; `setLfoRateHz` and `setVcaGain` take the LFO
+  rate and the VCA level directly. The sliders themselves are remapped in `juno_core.cpp`.

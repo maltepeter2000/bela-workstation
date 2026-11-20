@@ -284,11 +284,22 @@ private:
     /* Phase advance per sample for a segment of the given duration. */
     float stepFor(float seconds) const
     {
-        const float n = junoClamp(seconds * sr_, 1.0f, 1.0e7f);
+        const float n = junoClamp(seconds * timeScale_ * sr_, 1.0f, 1.0e7f);
         return 1.0f / n;
     }
 
     float sr_      = (float) SAMPLING_RATE;
+    float timeScale_ = 1.0f;   /* juno~ addition: the Juno-106 model's longer times */
+public:
+    /* juno~ addition: every time of the contour multiplied by k. */
+    void setTimeScale(float k)
+    {
+        timeScale_ = k;
+        setDecay(dPanel_);
+        updateAttack();
+        updateRelease();
+    }
+private:
     float level_   = 0.0f;
     float phase_   = 0.0f;
     float sustain_ = 0.7f;
@@ -337,14 +348,18 @@ public:
     void setRate(float v)
     {
         ratePanel_ = v;
-        inc_ = junoLfoRate(v) / sr_;
+        inc_ = (rateHz_ > 0.0f ? rateHz_ : junoLfoRate(v)) / sr_;
     }
+    /* juno~ additions: a rate in Hz instead of the panel's (0 = the panel),
+     * and the delay's times multiplied by k -- both for the Juno-106 model. */
+    void setRateHz(float hz) { rateHz_ = hz; setRate(ratePanel_); }
+    void setDelayScale(float k) { delayScale_ = k; setDelay(delayPanel_); }
 
     void setDelay(float v)
     {
         delayPanel_ = junoClamp(v, 0.0f, 1.0f);
-        holdSamples_ = delayPanel_ * JUNO_LFO_DELAY_MAX_S * sr_;
-        const float fade = delayPanel_ * JUNO_LFO_FADE_MAX_S * sr_;
+        holdSamples_ = delayPanel_ * JUNO_LFO_DELAY_MAX_S * delayScale_ * sr_;
+        const float fade = delayPanel_ * JUNO_LFO_FADE_MAX_S * delayScale_ * sr_;
         fadeStep_ = (fade < 1.0f) ? 1.0f : (1.0f / fade);
     }
 
@@ -387,6 +402,8 @@ private:
     float inc_         = 0.0f;
     float ratePanel_   = 0.4f;
     float delayPanel_  = 0.0f;
+    float rateHz_      = 0.0f;   /* juno~ additions */
+    float delayScale_  = 1.0f;
     float holdSamples_ = 0.0f;
     float held_        = 0.0f;
     float fadeStep_    = 1.0f;

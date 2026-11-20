@@ -56,6 +56,7 @@ public:
     void init(float sampleRate);
     void reset();
     void setMode(int mode);
+    void setModel106(bool on) { model106_ = on; setMode(mode_); }   /* juno~ addition */
 
     bool isOff() const { return mode_ == JUNO_CH_OFF; }
 
@@ -73,6 +74,7 @@ private:
     float    minMs_ = JUNO_CHORUS_MIN_MS;
     float    maxMs_ = JUNO_CHORUS_MAX_MS;
     bool     mono_  = false;
+    bool     model106_ = false;
     int      mode_  = JUNO_CH_OFF;
     /* juno~ change: the filters of the chorus board (service notes p. 11).
      * Ahead of the lines R15/C7 (7.2 kHz) and the two Sallen-Key stages

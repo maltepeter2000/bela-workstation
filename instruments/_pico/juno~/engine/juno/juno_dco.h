@@ -82,8 +82,9 @@ public:
     {
         saw_   = saw;
         pulse_ = pulse;
-        sub_   = junoClamp(subLevel, 0.0f, 1.0f);
-        nz_    = junoClamp(noiseLevel, 0.0f, 1.0f);
+        /* juno~: up to 4, for the Juno-106 model's louder sub and noise. */
+        sub_   = junoClamp(subLevel, 0.0f, 4.0f);
+        nz_    = junoClamp(noiseLevel, 0.0f, 4.0f);
     }
 
     void setPulseWidth(float pw)

@@ -430,6 +430,11 @@
 #define JUNO_CHORUS_II_HZ     0.863f
 #define JUNO_CHORUS_III_HZ    9.75f    /* I+II, mono */
 #define JUNO_CHORUS_BUF_MS    8.0f
+/* juno~: the Juno-106 model's chorus, measured on Cherry Audio's DCO-106. */
+#define JUNO106_CHORUS_I_HZ        1.00f
+#define JUNO106_CHORUS_II_HZ       1.84f
+#define JUNO106_CHORUS_I_SPAN_MS   1.94f
+#define JUNO106_CHORUS_II_SPAN_MS  1.76f
 #define JUNO_BBD_STAGES       256.0f
 #define JUNO_BBD_INPUT_LP_HZ  7000.0f  /* the 12 dB low-pass ahead of the BBD */
 

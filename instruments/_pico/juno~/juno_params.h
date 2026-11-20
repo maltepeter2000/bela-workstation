@@ -32,8 +32,9 @@ static const Control kControls[] = {
     {"octave", 'S', 3, -2, 2, "Octave", ""},
     {"vellevel", 'S', 4, 0, 127, "Velo level", ""},
     {"velcutoff", 'S', 5, 0, 127, "Velo cutoff", ""},
+    {"model", 'S', 6, 0, 1, "Model", "60|106"},
 };
 
 enum Switch { kSw_range, kSw_pulse, kSw_saw, kSw_chorus, kSw_pwmmode, kSw_envpol, kSw_vcamode, kSw_hpf, kSwitchCount };
-enum Setting { kSet_volume, kSet_tune, kSet_bend, kSet_octave, kSet_vellevel, kSet_velcutoff, kSettingCount };
-static const int kSettingDefaults[] = { 127, 0, 2, 0, 0, 0 };
+enum Setting { kSet_volume, kSet_tune, kSet_bend, kSet_octave, kSet_vellevel, kSet_velcutoff, kSet_model, kSettingCount };
+static const int kSettingDefaults[] = { 127, 0, 2, 0, 0, 0, 0 };
