@@ -18,6 +18,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
+sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 from gen_editor import Canvas, bng, D, SP, SEMI, COMMA   # noqa: E402
 
 RANDOM = ["pluck", "bass", "lead", "brass", "pad", "strings", "total"]

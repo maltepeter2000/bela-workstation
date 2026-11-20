@@ -17,6 +17,9 @@ build(rows) makes the layer abstraction [<name> <channel>] (channel 0 = all):
   [ctlin] inside, CC on its channel -> outlet: n <name> <0-127>  (to the instrument)
   inlet: the instrument's reports "info <name> <0-127> <text>" (every change, also its own)
          pickup 0/1   (default 1)      sync   (asks for all its settings: ninfo ...)
+         channel <0-16>  the instrument reports its receive channel: the layer follows it
+         txchannel <1-16>  the instrument reports a send channel: the feedback goes out on it
+                           (without it, or with 0, the feedback uses the receive channel)
   CC 3 on its channel (any value) = sync request from the controller (the Launchkey firmware sends
   it before its first CC on a new channel): all values go back to the controller.
   Feedback: a change that did not come from the encoder itself (preset, editor, message)
@@ -26,7 +29,7 @@ build(rows) makes the layer abstraction [<name> <channel>] (channel 0 = all):
   with a controller that ignores the feedback. A change from the encoder is not echoed:
   the instrument reports it in the same logical time, which marks it as its own.
 The instrument needs: n <name> <0-127>, ninfo <name>, and "info <name> <0-127> <text>" on
-an outlet for every change (pdoly8~ does this). Other selectors: write(..., sel=("fm", "fminfo", "fm"))
+an outlet for every change. Other selectors: write(..., sel=("fm", "fminfo", "fm"))
 (set, ask, report), e.g. the FM view of tx81zn~.
 """
 import os
@@ -34,6 +37,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+
+# Shared by all instruments (common/tools). Joins the three versions that had grown apart:
+# the feedback queue and the selector option (tx81z-pd) and txchannel (CZ4, pico-vintage-synths).
 
 RESERVED = {32, 38, 64, 65, 66, 67, 68, 69, 84, 88, 96, 97, 98, 99, 100, 101}
 FREE = [c for c in range(20, 120) if c not in RESERVED]
@@ -70,7 +76,7 @@ def build(title, rows, sel=("n", "ninfo", "info")):
     p = G.P(None, 900, 900)
     p.note(f"{title}: controller layer - CC pages 20-119 (without 32 38 64-69 84 88 96-101) on channel $1 "
            f"(0 = all) -> {s_set} <name> <0-127>. Inlet: {s_info} <name> <0-127> <text> from the instrument, "
-           "pickup 0/1, sync (also CC 3 from the controller), channel <n> (0 = all; the instrument reports its channel). Changes from elsewhere go back to the controller as CC (ctlout), "
+           "pickup 0/1, sync (also CC 3 from the controller), channel <n> (0 = all; the instrument reports its channel), txchannel <n> (feedback channel). Changes from elsewhere go back to the controller as CC (ctlout), "
            "pickup avoids jumps. Table: line = CC number, the setting or -.", 10, 6)
     # ---- init: two timers (logical time since load), arrays, channel
     lb = p.add("loadbang", 10, 60)
@@ -84,7 +90,7 @@ def build(title, rows, sel=("n", "ninfo", "info")):
     t1 = p.add("timer", 600, 600); t2 = p.add("timer", 300, 1080)
     p.con(tb, 2, t1, 0); p.con(tb, 2, t2, 0)
     ch = p.add("f $1", 300, 120); p.con(tb, 1, ch, 0)
-    chmax = p.add("max 1", 300, 180); p.con(ch, 0, chmax, 0)
+    chmax = p.add("expr if($f2 > 0, $f2, max($f1, 1))", 300, 180); p.con(ch, 0, chmax, 0)   # feedback channel
     dl = p.add("del 500", 400, 120); p.con(tb, 0, dl, 0)
     on1 = p.msg("1", 480, 120); p.con(tb, 0, on1, 0)
     # ---- CC in: channel filter
@@ -131,8 +137,10 @@ def build(title, rows, sel=("n", "ninfo", "info")):
     out = p.add("outlet", 120, 880); p.con(ltr2, 0, out, 0)
     # ---- inlet: info <name> <0-127> <text> / pickup 0/1 / sync
     inl = p.add("inlet", 10, 940)
-    ri = p.add(f"route {s_info} pickup sync channel", 10, 970); p.con(inl, 0, ri, 0)
+    ri = p.add(f"route {s_info} pickup sync channel txchannel", 10, 970); p.con(inl, 0, ri, 0)
     p.con(ri, 3, ch, 0)   # channel <0-16> from the instrument: follow it (0 = all)
+    txt = p.add("t b f", 420, 1000); p.con(ri, 4, txt, 0)   # txchannel <1-16>: the feedback channel
+    p.con(txt, 1, chmax, 1); p.con(txt, 0, ch, 0)
     p.con(ri, 1, pass_, 4)
     allm = p.msg(", ".join(f"{s_ask} {n}" for n in m), 560, 1000)
     p.con(ri, 2, allm, 0); p.con(dl, 0, allm, 0); p.con(allm, 0, out, 0)

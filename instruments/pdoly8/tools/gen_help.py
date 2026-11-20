@@ -7,7 +7,11 @@ Same grid, colours and section order as skandrums-pd/tools/gen_help.py:
 yellow writing surface, pink strip, blue panel, blue heading squares,
 toggle + metro at the top, one [s]/[r] bus, text sections below.
 """
+import os
 import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 
 BS = chr(92)
 SEMI, COMMA, DOLLAR, SPACE = BS + ";", BS + ",", BS + "$", BS + " "

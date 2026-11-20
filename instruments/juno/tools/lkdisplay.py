@@ -19,6 +19,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import patchwriter as G   # noqa: E402
 
 HEADER = [0xF0, 0x7D, 0x4C, 0x4B, 0x01]

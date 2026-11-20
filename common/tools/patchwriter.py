@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Minimal Pd patch writer used by tools/ctlayer.py (same as in the PDoly800 repository)."""
+"""Minimal Pd patch writer, shared by the generators of all instruments (common/tools)."""
 
 FONT = 10
 

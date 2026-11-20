@@ -21,9 +21,11 @@ usage: python3 tools/gen_bela.py
 """
 import os
 import shutil
+import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
+sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 OUT = os.path.join(ROOT, "bela", "project")
 
 # page name, 8 pot parameters ("none" = free)
