@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The controls of juno~ in one table: the header juno~/juno_params.h, the controller layer
+"""The controls of juno~ in one table: the header pd/juno_params.h, the controller layer
 [junocc], the editor [junoedit] and the help patch are all generated from it.
 
 A patch is the 18 bytes of a Juno-106 patch dump: 16 sliders 0..127 and two switch bytes.
@@ -133,6 +133,6 @@ def write_header(path):
 
 
 if __name__ == "__main__":
-    out = os.path.join(ROOT, "juno~", "juno_params.h")
+    out = os.path.join(ROOT, "pd", "juno_params.h")
     write_header(out)
     print("wrote", out, f"({len(CONTROLS)} controls, {sum(len(n) for _, n in CC_ROWS)} on CC pages)")

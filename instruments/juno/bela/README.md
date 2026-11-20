@@ -2,7 +2,7 @@
 
 `juno/` is a Bela Pd project (made for the Bela Gem, 64-bit ARM): `[juno~]` with MIDI in, the
 controller layer, the Launchkey pads, the OLED and an OSC remote. No GUI. `_main.pd` is generated
-by `tools/gen_juno_bela.py`, `juno~.pd_linux` is cross-built with `make bela-gem` in `juno~/`.
+by `tools/gen_juno_bela.py`, `juno~.pd_linux` is cross-built with `make bela-gem` (in the instrument folder).
 
 | File | |
 |---|---|
@@ -23,7 +23,7 @@ the USB host port). A user bank from the desktop can be copied in beside the pat
 `scp junouser-bank.syx root@bela-multi.local:~/Bela/projects/juno/`.
 
 An older Bela (32-bit, Cortex-A8) needs the external built on the board: copy the repository there
-and run `make` in `juno~/`, then copy `juno~.pd_linux` into the project.
+and run `make` in `instruments/juno`, then copy `juno~.pd_linux` into the project.
 
 ## Playing
 
@@ -62,4 +62,4 @@ system call in Bela's audio thread, so `[lkdisplay]` sends at most one display m
 the controller feedback and SysEx out (off at load) cost the same per byte.
 
 Built with 2× oversampling (as on the desktop). If the Bela runs short:
-`make bela-gem BELA_OS=1` in `juno~/` builds it without.
+`make bela-gem BELA_OS=1` builds it without.

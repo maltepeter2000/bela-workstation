@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates bela-oled/project/ : pdoly8~ on a Bela with an OLED (no Pepper, no pots).
+"""Generates bela/oled/ : pdoly8~ on a Bela with an OLED (no Pepper, no pots).
 
   MIDI (USB host port hw:1 and the Bela as USB MIDI device hw:0 of the computer):
     notes, pitch bend, program change 1-64 = factory preset 0-63,
@@ -25,7 +25,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import gen_bela as G                             # noqa: E402  (P, CCS, presets)
 
-OUT = os.path.join(ROOT, "bela-oled", "project")
+OUT = os.path.join(ROOT, "bela", "oled")
 P = G.P
 OLED_HOST, OLED_PORT = "127.0.0.1", 7562
 
@@ -143,4 +143,4 @@ if __name__ == "__main__":
     gen_p8cc.write(os.path.join(OUT, "p8cc.pd"))
     txt, n = G.p8factory_embedded()
     open(os.path.join(OUT, "p8factory.pd"), "w").write(txt)
-    print(f"bela-oled/project: _main.pd, p8cc.pd, p8factory.pd ({n} programs inside)")
+    print(f"bela/oled: _main.pd, p8cc.pd, p8factory.pd ({n} programs inside)")

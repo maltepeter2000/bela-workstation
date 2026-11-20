@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates cz4/cz4cc.pd, the controller layer of cz4~ (tools/ctlayer.py with CC_ROWS of
+"""Generates pd/cz4cc.pd, the controller layer of cz4~ (tools/ctlayer.py with CC_ROWS of
 tools/cz4_params.py).
 
 [cz4cc <channel>]  (0 = all channels)
@@ -21,12 +21,12 @@ import ctlayer                                   # noqa: E402
 import cz4_params as T                           # noqa: E402
 
 if __name__ == "__main__":
-    out = os.path.join(ROOT, "cz4", "cz4cc.pd")
+    out = os.path.join(ROOT, "pd", "cz4cc.pd")
     m = ctlayer.write(out, "cz4cc (cz4~)", T.CC_ROWS)
     print("wrote", out, f"({len(m)} settings on CC)")
     # control pads: the layout every instrument shares (common/tools/ctpads.py)
     import ctpads
-    out = os.path.join(ROOT, "cz4", "cz4pads.pd")
+    out = os.path.join(ROOT, "pd", "cz4pads.pd")
     pads = ctpads.layout(getattr(T, "OWN_PADS", {}))
     ctpads.write(out, "cz4pads (cz4~)", pads)
     print("wrote", out, f"({len(pads)} pads)")

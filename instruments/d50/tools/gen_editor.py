@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generates d50~/d50edit.pd: an editor for d50~ in rows of 8, row k = CC page k of the
+"""Generates pd/d50edit.pd: an editor for d50~ in rows of 8, row k = CC page k of the
 controller layer (pattern of txedit.pd / p8edit.pd).
 
-usage: python3 tools/gen_editor.py [outfile]   (default: d50~/d50edit.pd)
+usage: python3 tools/gen_editor.py [outfile]   (default: pd/d50edit.pd)
 
 [d50edit <bus>]  e.g. [d50edit $0-d50] in the help patch
   sends    n <name> <0-127>, preset / user / store ..., ninfo ...   to [s <bus>]
@@ -279,6 +279,6 @@ def build():
 
 
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "d50~", "d50edit.pd")
+    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "pd", "d50edit.pd")
     open(out, "w").write(build())
     print("wrote", out, f"({len(ALL)} settings)")

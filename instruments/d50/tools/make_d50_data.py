@@ -8,7 +8,7 @@ boards) and a program EPROM (IC22). Files are identified by content, so their
 names do not matter. Any D-50 SysEx bulk dumps (*.syx) found there are copied
 along as patch banks.
 
-Writes, inside d50~/:
+Writes, inside pd/:
 
     d50_pcm.bin   the decoded samples, loaded by the external at run time
     *.syx         the patch banks, loaded at run time
@@ -30,7 +30,7 @@ def main():
         sys.exit(__doc__)
     romdir = os.path.abspath(sys.argv[1])
     here = os.path.dirname(os.path.abspath(__file__))
-    dest = os.path.join(here, "..", "d50~")
+    dest = os.path.join(here, "..", "pd")
     with tempfile.TemporaryDirectory() as tmp:
         subprocess.run([sys.executable,
                         os.path.join(here, "d5_extract", "d5_make_blob.py"),
@@ -41,7 +41,7 @@ def main():
                    glob.glob(os.path.join(romdir, "*.SYX")))
     for b in banks:
         shutil.copy(b, os.path.join(dest, os.path.basename(b)))
-    print(f"d50~/d50_pcm.bin written; "
+    print(f"pd/d50_pcm.bin written; "
           f"{len(banks)} patch bank(s) copied")
     if not banks:
         print("no *.syx in the ROM folder: d50~ will play its eight built-in "

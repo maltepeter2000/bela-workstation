@@ -5,7 +5,7 @@ Two Pd externals around one phase-distortion core (the uPD933 chip of the Casio 
 | Object | What it is | Details |
 |---|---|---|
 | **`cz4~`** (CZ4) | a full Casio CZ-1: 16 polyphonic voices, two lines each, six 8-step envelopes per voice, CZ tones (128 and 144 bytes) with factory and user bank, the CZ-1 operation memory (split, tone mix, portamento, glide), chorus, the CZ SysEx with its handshake both ways, controller layer `[cz4cc]`, editor `[cz4edit]` | this file |
-| **`cz1~`** (CZ1) | the oscillator alone, for the Eurorack (Bela Pepper): 4 voices paraphonic, continuous wave morph, vintage layer, no envelopes | [cz1/README.md](cz1/README.md) |
+| **`cz1~`** (CZ1) | the oscillator alone, for the Eurorack (Bela Pepper): 4 voices paraphonic, continuous wave morph, vintage layer, no envelopes | [pd/README.md](pd/README.md) |
 
 `cz1~` was called `cz4~` until November 2026 (last state under that name: branch `v0.9-cz4-osc`).
 
@@ -78,15 +78,16 @@ Nothing is needed. Every `.syx` beside the external is read for CZ tones (CZ-101
 
 ### Comparison with Arturia CZ V (or a real CZ)
 
-`cz4/cz4test.pd` plays 12 test sequences to CZ V over MIDI and to `cz4~` at the same time and records both (`test/rec/czv-testNN.wav`, `cz4-testNN.wav`). The test tones are in `cz4/test/tones/` in four SysEx forms (`cz101`: 128 bytes as a computer sends them to a CZ-101, the usual form of CZ files; `dump`: as a CZ sends them; `cz1`, `cz1dump`: the CZ-1's 144 bytes), one `.syx` per test, and as banks `cz4test-bank*.syx`: import the form CZ V takes. They isolate one property each: DCA rates and level law, DCW sweep, pitch envelope, vibrato with wheel and aftertouch, CZ-1 velocity, key follow, portamento and bend, ring and noise modulation, fine detune, resonance, level of chords. `python3 tools/cz_compare.py cz4/test/rec` measures both sides and writes `report.md` with plots. Tests, tones and sequences come from `tools/cz4_tests.py`, the patch from `tools/gen_cz4_testrig.py`.
+`pd/cz4test.pd` plays 12 test sequences to CZ V over MIDI and to `cz4~` at the same time and records both (`test/rec/czv-testNN.wav`, `cz4-testNN.wav`). The test tones are in `pd/test/tones/` in four SysEx forms (`cz101`: 128 bytes as a computer sends them to a CZ-101, the usual form of CZ files; `dump`: as a CZ sends them; `cz1`, `cz1dump`: the CZ-1's 144 bytes), one `.syx` per test, and as banks `cz4test-bank*.syx`: import the form CZ V takes. They isolate one property each: DCA rates and level law, DCW sweep, pitch envelope, vibrato with wheel and aftertouch, CZ-1 velocity, key follow, portamento and bend, ring and noise modulation, fine detune, resonance, level of chords. `python3 tools/cz_compare.py pd/test/rec` measures both sides and writes `report.md` with plots. Tests, tones and sequences come from `tools/cz4_tests.py`, the patch from `tools/gen_cz4_testrig.py`.
 
 ## Build
 
 ```sh
 make PDINCLUDE=/path/to/pd/src      # cz1~ and cz4~ for this machine
 make test && ./cz_test && ./tone_test my-cz-bank.syx && ./cz4_render my-cz-bank.syx
-make mac-zig                        # universal macOS binaries + patches in dist/ (zig, llvm-lipo)
-make generate                       # header, cz4cc, cz4edit, help patches from tools/
+make mac-zig                        # universal macOS binaries + patches in bin/macos (zig, llvm-lipo)
+make bela-gem                       # Bela Gem: into ../../build/bela-gem (zig)
+make gen                            # header, cz4cc, cz4pads, cz4edit, help patches from tools/
 make bela PDINCLUDE=/usr/local/include/libpd   # on the Bela board
 ```
 
@@ -96,13 +97,14 @@ Put `cz4~.pd_darwin` (or `.pd_linux`), `cz4~-help.pd`, `cz4cc.pd` and `cz4edit.p
 
 | Path | Content |
 |---|---|
-| `core/cz_core.*` | phase-distortion core (both objects) |
-| `core/cz_tone.*` | CZ tone data: panel values ↔ bytes, SysEx nibbles, `.syx` scanning |
-| `cz4/cz4_core.*` | the CZ-1 instrument (voices, envelopes, operation memory, chorus) |
-| `cz4/cz4~.cpp` | the Pd external: messages, banks, handshake |
-| `cz4/cz4cc.pd`, `cz4/cz4edit.pd`, `cz4/cz4~-help.pd` | controller layer, editor, help (generated) |
-| `cz1/` | the oscillator |
-| `tools/` | `cz4_params.py` (the one table), generators, `ctlayer.py`, `help_draw.py` |
+| `src/cz_core.*` | phase-distortion core (both objects) |
+| `src/cz_tone.*` | CZ tone data: panel values ↔ bytes, SysEx nibbles, `.syx` scanning |
+| `pd/cz4_core.*` | the CZ-1 instrument (voices, envelopes, operation memory, chorus) |
+| `pd/cz4~.cpp` | the Pd external: messages, banks, handshake |
+| `pd/cz4cc.pd`, `pd/cz4pads.pd`, `pd/cz4edit.pd`, `pd/cz4~-help.pd` | controller layer, pads, editor, help (generated) |
+| `pd/cz1~.c`, `pd/cz1~-help.pd` | the oscillator (`docs/cz1.md`) |
+| `bin/macos/` | the Mac package |
+| `tools/` | `cz4_params.py` (the one table), generators (ctlayer, ctpads: `../../common/tools`), `help_draw.py` |
 | `tests/` | `cz_test.c`, `tone_test.c`, `cz4_render.cpp` |
 | `third_party/pd/m_pd.h` | Pd's header for the macOS cross build |
 

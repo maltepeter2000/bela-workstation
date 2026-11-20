@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates bela/project/ : the Bela Pepper patch for pdoly8~.
+"""Generates bela/pepper/ : the Bela Pepper patch for pdoly8~.
 
   10 pages of 8 pots (PAGES below). Button 1/2: page down/up, LED 1-10 shows the page.
   Button 3/4: factory preset down/up. Pickup: after a page or preset change a pot only
@@ -26,7 +26,7 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
-OUT = os.path.join(ROOT, "bela", "project")
+OUT = os.path.join(ROOT, "bela", "pepper")
 
 # page name, 8 pot parameters ("none" = free)
 PAGES = [
@@ -327,7 +327,7 @@ def p8factory_embedded():
     """p8factory with the 64 programs stored inside the patch ([text define -k]):
     no file is read at run time, so it does not depend on Pd's search path."""
     rows = []
-    for line in open(os.path.join(ROOT, "presets", "poly800mk2-factory.txt")):
+    for line in open(os.path.join(ROOT, "pd", "presets", "poly800mk2-factory.txt")):
         line = line.strip().rstrip(";").strip()
         if line:
             rows.append(line)
@@ -371,4 +371,4 @@ if __name__ == "__main__":
     txt, n = p8factory_embedded()
     open(os.path.join(OUT, "p8factory.pd"), "w").write(txt)
     shutil.rmtree(os.path.join(OUT, "presets"), ignore_errors=True)
-    print(f"bela/project: _main.pd, p8knob.pd, p8cc.pd, p8factory.pd ({n} programs inside)")
+    print(f"bela/pepper: _main.pd, p8knob.pd, p8cc.pd, p8factory.pd ({n} programs inside)")

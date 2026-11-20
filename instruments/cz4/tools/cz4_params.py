@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""The controls of cz4~ in one table: the header cz4/cz4_params.h, the controller layer
+"""The controls of cz4~ in one table: the header pd/cz4_params.h, the controller layer
 [cz4cc], the editor [cz4edit] and the help patch are all generated from it.
 
 A tone is the 144 bytes of a Casio CZ-1 tone. Its values are panel values as the CZ shows
-them (core/cz_tone.h converts them to bytes). Kinds:
+them (src/cz_tone.h converts them to bytes). Kinds:
   T  a value of the tone                         (index: CZP_* of cz_tone.h)
   L  a value of the selected line                (CZP_*)
   E  a value of the selected envelope of that line (CZP_*)
@@ -191,6 +191,6 @@ def write_header(path):
 
 
 if __name__ == "__main__":
-    out = os.path.join(ROOT, "cz4", "cz4_params.h")
+    out = os.path.join(ROOT, "pd", "cz4_params.h")
     write_header(out)
     print("wrote", out, f"({len(CONTROLS)} controls, {sum(len(n) for _, n in CC_ROWS)} on CC pages)")

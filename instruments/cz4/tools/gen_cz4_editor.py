@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generates cz4/cz4edit.pd: an editor for cz4~ in rows of 8, row k = CC page k of the
+"""Generates pd/cz4edit.pd: an editor for cz4~ in rows of 8, row k = CC page k of the
 controller layer (pattern of junoedit.pd / d50edit.pd / txedit.pd / p8edit.pd).
 
-usage: python3 tools/gen_cz4_editor.py [outfile]   (default: cz4/cz4edit.pd)
+usage: python3 tools/gen_cz4_editor.py [outfile]   (default: pd/cz4edit.pd)
 
 [cz4edit <bus>]  e.g. [cz4edit $0-cz4] in the help patch
   sends    n <name> <0-127>, preset / user / store / op ..., ninfo ...   to [s <bus>]
@@ -277,6 +277,6 @@ def build():
 
 
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "cz4", "cz4edit.pd")
+    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "pd", "cz4edit.pd")
     open(out, "w").write(build())
     print("wrote", out, f"({len(ALL)} settings)")

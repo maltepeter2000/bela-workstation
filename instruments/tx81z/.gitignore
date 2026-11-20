@@ -3,6 +3,7 @@ build/
 *.o
 *.pd_linux
 *.pd_darwin
+!bin/macos/*.pd_darwin
 *.pd_linux_arm
 # firmware and battery RAM are user supplied (Yamaha firmware is copyrighted)
 *.bin

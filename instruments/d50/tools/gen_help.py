@@ -2,7 +2,7 @@
 """Generate d50~-help.pd. Never edit the help patch by hand: change this
 script and run it again. Names, ranges and CC pages come from tools/d50_params.py.
 
-    python3 tools/gen_help.py            writes d50~/d50~-help.pd
+    python3 tools/gen_help.py            writes pd/d50~-help.pd
 """
 import os
 import sys
@@ -641,7 +641,7 @@ def main():
     p.cnv(BLUE_X, BLUE_TOP, BLUE_W, bottom - BLUE_TOP, bg=BLUE)
     assert build(p) == bottom
     out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..",
-                       OBJ, f"{OBJ}-help.pd")
+                       "pd", f"{OBJ}-help.pd")
     with open(out, "w") as f:
         f.write(f"#N canvas 348 20 820 {bottom + M} 12;\n")
         f.write("\n".join(p.lines) + "\n")

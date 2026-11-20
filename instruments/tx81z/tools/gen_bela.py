@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Generates bela-pd/tx81z-pd/_main.pd: a lean TX81Z for Bela (Pd), no GUI.
+"""Generates bela/tx81z-pd/_main.pd: a lean TX81Z for Bela (Pd), no GUI.
 
 usage: python3 tools/gen_bela.py [--native] [outfile]
-  default: bela-pd/tx81z-pd/_main.pd with [tx81z~] (firmware emulation)
-  --native: bela-pd/tx81zn-pd/_main.pd with [tx81zn~] (native engine): the battery RAM is only read
+  default: bela/tx81z-pd/_main.pd with [tx81z~] (firmware emulation)
+  --native: bela/tx81zn-pd/_main.pd with [tx81zn~] (native engine): the battery RAM is only read
   (bank I, MIDI channel), so there is no save; the OLED shows the voice name on a voice change
 
 - [tx81z~] on the bus tx / tx-out (the same messages as on the desktop)
@@ -295,7 +295,7 @@ def build():
 
 if __name__ == "__main__":
     args = [a for a in sys.argv[1:] if a != "--native"]
-    out = args[0] if args else os.path.join(ROOT, "bela-pd", "tx81zn-pd" if NATIVE else "tx81z-pd", "_main.pd")
+    out = args[0] if args else os.path.join(ROOT, "bela", "tx81zn-pd" if NATIVE else "tx81z-pd", "_main.pd")
     os.makedirs(os.path.dirname(out), exist_ok=True)
     open(out, "w").write(build())
     print("wrote", out)

@@ -18,33 +18,44 @@ instruments/          one folder per instrument, each with its own history
   m1/                 m1~      Korg M1, planned (no code yet)
 effects/
   vrs23/              vrs23~   Dynacord VRS 23 echo / reverb, Pd vanilla
-common/tools/         shared generators: ctlayer.py (controller layer), ctpads.py (pads),
-                      lkdisplay.py (Launchkey display), patchwriter.py
+common/tools/         shared generators: ctlayer.py (controller layer), ctpads.py (pads and
+                      their colours), ctnav.py (pad translator), lkdisplay.py (Launchkey
+                      display), patchwriter.py
+build/bela-gem/       make bela-gem: all instruments cross-built side by side (not in git)
 launchkey/            the controller: CC pages, pads, display; lkdisplay.pd
 docs/                 instrument-contract.md: what every instrument provides, state, next steps
 ```
 
-Each instrument folder keeps the layout of the repository it came from (`tools/`,
-`bin/macos/`, its Bela project, `third_party/`), so its Makefile and generators run
-unchanged from inside the folder. Its generators import the shared pieces from
-`common/tools`. What is aligned and what is still open is in
+Every instrument folder has the same layout:
+
+```
+Makefile      make, make mac-zig, make bela-gem, make gen, make clean
+pd/           the Pd package: external source, help patch, controller layer <x>cc.pd, pads
+              <x>pads.pd, editor, user bank - the folder to put on Pd's path
+src/          engine code outside the Pd package (tx81z, cz4)
+bin/macos/    the Mac package (universal, cross-built with make mac-zig)
+bela/         Bela projects (_main.pd and its files; the externals are built into them)
+tools/        generators (they import the shared pieces from common/tools)
+tests/ docs/ third_party/
+``` What is aligned and what is still open is in
 [docs/instrument-contract.md](docs/instrument-contract.md).
 
 ## Building
 
-Inside an instrument folder, with Pd's `m_pd.h` (one is in `instruments/juno/third_party/pd`):
+The same targets in every instrument folder (`instruments/<name>`), or for all of them from the
+top (`make <target>` here):
 
-| Instrument | Desktop / Linux | Mac package | Bela Gem (aarch64), cross build | Output |
-|---|---|---|---|---|
-| juno | `make -C juno~ PDINCLUDEDIR=…` | `make -C juno~ mac-zig` | `make -C juno~ bela-gem` | `bela/juno` |
-| d50 | `make -C d50~ PDINCLUDEDIR=…` | `make -C d50~ mac-zig` | `make -C d50~ bela-gem` | `bela/d50` |
-| pdoly8 | `make PDINCLUDE=…` | `make mac-zig` | `make bela-gem` | `bela-gem/` |
-| tx81z | `make -C pd` | – | `make -C pd bela-gem` | `bela-pd/tx81zn-pd`, `bela-pd/tx81z-pd` |
-| cz4 | `make PDINCLUDE=…` | `make mac-zig` | `make bela-gem` | `bela/cz4` |
+| | |
+|---|---|
+| `make` | build for this machine into `pd/` (Pd's `m_pd.h`: one is in each `third_party/pd`; juno and d50 take `PDINCLUDEDIR=…`, the others `PDINCLUDE=…`) |
+| `make mac-zig` | universal macOS binaries (arm64 + x86_64) and the patches into `bin/macos` |
+| `make bela-gem` | cross-built for the Bela Gem (aarch64, glibc 2.31) into `build/bela-gem/`, all instruments side by side (the rack's folder), and into the instrument's own Bela projects (juno: `bela/juno`, tx81z: `bela/tx81zn-pd`, `bela/tx81z-pd`) |
+| `make gen` | the generated files: parameter header, controller layer, pads, editor, help, Bela patches |
+| `make clean` | |
 
-The cross builds need zig (`pip install ziglang`). On the board itself a plain `make` works
-too (tx81z: `bela-pd/build_on_bela.sh`). The first Bela (armv7) still has its own targets in
-pdoly8 and cz4 (`bela`, `bela-zig`).
+The cross builds need zig (`pip install ziglang`) and llvm-lipo. On the board itself a plain
+`make` works too (tx81z: `bela/build_on_bela.sh`). The first Bela (armv7) still has its own
+targets in pdoly8 and cz4 (`bela`, `bela-zig`).
 
 All five build and load in Pd 0.54 on Linux, and the seven Gem binaries build without
 errors and need only the board's libc (checked 20 Nov 2026; not yet run on the Gem).

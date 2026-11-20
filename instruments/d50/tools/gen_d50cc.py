@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates d50~/d50cc.pd, the controller layer of d50~ (tools/ctlayer.py with CC_ROWS of
+"""Generates pd/d50cc.pd, the controller layer of d50~ (tools/ctlayer.py with CC_ROWS of
 tools/d50_params.py).
 
 [d50cc <channel>]  (0 = all channels)
@@ -21,12 +21,12 @@ import ctlayer                                   # noqa: E402
 import d50_params as T                           # noqa: E402
 
 if __name__ == "__main__":
-    out = os.path.join(ROOT, "d50~", "d50cc.pd")
+    out = os.path.join(ROOT, "pd", "d50cc.pd")
     m = ctlayer.write(out, "d50cc (d50~)", T.CC_ROWS)
     print("wrote", out, f"({len(m)} settings on CC)")
     # control pads: the layout every instrument shares (common/tools/ctpads.py)
     import ctpads
-    out = os.path.join(ROOT, "d50~", "d50pads.pd")
+    out = os.path.join(ROOT, "pd", "d50pads.pd")
     pads = ctpads.layout(getattr(T, "OWN_PADS", {}))
     ctpads.write(out, "d50pads (d50~)", pads)
     print("wrote", out, f"({len(pads)} pads)")

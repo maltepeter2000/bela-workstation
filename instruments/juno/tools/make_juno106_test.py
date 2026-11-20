@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Writes the Juno-106 measurement kit to juno~/test/:
+"""Writes the Juno-106 measurement kit to pd/test/:
 
   juno106test.pd    plays the test through [midiout]: before every step the patch as Juno-106
                     SysEx, then the notes. Record the synth it drives (a Juno-106 or an
@@ -13,7 +13,7 @@ import json
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(HERE, "..", "juno~", "test")
+OUT = os.path.join(HERE, "..", "pd", "test")
 
 SLIDERS = ["lforate", "lfodelay", "dcolfo", "pwm", "noise", "cutoff", "res", "env", "vcflfo",
            "kybd", "level", "attack", "decay", "sustain", "release", "sub"]

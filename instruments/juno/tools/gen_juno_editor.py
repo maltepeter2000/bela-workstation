@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Generates juno~/junoedit.pd: an editor for juno~ in rows of 8, row k = CC page k of the
+"""Generates pd/junoedit.pd: an editor for juno~ in rows of 8, row k = CC page k of the
 controller layer (pattern of d50edit.pd / txedit.pd / p8edit.pd).
 
-usage: python3 tools/gen_juno_editor.py [outfile]   (default: juno~/junoedit.pd)
+usage: python3 tools/gen_juno_editor.py [outfile]   (default: pd/junoedit.pd)
 
 [junoedit <bus>]  e.g. [junoedit $0-juno] in the help patch
   sends    n <name> <0-127>, preset / user / store ..., ninfo ...   to [s <bus>]
@@ -260,6 +260,6 @@ def build():
 
 
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "juno~", "junoedit.pd")
+    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "pd", "junoedit.pd")
     open(out, "w").write(build())
     print("wrote", out, f"({len(ALL)} settings)")

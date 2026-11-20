@@ -3,7 +3,7 @@
 cz4-testNN.wav (cz4~), test by test, and writes report.md (and PNG plots when matplotlib is
 there) into the same folder.
 
-usage: python3 tools/cz_compare.py cz4/test/rec
+usage: python3 tools/cz_compare.py pd/test/rec
 needs numpy (pip install numpy; matplotlib optional)
 """
 import math

@@ -33,7 +33,7 @@ The pads send the same messages to every instrument: `presetstep 1` / `presetste
 | d50 | `d50pads.pd` | – |
 | cz4 | `cz4pads.pd` | – |
 | pdoly8 | `p8pads.pd` → `p8nav.pd` | 39–43 random pluck, bass, lead, brass, pad; 47 strings, 48 total |
-| tx81zn | `txpads.pd` → `txnav.pd` (in its Bela patch) | the same random pads |
+| tx81zn | `txpads.pd` (in its Bela patch) | the same random pads |
 
 ### Pad colours
 
@@ -54,8 +54,8 @@ the protocol are in the firmware's README ("Pad colours from the host"); the col
 function are `COLORS` in `common/tools/ctpads.py`. Needs launchkey_firmware with pad LEDs
 (branch `pad-leds`).
 
-pdoly8~ and tx81zn~ keep their user bank in Pd; `[<x>nav]` (common/tools/ctnav.py) turns the
-pad messages into what they understand and sends the display lines itself.
+pdoly8~ keeps its user bank in Pd; `[p8nav]` (common/tools/ctnav.py) turns the pad messages
+into what it understands, sends the display lines itself and passes the object's own on.
 
 On Bela every MIDI byte that Pd sends is a system call in the audio thread, which is why
 feedback and display messages are throttled.

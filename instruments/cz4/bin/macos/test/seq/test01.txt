@@ -1,0 +1,3 @@
+0 czt-note 57 127;
+6000 czt-note 57 0;
+4000 czt-end bang;

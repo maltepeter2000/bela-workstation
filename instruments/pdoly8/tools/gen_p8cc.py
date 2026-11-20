@@ -8,7 +8,7 @@
 Used by all three versions: desktop (help patch), Bela Pepper and Bela with OLED.
 Also writes p8pads.pd (the Launchkey pads, common/tools/ctpads.py) and p8nav.pd (the pad
 translator: factory presets and user bank as dumps, common/tools/ctnav.py).
-usage: python3 tools/gen_p8cc.py   (writes p8cc.pd and copies it into bela/project, bela-oled/project)
+usage: python3 tools/gen_p8cc.py   (writes pd/p8cc.pd and copies it into bela/pepper, bela/oled)
 """
 import os
 import shutil
@@ -39,11 +39,11 @@ def write(path):
 
 
 if __name__ == "__main__":
-    write(os.path.join(ROOT, "p8cc.pd"))
-    ctpads.write(os.path.join(ROOT, "p8pads.pd"), "p8pads (pdoly8~)", ctpads.layout(OWN_PADS))
-    ctnav.write(os.path.join(ROOT, "p8nav.pd"), "p8nav (pdoly8~)", NAV)
+    write(os.path.join(ROOT, "pd", "p8cc.pd"))
+    ctpads.write(os.path.join(ROOT, "pd", "p8pads.pd"), "p8pads (pdoly8~)", ctpads.layout(OWN_PADS))
+    ctnav.write(os.path.join(ROOT, "pd", "p8nav.pd"), "p8nav (pdoly8~)", NAV)
     print("p8pads.pd, p8nav.pd")
-    for d in ("bela/project", "bela-oled/project"):
+    for d in ("bela/pepper", "bela/oled"):
         if os.path.isdir(os.path.join(ROOT, d)):
-            shutil.copy(os.path.join(ROOT, "p8cc.pd"), os.path.join(ROOT, d))
-    print("p8cc.pd (+ copies in bela/project, bela-oled/project)")
+            shutil.copy(os.path.join(ROOT, "pd", "p8cc.pd"), os.path.join(ROOT, d))
+    print("pd/p8cc.pd (+ copies in bela/pepper, bela/oled)")

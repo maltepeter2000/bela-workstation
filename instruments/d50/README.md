@@ -85,20 +85,22 @@ Files are identified by content, so their names do not matter.
 python3 tools/make_d50_data.py /path/to/your/roms
 ```
 
-writes `d50~/d50_pcm.bin` and copies the `.syx` files into `d50~/`. They are
+writes `pd/d50_pcm.bin` and copies the `.syx` files into `pd/`. They are
 ignored by git and must stay out of any repository. At run time the object
 looks for them in the folder of the external, then in the folder of the patch.
 
 ### Build
 
+The same targets in every instrument of bela-workstation (`Makefile` here, the work in `pd/`):
+
 - **macOS:** the package is in `bin/macos/` (universal, see `LIESMICH.txt`);
-  it is cross-built from Linux with `make mac-zig` in `d50~/`.
-- **From source:** `cd d50~ && make` (needs Pure Data's `m_pd.h`, see
+  it is cross-built from Linux with `make mac-zig`.
+- **From source:** `make` (needs Pure Data's `m_pd.h`, see
   `pd-lib-builder/Makefile.pdlibbuilder` for `PDINCLUDEDIR`).
-- `make gen` regenerates the parameter header, `d50cc.pd`, `d50edit.pd` and
+- **Bela Gem:** `make bela-gem` cross-builds into `../../build/bela-gem` (zig); `d50_pcm.bin`
+  goes beside it by hand.
+- `make gen` regenerates the parameter header, `d50cc.pd`, `d50pads.pd`, `d50edit.pd` and
   the help patch. Do not edit those by hand.
-- The workflow in `.github/workflows` builds on real macOS and Linux runners
-  when started by hand.
 
 ### Notes
 
@@ -110,10 +112,11 @@ looks for them in the folder of the external, then in the folder of the patch.
 ## Layout
 
 ```
-d50~/                 the external, d50cc.pd, d50edit.pd, help patch, Makefile
-d50~/engine/          PicoFaceD5 engine headers and the sample table
+Makefile              make, make mac-zig, make bela-gem, make gen (in pd/)
+pd/                   the external, d50cc.pd, d50pads.pd, d50edit.pd, help patch, Makefile
+pd/engine/            PicoFaceD5 engine headers and the sample table
 bin/macos/            the Mac package (no ROM data)
-tools/                d50_params.py, generators, ctlayer.py, make_d50_data.py
+tools/                d50_params.py, the generators (ctlayer, ctpads: ../../common/tools), make_d50_data.py
 tools/d5_extract/     ROM converter from PicoVintageSynthCollection
 third_party/pd/       m_pd.h for the cross build
 pd-lib-builder/       build helper (public domain, Katja Vetter)

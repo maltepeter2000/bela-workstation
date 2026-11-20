@@ -11,7 +11,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import gen_bela as g                             # noqa: E402
 
-src = open(os.path.join(ROOT, "pdoly8~.c")).read()
+src = open(os.path.join(ROOT, "pd", "pdoly8~.c")).read()
 lab = {m[0]: (m[1].strip(), m[2].strip().replace("P8_NT - 1", "32"), m[3], m[4])
        for m in re.findall(r'\{"(\w+)",\'\w\',([^,]+),([^,]+),"([^"]*)","([^"]*)"\}', src)}
 
@@ -45,7 +45,7 @@ Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `m
 
 {full}
 """
-for p, head in [("bela-oled/README.md", "## CC-Tabelle"), ("bela/README.md", "## MIDI-CC")]:
+for p, head in [("bela/README-oled.md", "## CC-Tabelle"), ("bela/README.md", "## MIDI-CC")]:
     path = os.path.join(ROOT, p)
     s = open(path).read()
     i = s.index(head)

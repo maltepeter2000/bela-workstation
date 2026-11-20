@@ -26,7 +26,7 @@ import gen_bela as GB                             # noqa: E402  (CC_GROUPS, CC_E
 BS = chr(92)
 D, SP, SEMI, COMMA = BS + "$", BS + " ", BS + ";", BS + ","
 
-src = open(os.path.join(ROOT, "pdoly8~.c")).read()
+src = open(os.path.join(ROOT, "pd", "pdoly8~.c")).read()
 RANGE = {m[0]: m[4] for m in re.findall(r'\{"(\w+)",\'(\w)\',([^,]+),([^,]+),"([^"]*)","([^"]*)"\}', src)}
 
 CC = {nm: cc for cc, nm in GB.CCS.items()}
@@ -342,6 +342,6 @@ def build():
 
 
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "p8edit.pd")
+    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "pd", "p8edit.pd")
     open(out, "w").write(build())
     print("wrote", out, f"({len(ALL)} settings)")

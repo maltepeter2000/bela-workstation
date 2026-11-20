@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates juno~/junocc.pd, the controller layer of juno~ (tools/ctlayer.py with CC_ROWS of
+"""Generates pd/junocc.pd, the controller layer of juno~ (tools/ctlayer.py with CC_ROWS of
 tools/juno_params.py).
 
 [junocc <channel>]  (0 = all channels)
@@ -20,11 +20,11 @@ import ctlayer                                   # noqa: E402
 import juno_params as T                          # noqa: E402
 
 if __name__ == "__main__":
-    out = os.path.join(ROOT, "juno~", "junocc.pd")
+    out = os.path.join(ROOT, "pd", "junocc.pd")
     m = ctlayer.write(out, "junocc (juno~)", T.CC_ROWS)
     print("wrote", out, f"({len(m)} settings on CC)")
     import ctpads
-    out = os.path.join(ROOT, "juno~", "junopads.pd")
+    out = os.path.join(ROOT, "pd", "junopads.pd")
     pads = ctpads.layout(T.OWN_PADS)
     ctpads.write(out, "junopads (juno~)", pads)
     print("wrote", out, f"({len(pads)} pads)")

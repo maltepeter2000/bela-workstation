@@ -12,7 +12,7 @@
 | CV-Eingänge | ohne Kabel setzt der Pot den Wert; mit Kabel schwächt der Pot die CV ab |
 | **CV-Lock** | Taste 4 halten und einen Pot drehen: dieser Eingang bleibt auf seinem Parameter, auf allen Seiten, ohne Pickup (für CV). Dasselbe noch einmal löst ihn. Die Konsole meldet `locked pot N: n <name>` / `unlocked pot N`; das Preset springt dabei nicht weiter |
 | Audio In 1 | externe FM-Quelle: Seite FM, `fms` auf „Eingang“, Pot 6 = Pegel (`fmig`) |
-| MIDI (USB) | Noten (4 Stimmen), Pitch Bend, Program Change 1–64 = Preset 0–63, CC siehe unten (dieselbe Tabelle wie `bela-oled/`, jeder Kanal) |
+| MIDI (USB) | Noten (4 Stimmen), Pitch Bend, Program Change 1–64 = Preset 0–63, CC siehe unten (dieselbe Tabelle wie `bela/oled/`, jeder Kanal) |
 
 ## Seiten
 
@@ -155,21 +155,21 @@ Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `m
 
 1. **External:** `bela/pdoly8~.pd_linux` (fertig gebaut: ARMv7 Cortex-A8, NEON, Hard-Float) **flach** nach `/root/Bela/projects/pd-externals/` kopieren.
    Alternativ auf dem Bela selbst bauen: `make bela PDINCLUDE=/usr/local/include/libpd` und die `pdoly8~.pd_linux` dorthin kopieren.
-2. **Patch:** den Inhalt von `bela/project/` in ein Bela-Projekt kopieren, z. B. `/root/Bela/projects/pdoly8/`.
+2. **Patch:** den Inhalt von `bela/pepper/` in ein Bela-Projekt kopieren, z. B. `/root/Bela/projects/pdoly8/`.
 3. **Projekteinstellungen:** Blocksize 32 (bei zu hoher CPU-Last 64), USB-MIDI-Port prüfen (`amidi -l`).
 
 ```
 scp 'bela/pdoly8~.pd_linux' root@bela.local:/root/Bela/projects/pd-externals/
-scp bela/project/* root@bela.local:/root/Bela/projects/pdoly8/
+scp bela/pepper/* root@bela.local:/root/Bela/projects/pdoly8/
 ```
 
 ## Dateien
 
-- `pdoly8~.pd_linux` — das External für den Bela (`make bela-zig` baut es von Linux aus neu, mit zig, und erzeugt `project/` neu).
-- `project/_main.pd` — der Patch: Seiten- und CC-Tabelle (`pd tables`), Tasten, LEDs, MIDI, Pots; alles über send/receive.
-- `project/p8knob.pd` — ein Pot: Pickup, CV-Lock, Senden an `pdoly8~`.
-- `project/p8factory.pd` — die 64 Factory-Programme, direkt im Patch gespeichert.
-- `../tools/gen_bela.py` — erzeugt `project/` neu: Seiten (`PAGES`), CCs (`CCS`), Tasten, LEDs und Pot-Bereiche stehen oben im Skript.
+- `pdoly8~.pd_linux` — das External für den Bela (`make bela-zig` baut es von Linux aus neu, mit zig, und erzeugt `pepper/` neu).
+- `pepper/_main.pd` — der Patch: Seiten- und CC-Tabelle (`pd tables`), Tasten, LEDs, MIDI, Pots; alles über send/receive.
+- `pepper/p8knob.pd` — ein Pot: Pickup, CV-Lock, Senden an `pdoly8~`.
+- `pepper/p8factory.pd` — die 64 Factory-Programme, direkt im Patch gespeichert.
+- `../tools/gen_bela.py` — erzeugt `pepper/` neu: Seiten (`PAGES`), CCs (`CCS`), Tasten, LEDs und Pot-Bereiche stehen oben im Skript.
 
 ## Stand
 

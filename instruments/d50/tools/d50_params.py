@@ -15,7 +15,7 @@ Controls: the flat names of `n <name> <0-127>` / `<name> <value>`. A partial nam
 the selected partial (control `part`), a tone name on that partial's tone, a patch name on
 the patch. The macros of the first row are not patch bytes.
 
-usage: python3 tools/d50_params.py   (writes d50~/d50_params.h)
+usage: python3 tools/d50_params.py   (writes pd/d50_params.h)
 """
 import os
 
@@ -258,6 +258,6 @@ def write_header(path):
 
 
 if __name__ == "__main__":
-    out = os.path.join(ROOT, "d50~", "d50_params.h")
+    out = os.path.join(ROOT, "pd", "d50_params.h")
     write_header(out)
     print("wrote", out, f"({len(CONTROLS)} controls, {sum(len(n) for _, n in CC_ROWS)} on CC pages)")

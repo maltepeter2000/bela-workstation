@@ -39,14 +39,14 @@ reported as `info <name> <0-127> <text>`. Edits are heard at once.
 ### Juno-60 or Juno-106
 
 `model` switches the instrument the patch plays on. `60` is the engine as it is: a Juno-60.
-`106` is the Juno-106 as measured on Cherry Audio's DCO-106 with the kit in `juno~/test`
+`106` is the Juno-106 as measured on Cherry Audio's DCO-106 with the kit in `pd/test`
 (`juno106test`, `juno106test2`): the cutoff curve and resonance (self-oscillation only from
 about 104), the contour's depth (linear, 10 octaves) and times (decay and release up to about
 15 s), LFO rate (0.1 to 20 Hz), delay and depth, the VCF LFO, the pulse width (down to 5 %), the
 VCA level, the high-pass (position 0 a small bass lift, 1 flat, 2 and 3 at 226 and 720 Hz, as in
 the Juno-106 service notes), the chorus (twice the rate over half the sweep), and the sub and
 noise levels. In this model the contour and the LFO move in the steps of the Juno-106's
-D/A cycle (4.2 ms). The model is the Juno-60 engine with remapped sliders (`juno~/juno106_tables.h`,
+D/A cycle (4.2 ms). The model is the Juno-60 engine with remapped sliders (`pd/juno106_tables.h`,
 from `tools/make_juno106_tables.py`) and a few switches in the engine. Like the other setup
 controls it is not stored in a patch.
 
@@ -120,21 +120,24 @@ names the parameter of the encoder you turn. The help patch and the Bela project
 ### Build
 
 ```
-cd juno~
-make                 # this machine
-make mac-zig         # universal macOS binary into ../bin/macos (zig, llvm-lipo)
-make gen             # parameter header, controller layer, editor, help
+make                 # this machine (into pd/)
+make mac-zig         # universal macOS binary into bin/macos (zig, llvm-lipo)
+make bela-gem        # Bela Gem: into ../../build/bela-gem and bela/juno (zig)
+make gen             # parameter header, controller layer, pads, editor, help
 ```
+
+The same targets in every instrument of bela-workstation (`Makefile` here, the work in `pd/`).
 
 ## Layout
 
 ```
-juno~/                the external, junocc.pd, junoedit.pd, junopads.pd, lkdisplay.pd, help patch, Makefile
-juno~/engine/         PicoFaceJ6 engine, see its README for the changes
-juno~/test/           Juno-106 comparison patches
+Makefile              make, make mac-zig, make bela-gem, make gen (in pd/)
+pd/                   the external, junocc.pd, junoedit.pd, junopads.pd, lkdisplay.pd, help patch, Makefile
+pd/engine/            PicoFaceJ6 engine, see its README for the changes
+pd/test/              Juno-106 comparison patches
 bela/juno/            the Bela Gem project
 bin/macos/            the Mac package
-tools/                juno_params.py, generators, ctlayer.py, ctpads.py, lkdisplay.py
+tools/                juno_params.py, the generators (ctlayer, ctpads, lkdisplay: ../../common/tools)
                       (gen_help.py and d50_params.py: shared with d50, used by gen_juno_help.py)
 third_party/pd/       m_pd.h for the cross build
 pd-lib-builder/       build helper (public domain, Katja Vetter)

@@ -111,7 +111,7 @@ die Einstellungen des Instruments, die kein Patch speichert (volume, tune,
 bend, octave, vellevel, velcutoff, model), Seite 5 die Stimmen (calibrate,
 chorusnoise). Schieberegler laufen 0–127 wie im Juno-106-Patch, Pot und Wert
 sind also dieselbe Zahl. `junocc.pd`, `junopads.pd` und `junoedit.pd`
-entstehen mit `make gen` in `juno~/`.
+entstehen mit `make gen` in `pd/`.
 
 ### Pads
 

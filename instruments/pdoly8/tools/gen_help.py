@@ -701,7 +701,7 @@ def build():
 
 
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else OBJ + "-help.pd"
+    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "pd", OBJ + "-help.pd")
     with open(out, "w") as f:
         f.write(build())
     print("wrote", out)

@@ -36,8 +36,8 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-SRC = next((p for p in (os.path.join(HERE, "..", "pdoly8~.c"), os.path.join(HERE, "pdoly8~.c"))
-            if os.path.exists(p)), os.path.join(HERE, "..", "pdoly8~.c"))
+SRC = next((p for p in (os.path.join(HERE, "..", "pd", "pdoly8~.c"), os.path.join(HERE, "pdoly8~.c"))
+            if os.path.exists(p)), os.path.join(HERE, "..", "pd", "pdoly8~.c"))
 
 # ------------------------------------------------------------ the object
 def object_layout(path=SRC):

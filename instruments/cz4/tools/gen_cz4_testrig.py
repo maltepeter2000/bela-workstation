@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates cz4/cz4test.pd (next to cz4~, data in cz4/test/): plays the comparison tests of tools/cz4_tests.py to a
+"""Generates pd/cz4test.pd (next to cz4~, data in pd/test/): plays the comparison tests of tools/cz4_tests.py to a
 CZ (Arturia CZ V or a real one) over MIDI and to cz4~ at the same time, and records both:
 test/rec/czv-testNN.wav (the audio input) and test/rec/cz4-testNN.wav (cz4~).
 
@@ -67,7 +67,7 @@ def build():
         "change, program = test number - 1) does the next test start by itself.",
         "4. Test 7 needs portamento on (time 50) and bend range 2 in CZ V. All others: "
         "portamento off. Then: python3 test/cz_compare.py test/rec (in the repository: "
-        "tools/cz_compare.py cz4/test/rec) writes test/rec/report.md with plots. Needs numpy.",
+        "tools/cz_compare.py pd/test/rec) writes test/rec/report.md with plots. Needs numpy.",
     ]
     y = 64
     for line in howto:
@@ -299,6 +299,6 @@ def build():
 
 if __name__ == "__main__":
     p = build()
-    out = os.path.join(ROOT, "cz4", "cz4test.pd")
+    out = os.path.join(ROOT, "pd", "cz4test.pd")
     p.save(out)
     print("wrote", out)

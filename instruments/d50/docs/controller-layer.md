@@ -101,7 +101,7 @@ Rückmeldung nicht an.
 - **Nur im Editor (ohne CC):** Modi der WG, Bias, Keyfollow der Hüllkurven, die Patch-Parameter
   (Key Mode, Split, Key Shift, Portamento, Reverb-Typ …) und Master Tune / Stimmenzahl.
 - Bausteine: `tools/d50_params.py` (Tabelle, Reihen), `tools/gen_d50cc.py`, `tools/gen_editor.py`,
-  `tools/gen_help.py`; alles neu erzeugen mit `make gen` in `d50~/`.
+  `tools/gen_help.py`; alles neu erzeugen mit `make gen` in `pd/`.
 
 ## juno~
 

@@ -3,7 +3,7 @@
 script and run it again. Names, ranges and CC pages come from tools/juno_params.py,
 the drawing helpers from tools/gen_help.py (the help of d50~).
 
-    python3 tools/gen_juno_help.py       writes juno~/juno~-help.pd
+    python3 tools/gen_juno_help.py       writes pd/juno~-help.pd
 """
 import os
 import sys
@@ -389,7 +389,7 @@ def main():
     p.cnv(G.PINK_X, G.PINK_TOP, G.PINK_W, bottom - G.PINK_TOP, bg=G.PINK)
     p.cnv(G.BLUE_X, G.BLUE_TOP, G.BLUE_W, bottom - G.BLUE_TOP, bg=G.BLUE)
     assert build(p) == bottom
-    out = os.path.join(HERE, "..", OBJ, f"{OBJ}-help.pd")
+    out = os.path.join(HERE, "..", "pd", f"{OBJ}-help.pd")
     with open(out, "w") as f:
         f.write(f"#N canvas 348 20 820 {bottom + M} 12;\n")
         f.write("\n".join(p.lines) + "\n")

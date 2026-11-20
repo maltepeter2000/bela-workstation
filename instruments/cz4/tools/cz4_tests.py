@@ -2,8 +2,8 @@
 """Comparison tests cz4~ <-> Arturia CZ V (or a real CZ): one table for the test tones,
 the note sequences, the Pd test rig and the analysis (tools/cz_compare.py).
 
-Each test is a CZ tone (written into cz4/test/cz4test-bank.syx and one .syx per tone, so
-CZ V can import it) and a sequence of MIDI events. The Pd patch cz4/test/cz4test.pd plays
+Each test is a CZ tone (written into pd/test/cz4test-bank.syx and one .syx per tone, so
+CZ V can import it) and a sequence of MIDI events. The Pd patch pd/test/cz4test.pd plays
 the sequence to CZ V over MIDI and to cz4~ at the same time and records both.
 
 usage: python3 tools/cz4_tests.py      writes the bank, the single tones and the sequences
@@ -17,7 +17,7 @@ import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
-OUT = os.path.join(ROOT, "cz4", "test")
+OUT = os.path.join(ROOT, "pd", "test")
 
 DCO, DCW, DCA = 0, 1, 2
 
@@ -127,19 +127,19 @@ for _t in TESTS:
     assert len(_t["name"]) <= 16
 
 
-# ---- tone data through the C code of the instrument (core/cz_tone.c) ---------------
+# ---- tone data through the C code of the instrument (src/cz_tone.c) ---------------
 
 def cz_lib():
-    src = os.path.join(ROOT, "core", "cz_tone.c")
+    src = os.path.join(ROOT, "src", "cz_tone.c")
     so = os.path.join(tempfile.gettempdir(), "cz_tone_py.so")
     subprocess.check_call(["cc", "-O1", "-std=c99", "-shared", "-fPIC", "-o", so, src,
-                           "-I" + os.path.join(ROOT, "core")])
+                           "-I" + os.path.join(ROOT, "src")])
     return ctypes.CDLL(so)
 
 
 def czp_ids():
     """the CZP_* numbers from cz_tone.h"""
-    h = open(os.path.join(ROOT, "core", "cz_tone.h")).read()
+    h = open(os.path.join(ROOT, "src", "cz_tone.h")).read()
     body = re.search(r"enum \{\s*(CZP_LINESEL.*?)\};", h, re.S).group(1)
     ids, n = {}, 0
     for item in re.sub(r"/\*.*?\*/", "", body, flags=re.S).replace("\n", " ").split(","):

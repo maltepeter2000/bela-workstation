@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Writes juno~/juno106_tables.h: the Juno-106 model of juno~.
+"""Writes pd/juno106_tables.h: the Juno-106 model of juno~.
 
 The model is the Juno-60 engine with its sliders remapped: for every value 0-127 of a Juno-106
 slider the table holds the Juno-60 slider value (0..1, fractional) at which the engine does what
 the Juno-106 does. What the Juno-106 does was measured on Cherry Audio's DCO-106 with
-juno~/test/juno106test and juno106test2 (2026-11-20); what the engine does at each slider was
+pd/test/juno106test and juno106test2 (2026-11-20); what the engine does at each slider was
 measured by the same methods on a render of juno~ (tools/juno60_curves.py).
 
 Measured quantity per slider:
@@ -31,7 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from juno60_curves import JUNO60   # noqa: E402
 
-OUT = os.path.join(HERE, "..", "juno~", "juno106_tables.h")
+OUT = os.path.join(HERE, "..", "pd", "juno106_tables.h")
 
 # ---- DCO-106 measurements: (slider, value) ------------------------------------------------
 DCO106 = {
