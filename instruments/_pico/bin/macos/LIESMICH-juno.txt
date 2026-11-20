@@ -14,7 +14,8 @@ mit Patch-Format und SysEx des Juno-106
      Seite 1  cutoff res env attack decay sustain release chorus
      Seite 2  range pulse saw sub noise pwm pwmmode dcolfo
      Seite 3  lforate lfodelay vcflfo kybd envpol hpf level vcamode
-     Seite 4  volume tune bend octave vellevel velcutoff (nicht im Patch)
+     Seite 4  volume tune bend octave vellevel velcutoff model (nicht im Patch)
+   model: 60 = Juno-60, 106 = Juno-106 (nach Messungen am DCO-106).
    Damit die Werte an den Launchkey zurückgehen: in Pd unter
    MIDI-Einstellungen den Launchkey auch als MIDI-Ausgang wählen.
 5. Editor: im Hilfe-Patch auf [junoedit $0-juno] klicken. "store to N" wählt
