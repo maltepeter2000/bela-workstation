@@ -13,7 +13,7 @@
 //   note <pitch> <vel> [ch], cc <num> <val> [ch], pgm <n> [ch], bend <-8192..8191> [ch]
 //   bank <I|A|B|C|D> <1-32>                 select a voice of a bank directly
 //   <name> <value>, n <name> <0-127>, ninfo <name>, vced <p> <d>, aced <p> <d>
-//   getvoice, voicedata <name> <93 VCED> <23 ACED>, random <kind> [seed]
+//   getvoice, voicedata <name> <93 VCED> <23 ACED>, random <kind> [seed], init (the Init Voice)
 //   channel <0 omni | 1-16>, txchannel <0-16> (feedback channel), gain <f>, dumpreq (report every parameter again)
 //   tune <0-127>                            master tune (64 = centre)
 //   factoryinit                             all notes off, voice A01 (nothing is written)
@@ -456,6 +456,36 @@ static void txn_voicedata(t_txn *x, t_symbol *, int argc, t_atom *argv)
 	load_voice(x, vc, ac);
 }
 
+// init: the TX81Z's "Init Voice" (owner's manual, Init Voice? in SINGLE: Edit): algorithm 1,
+// only OP1 sounding (out 90), all operators sine at ratio 1.00, AR 31 D1R 31 D1L 15 D2R 0 RR 15,
+// LFO triangle speed 35, transpose C3, bend range 4, full-time portamento 0, FC volume 40,
+// MW pitch 50, name INIT VOICE. The same message as init in the other instruments.
+static void txn_init(t_txn *x)
+{
+	uint8_t vc[93] = {}, ac[23] = {};
+	for (int op = 0; op < 4; op++)        // VCED order: OP4, OP3, OP2, OP1
+	{
+		uint8_t *v = vc + op * 13;
+		v[0] = 31; v[1] = 31; v[2] = 0; v[3] = 15; v[4] = 15;   // AR D1R D2R RR D1L
+		v[10] = op == 3 ? 90 : 0;                              // OUT: OP1 only
+		v[11] = 4;                                             // CRS: ratio 1.00
+		v[12] = 3;                                             // DET: 0
+	}
+	vc[52] = 0; vc[53] = 0;                 // algorithm 1, feedback 0
+	vc[54] = 35; vc[59] = 2;                // LFO speed 35, triangle
+	vc[62] = 24;                            // transpose C3
+	vc[64] = 4;                             // pitch bend range
+	vc[67] = 40;                            // FC volume
+	vc[68] = 1;                             // sustain foot switch on
+	vc[71] = 50;                            // MW pitch
+	vc[75] = 50;                            // BC pitch bias 0
+	const char name[] = "INIT VOICE";
+	for (int k = 0; k < 10; k++) vc[77 + k] = uint8_t(name[k]);
+	const uint8_t peg[6] = { 99, 99, 99, 50, 50, 50 };   // DX21 pitch EG, unused
+	for (int k = 0; k < 6; k++) vc[87 + k] = peg[k];
+	load_voice(x, vc, ac);
+}
+
 static void txn_random(t_txn *x, t_symbol *s, t_floatarg seed)
 {
 	uint8_t vc[93], ac[23];
@@ -686,6 +716,7 @@ void tx81zn_tilde_setup(void)
 	class_addmethod(txn_class, (t_method)txn_fminfo, gensym("fminfo"), A_SYMBOL, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_dumpreq, gensym("dumpreq"), A_NULL);
 	class_addmethod(txn_class, (t_method)txn_getvoice, gensym("getvoice"), A_NULL);
+	class_addmethod(txn_class, (t_method)txn_init, gensym("init"), A_NULL);
 	class_addmethod(txn_class, (t_method)txn_voicedata, gensym("voicedata"), A_GIMME, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_random, gensym("random"), A_SYMBOL, A_DEFFLOAT, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_channel, gensym("channel"), A_FLOAT, A_NULL);
