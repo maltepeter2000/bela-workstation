@@ -22,3 +22,12 @@ whole cutoff range, key follow, envelope depth and VCF LFO measured on the self-
 filter, the resonance threshold, the chorus on a sine, the bass end of the high-pass, and long
 envelope and LFO times. Open only one of the two patches at a time; they share their receive
 names.
+
+`juno106test3.pd` (about one minute) plays note patterns for voice assignment and portamento.
+Assign mode and portamento are panel settings, not patch data, so it is recorded once per
+setting, each run as its own file:
+
+1. Poly 1, portamento off
+2. Poly 2, portamento off
+3. Mono, portamento off
+4. to 7. Poly 2, portamento on, its knob at 25 %, 50 %, 75 % and 100 %

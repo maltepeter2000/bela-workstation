@@ -121,7 +121,55 @@ step("sync", "C4 open sawtooth (end)", [60], 0.5, 1.5)
 STEPS_2 = STEPS
 
 
-def build(STEPS, name):
+# ---- third pass: voice assignment and portamento. The synth's assign mode and portamento are
+# panel settings, not patch data, so each run is recorded with them set by hand (see README).
+# A long release makes it audible which voice a note takes: a tail that stops was taken over.
+PAT = []        # (group, label, overrides, [(t, note, velocity)], length)
+
+
+def pattern(group, label, events, length, **ov):
+    PAT.append((group, label, ov, events, length))
+
+
+LONG = dict(release=100, attack=0, decay=0, sustain=127)
+pattern("sync", "C4 open sawtooth", [(0, 60, 100), (0.5, 60, 0)], 2.0)
+pattern("assign", "two notes in turn: does the first tail go on?", [(0, 48, 100), (0.5, 48, 0), (1.5, 55, 100), (2.0, 55, 0)], 6.0, **LONG)
+pattern("assign", "the same key twice", [(0, 48, 100), (0.5, 48, 0), (1.5, 48, 100), (2.0, 48, 0)], 6.0, **LONG)
+pattern("assign", "seven notes in turn, six voices", [(0.4 * k, 48 + 2 * k, 100) for k in range(7)] + [(0.4 * k + 0.3, 48 + 2 * k, 0) for k in range(7)], 8.0, **LONG)
+pattern("assign", "seven held notes", [(0.3 * k, 48 + 2 * k, 100) for k in range(7)] + [(3.0, 48 + 2 * k, 0) for k in range(7)], 8.0, release=10)
+pattern("assign", "legato: second key while the first is held, then the first released",
+        [(0, 48, 100), (0.8, 55, 100), (1.6, 48, 0), (2.4, 55, 0)], 4.0, release=10)
+pattern("assign", "legato: first key released before the second",
+        [(0, 48, 100), (0.8, 55, 100), (1.6, 55, 0), (2.4, 48, 0)], 4.0, release=10)
+pattern("porta", "jumps C3 C5 C3, separate notes", [(0, 48, 100), (0.9, 48, 0), (1.0, 72, 100), (1.9, 72, 0), (2.0, 48, 100), (2.9, 48, 0)], 4.0, release=10)
+pattern("porta", "jumps C3 C5 C3, legato", [(0, 48, 100), (1.0, 72, 100), (1.01, 48, 0), (2.0, 48, 100), (2.01, 72, 0), (2.9, 48, 0)], 4.0, release=10)
+pattern("porta", "chord C-E-G to C-E-G an octave up", [(0, 48, 100), (0, 52, 100), (0, 55, 100), (0.9, 48, 0), (0.9, 52, 0), (0.9, 55, 0),
+                                                       (1.0, 60, 100), (1.0, 64, 100), (1.0, 67, 100), (2.4, 60, 0), (2.4, 64, 0), (2.4, 67, 0)], 4.0, release=10)
+pattern("sync", "C4 open sawtooth (end)", [(0, 60, 100), (0.5, 60, 0)], 2.0)
+
+
+def build_patterns(name):
+    lines, plan, t, last = [], [], 1.0, 0.0
+    for group, label, ov, events, length in PAT:
+        p = dict(BASE, **ov)
+        sx = [0xF0, 0x41, 0x30, 0x00, 0x00] + patch_bytes(p) + [0xF7]
+        lines.append(f"{round((t - last) * 1000)} j106sx {' '.join(map(str, sx))};")
+        last = t
+        t0 = t + 0.4
+        for et, n, v in sorted(events):
+            lines.append(f"{round((t0 + et - last) * 1000)} j106note {n} {v};")
+            last = t0 + et
+        plan.append(dict(group=group, label=label, patch=patch_bytes(p), start=round(t0, 3),
+                         events=[[round(t0 + et, 3), n, v] for et, n, v in sorted(events)]))
+        t = t0 + length
+    lines.append(f"{round((t - last) * 1000)} j106done bang;")
+    return lines, plan, t
+
+
+def build(STEPS, name, patterns=False):
+    if patterns:
+        lines, plan, t = build_patterns(name)
+        return write(name, lines, plan, t)
     lines, plan, t, last = [], [], 1.0, 0.0
     for group, label, ov, notes, hold, tail in STEPS:
         p = dict(BASE, **ov)
@@ -138,6 +186,10 @@ def build(STEPS, name):
                          on=round(on, 3), off=round(off, 3)))
         t = off + tail
     lines.append(f"{round((t - last) * 1000)} j106done bang;")
+    return write(name, lines, plan, t)
+
+
+def write(name, lines, plan, t):
     open(os.path.join(OUT, name + ".txt"), "w").write("\n".join(lines) + "\n")
     json.dump(dict(length=round(t, 2), steps=plan), open(os.path.join(OUT, name + ".json"), "w"), indent=1)
     pd = """#N canvas 100 80 680 560 12;
@@ -221,6 +273,7 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     build(STEPS_1, "juno106test")
     build(STEPS_2, "juno106test2")
+    build(None, "juno106test3", patterns=True)
 
 
 if __name__ == "__main__":
