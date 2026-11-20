@@ -1,0 +1,58 @@
+juno~ – Roland Juno-60 für Pure Data auf dem Mac (Apple Silicon und Intel),
+mit Patch-Format und SysEx des Juno-106
+
+1. Einen Ordner "juno~" anlegen, z. B. in ~/Documents/Pd/externals, und
+   hineinkopieren: juno~.pd_darwin, juno~-help.pd, junocc.pd, junopads.pd,
+   junoedit.pd, lkdisplay.pd.
+   Weitere Dateien braucht es nicht, die 56 Werksklänge sind eingebaut.
+2. In Pd: Datei > Einstellungen > Pfad: diesen Ordner hinzufügen (oder den
+   Hilfe-Patch direkt aus dem Ordner öffnen).
+3. juno~-help.pd öffnen, DSP einschalten. Oben: Demo, die acht Regler der
+   ersten Seite (Filter und Hüllkurve), [midiin] / [midiout],
+   Controller-Schicht und Editor.
+4. MIDI-Controller: [junocc 1] ist die Controller-Schicht, CC-Seiten auf
+   MIDI-Kanal 1 wie bei pdoly8~, tx81z~ und d50~:
+     Seite 1  cutoff res env attack decay sustain release chorus
+     Seite 2  range pulse saw sub noise pwm pwmmode dcolfo
+     Seite 3  lforate lfodelay vcflfo kybd envpol hpf level vcamode
+     Seite 4  volume tune bend octave vellevel velcutoff model (nicht im Patch)
+     Seite 5  calibrate chorusnoise (nicht im Patch)
+   model: 60 = Juno-60, 106 = Juno-106 (nach Messungen am DCO-106).
+   calibrate: Streuung der sechs Stimmen (0 = gleich). chorusnoise: Rauschen
+   der Chorus-Eimerketten (0 = aus).
+   Damit die Werte an den Launchkey zurückgehen: in Pd unter
+   MIDI-Einstellungen den Launchkey auch als MIDI-Ausgang wählen.
+5. Editor: im Hilfe-Patch auf [junoedit $0-juno] klicken. "store to N" wählt
+   nur den Platz, "save patch" speichert und schreibt junouser-bank.syx in
+   diesen Ordner (56 Plätze).
+6. Juno-106-Bänke: .syx-Dateien mit Juno-106-Patches in diesen Ordner legen,
+   sie erscheinen nach den 56 Werksklängen als weitere Presets (ab 56).
+7. SysEx: [midiin] in den dritten Inlet, die Floats des dritten Outlets an
+   [midiout]. "send patch" / "send bank" schicken an einen Juno-106. Der
+   spielt ein empfangenes Patch, speichert es aber nur über sein eigenes
+   WRITE. "SysEx for every change" schickt jede Reglerbewegung als
+   Parameter-Nachricht, wie es ein Juno-106 tut.
+8. MIDI-Thru (an, "MIDI thru" im Editor oder thru 0/1): alles, was am dritten
+   Inlet ankommt (Noten, Controller, Programmwechsel, Bend, Clock, SysEx), geht
+   unverändert am dritten Outlet wieder raus, Noten vom ersten Inlet auf dem
+   Sendekanal. Mit "SysEx for every change" spielt ein Juno-106 oder der
+   DCO-106 am MIDI-Ausgang parallel mit: gleiche Noten, gleiches Patch, jede
+   Änderung. Ausschalten, wenn der MIDI-Ausgang zurück zum Eingang führt.
+9. Pads: [junopads 10] macht die Pads des Launchkey im Drum-Modus (Shift +
+   erster Pad unten, Drums Channel 10, eigene Firmware) zu Tastern:
+     Pad 1-4 (oben):   factory +, user +, init (2x drücken), Chorus I > II > I+II > aus
+     Pad 9-12 (unten): factory -, user -, save, Juno-106 / 60
+   save speichert in den zuletzt gewählten User-Platz und schreibt die Datei.
+   juno~ selbst auf Kanal 1 stellen (macht der Hilfe-Patch), sonst spielen
+   die Pads Noten.
+10. Launchkey-Display: [lkdisplay] schickt den Namen und Wert des gedrehten
+   Reglers und den Patchnamen als SysEx an den Launchkey (eigene Firmware
+   mit Display-Text nötig). Im Hilfe-Patch hängt es schon am [midiout].
+11. Anschlagstärke: vellevel und velcutoff auf Seite 4, 0 = aus wie beim
+   Original.
+
+Falls macOS das Laden blockiert ("kann nicht geöffnet werden" / "beschädigt"),
+einmal im Terminal ausführen:
+   xattr -dr com.apple.quarantine ~/Documents/Pd/externals/juno~
+
+Gebaut mit zig c++ (macOS 11 und neuer, universal arm64 + x86_64, ad-hoc signiert).

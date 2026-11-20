@@ -1,0 +1,1658 @@
+{
+ "length": 293.3,
+ "steps": [
+  {
+   "group": "sync",
+   "label": "C4 open sawtooth",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 1.4,
+   "off": 1.9
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 0",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 3.8,
+   "off": 6.3
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 8",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    8,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 7.2,
+   "off": 9.7
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 16",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    16,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 10.6,
+   "off": 13.1
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 24",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    24,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 14.0,
+   "off": 15.5
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 32",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    32,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 16.4,
+   "off": 17.9
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 40",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    40,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 18.8,
+   "off": 20.3
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 48",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 21.2,
+   "off": 22.7
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 56",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    56,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 23.6,
+   "off": 25.1
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 64",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 26.0,
+   "off": 27.5
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 72",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    72,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 28.4,
+   "off": 29.9
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 80",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    80,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 30.8,
+   "off": 32.3
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 88",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    88,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 33.2,
+   "off": 34.7
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 96",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    96,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 35.6,
+   "off": 37.1
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 104",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    104,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 38.0,
+   "off": 39.5
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 112",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    112,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 40.4,
+   "off": 41.9
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 120",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    120,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 42.8,
+   "off": 44.3
+  },
+  {
+   "group": "selfosc_curve",
+   "label": "self-oscillation, cutoff 127",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 45.2,
+   "off": 46.7
+  },
+  {
+   "group": "threshold",
+   "label": "no oscillator, cutoff 64, res 100",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    100,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 47.6,
+   "off": 49.1
+  },
+  {
+   "group": "threshold",
+   "label": "no oscillator, cutoff 64, res 104",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    104,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 50.0,
+   "off": 51.5
+  },
+  {
+   "group": "threshold",
+   "label": "no oscillator, cutoff 64, res 108",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    108,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 52.4,
+   "off": 53.9
+  },
+  {
+   "group": "threshold",
+   "label": "no oscillator, cutoff 64, res 112",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    112,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 54.8,
+   "off": 56.3
+  },
+  {
+   "group": "threshold",
+   "label": "no oscillator, cutoff 64, res 116",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    116,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 57.2,
+   "off": 58.7
+  },
+  {
+   "group": "threshold",
+   "label": "no oscillator, cutoff 64, res 120",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    120,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 59.6,
+   "off": 61.1
+  },
+  {
+   "group": "kybd_so",
+   "label": "self-oscillation, cutoff 48, kybd 127, note 36",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    127,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    36
+   ],
+   "on": 62.0,
+   "off": 63.5
+  },
+  {
+   "group": "kybd_so",
+   "label": "self-oscillation, cutoff 48, kybd 127, note 60",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    127,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 64.4,
+   "off": 65.9
+  },
+  {
+   "group": "kybd_so",
+   "label": "self-oscillation, cutoff 48, kybd 127, note 84",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    127,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    84
+   ],
+   "on": 66.8,
+   "off": 68.3
+  },
+  {
+   "group": "kybd_so",
+   "label": "self-oscillation, cutoff 48, kybd 64, note 36",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    64,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    36
+   ],
+   "on": 69.2,
+   "off": 70.7
+  },
+  {
+   "group": "kybd_so",
+   "label": "self-oscillation, cutoff 48, kybd 64, note 60",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    64,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 71.6,
+   "off": 73.1
+  },
+  {
+   "group": "kybd_so",
+   "label": "self-oscillation, cutoff 48, kybd 64, note 84",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    64,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    84
+   ],
+   "on": 74.0,
+   "off": 75.5
+  },
+  {
+   "group": "kybd_so",
+   "label": "self-oscillation, cutoff 48, kybd 32, note 36",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    32,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    36
+   ],
+   "on": 76.4,
+   "off": 77.9
+  },
+  {
+   "group": "kybd_so",
+   "label": "self-oscillation, cutoff 48, kybd 32, note 60",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    32,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 78.8,
+   "off": 80.3
+  },
+  {
+   "group": "kybd_so",
+   "label": "self-oscillation, cutoff 48, kybd 32, note 84",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    48,
+    127,
+    0,
+    0,
+    32,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    84
+   ],
+   "on": 81.2,
+   "off": 82.7
+  },
+  {
+   "group": "env_so",
+   "label": "self-oscillation, cutoff 0, env 16, sustain 127",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    0,
+    127,
+    16,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 83.6,
+   "off": 85.1
+  },
+  {
+   "group": "env_so",
+   "label": "self-oscillation, cutoff 0, env 32, sustain 127",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    0,
+    127,
+    32,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 86.0,
+   "off": 87.5
+  },
+  {
+   "group": "env_so",
+   "label": "self-oscillation, cutoff 0, env 64, sustain 127",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    0,
+    127,
+    64,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 88.4,
+   "off": 89.9
+  },
+  {
+   "group": "env_so",
+   "label": "self-oscillation, cutoff 0, env 96, sustain 127",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    0,
+    127,
+    96,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 90.8,
+   "off": 92.3
+  },
+  {
+   "group": "env_so",
+   "label": "self-oscillation, cutoff 0, env 127, sustain 127",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    0,
+    127,
+    127,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 93.2,
+   "off": 94.7
+  },
+  {
+   "group": "vcflfo_so",
+   "label": "self-oscillation, cutoff 64, vcflfo 32, rate 64",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    127,
+    0,
+    32,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 95.6,
+   "off": 99.6
+  },
+  {
+   "group": "vcflfo_so",
+   "label": "self-oscillation, cutoff 64, vcflfo 64, rate 64",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    127,
+    0,
+    64,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 100.5,
+   "off": 104.5
+  },
+  {
+   "group": "vcflfo_so",
+   "label": "self-oscillation, cutoff 64, vcflfo 127, rate 64",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    64,
+    127,
+    0,
+    127,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    34,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 105.4,
+   "off": 109.4
+  },
+  {
+   "group": "chorus_so",
+   "label": "self-oscillation, cutoff 72, chorus I",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    72,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    66,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 110.3,
+   "off": 118.3
+  },
+  {
+   "group": "chorus_so",
+   "label": "self-oscillation, cutoff 72, chorus II",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    72,
+    127,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    2,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 119.2,
+   "off": 127.2
+  },
+  {
+   "group": "hpf_low",
+   "label": "C1 sawtooth, hpf 0",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    50,
+    25
+   ],
+   "notes": [
+    24
+   ],
+   "on": 128.1,
+   "off": 130.1
+  },
+  {
+   "group": "hpf_low",
+   "label": "C1 sawtooth, hpf 1",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    24
+   ],
+   "on": 131.0,
+   "off": 133.0
+  },
+  {
+   "group": "attack",
+   "label": "attack 64",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    64,
+    0,
+    127,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    48
+   ],
+   "on": 133.9,
+   "off": 138.9
+  },
+  {
+   "group": "attack",
+   "label": "attack 96",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    96,
+    0,
+    127,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    48
+   ],
+   "on": 140.3,
+   "off": 145.3
+  },
+  {
+   "group": "decay",
+   "label": "decay 96 sustain 0",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    96,
+    0,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    48
+   ],
+   "on": 146.7,
+   "off": 168.7
+  },
+  {
+   "group": "decay",
+   "label": "decay 112 sustain 0",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    112,
+    0,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    48
+   ],
+   "on": 170.1,
+   "off": 192.1
+  },
+  {
+   "group": "decay",
+   "label": "decay 127 sustain 0",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    127,
+    0,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    48
+   ],
+   "on": 193.5,
+   "off": 215.5
+  },
+  {
+   "group": "release",
+   "label": "release 112",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    112,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    48
+   ],
+   "on": 216.9,
+   "off": 217.4
+  },
+  {
+   "group": "release",
+   "label": "release 127",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    127,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    48
+   ],
+   "on": 239.8,
+   "off": 240.3
+  },
+  {
+   "group": "lforate",
+   "label": "LFO rate 0, dcolfo 64",
+   "patch": [
+    0,
+    0,
+    64,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 262.7,
+   "off": 274.7
+  },
+  {
+   "group": "lforate",
+   "label": "LFO rate 16, dcolfo 64",
+   "patch": [
+    16,
+    0,
+    64,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 275.6,
+   "off": 281.6
+  },
+  {
+   "group": "lforate",
+   "label": "LFO rate 127, dcolfo 64",
+   "patch": [
+    127,
+    0,
+    64,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 282.5,
+   "off": 285.5
+  },
+  {
+   "group": "dcolfo",
+   "label": "dcolfo 32, rate 64",
+   "patch": [
+    64,
+    0,
+    32,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 286.4,
+   "off": 290.4
+  },
+  {
+   "group": "sync",
+   "label": "C4 open sawtooth (end)",
+   "patch": [
+    64,
+    0,
+    0,
+    0,
+    0,
+    127,
+    0,
+    0,
+    0,
+    0,
+    100,
+    0,
+    0,
+    127,
+    10,
+    0,
+    50,
+    17
+   ],
+   "notes": [
+    60
+   ],
+   "on": 291.3,
+   "off": 291.8
+  }
+ ]
+}
