@@ -469,6 +469,9 @@ static void pdoly8_voice(t_pdoly8 *x, t_floatarg v, t_floatarg pitch)
 static void pdoly8_voiceoff(t_pdoly8 *x, t_floatarg v) { p8_voice_off(&x->e, (int)v); }
 
 /* ------------------------------------------------- named value messages */
+static void out_display(t_pdoly8 *x, t_symbol *name);
+
+/* <name> <value>: one setting; reported as "display <label> <value>" for the Launchkey / OLED */
 static void pdoly8_anything(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 {
     if (argc < 1) { pd_error(x, "pdoly8~: %s needs a value", s->s_name); return; }
@@ -479,8 +482,8 @@ static void pdoly8_anything(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
         if (t < 0) { pd_error(x, "pdoly8~: %s: unknown target %s", s->s_name, argv[0].a_w.w_symbol->s_name); return; }
         v = t;
     }
-    for (int i = 0; i < NCTL; i++) if (s == gensym(CTL_NAME[i])) { apply_ctl(x, i, v); return; }
-    for (int i = 0; i < NEXT; i++) if (s == gensym(EXT_NAME[i])) { apply_ext(x, i, v); return; }
+    for (int i = 0; i < NCTL; i++) if (s == gensym(CTL_NAME[i])) { apply_ctl(x, i, v); out_display(x, s); return; }
+    for (int i = 0; i < NEXT; i++) if (s == gensym(EXT_NAME[i])) { apply_ext(x, i, v); out_display(x, s); return; }
     pd_error(x, "pdoly8~: unknown message '%s'", s->s_name);
 }
 
@@ -771,6 +774,16 @@ static void pdoly8_disp(t_pdoly8 *x, t_symbol *name)
     if (!disp_text(x, name, &l, buf, sizeof buf)) return;
     t_atom a[2]; SETSYMBOL(a, gensym(l)); SETSYMBOL(a + 1, gensym(buf));
     outlet_anything(x->x_dump, gensym("disp"), 2, a);
+}
+
+/* display <label> <value> on outlet 3 after a setting was changed by a message or n (the
+ * Launchkey display through [lkdisplay], as juno~, d50~ and cz4~ do) */
+static void out_display(t_pdoly8 *x, t_symbol *name)
+{
+    const char *l; char buf[64];
+    if (!disp_text(x, name, &l, buf, sizeof buf)) return;
+    t_atom a[2]; SETSYMBOL(a, gensym(l)); SETSYMBOL(a + 1, gensym(buf));
+    outlet_anything(x->x_dump, gensym("display"), 2, a);
 }
 
 /* nget <name> <tag>: outlet 3 gets "norm <tag> <0-127>", the parameter's value as a pot position */

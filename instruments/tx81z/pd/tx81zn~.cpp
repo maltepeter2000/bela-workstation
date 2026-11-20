@@ -379,12 +379,28 @@ static void txn_bank(t_txn *x, t_symbol *b, t_floatarg n)
 // ---------------------------------------------------------------------------
 // parameters (as tx81z~)
 
+// display <title> <value>: two lines for the Launchkey display (through [lkdisplay]) after a
+// setting was turned, as juno~, d50~, cz4~ and pdoly8~ send them
+static void out_display(t_txn *x, const char *title, const char *value)
+{
+	t_atom a[2];
+	SETSYMBOL(&a[0], gensym(title));
+	SETSYMBOL(&a[1], gensym(value));
+	outlet_anything(x->out_msg, gensym("display"), 2, a);
+}
+
 static void txn_n(t_txn *x, t_symbol *name, t_floatarg c)
 {
 	if (name == gensym("none")) return;
 	const t_txparam *p = find_param(name);
 	if (!p) { pd_error(x, "tx81zn~: n: unknown parameter '%s'", name->s_name); return; }
 	set_param(x, p->group, p->num, from127(p, c));
+	if (!x->ready) return;
+	int v = param_value(x, p);
+	v = v < p->lo ? p->lo : v > p->hi ? p->hi : v;
+	char buf[32];
+	value_text(p, v, buf, sizeof buf);
+	out_display(x, p->label, buf);
 }
 
 static void txn_ninfo(t_txn *x, t_symbol *name)
@@ -404,6 +420,9 @@ static void txn_fm(t_txn *x, t_symbol *name, t_floatarg v)
 	txfm::fm_set(i, int(v), [x](char g, int n) { return x->eng->get_param(g, n); },
 		[x](char g, int n, int val) { x->eng->set_param(g, n, val, false); });
 	clock_delay(x->rep_clock, 0);
+	char text[32];
+	if (fm_value(x, i, text, sizeof text) >= 0) out_display(x, txfm::MACROS[i].label, text);
+	else out_display(x, txfm::MACROS[i].label, "-");
 }
 
 static void report_channel(t_txn *x);
