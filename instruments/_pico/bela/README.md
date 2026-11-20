@@ -57,5 +57,9 @@ Bela passes no SysEx to Pd, so SysEx from a Juno-106 does not arrive here.
 
 ## CPU
 
+About 21–27 % with 6 voices on the Bela Gem at block size 64. Every MIDI byte Pd sends is a
+system call in Bela's audio thread, so `[lkdisplay]` sends at most one display message per 40 ms;
+the controller feedback and SysEx out (off at load) cost the same per byte.
+
 Built with 2× oversampling (as on the desktop). If the Bela runs short:
 `make bela-gem BELA_OS=1` in `juno~/` builds it without.

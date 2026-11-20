@@ -8,6 +8,9 @@ in its popup when this SysEx arrives on its MIDI port:
 
 Inlet: display <title> <value> (what juno~ says on outlet 3; everything else is ignored).
 Outlet: the bytes, one float each, for [midiout]. Characters outside ASCII become '?'.
+At most one message per THROTTLE ms: the first at once, then the newest one at the end of the
+interval. A display needs no more, and on Bela every MIDI byte is a system call in the audio
+thread (one message per encoder tick caused dropouts at small block sizes).
 
 usage: python3 tools/lkdisplay.py <out.pd>
 """
@@ -19,6 +22,7 @@ sys.path.insert(0, HERE)
 import patchwriter as G   # noqa: E402
 
 HEADER = [0xF0, 0x7D, 0x4C, 0x4B, 0x01]
+THROTTLE = 40
 
 
 def build():
@@ -27,7 +31,22 @@ def build():
            "the Launchkey custom firmware shows the two lines in its popup.", 10, 6)
     inl = p.add("inlet", 10, 50)
     rd = p.add("route display", 10, 75); p.con(inl, 0, rd, 0)
-    ls = p.add("list", 10, 100); p.con(rd, 0, ls, 0)
+    # throttle: keep the newest line; send it now when the gate is open, else when it opens
+    keep = p.add("list", 420, 75); p.con(rd, 0, keep, 1)          # newest line (cold)
+    tb = p.add("t b b", 420, 100); p.con(rd, 0, tb, 0)
+    pend = p.msg("1", 520, 125); p.con(tb, 1, pend, 0)
+    gate = p.add("spigot 1", 420, 150); p.con(tb, 0, gate, 0)     # open = no message for THROTTLE ms
+    fire = p.add("t b b b", 420, 180); p.con(gate, 0, fire, 0)
+    close = p.msg("0", 560, 210); p.con(fire, 1, close, 0); p.con(close, 0, gate, 1)
+    clr = p.msg("0", 600, 180); p.con(fire, 0, clr, 0)
+    p.con(fire, 2, keep, 0)
+    dl = p.add(f"del {THROTTLE}", 600, 240); p.con(fire, 0, dl, 0)
+    td = p.add("t b b", 600, 265); p.con(dl, 0, td, 0)           # open first, then look
+    opn = p.msg("1", 560, 295); p.con(td, 1, opn, 0); p.con(opn, 0, gate, 1)
+    chk = p.add("f", 660, 295); p.con(td, 0, chk, 0)              # 1 = a line is waiting
+    p.con(pend, 0, chk, 1); p.con(clr, 0, chk, 1)
+    sel = p.add("sel 1", 660, 325); p.con(chk, 0, sel, 0); p.con(sel, 0, gate, 0)
+    ls = p.add("list", 10, 100); p.con(keep, 0, ls, 0)
     tl = p.add("t l l", 10, 125); p.con(ls, 0, tl, 0)
     # value (first): 00 value F7
     sv = p.add("list split 1", 200, 155); p.con(tl, 1, sv, 0)
