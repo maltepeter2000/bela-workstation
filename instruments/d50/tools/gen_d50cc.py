@@ -7,6 +7,7 @@ tools/d50_params.py).
   inlet: outlet 3 of d50~ (info ..., channel, txchannel), pickup 0/1, sync
   changes from elsewhere (patch change, editor, messages, SysEx) go back to the controller as
   CC ([ctlout]), pickup avoids jumps.
+Also writes the control pads (d50pads.pd).
 usage: python3 tools/gen_d50cc.py
 """
 import os
@@ -23,3 +24,9 @@ if __name__ == "__main__":
     out = os.path.join(ROOT, "d50~", "d50cc.pd")
     m = ctlayer.write(out, "d50cc (d50~)", T.CC_ROWS)
     print("wrote", out, f"({len(m)} settings on CC)")
+    # control pads: the layout every instrument shares (common/tools/ctpads.py)
+    import ctpads
+    out = os.path.join(ROOT, "d50~", "d50pads.pd")
+    pads = ctpads.layout(getattr(T, "OWN_PADS", {}))
+    ctpads.write(out, "d50pads (d50~)", pads)
+    print("wrote", out, f"({len(pads)} pads)")

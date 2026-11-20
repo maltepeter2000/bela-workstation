@@ -7,6 +7,7 @@ tools/cz4_params.py).
   inlet: outlet 3 of cz4~ (info ..., channel, txchannel), pickup 0/1, sync
   changes from elsewhere (tone change, line or envelope selection, editor, SysEx) go back to
   the controller as CC ([ctlout]); pickup avoids jumps.
+Also writes the control pads (cz4pads.pd).
 usage: python3 tools/gen_cz4cc.py
 """
 import os
@@ -23,3 +24,9 @@ if __name__ == "__main__":
     out = os.path.join(ROOT, "cz4", "cz4cc.pd")
     m = ctlayer.write(out, "cz4cc (cz4~)", T.CC_ROWS)
     print("wrote", out, f"({len(m)} settings on CC)")
+    # control pads: the layout every instrument shares (common/tools/ctpads.py)
+    import ctpads
+    out = os.path.join(ROOT, "cz4", "cz4pads.pd")
+    pads = ctpads.layout(getattr(T, "OWN_PADS", {}))
+    ctpads.write(out, "cz4pads (cz4~)", pads)
+    print("wrote", out, f"({len(pads)} pads)")

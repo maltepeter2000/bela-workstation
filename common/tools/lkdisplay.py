@@ -6,7 +6,7 @@ in its popup when this SysEx arrives on its MIDI port:
 
     F0 7D 4C 4B 01 <title> 00 <value> F7     (7D = non-commercial ID, "LK", 01 = popup)
 
-Inlet: display <title> <value> (what juno~ says on outlet 3; everything else is ignored).
+Inlet: display <title> <value> (what every instrument says on its last outlet; everything else is ignored).
 Outlet: the bytes, one float each, for [midiout]. Characters outside ASCII become '?'.
 At most one message per THROTTLE ms: the first at once, then the newest one at the end of the
 interval. A display needs no more, and on Bela every MIDI byte is a system call in the audio
@@ -19,7 +19,6 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import patchwriter as G   # noqa: E402
 
 HEADER = [0xF0, 0x7D, 0x4C, 0x4B, 0x01]

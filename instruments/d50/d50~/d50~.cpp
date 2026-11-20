@@ -107,6 +107,8 @@ struct t_d50 {
     Shown* shown;
     int channel;               // receive, 0 = all
     int txchannel;             // send, 1..16
+    int last_preset;           // the factory patch and the user slot played or stored last:
+    int last_user;             // presetstep / userstep count from there, save stores there
 };
 
 // ---- data files -------------------------------------------------------------
@@ -226,8 +228,26 @@ void out_info(t_d50* x, int i) {
     outlet_anything(x->info, gensym("info"), 3, a);
 }
 
+// "11" ... "88": the user slots as the D-50 numbers its internal patches
+std::string slot_label(int slot) {
+    return std::string(1, static_cast<char>('1' + slot / 8)) + static_cast<char>('1' + slot % 8);
+}
+
+// One line for a display (the Launchkey's popup, an OLED): which patch plays,
+// what was turned, what was stored. Same form in every instrument.
+void out_display(t_d50* x, const std::string& title, const std::string& value) {
+    t_atom a[2];
+    SETSYMBOL(&a[0], gensym(title.c_str()));
+    SETSYMBOL(&a[1], gensym(value.c_str()));
+    outlet_anything(x->info, gensym("display"), 2, a);
+}
+
 void out_source(t_d50* x) {
     const int src = x->synth->source();
+    const int idx = x->synth->patch();
+    if (src == d50::Synth::kFactory) out_display(x, "Preset " + std::to_string(idx), d50::patch_name(idx));
+    else if (src == d50::Synth::kUser) out_display(x, "User " + slot_label(idx), d50::user_name(idx));
+    else out_display(x, "Init", "");
     if (src == d50::Synth::kFactory) out_slot(x, "preset", x->synth->patch(), d50::patch_name(x->synth->patch()));
     else if (src == d50::Synth::kUser) out_slot(x, "user", x->synth->patch(), d50::user_name(x->synth->patch()));
     else outlet_anything(x->info, gensym("init"), 0, nullptr);
@@ -250,6 +270,8 @@ void report(t_d50* x, bool quiet = false) {
     d50::Synth& y = *x->synth;
     Shown& s = *x->shown;
     const int src = y.source(), idx = y.patch();
+    if (src == d50::Synth::kFactory) x->last_preset = idx;
+    else if (src == d50::Synth::kUser) x->last_user = idx;
     const std::string src_name = src == d50::Synth::kFactory ? d50::patch_name(idx)
                                : src == d50::Synth::kUser ? d50::user_name(idx) : "";
     if (src != s.source || idx != s.index || src_name != s.source_name) {
@@ -355,11 +377,13 @@ void d50_command(t_d50* x, t_symbol* s, int argc, t_atom* argv) {
     const int n = static_cast<int>(f);
     auto is = [c](const char* k) { return std::strcmp(c, k) == 0; };
     const int section = d50::section_from_name(c);
+    const d50::Control* touched = nullptr;   // shown on the display afterwards
+    bool stored = false;
 
     if (const d50::Control* ctl = d50::find_control(c)) {
         const int i = static_cast<int>(ctl - &d50::control(0));
         if (!y.available(*ctl)) { need_bytes(x, c); return; }
-        if (argc > 0) y.set_control(*ctl, n);
+        if (argc > 0) { y.set_control(*ctl, n); touched = ctl; }
         else out_info(x, i);
     } else if (is("n")) {
         if (argc < 2 || argv[0].a_type != A_SYMBOL) return;
@@ -372,6 +396,7 @@ void d50_command(t_d50* x, t_symbol* s, int argc, t_atom* argv) {
         }
         if (!y.available(*nc)) return;
         y.set_control(*nc, d50::control_from127(*nc, atom_getfloat(argv + 1)));
+        touched = nc;
         // Always answered, also when the pot stays inside one value's zone.
         out_info(x, static_cast<int>(nc - &d50::control(0)));
     } else if (is("ninfo")) {
@@ -422,6 +447,26 @@ void d50_command(t_d50* x, t_symbol* s, int argc, t_atom* argv) {
         if (!need_bytes(x, "store")) return;
         if (!y.store(argc > 0 ? n : -1))
             pd_error(x, "d50~: store: expected 0..%d", d50::kUserSlots - 1);
+        else stored = true;
+    } else if (is("presetstep") || is("userstep")) {
+        // the next (or n-th next) patch, counted from the one played last, wrapping around
+        const int by = argc > 0 ? n : 1;
+        if (is("presetstep")) {
+            const int cnt = d50::patch_count();
+            if (cnt > 0) y.select_patch(((x->last_preset + by) % cnt + cnt) % cnt);
+        } else {
+            y.select_user(((x->last_user + by) % d50::kUserSlots + d50::kUserSlots) % d50::kUserSlots);
+        }
+        x->shown->source = -2;
+    } else if (is("save")) {
+        // into the user slot played or stored last, and write the user bank
+        if (!need_bytes(x, "save")) return;
+        stored = y.store(x->last_user);
+        if (stored && !g_data_dir.empty()) {
+            std::string err;
+            const std::string path = g_data_dir + "/" + kUserFile;
+            if (!d50::write_user(path.c_str(), err)) pd_error(x, "d50~: save: %s", err.c_str());
+        }
     } else if (is("userwrite")) {
         if (g_data_dir.empty()) return;
         std::string err;
@@ -483,6 +528,8 @@ void d50_command(t_d50* x, t_symbol* s, int argc, t_atom* argv) {
     else if (is("reset")) y.silence();
     else { pd_error(x, "d50~: no method for '%s'", c); return; }
     report(x);
+    if (touched) out_display(x, touched->label, y.control_text(*touched, y.get_control(*touched)));
+    if (stored) out_display(x, "Stored", "User " + slot_label(y.patch()) + " " + d50::user_name(y.patch()));
 }
 
 void d50_note(t_d50* x, t_float note, t_float velocity) {
@@ -600,6 +647,7 @@ void* d50_new(t_symbol*, int argc, t_atom* argv) {
     x->velocity = 100;
     x->channel = 0;
     x->txchannel = 1;
+    x->last_preset = x->last_user = 0;
     x->midi = new Midi();
     x->shown = new Shown();
     x->shown->value.assign(static_cast<size_t>(d50::control_count()), INT32_MIN);

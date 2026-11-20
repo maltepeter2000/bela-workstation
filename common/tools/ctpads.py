@@ -7,6 +7,18 @@ notes in rows on the Drums Channel (10 at the factory):
     top row     36 37 38 39 40 41 42 43
     bottom row  44 45 46 47 48 49 50 51
 
+The same layout for every instrument (COMMON), so the hands learn it once; the instrument fills
+its own pads (OWN) with what only it has:
+
+    top row     36 factory +   37 user +   38 init (twice)   39-43 own
+    bottom row  44 factory -   45 user -   46 save           47-51 own
+
+The messages are the same in every instrument: presetstep 1 / -1 (the factory patch after or
+before the one played last), userstep 1 / -1 (the same in the user bank), init (the init patch),
+save (the playing sound into the user slot played or stored last, and the user bank written).
+Each instrument answers with "display <title> <value>" for the Launchkey display.
+layout(own) checks the instrument's own pads and returns the whole table.
+
 write(path, title, table) makes the abstraction [<name> <channel>] (channel 0 or none
 = 10): [notein] inside, a pad pressed on that channel -> its message at the outlet (to the
 instrument). table: {note: "message"} or {note: ("twice", "message")} for a pad that has to be
@@ -17,11 +29,28 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import patchwriter as G   # noqa: E402
 
 TOP = list(range(36, 44))
 BOTTOM = list(range(44, 52))
+
+COMMON = {
+    36: "presetstep 1", 44: "presetstep -1",
+    37: "userstep 1", 45: "userstep -1",
+    38: ("twice", "init"), 46: "save",
+}
+COMMON_TEXT = {36: "factory +", 44: "factory -", 37: "user +", 45: "user -", 38: "init (2x)", 46: "save"}
+OWN = list(range(39, 44)) + list(range(47, 52))
+
+
+def layout(own=None):
+    """COMMON plus the instrument's own pads (39-43, 47-51)."""
+    own = own or {}
+    bad = [n for n in own if n not in OWN]
+    assert not bad, f"pads {bad} are not free: the instrument's own pads are 39-43 and 47-51"
+    t = dict(COMMON)
+    t.update(own)
+    return t
 
 
 def write(path, title, table):

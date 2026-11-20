@@ -103,6 +103,8 @@ struct t_cz4 {
     int channel;               // receive, 0 = all
     int txchannel;             // send, 1..16
     int model;                 // 1: CZ-1 (144 bytes), 101: CZ-101 family (128)
+    int last_preset;           // the factory tone and the user slot the edit tone played or was
+    int last_user;             // stored last: presetstep / userstep count from there, save stores there
 };
 
 // ---- data files -------------------------------------------------------------
@@ -197,6 +199,20 @@ void out_info(t_cz4* x, int i) {
     outlet_anything(x->info, gensym("info"), 3, a);
 }
 
+// "11" ... "88": the user slots in the CZ-1's numbering
+std::string slot_label(int slot) {
+    return std::string(1, static_cast<char>('1' + slot / 8)) + static_cast<char>('1' + slot % 8);
+}
+
+// One line for a display (the Launchkey's popup, an OLED): which tone plays,
+// what was turned, what was stored. Same form in every instrument.
+void out_display(t_cz4* x, const std::string& title, const std::string& value) {
+    t_atom a[2];
+    SETSYMBOL(&a[0], gensym(title.c_str()));
+    SETSYMBOL(&a[1], gensym(value.c_str()));
+    outlet_anything(x->info, gensym("display"), 2, a);
+}
+
 void out_source(t_cz4* x, int t) {
     cz4::Synth& y = *x->synth;
     const char* key = t ? "toneb" : "tonea";
@@ -208,6 +224,11 @@ void out_source(t_cz4* x, int t) {
     SETSYMBOL(&a[2], gensym(y.name(t).c_str()));
     outlet_anything(x->info, gensym(key), 3, a);
     if (t == y.edit_tone()) {
+        const int idx = y.patch(t);
+        if (src == cz4::Synth::kFactory) out_display(x, "Preset " + std::to_string(idx), y.name(t));
+        else if (src == cz4::Synth::kUser) out_display(x, "User " + slot_label(idx), y.name(t));
+        else if (src == cz4::Synth::kSysex) out_display(x, "SysEx", y.name(t));
+        else out_display(x, "Init", "");
         t_atom n;
         SETSYMBOL(&n, gensym(y.name(t).c_str()));
         outlet_anything(x->info, gensym("name"), 1, &n);
@@ -219,6 +240,11 @@ void out_source(t_cz4* x, int t) {
 void report(t_cz4* x, bool quiet = false) {
     cz4::Synth& y = *x->synth;
     Shown& s = *x->shown;
+    {
+        const int et = y.edit_tone();
+        if (y.source(et) == cz4::Synth::kFactory) x->last_preset = y.patch(et);
+        else if (y.source(et) == cz4::Synth::kUser) x->last_user = y.patch(et);
+    }
     for (int t = 0; t < 2; ++t) {
         if (y.source(t) == s.source[t] && y.patch(t) == s.index[t]) continue;
         s.source[t] = y.source(t);
@@ -389,9 +415,11 @@ void cz4_command(t_cz4* x, t_symbol* s, int argc, t_atom* argv) {
     const t_float f = argc > 0 ? atom_getfloat(argv) : 0;
     const int n = static_cast<int>(f);
     auto is = [c](const char* k) { return std::strcmp(c, k) == 0; };
+    const cz4::Control* touched = nullptr;   // shown on the display afterwards
+    bool stored = false;
 
     if (const cz4::Control* ctl = cz4::find_control(c)) {
-        if (argc > 0) y.set_control(*ctl, n);
+        if (argc > 0) { y.set_control(*ctl, n); touched = ctl; }
         else out_info(x, static_cast<int>(ctl - &cz4::control(0)));
     } else if (is("n")) {
         if (argc < 2 || argv[0].a_type != A_SYMBOL) return;
@@ -405,6 +433,7 @@ void cz4_command(t_cz4* x, t_symbol* s, int argc, t_atom* argv) {
         const int i = static_cast<int>(nc - &cz4::control(0));
         const int before = y.get_control(*nc);
         y.set_control(*nc, cz4::control_from127(*nc, atom_getfloat(argv + 1)));
+        touched = nc;
         if (y.get_control(*nc) == before) out_info(x, i);
     } else if (is("ninfo")) {
         if (argc < 1 || argv[0].a_type != A_SYMBOL) return;
@@ -429,7 +458,28 @@ void cz4_command(t_cz4* x, t_symbol* s, int argc, t_atom* argv) {
         out_value(x, "compare", y.compare());
     } else if (is("store")) {
         if (!y.store(argc > 0 ? n : -1)) pd_error(x, "cz4~: store: expected 0..%d", cz4::kUserSlots - 1);
-        else force_source(x);
+        else { force_source(x); stored = true; }
+    } else if (is("presetstep") || is("userstep")) {
+        // the next (or n-th next) tone, counted from the one played last, wrapping around
+        const int by = argc > 0 ? n : 1;
+        if (is("presetstep")) {
+            const int cnt = cz4::patch_count();
+            if (cnt > 0) y.select_patch(((x->last_preset + by) % cnt + cnt) % cnt);
+        } else {
+            y.select_user(((x->last_user + by) % cz4::kUserSlots + cz4::kUserSlots) % cz4::kUserSlots);
+        }
+        force_source(x);
+    } else if (is("save")) {
+        // the edit tone into the user slot played or stored last, and write the user bank
+        stored = y.store(x->last_user);
+        if (stored) {
+            force_source(x);
+            if (!g_data_dir.empty()) {
+                std::string err;
+                const std::string path = g_data_dir + "/" + kUserFile;
+                if (!cz4::write_user(path.c_str(), err)) pd_error(x, "cz4~: save: %s", err.c_str());
+            }
+        }
     } else if (is("name")) {
         std::string nm;
         for (int i = 0; i < argc; ++i) {
@@ -540,6 +590,11 @@ void cz4_command(t_cz4* x, t_symbol* s, int argc, t_atom* argv) {
     else if (is("reset")) y.silence();
     else { pd_error(x, "cz4~: no method for '%s'", c); return; }
     report(x);
+    if (touched) out_display(x, touched->label, y.control_text(*touched, y.get_control(*touched)));
+    if (stored) {
+        const int et = y.edit_tone();
+        out_display(x, "Stored", "User " + slot_label(y.patch(et)) + " " + y.name(et));
+    }
 }
 
 void cz4_note(t_cz4* x, t_float note, t_float velocity) {
@@ -662,6 +717,7 @@ void* cz4_new(t_symbol*, int argc, t_atom* argv) {
     x->channel = 0;
     x->txchannel = 1;
     x->model = 1;
+    x->last_preset = x->last_user = 0;
     x->midi = new Midi();
     x->shown = new Shown();
     x->shown->value.assign(static_cast<size_t>(cz4::control_count()), INT_MIN);
