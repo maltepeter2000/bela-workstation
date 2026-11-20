@@ -13,12 +13,19 @@
 void JunoChorus::init(float sampleRate)
 {
     sr_ = sampleRate;
+    /* juno~ change: the chorus board's filters. Each Sallen-Key stage has
+     * 22k + 22k with C1 in the feedback and C2 to ground, so
+     *   f0 = 1 / (2 pi 22k sqrt(C1 C2)),  Q = sqrt(C1 / C2) / 2:
+     *   820 pF / 680 pF  ->  9.69 kHz, Q 0.549
+     *   1.8 nF / 270 pF  -> 10.38 kHz, Q 1.291
+     * the same pair ahead of the lines and after each of them. R15/C7 ahead
+     * of the line is 10k and 2.2 nF, 7.23 kHz. */
+    inRc_.setCutoff(7234.0f, sampleRate);
+    inSk_[0].set(9689.0f, 0.549f, sampleRate);
+    inSk_[1].set(10377.0f, 1.291f, sampleRate);
     for (int c = 0; c < 2; ++c) {
-        inLp_[c].setCutoff(JUNO_BBD_INPUT_LP_HZ, sampleRate);
-        /* Reconstruction after the line. The output filters on the schematic
-         * are built from 820 pF and 0.0018 uF; this stands in for them and for
-         * the line's own bandwidth, which never drops below about 12 kHz. */
-        outLp_[c].setCutoff(11000.0f, sampleRate);
+        outSk_[c][0].set(9689.0f, 0.549f, sampleRate);
+        outSk_[c][1].set(10377.0f, 1.291f, sampleRate);
     }
     reset();
     setMode(JUNO_CH_OFF);
@@ -29,7 +36,8 @@ void JunoChorus::reset()
     memset(buf_, 0, sizeof(buf_));
     write_ = 0;
     phase_ = 0.0f;
-    for (int c = 0; c < 2; ++c) { inLp_[c].reset(); outLp_[c].reset(); }
+    inRc_.reset();
+    for (int c = 0; c < 2; ++c) { inSk_[c].reset(); outSk_[c][0].reset(); outSk_[c][1].reset(); }
 }
 
 void JunoChorus::setMode(int mode)
@@ -102,19 +110,23 @@ void JunoChorus::process(float* l, float* r, int n)
         float wetL = buf_[0][aL] + (buf_[0][bL] - buf_[0][aL]) * fL;
         float wetR = buf_[1][aR] + (buf_[1][bR] - buf_[1][aR]) * fR;
 
-        wetL = outLp_[0].process(wetL);
-        wetR = outLp_[1].process(wetR);
+        wetL = outSk_[0][1].process(outSk_[0][0].process(wetL));
+        wetR = outSk_[1][1].process(outSk_[1][0].process(wetR));
 
         /* Written after reading, so the shortest delay is one sample rather
          * than zero. The low-pass ahead of the line is what rounds the
          * sawtooth. */
-        buf_[0][write_] = inLp_[0].process(in);
+        buf_[0][write_] = inSk_[1].process(inSk_[0].process(inRc_.process(in)));
         buf_[1][write_] = buf_[0][write_];
         if (++write_ >= kLen) write_ = 0;
 
-        /* Dry and delayed at equal weight, which is how the board sums its
-         * direct path against the two lines. */
-        l[i] = in * 0.7f + wetL * 0.7f;
-        r[i] = in * 0.7f + wetR * 0.7f;
+        /* juno~ change: the mix of the board. Each half of IC8 sums the
+         * direct signal through 47k (R86, R87) and its own line through 39k
+         * (R89, R88) into 100k, so the line comes in 47/39 = 1.205 times the
+         * direct signal. The chorus switch only opens the FETs in the line
+         * paths (TR8, TR16): the direct signal stays as loud as with the
+         * chorus off, and the chorus adds to it. Upstream mixed 0.7 : 0.7. */
+        l[i] = in + wetL * 1.205f;
+        r[i] = in + wetR * 1.205f;
     }
 }

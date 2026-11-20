@@ -154,6 +154,12 @@ reported as `info <name> <0-127> <text>`. Edits are heard at once.
 | Modulation wheel | no | vibrato | vibrato |
 | Voices | 6 | 6 | 6, handed out in turn |
 
+The chorus follows the chorus board of the Juno-60 service notes: each output
+is the direct signal plus its own bucket-brigade line (full stereo width), the
+line 1.2 times as loud as the direct signal, with the board's filters ahead of
+and after the lines. As on the instrument, switching the chorus on makes the
+sound louder.
+
 The nine factory sounds that used pulse width from the envelope have the
 fixed width instead, at the value it had while a key is held. The engine's
 oscillator and filter run at twice the sample rate (`make OVERSAMPLE=1` for

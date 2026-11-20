@@ -27,5 +27,13 @@ Changes, each marked `juno~ addition` in the source:
   at 48 kHz), at least 80 dB down where anything would fold back. At 1x there
   is nothing to decimate and the chain is skipped. `JUNO_OVERSAMPLE` must be
   1, 2 or 4.
+- Chorus (`juno_fx.h`, `juno_fx.cpp`), after the chorus board in the Juno-60
+  service notes (p. 11): ahead of the lines R15/C7 (7.2 kHz) and the two
+  Sallen-Key stages around TR19/TR18 (9.69 kHz Q 0.549, 10.38 kHz Q 1.291), the
+  same two stages after each line, instead of one pole at 7 kHz and one at
+  11 kHz. The mix is that of IC8: direct signal through 47k, its own line
+  through 39k, into 100k, so the line comes in 1.205 times the direct signal,
+  and the direct signal stays as loud as with the chorus off (upstream mixed
+  0.7 : 0.7). Chorus on is therefore louder than off, as on the instrument.
 
 The arpeggiator and the engine's own CC map are present but not used.

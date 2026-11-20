@@ -74,8 +74,15 @@ private:
     float    maxMs_ = JUNO_CHORUS_MAX_MS;
     bool     mono_  = false;
     int      mode_  = JUNO_CH_OFF;
-    JunoLPF1 inLp_[2];      /* the 12 dB low-pass ahead of the lines */
-    JunoLPF1 outLp_[2];     /* reconstruction after them             */
+    /* juno~ change: the filters of the chorus board (service notes p. 11).
+     * Ahead of the lines R15/C7 (7.2 kHz) and the two Sallen-Key stages
+     * around TR19 and TR18; after each line the same two stages again (TR6,
+     * TR7 and TR14, TR15). Upstream had one pole at 7 kHz ahead and one at
+     * 11 kHz after, which left the delayed signal far too bright above
+     * 10 kHz. Both lines take the same input, so one input chain serves. */
+    JunoLPF1     inRc_;
+    JunoBiquadLP inSk_[2];
+    JunoBiquadLP outSk_[2][2];
     float    sr_    = (float) SAMPLING_RATE;
 };
 
