@@ -12,6 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import ctlayer                                    # noqa: E402
+import helpkit                                    # noqa: E402
 import help_draw as G                             # noqa: E402
 import cz4_params as T                            # noqa: E402
 
@@ -102,6 +103,9 @@ MIDI = [
     "  velocity, bend, aftertouch, program change, CC 1",
     "  (vibrato), 7 (volume), 64 (hold) and CZ SysEx.",
     "midiout: the floats of outlet 3, SysEx tones and dumps.",
+    "cz4pads 10, lkdisplay: the Launchkey (see Launchkey).",
+    "channel 1 at load: cz4~ plays channel 1 only, so the pads",
+    "  on channel 10 do not play notes.",
     "cz4cc 1: the CC pages from 20 on, on channel 1.",
     "Without midiin: send note lists and bend, mod, at, sustain.",
 ]
@@ -302,11 +306,18 @@ def build(p):
         p.conn(ro, 0, cc, 0)
         p.conn(cc, 0, sc, 0)
         p.obj(CX + 250, y + 30, f"cz4edit {BUS}")
+        pd_ = p.obj(CX + 250, y + 60, "cz4pads 10")
+        ps = p.obj(CX + 250, y + 90, f"s {BUS}")
+        p.conn(pd_, 0, ps, 0)
         mi = p.obj(CX + 400, y + 60, "midiin")
         rc = p.obj(CX, y + 60, f"r {BUS}")
         ob = p.obj(CX, y + 100, OBJ)
         p.conn(rc, 0, ob, 0)
         p.conn(mi, 0, ob, 2)
+        lb = p.obj(CX, y, "loadbang")
+        ch1 = p.msg(CX, y + 30, "channel 1")
+        p.conn(lb, 0, ch1, 0)
+        p.conn(ch1, 0, ob, 0)
         gl = p.obj(CX, y + 134, "*~ 0.3")
         gr = p.obj(CX + 60, y + 134, "*~ 0.3")
         da = p.obj(CX, y + 164, "dac~")
@@ -314,6 +325,7 @@ def build(p):
         mo = p.obj(CX + 130, y + 164, "midiout")
         so = p.obj(CX + 220, y + 164, f"s {BUS}-out")
         pr = p.obj(CX + 330, y + 164, "print CZ4")
+        lk = p.obj(CX + 220, y + 194, "lkdisplay")
         p.conn(ob, 0, gl, 0)
         p.conn(ob, 1, gr, 0)
         p.conn(gl, 0, da, 0)
@@ -322,7 +334,9 @@ def build(p):
         p.conn(rf, 0, mo, 0)
         p.conn(rf, 1, so, 0)
         p.conn(rf, 1, pr, 0)
-    y += 200
+        p.conn(rf, 1, lk, 0)
+        p.conn(lk, 0, mo, 0)
+    y += 230
 
     # ---- text sections
     y = section(p, y, "Inlets", INLETS)
@@ -331,6 +345,7 @@ def build(p):
     y = section(p, y, "MIDI", MIDI)
     y = section(p, y, "Controls", [para(nm) for nm in MAIN], para=True)
     y = section(p, y, "Controller layer and editor", LAYER, para=True)
+    y = section(p, y, "Launchkey", helpkit.launchkey("cz4~", "cz4cc", "cz4pads", ""), para=True)
     y = section(p, y, "The instrument", ABOUT, para=True)
 
     # ---- presets, with live objects

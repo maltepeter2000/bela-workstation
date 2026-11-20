@@ -368,7 +368,7 @@ def build():
             p.conn(m, 0, sp, 0)
     p.comment(TX, credits_y, credits)
 
-    head = f"#N canvas 348 20 {YEL_X + YEL_W + 2 * M + 20} {bar_bottom + M} 12;"
+    head = f"#N canvas 348 20 820 {bar_bottom + M} 12;"
     txt = head + "\n" + "\n".join(p.lines) + "\n" + "\n".join(p.conns) + "\n"
     check(txt)
     return txt

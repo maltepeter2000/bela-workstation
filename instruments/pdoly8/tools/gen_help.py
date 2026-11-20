@@ -12,6 +12,7 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
+import helpkit  # noqa: E402
 
 BS = chr(92)
 SEMI, COMMA, DOLLAR, SPACE = BS + ";", BS + ",", BS + "$", BS + " "
@@ -571,6 +572,9 @@ def build():
     cc.append("Every continuous setting is smoothed over mrph ms (25), so CC steps become ramps.")
     sections.append(("MIDI CC: controller layer (p8cc)", cc, 0, True))
     clines = [f"{i} {cn} ({dv}): {txt}" for i, (cn, dv, txt) in enumerate(CONTROLS)]
+    sections.append(("Launchkey", helpkit.launchkey(
+        "pdoly8~", "p8cc", "p8pads", "39-43 random pluck, bass, lead, brass, pad, 47 random strings, "
+        "48 random total", nav="p8nav"), 4 * STEP + 12, True))
     sections.append(("Controls (index name default)", clines, 0, True))
     sections.append(("Timbre (har1 / har2)", [
         "The 15 distinct timbres of the original, dark to bright:",
@@ -671,6 +675,17 @@ def build():
     for title, lines, sy, extra, para in placed:
         p.heading(HX, sy, title, 14)
         p.comment(TX, sy + 28, lines, para=para)
+        if title == "Launchkey":
+            ly = sy + 28 + LINE * nlines(lines) + TXT_GAP
+            ev = DOLLAR + "0-" + SHORT + "-out"
+            pp = p.add(f"#X obj {TX} {ly} p8pads 10;")
+            rv = p.add(f"#X obj {TX + 170} {ly} r {ev};")
+            nv = p.add(f"#X obj {TX} {ly + STEP} p8nav;")
+            sn = p.add(f"#X obj {TX} {ly + 2 * STEP} s {bus};")
+            lk = p.add(f"#X obj {TX + 170} {ly + 2 * STEP} lkdisplay;")
+            mo = p.add(f"#X obj {TX + 170} {ly + 3 * STEP} midiout;")
+            p.conn(pp, 0, nv, 0); p.conn(rv, 0, nv, 1); p.conn(nv, 0, sn, 0)
+            p.conn(nv, 1, lk, 0); p.conn(lk, 0, mo, 0)
         if extra and title.startswith("Presets"):
             ly = sy + 28 + LINE * len(lines) + TXT_GAP
             ev = DOLLAR + "0-" + SHORT + "-out"
@@ -694,7 +709,7 @@ def build():
                               "MSM5232, scale ROM data as documented in MAME's",
                               "msm5232.cpp with help by Claude"])
 
-    head = f"#N canvas 348 20 {YEL_X + YEL_W + 2 * M + 20} {bar_bottom + M} 12;"
+    head = f"#N canvas 348 20 820 {bar_bottom + M} 12;"
     txt = head + "\n" + "\n".join(p.lines) + "\n" + "\n".join(p.conns) + "\n"
     check(txt)
     return txt

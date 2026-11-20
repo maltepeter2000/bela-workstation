@@ -9,7 +9,7 @@
 lib.name = d50~
 class.sources = d50~.cpp
 common.sources = d50_core.cpp
-datafiles = d50~-help.pd d50cc.pd d50pads.pd d50edit.pd
+datafiles = lkdisplay.pd d50~-help.pd d50cc.pd d50pads.pd d50edit.pd
 
 cflags = -std=c++17 -DD5_HOST_BUILD -Iengine -fvisibility=hidden
 suppress-wunused = yes
@@ -37,7 +37,7 @@ mac-zig: d50~.cpp d50_core.cpp d50_core.h d50_params.h
 	done
 	$(LIPO) -create $(MACDIR)/d50.aarch64 $(MACDIR)/d50.x86_64 -output '$(MACDIR)/d50~.pd_darwin'
 	rm -f $(MACDIR)/d50.aarch64 $(MACDIR)/d50.x86_64
-	cp 'd50~-help.pd' d50cc.pd d50pads.pd d50edit.pd $(MACDIR)/
+	cp 'd50~-help.pd' d50cc.pd d50pads.pd d50edit.pd lkdisplay.pd $(MACDIR)/
 
 # ---- Bela Gem (64-bit ARM, Cortex-A53), cross-built from Linux (as juno~) ----------
 #   make bela-gem   d50~.pd_linux and the abstractions into ../../../build/bela-gem (all
@@ -50,7 +50,7 @@ bela-gem: d50~.cpp d50_core.cpp d50_core.h d50_params.h
 	$(ZIG) c++ -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O2 -std=c++17 \
 	  -DD5_HOST_BUILD -Iengine -I../third_party/pd \
 	  -fPIC -fvisibility=hidden -shared -s -o '$(GEMDIR)/d50~.pd_linux' 'd50~.cpp' d50_core.cpp
-	cp d50cc.pd d50pads.pd ../../../launchkey/lkdisplay.pd $(GEMDIR)/
+	cp d50cc.pd d50pads.pd lkdisplay.pd $(GEMDIR)/
 
 # ---- generated files ---------------------------------------------------------
 #   make gen        parameter header, controller layer, editor and help patch
@@ -59,3 +59,4 @@ gen:
 	python3 ../tools/gen_d50cc.py
 	python3 ../tools/gen_editor.py
 	python3 ../tools/gen_help.py
+	python3 ../../../common/tools/lkdisplay.py lkdisplay.pd

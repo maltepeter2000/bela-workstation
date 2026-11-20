@@ -298,7 +298,7 @@ def build():
                               "uPD933 model by Devin Acker (MAME), BSD-3-Clause",
                               "Pd wrapper cz1~, built with Claude (Anthropic)"])
 
-    head = f"#N canvas 348 20 {YEL_X + YEL_W + 2 * M + 20} {bar_bottom + M} 12;"
+    head = f"#N canvas 348 20 820 {bar_bottom + M} 12;"
     return head + "\n" + "\n".join(p.lines) + "\n" + "\n".join(p.conns) + "\n"
 
 

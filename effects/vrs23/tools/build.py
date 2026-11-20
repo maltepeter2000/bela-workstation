@@ -360,38 +360,38 @@ def build_clock():
 # ---------------------------------------------------------------- Parameter
 # name, lo, hi, default, Skalierung (expr ueber $f1) oder None, Beschreibung
 PARAMS = [
-    ("inp", 0, 127, 64, "pow(10{K}($f1-64)*0.375/20)", "Input Volume: Eingangspegel -24...+24 dB (64 = 0 dB)"),
-    ("regn", 0, 127, 0, "1-pow(1-$f1/127{K}2)", "Regeneration: Rueckfuehrung (Tandempoti -log)"),
-    ("key", 0, 3, 3, None, "Delay-Taste: 0 = 50 \\, 1 = 100 \\, 2 = 200 \\, 3 = 400 ms (Reverb: E F G H)"),
-    ("mode", 0, 1, 0, None, "Modus: 0 = Echo \\, 1 = Reverb"),
-    ("fine", 0, 127, 0, "$f1/127", "Delay fein: 0 = laengste Zeit \\, 127 = kuerzeste. Aendert den Takt: der Pufferinhalt wird hoeher/tiefer wie im Original"),
+    ("inp", 0, 127, 64, "pow(10{K}($f1-64)*0.375/20)", "Input Volume: input level -24...+24 dB (64 = 0 dB)"),
+    ("regn", 0, 127, 0, "1-pow(1-$f1/127{K}2)", "Regeneration: feedback (dual pot, -log)"),
+    ("key", 0, 3, 3, None, "Delay key: 0 = 50 \\, 1 = 100 \\, 2 = 200 \\, 3 = 400 ms (Reverb: E F G H)"),
+    ("mode", 0, 1, 0, None, "Mode: 0 = echo \\, 1 = reverb"),
+    ("fine", 0, 127, 0, "$f1/127", "Delay fine: 0 = longest time \\, 127 = shortest. Changes the clock: what is in the buffer goes higher/lower as in the original"),
     ("swp", 0, 127, 40, "0.1*pow(100{K}$f1/127)", "Sweep Freq: LFO 0.1...10 Hz"),
-    ("dpth", 0, 127, 0, "$f1/127", "Depth: LFO-Tiefe auf den Takt"),
-    ("tone", 0, 127, 64, "$f1/127", "Tone: 0 = dunkel \\, 127 = offen"),
-    ("rtrn", 0, 127, 100, "$f1/127", "Return: Effektpegel L und R"),
-    ("fx", 0, 1, 1, None, "Fussschalter: 1 = Effekt an \\, 0 = Eingang zum Effekt stumm (Fahne klingt aus)"),
-    ("mix", 0, 127, 64, "$f1/127", "Mix: 0 = nur Original \\, 127 = nur Effekt"),
-    ("vol", 0, 127, 100, f"if($f1<1{K}0{K}pow(10{K}($f1-100)*0.5/20))", "Ausgangspegel: 100 = 0 dB \\, 0 = stumm"),
-    ("cmpd", 0, 1, 1, None, "Kompander NE570 an (1) oder aus (0)"),
-    ("ctau", 0, 127, 55, f"1000/(6.2831853*0.5*pow(200{K}$f1/127))", "Kompander-Zeitkonstante 0.5...100 ms (55 = ca. 5 ms)"),
-    ("trck", 0, 127, 64, "pow(10{K}($f1-64)/64*3/20)", "Tracking-Fehler Expander: +-3 dB (64 = 0)"),
-    ("nois", 0, 127, 50, "pow(10{K}(-100+$f1*0.5)/20)*0.3", "BBD-Rauschen: -100...-36 dB unter Nennpegel"),
-    ("drv", 0, 127, 64, "0.25*pow(16{K}$f1/127)", "BBD-Saettigung: Drive (64 = Clipping ab ca. +10 dB)"),
-    ("aafc", 0, 127, 64, "pow(2{K}($f1-64)/64)", "Anti-Aliasing-Filter: Grenzfrequenz x0.5...x2"),
-    ("aaq", 0, 127, 0, "$f1/127", "Anti-Aliasing-Filter: 0 = Butterworth \\, 127 = Schaltplan-Lesung"),
-    ("rkfc", 0, 127, 64, "pow(2{K}($f1-64)/64)", "Rekonstruktionsfilter: Grenzfrequenz x0.5...x2"),
-    ("rkq", 0, 127, 0, "$f1/127", "Rekonstruktionsfilter: 0 = Butterworth \\, 127 = Schaltplan-Lesung"),
-    ("emph", 0, 127, 127, "$f1/127", "Pre-/De-Emphasis: 0 = aus \\, 127 = wie Schaltplan"),
-    ("clka", 0, 127, 0, "$f1/127", "Taktartefakte: Sample-and-Hold mit f_clk (Aliasing)"),
-    ("rclk", 0, 1, 0, None, "Takt obere Reihe im Reverb: 0 = 19 kHz \\, 1 = 30.75 kHz"),
-    ("rnge", 0, 127, 64, "1+3*$f1/127", "Bereich Delay fein: Taktfaktor max. 1...4 (64 = 2.5)"),
-    ("lfom", 0, 127, 64, "0.3*$f1/127", "LFO-Hub bei Depth 127: 0...+-30 % Takt"),
-    ("gmax", 0, 127, 100, "1.2*$f1/127", "Regeneration maximal im Echo (100 = knapp unter Selbstoszillation)"),
-    ("rvgm", 0, 127, 70, "1.2*$f1/127", "Regeneration maximal im Reverb (70 = Fahne ca. 5 s am Vollanschlag \\, ab ca. 90 Selbstoszillation)"),
-    ("fxlv", 0, 127, 64, "pow(10{K}($f1-64)/64*12/20)", "Effektpegel-Abgleich: +-12 dB"),
-    ("bias", 0, 127, 78, "($f1-64)/64*0.6", "BBD-Arbeitspunkt (P17/P18): 64 = symmetrisch \\, 78 = leicht unsymmetrisch \\, sonst gerade Obertoene (H2)"),
-    ("iclp", 0, 127, 58, "0.3*pow(10{K}$f1*24/127/20)", "Eingangsstufe I001: Clipping-Reserve 0...24 dB ueber Nennpegel (58 = ca. 11 dB)"),
-    ("cclp", 0, 127, 54, "0.3*pow(10{K}$f1*24/127/20)", "Kompressor-Ausgang (P11): weiche Begrenzung 0...24 dB ueber Nennpegel"),
+    ("dpth", 0, 127, 0, "$f1/127", "Depth: LFO depth on the clock"),
+    ("tone", 0, 127, 64, "$f1/127", "Tone: 0 = dark \\, 127 = open"),
+    ("rtrn", 0, 127, 100, "$f1/127", "Return: effect level L and R"),
+    ("fx", 0, 1, 1, None, "Foot switch: 1 = effect on \\, 0 = input to the effect muted (the tail rings out)"),
+    ("mix", 0, 127, 64, "$f1/127", "Mix: 0 = dry only \\, 127 = effect only"),
+    ("vol", 0, 127, 100, f"if($f1<1{K}0{K}pow(10{K}($f1-100)*0.5/20))", "Output level: 100 = 0 dB \\, 0 = muted"),
+    ("cmpd", 0, 1, 1, None, "Compander NE570 on (1) or off (0)"),
+    ("ctau", 0, 127, 55, f"1000/(6.2831853*0.5*pow(200{K}$f1/127))", "Compander time constant 0.5...100 ms (55 = about 5 ms)"),
+    ("trck", 0, 127, 64, "pow(10{K}($f1-64)/64*3/20)", "Expander tracking error: +-3 dB (64 = 0)"),
+    ("nois", 0, 127, 50, "pow(10{K}(-100+$f1*0.5)/20)*0.3", "BBD noise: -100...-36 dB below nominal level"),
+    ("drv", 0, 127, 64, "0.25*pow(16{K}$f1/127)", "BBD saturation: drive (64 = clipping from about +10 dB)"),
+    ("aafc", 0, 127, 64, "pow(2{K}($f1-64)/64)", "Anti-aliasing filter: cutoff x0.5...x2"),
+    ("aaq", 0, 127, 0, "$f1/127", "Anti-aliasing filter: 0 = Butterworth \\, 127 = as read from the schematic"),
+    ("rkfc", 0, 127, 64, "pow(2{K}($f1-64)/64)", "Reconstruction filter: cutoff x0.5...x2"),
+    ("rkq", 0, 127, 0, "$f1/127", "Reconstruction filter: 0 = Butterworth \\, 127 = as read from the schematic"),
+    ("emph", 0, 127, 127, "$f1/127", "Pre-/de-emphasis: 0 = off \\, 127 = as in the schematic"),
+    ("clka", 0, 127, 0, "$f1/127", "Clock artefacts: sample-and-hold at f_clk (aliasing)"),
+    ("rclk", 0, 1, 0, None, "Clock of the upper row in reverb: 0 = 19 kHz \\, 1 = 30.75 kHz"),
+    ("rnge", 0, 127, 64, "1+3*$f1/127", "Range of delay fine: clock factor max. 1...4 (64 = 2.5)"),
+    ("lfom", 0, 127, 64, "0.3*$f1/127", "LFO swing at depth 127: 0...+-30 % of the clock"),
+    ("gmax", 0, 127, 100, "1.2*$f1/127", "Maximum regeneration in echo (100 = just below self-oscillation)"),
+    ("rvgm", 0, 127, 70, "1.2*$f1/127", "Maximum regeneration in reverb (70 = tail of about 5 s at full turn \\, self-oscillation from about 90)"),
+    ("fxlv", 0, 127, 64, "pow(10{K}($f1-64)/64*12/20)", "Effect level trim: +-12 dB"),
+    ("bias", 0, 127, 78, "($f1-64)/64*0.6", "BBD bias (P17/P18): 64 = symmetric \\, 78 = slightly asymmetric \\, else even harmonics (H2)"),
+    ("iclp", 0, 127, 58, "0.3*pow(10{K}$f1*24/127/20)", "Input stage I001: clipping headroom 0...24 dB above nominal level (58 = about 11 dB)"),
+    ("cclp", 0, 127, 54, "0.3*pow(10{K}$f1*24/127/20)", "Compressor output (P11): soft limit 0...24 dB above nominal level"),
 ]
 SEND = {"ctau": "cdet", "aafc": "aa-fc", "aaq": "aa-q", "rkfc": "rk-fc", "rkq": "rk-q"}
 
@@ -700,7 +700,7 @@ def build_help():
     # Hintergrund wird am Ende mit der richtigen Hoehe eingesetzt
     bg = [p._add("BG0"), p._add("BG1"), p._add("BG2")]
     label(p, 60, 40, "vrs23~", 22)
-    label(p, 60, 80, "Dynacord VRS 23 Echo/Hall (1981) - Eimerketten-Simulation", 16)
+    label(p, 60, 80, "Dynacord VRS 23 echo / reverb (1981) - bucket brigade simulation", 16)
 
     # --- Demo oben: Toggle -> metro -> Clap
     tg = p._add("#X obj 60 132 tgl 19 0 empty empty empty 0 -10 0 12 #fcfcfc #000000 #000000 0 1;")
@@ -712,7 +712,7 @@ def build_help():
     for x, m in ((160, "dump"), (208, "defaults"), (284, "print")):
         mm = p.msg(x, 198, m)
         p.c(mm, 0, sv)
-    p.text(340, 198, "<- Clap ausloesen")
+    p.text(340, 198, "<- play the clap")
     # Echo/Reverb-Schnellwahl
     for x, m in ((160, "mode 0"), (225, "mode 1")):
         mm = p.msg(x, 160, m)
@@ -722,7 +722,7 @@ def build_help():
     # --- Zahlenboxen -> Messages
     y = 270
     rows = []
-    groups = [("Frontplatte", PARAMS[:12]), ("Klang", PARAMS[12:])]
+    groups = [("Front panel", PARAMS[:12]), ("Sound", PARAMS[12:])]
     for title, plist in groups:
         label(p, 60, y, title, 14)
         y += 30
@@ -741,17 +741,17 @@ def build_help():
     # --- Objekt, Clap-Player, Ausgang
     y += 10
     rv = p.obj(150, y + 340, "r $0-vrs23")
-    p.text(200, y, "Referenz: vrs23-clap.wav")
-    rcl = p.obj(400, y + 26, "r $0-clap")
-    lbc = p.obj(400, y + 52, "loadbang")
-    f0 = p.obj(480, y + 52, "f $0")
-    rdm = p.msg(400, y + 78, "read -resize vrs23-clap.wav \\$1-clap")
-    sf = p.obj(400, y + 104, "soundfiler")
-    arr = p.obj(640, y + 104, "array define $0-clap")
-    info = p.obj(480, y + 130, "unpack f")
-    pk = p.obj(400, y + 156, "pack f f")
-    ex = p.obj(400, y + 182, "expr $f1 \\; $f1/$f2*1000")
-    pk2 = p.obj(400, y + 208, "pack f f")
+    p.text(230, y + 20, "reference: vrs23-clap.wav")
+    rcl = p.obj(150, y + 234, "r $0-clap")
+    lbc = p.obj(230, y + 52, "loadbang")
+    f0 = p.obj(310, y + 52, "f $0")
+    rdm = p.msg(230, y + 78, "read -resize vrs23-clap.wav \\$1-clap")
+    sf = p.obj(230, y + 104, "soundfiler")
+    arr = p.obj(330, y + 260, "array define $0-clap")
+    info = p.obj(310, y + 130, "unpack f")
+    pk = p.obj(230, y + 156, "pack f f")
+    ex = p.obj(230, y + 182, "expr $f1 \\; $f1/$f2*1000")
+    pk2 = p.obj(230, y + 208, "pack f f")
     p.c(lbc, 0, f0); p.c(f0, 0, rdm); p.c(rdm, 0, sf); p.c(sf, 0, pk); p.c(sf, 1, info); p.c(info, 0, pk, 1)
     p.c(pk, 0, ex); p.c(ex, 0, pk2); p.c(ex, 1, pk2, 1)
     vl = p.obj(250, y + 260, "list")
@@ -781,27 +781,29 @@ def build_help():
         sm = an.msg(x, yy, "set \\$1")
         ss = an.obj(x, yy + 25, f"s $0-nb-{n}")
         an.c(a_up, k, sm); an.c(sm, 0, ss)
-    an.text(10, 360, "Zeigt die aktuellen Werte in den Zahlenboxen an (Event-Ausgang und skpreset)")
-    anz = p.sub(250, y + 442, "anzeige", an, 850, 400)
+    an.text(10, 360, "Shows the current values in the number boxes (event outlet and skpreset)")
+    anz = p.sub(250, y + 442, "numbers", an, 850, 400)
     p.c(obj, 2, prt); p.c(obj, 2, anz, 0)
     lbd = p.obj(250, y + 406, "loadbang")
     dmp = p.msg(330, y + 406, "dump")
-    p.c(lbd, 0, dmp); p.c(dmp, 0, sv)   # Zahlenboxen beim Laden fuellen
+    sdm = p.obj(330, y + 436, "s $0-vrs23")
+    p.c(lbd, 0, dmp); p.c(dmp, 0, sdm)   # fill the number boxes at load
 
     # --- Presets (skpreset)
     y += 500
-    label(p, 60, y, "Presets und Steps", 14)
+    label(p, 60, y, "Presets and steps", 14)
     hr = p._add(f"#X obj 60 {y + 34} hradio 19 1 0 16 empty empty empty 0 -8 0 10 #fcfcfc #000000 #000000 0;")
     skp = p.obj(60, y + 70, "skpreset vrs23-kit")
     td = p.obj(300, y + 70, "text define -k vrs23-kit")
-    p.c(hr, 0, skp, 1); p.c(obj, 2, skp, 0); p.c(skp, 0, sv); p.c(skp, 1, anz, 1)
-    yt = y + 110
+    ssk = p.obj(60, y + 100, "s $0-vrs23")
+    p.c(hr, 0, skp, 1); p.c(obj, 2, skp, 0); p.c(skp, 0, ssk); p.c(skp, 1, anz, 1)
+    yt = y + 136
     htext(p, 82, yt, [
-        "Slot 0-15 waehlen: der aktuelle Slot wird gespeichert \\, der neue",
-        "geladen. Ein leerer Slot uebernimmt den aktuellen Klang.",
-        "Die Werte liegen in [text define -k vrs23-kit] und werden mit",
-        "diesem Patch gespeichert. Gleiche Logik wie bei skandrums:",
-        "Outlet 2 -> skpreset links \\, skpreset links -> vrs23~ rechts."])
+        "Choose slot 0-15: the current slot is stored \\, the new one",
+        "loaded. An empty slot takes the current sound.",
+        "The values are kept in [text define -k vrs23-kit] and saved",
+        "with this patch. The same logic as in skandrums:",
+        "outlet 2 -> skpreset left \\, skpreset left -> vrs23~ right."])
     y = yt + 120
 
     # --- Dokumentation
@@ -810,39 +812,38 @@ def build_help():
         htext(p, 82, y + 24, lines)
         return y + 24 + 19 * len(lines) + 40
 
-    y = section("Inlets", ["0: Audio (mono)", "1: Messages (siehe Messages unten)"], y)
-    y = section("Outlets", ["0: Audio links \\, 1: Audio rechts",
-                            "2: Events: dump \\, value"], y)
+    y = section("Inlets", ["0: audio (mono)", "1: messages (see Messages below)"], y)
+    y = section("Outlets", ["0: audio left \\, 1: audio right",
+                            "2: events: dump \\, value"], y)
     y = section("Messages", [
-        "<control> <0-127>: Control per Name setzen \\, z. B. regn 64",
-        "ctl <index> <wert> \\, params v0 v1 ...: per Index setzen",
-        "defaults \\, reset: alle Controls auf Standard",
-        "get <control>: antwortet 'value <control> <v>' an Outlet 2",
-        "print: Controls und Samplerate ins Pd-Fenster",
-        "dump: alle Controls an Outlet 2 als 'dump vrs23 v0 ..'",
-        "dump vrs23 v0 v1 ...: einen solchen Dump wiederherstellen"], y)
+        "<control> <0-127>: set a control by name \\, e.g. regn 64",
+        "ctl <index> <value> \\, params v0 v1 ...: set by index",
+        "defaults \\, reset: all controls to their defaults",
+        "get <control>: answers 'value <control> <v>' on outlet 2",
+        "print: controls and sample rate to the Pd window",
+        "dump: all controls on outlet 2 as 'dump vrs23 v0 ..'",
+        "dump vrs23 v0 v1 ...: restore such a dump"], y)
     ctl_lines = []
     for k, (n, lo, hi, d, sc, desc) in enumerate(PARAMS):
         dsc = desc.replace("\\,", ",")
         rng = f"[{lo}-{hi}] " if (lo, hi) != (0, 127) else ""
         ctl_lines += textwrap.wrap(f"{k} {n} ({d}) {rng}{dsc}", 60, subsequent_indent="   ")
     y = section("Controls (index name default)", ctl_lines, y)
-    y = section("Signalweg", [
-        "Eingang -> Pre-Emphasis -> E1/E2 -> NE570-Kompressor ->",
-        "Anti-Aliasing -> 2 x 5 BBD-Chips (je 768 Takte) -> Abgriffe ->",
-        "Rekonstruktion -> NE570-Expander -> A1/A2 -> Tone \\, Return.",
-        "Echo: 10 Chips in Serie \\, ein Takt \\, Ausgang mono.",
-        "Reverb: Reihen getrennt \\, zwei Takte \\, ueber Kreuz gekoppelt.",
-        "L = untere Reihe \\, R = obere Reihe.",
-        "Der Pufferinhalt folgt dem Takt: fine und Sweep aendern die",
-        "Tonhoehe dessen \\, was schon in der Eimerkette liegt."], y)
+    y = section("Signal path", [
+        "input -> pre-emphasis -> E1/E2 -> NE570 compressor ->",
+        "anti-aliasing -> 2 x 5 BBD chips (768 clocks each) -> taps ->",
+        "reconstruction -> NE570 expander -> A1/A2 -> tone \\, return.",
+        "Echo: 10 chips in series \\, one clock \\, mono output.",
+        "Reverb: rows separate \\, two clocks \\, cross-coupled.",
+        "L = lower row \\, R = upper row.",
+        "The buffer follows the clock: fine and sweep change the",
+        "pitch of what is already in the bucket brigade."], y)
     y = section("Credits", [
-        "Grundlage: Dynacord-Schaltplaene 80 207 / 80 205 (1981) und",
-        "Service-Manual (1983). Pd-Simulation vrs23~ \\, gebaut mit",
-        "Claude (Anthropic). skpreset aus skandrums-pd (CC0).",
-        "Referenzton: vrs23-clap.wav"], y)
+        "Credits: Modelled on the Dynacord schematics 80 207 / 80 205",
+        "(1981) and the service manual (1983) with help by Claude.",
+        "skpreset from skandrums-pd (CC0). Reference: vrs23-clap.wav"], y)
     H = y + 20
-    p.head = f"#N canvas 348 20 800 {H + 60} 12;"
+    p.head = f"#N canvas 348 20 820 {H + 60} 12;"
     p.items[bg[0]] = CNV.format(x=40, y=20, w=700, h=H - 20, c="#fafaf2")
     p.items[bg[1]] = CNV.format(x=20, y=80, w=20, h=H - 80, c="#ffcfd6")
     p.items[bg[2]] = CNV.format(x=560, y=140, w=200, h=H - 140, c="#1e3791")

@@ -13,6 +13,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
+import helpkit  # noqa: E402
 import ctlayer as CL                             # noqa: E402
 import gen_help as H                             # noqa: E402
 import gen_fmedit as F                           # noqa: E402
@@ -148,6 +149,11 @@ def build():
             "[txfm tx1], [txedit tx1], [r tx1-out] -> [txfmcc 0] -> [s tx1]."], True),
         ("FM view", fm, True),
         ("MIDI CC: controller layer (txfmcc)", cc, True),
+        ("Launchkey", helpkit.launchkey(
+            OBJ, "txfmcc", "txpads", "39-43 random pluck, bass, lead, brass, pad, 47 random "
+            "strings, 48 random total") + [
+            "channel 1 at load (below): the pads on channel 10 must not play notes, so the help "
+            "patch sets the receive channel to 1."], True),
         ("Controls of the FM view (0-127)", [f"{n}: {t}" for n, t in CONTROLS], True),
         ("Voice parameters", H.param_lines()),
         ("How it works", [
@@ -172,6 +178,8 @@ def build():
         para = sec[2] if len(sec) > 2 else False
         placed.append((title, lines, y, para))
         y += 28 + LINE * (nlines(lines) if para else len(lines)) + TXT_GAP
+        if title == "Launchkey":
+            y += 3 * STEP + BOX + TXT_GAP
     placed_ex = []
     for title, intro, msgs in EXBLOCKS:
         placed_ex.append((title, intro, msgs, y))
@@ -273,6 +281,18 @@ def build():
     for title, lines, sy, para in placed:
         p.heading(HX, sy, title, 14)
         p.comment(TX, sy + 28, lines, para=para)
+        if title == "Launchkey":
+            ly = sy + 28 + LINE * nlines(lines) + TXT_GAP
+            pp = p.add(f"#X obj {TX} {ly} txpads 10;")
+            sp = p.add(f"#X obj {TX} {ly + STEP} s {bus};")
+            lb = p.add(f"#X obj {TX + 110} {ly} loadbang;")
+            c1 = p.add(f"#X msg {TX + 110} {ly + STEP} channel 1;")
+            sc = p.add(f"#X obj {TX + 110} {ly + 2 * STEP} s {bus};")
+            rv = p.add(f"#X obj {TX + 220} {ly} r {out};")
+            lk = p.add(f"#X obj {TX + 220} {ly + STEP} lkdisplay;")
+            mo = p.add(f"#X obj {TX + 220} {ly + 2 * STEP} midiout;")
+            p.conn(pp, 0, sp, 0); p.conn(lb, 0, c1, 0); p.conn(c1, 0, sc, 0)
+            p.conn(rv, 0, lk, 0); p.conn(lk, 0, mo, 0)
     for title, intro, msgs, sy in placed_ex:
         p.heading(HX, sy, title, 14)
         p.comment(TX, sy + 28, intro, para=True)
@@ -285,7 +305,7 @@ def build():
             p.conn(m, 0, sp, 0)
     p.comment(TX, credits_y, credits)
 
-    head = f"#N canvas 348 20 {YEL_X + YEL_W + 2 * M + 20} {bar_bottom + M} 12;"
+    head = f"#N canvas 348 20 820 {bar_bottom + M} 12;"
     txt = head + "\n" + "\n".join(p.lines) + "\n" + "\n".join(p.conns) + "\n"
     H.check(txt)
     return txt

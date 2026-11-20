@@ -12,6 +12,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import ctlayer                                    # noqa: E402
+import helpkit                                    # noqa: E402
 import gen_help as G                              # noqa: E402
 import juno_params as T                           # noqa: E402
 
@@ -107,12 +108,9 @@ MIDI = [
     "  (volume), 64 (hold) and Juno-106 SysEx.",
     "midiout: the floats of outlet 3, SysEx patches and dumps.",
     "junocc 1: the CC pages from 20 on, on channel 1.",
-    "junopads 10: the Launchkey pads in Drum mode, channel 10.",
+    "junopads 10, lkdisplay: the Launchkey (see Launchkey).",
     "channel 1 at load: juno~ plays channel 1 only, so the pads",
     "  on channel 10 do not play notes.",
-    "lkdisplay: the display line as SysEx for the Launchkey's",
-    "  display (custom firmware): the control you turn, the",
-    "  patch that plays.",
     "Without midiin: send note lists and bend, mod, sustain.",
 ]
 
@@ -126,14 +124,6 @@ LAYER = [
     "junoedit is the editor: click it in the object area above. All 33 "
     "controls in rows of 8, the factory presets and the user bank, the "
     "MIDI channels and SysEx. It explains itself in its readme.",
-    "junopads are the Launchkey's pads in Drum mode as buttons, on the "
-    "Drums Channel (10, the argument). With the Launchkey custom firmware "
-    "they send notes 36 to 43 on the top row and 44 to 51 on the bottom "
-    "row, left to right.",
-    "Pads 1 to 4 (top row): factory +, user +, init (press twice within a "
-    "second), chorus (I, II, I+II, off, round and round). Pads 9 to 12 (below "
-    "them): factory -, user -, save (into the user slot chosen last, and the "
-    "bank file), Juno-106 / Juno-60.",
     "All names are listed at the end of this patch with their CC numbers.",
 ]
 
@@ -338,6 +328,7 @@ def build(p):
     y = section(p, y, "MIDI", MIDI)
     y = section(p, y, "Controls", [para(nm) for nm in MAIN], para=True)
     y = section(p, y, "Controller layer and editor", LAYER, para=True)
+    y = section(p, y, "Launchkey", helpkit.launchkey("juno~", "junocc", "junopads", "39 chorus I, II, I+II, off (round and round), 47 Juno-106 / Juno-60"), para=True)
     y = section(p, y, "The instrument", ABOUT, para=True)
 
     # ---- presets, with live objects

@@ -72,8 +72,8 @@ bela-gem:
 	mkdir -p $(GEMDIR)
 	$(GEM) -std=c++17 -I$(NATIVE) $(NSRC) -o $(GEMDIR)/tx81zn~.pd_linux
 	$(GEM) -std=c++14 -I$(YMFM) -I$(NATIVE) $(SRC) -o $(GEMDIR)/tx81z~.pd_linux
-	cp txfmcc.pd txpads.pd txcc.pd ../../../launchkey/lkdisplay.pd $(GEMDIR)/
-	cp $(GEMDIR)/tx81zn~.pd_linux txfmcc.pd txpads.pd ../../../launchkey/lkdisplay.pd ../bela/tx81zn-pd/
+	cp txfmcc.pd txpads.pd txcc.pd lkdisplay.pd $(GEMDIR)/
+	cp $(GEMDIR)/tx81zn~.pd_linux txfmcc.pd txpads.pd lkdisplay.pd ../bela/tx81zn-pd/
 	cp $(GEMDIR)/tx81z~.pd_linux txcc.pd ../bela/tx81z-pd/
 
 # macOS package, cross-built from Linux (as juno~): universal binaries (arm64 + x86_64) and the
@@ -91,7 +91,7 @@ mac-zig:
 	$(LIPO) -create $(MACDIR)/tx.aarch64 $(MACDIR)/tx.x86_64 -output '$(MACDIR)/tx81z~.pd_darwin'
 	rm -f $(MACDIR)/*.aarch64 $(MACDIR)/*.x86_64
 	cp 'tx81zn~-help.pd' 'tx81z~-help.pd' txcc.pd txedit.pd txfm.pd txfmcc.pd txpads.pd \
-	    ../../../launchkey/lkdisplay.pd $(MACDIR)/
+	    lkdisplay.pd $(MACDIR)/
 
 gen:
 	python3 ../tools/tx81z_params.py
@@ -100,6 +100,7 @@ gen:
 	python3 ../tools/gen_fmedit.py
 	python3 ../tools/gen_help.py
 	python3 ../tools/gen_help_native.py
+	python3 ../../../common/tools/lkdisplay.py lkdisplay.pd
 	python3 ../tools/gen_bela.py
 	python3 ../tools/gen_bela.py --native
 
