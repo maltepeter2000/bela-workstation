@@ -10,7 +10,8 @@ usage: python3 tools/gen_juno_bela.py [outfile]
 - [junopads 10]: the Launchkey's pads in Drum mode
 - outlet 3 floats -> [midiout]: SysEx and MIDI thru (both off at load: the first MIDI port is
   the keyboard)
-- OLED via O2O (/display-strings-and-numbers to 127.0.0.1:7562): juno~'s display line
+- OLED via O2O (/display-strings-and-numbers to 127.0.0.1:7562) and the Launchkey's display
+  ([lkdisplay], custom firmware): juno~'s display line
 - OSC on UDP 7563: /juno/<message> <args> goes to juno~ as <message> <args>
 """
 import os
@@ -73,13 +74,23 @@ def midi_sub():
 
 
 def oled_sub():
-    p = G.P("oled", 700, 360)
-    p.note("OLED via O2O (127.0.0.1:7562), one line: juno~'s display line - a turned control "
-           "(VCF freq 64), the patch that plays (P12 Brass), stored U11. At most every 50 ms.", 10, 10)
+    p = G.P("oled", 700, 420)
+    p.note("OLED via O2O (127.0.0.1:7562), one line: juno~'s display title and value - a turned "
+           "control (VCF freq 64), the patch that plays (Preset 12 Brass), Stored User 11. At most "
+           "every 50 ms. The same goes to the Launchkey's display (lkdisplay, main patch).", 10, 10)
     ro = p.add("r juno-out", 10, 60)
     rd = p.add("route display", 10, 90); p.con(ro, 0, rd, 0)
-    sy = p.add("symbol", 10, 120); p.con(rd, 0, sy, 0)   # the line arrives as a selector
-    line = p.add("symbol", 10, 210); p.con(sy, 0, line, 1)
+    # title and value -> one line "title value"
+    li = p.add("list", 200, 90); p.con(rd, 0, li, 0)      # title arrives as the selector
+    tl = p.add("t l l", 10, 115); p.con(li, 0, tl, 0)
+    sv = p.add("list split 1", 120, 140); p.con(tl, 1, sv, 0)
+    fv = p.add("list fromsymbol", 120, 165); p.con(sv, 1, fv, 0)
+    pv = p.add("list prepend 32", 120, 190); p.con(fv, 0, pv, 0)
+    st = p.add("list split 1", 10, 140); p.con(tl, 0, st, 0)
+    ft = p.add("list fromsymbol", 10, 165); p.con(st, 0, ft, 0)
+    ap = p.add("list append", 10, 190); p.con(ft, 0, ap, 0); p.con(pv, 0, ap, 1)
+    sy = p.add("list tosymbol", 10, 215); p.con(ap, 0, sy, 0)
+    line = p.add("symbol", 10, 240); p.con(sy, 0, line, 1)
     one = p.msg("1", 200, 120); p.con(rd, 0, one, 0)
     lb = p.add("loadbang", 200, 60)
     mt = p.add("metro 50", 300, 90); p.con(lb, 0, mt, 0)
@@ -87,11 +98,11 @@ def oled_sub():
     tb = p.add("t b b", 300, 180); p.con(gate, 0, tb, 0)
     zero = p.msg("0", 400, 210); p.con(tb, 1, zero, 0); p.con(zero, 0, gate, 1)
     p.con(tb, 0, line, 0)
-    ls = p.add("list", 10, 240); p.con(line, 0, ls, 0)
-    of = p.add("oscformat display-strings-and-numbers", 10, 270); p.con(ls, 0, of, 0)
-    ps = p.add("list prepend send", 10, 300); p.con(of, 0, ps, 0)
-    lt = p.add("list trim", 10, 330); p.con(ps, 0, lt, 0)
-    ns = p.add("netsend -u -b", 250, 330); p.con(lt, 0, ns, 0)
+    ls = p.add("list", 10, 270); p.con(line, 0, ls, 0)
+    of = p.add("oscformat display-strings-and-numbers", 10, 300); p.con(ls, 0, of, 0)
+    ps = p.add("list prepend send", 10, 330); p.con(of, 0, ps, 0)
+    lt = p.add("list trim", 10, 360); p.con(ps, 0, lt, 0)
+    ns = p.add("netsend -u -b", 250, 360); p.con(lt, 0, ns, 0)
     cm = p.msg("connect 127.0.0.1 7562", 450, 300); p.con(lb, 0, cm, 0); p.con(cm, 0, ns, 0)
     init = p.msg("symbol Juno", 450, 120); p.con(lb, 0, init, 0)
     p.con(init, 0, line, 1); p.con(init, 0, one, 0)
@@ -115,7 +126,7 @@ def build():
     top = G.P(None, 820, 460)
     top.note("Juno on Bela: juno~ (Juno-60 engine, Juno-106 patches) - MIDI in, controller layer "
              f"(junocc, CC 20 on, channel 1), pads (junopads, channel {PAD_CH}), OLED, OSC remote "
-             f"(UDP {OSC_PORT}). Files: juno~.pd_linux, junocc.pd, junopads.pd, "
+             f"(UDP {OSC_PORT}). Files: juno~.pd_linux, junocc.pd, junopads.pd, lkdisplay.pd, "
              "junouser-bank.syx (the user bank, made on the first save).", 10, 10)
     lb = top.add("loadbang", 300, 60)
     st = top.msg("channel 1, thru 0, sysexout 0", 300, 90); top.con(lb, 0, st, 0)
@@ -126,8 +137,10 @@ def build():
     d = top.add("dac~ 1 2", 10, 180); top.con(j, 0, d, 0); top.con(j, 1, d, 1)
     so = top.add("s juno-out", 200, 180); top.con(j, 2, so, 0)
     rf = top.add("route float", 330, 180); top.con(j, 2, rf, 0)
-    mo = top.add("midiout", 330, 210); top.con(rf, 0, mo, 0)
-    top.note("midiout: SysEx (sysexout 1) and MIDI thru (thru 1) to the first MIDI port", 420, 210)
+    mo = top.add("midiout", 330, 240); top.con(rf, 0, mo, 0)
+    lk = top.add("lkdisplay", 420, 210); top.con(rf, 1, lk, 0); top.con(lk, 0, mo, 0)
+    top.note("midiout, the first MIDI port (the Launchkey): its display (lkdisplay), SysEx "
+             "(sysexout 1) and MIDI thru (thru 1)", 420, 240)
     ro = top.add("r juno-out", 10, 260)
     cc = top.add("junocc 1", 10, 290); top.con(ro, 0, cc, 0)
     sc = top.add("s juno", 10, 320); top.con(cc, 0, sc, 0)

@@ -12,7 +12,7 @@ ENGINE = engine/juno.cpp engine/juno_params.cpp engine/juno_presets.cpp engine/j
 lib.name = juno~
 class.sources = juno~.cpp
 common.sources = juno_core.cpp $(ENGINE)
-datafiles = juno~-help.pd junocc.pd junopads.pd junoedit.pd
+datafiles = juno~-help.pd junocc.pd junopads.pd junoedit.pd lkdisplay.pd
 
 DEFS = -DJUNO_HOST_BUILD -DJUNO_OVERSAMPLE=$(OVERSAMPLE)
 cflags = -std=c++17 $(DEFS) -Iengine -fvisibility=hidden
@@ -41,7 +41,7 @@ mac-zig: juno~.cpp juno_core.cpp juno_core.h juno_params.h
 	done
 	$(LIPO) -create $(MACDIR)/juno.aarch64 $(MACDIR)/juno.x86_64 -output '$(MACDIR)/juno~.pd_darwin'
 	rm -f $(MACDIR)/juno.aarch64 $(MACDIR)/juno.x86_64
-	cp 'juno~-help.pd' junocc.pd junopads.pd junoedit.pd $(MACDIR)/
+	cp 'juno~-help.pd' junocc.pd junopads.pd junoedit.pd lkdisplay.pd $(MACDIR)/
 
 # ---- Bela Gem (64-bit ARM, Cortex-A53), cross-built from Linux ------------------
 #   make bela-gem   juno~.pd_linux and the abstractions into the Bela project ../bela/juno
@@ -53,7 +53,7 @@ bela-gem: juno~.cpp juno_core.cpp juno_core.h juno_params.h
 	$(ZIG) c++ -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O2 -std=c++17 \
 	  -DJUNO_HOST_BUILD -DJUNO_OVERSAMPLE=$(BELA_OS) -Iengine -I../third_party/pd \
 	  -fPIC -fvisibility=hidden -shared -s -o '$(BELADIR)/juno~.pd_linux' 'juno~.cpp' juno_core.cpp $(ENGINE)
-	cp junocc.pd junopads.pd $(BELADIR)/
+	cp junocc.pd junopads.pd lkdisplay.pd $(BELADIR)/
 
 # ---- generated files ---------------------------------------------------------
 #   make gen        parameter header, controller layer, editor and help patch
@@ -62,4 +62,5 @@ gen:
 	python3 ../tools/gen_junocc.py
 	python3 ../tools/gen_juno_editor.py
 	python3 ../tools/gen_juno_help.py
+	python3 ../tools/lkdisplay.py lkdisplay.pd
 	python3 ../tools/gen_juno_bela.py

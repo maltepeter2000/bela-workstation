@@ -15,8 +15,10 @@
 //   outlet 2  signal, right
 //   outlet 3  messages: info <name> <0-127> <text> for every change, preset /
 //             user names, channel ...   floats: SysEx bytes for [midiout]
-//             display <text>: one line for a display -- a control set by a
-//             message (not by a patch change), the patch that plays, stored U11
+//             display <title> <value>: two lines for a display (the Launchkey
+//             through [lkdisplay], the OLED on Bela) -- a control set by a message
+//             (VCF freq / 64; not by a patch change), the patch that plays
+//             (Preset 12 / Harpsichord 1), a store (Stored / User 11)
 //
 // Controls (the names of tools/juno_params.py, the same for the controller
 // layer [junocc] and the editor [junoedit]):
@@ -211,19 +213,20 @@ void out_info(t_juno* x, int i) {
 
 // One line for a display (the OLED on Bela, later the Launchkey): what was
 // turned, which patch plays, what was stored.
-void out_display(t_juno* x, const std::string& text) {
-    t_atom a;
-    SETSYMBOL(&a, gensym(text.c_str()));
-    outlet_anything(x->info, gensym("display"), 1, &a);
+void out_display(t_juno* x, const std::string& title, const std::string& value) {
+    t_atom a[2];
+    SETSYMBOL(&a[0], gensym(title.c_str()));
+    SETSYMBOL(&a[1], gensym(value.c_str()));
+    outlet_anything(x->info, gensym("display"), 2, a);
 }
 
 void out_source(t_juno* x) {
     const int src = x->synth->source();
     const int idx = x->synth->patch();
-    if (src == juno::Synth::kFactory) out_display(x, "P" + std::to_string(idx) + " " + x->synth->name());
+    if (src == juno::Synth::kFactory) out_display(x, "Preset " + std::to_string(idx), x->synth->name());
     else if (src == juno::Synth::kUser)
-        out_display(x, std::string("U") + juno::user_name(idx) + " " + x->synth->name());
-    else out_display(x, "Init");
+        out_display(x, std::string("User ") + juno::user_name(idx), x->synth->name());
+    else out_display(x, "Init", "");
     if (src == juno::Synth::kFactory) out_slot(x, "preset", x->synth->patch(), juno::patch_name(x->synth->patch()));
     else if (src == juno::Synth::kUser) out_slot(x, "user", x->synth->patch(), juno::user_name(x->synth->patch()));
     else outlet_anything(x->info, gensym("init"), 0, nullptr);
@@ -424,8 +427,8 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
     else { pd_error(x, "juno~: no method for '%s'", c); return; }
     report(x, false, echo);
     if (touched)
-        out_display(x, std::string(touched->label) + " " + y.control_text(*touched, y.get_control(*touched)));
-    if (stored) out_display(x, std::string("stored U") + juno::user_name(y.patch()));
+        out_display(x, touched->label, y.control_text(*touched, y.get_control(*touched)));
+    if (stored) out_display(x, "Stored", std::string("User ") + juno::user_name(y.patch()));
 }
 
 void juno_note(t_juno* x, t_float note, t_float velocity) {

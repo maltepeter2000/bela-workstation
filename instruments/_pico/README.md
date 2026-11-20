@@ -196,8 +196,11 @@ pads send notes 36–43 (top row) and 44–51 (bottom row) on the Drums Channel:
 `save` stores into the user slot chosen last and writes the bank file; `init` needs two presses
 within a second. The messages behind them work on their own too: `presetstep 1|-1`,
 `userstep 1|-1`, `save`, `cycle chorus`, `cycle model`. `cycle <name> [-1]` steps any control round and round.
-Outlet 3 also says `display <text>`: one line for a display (a control set by a message, the
-patch that plays, `stored U11`); the Bela project (`bela/juno`) puts it on the OLED. Set `juno~` to a channel other than the pads' (the help patch sends
+Outlet 3 also says `display <title> <value>`: two lines for a display (a control set by a
+message: `VCF freq` `64`, the patch that plays: `Preset 12` `Harpsichord 1`, `Stored` `User 11`).
+`[lkdisplay]` (`tools/lkdisplay.py`) turns it into SysEx `F0 7D 4C 4B 01 <title> 00 <value> F7`
+for `[midiout]`: the Launchkey custom firmware shows the two lines in its popup, so the display
+names the parameter of the encoder you turn. The help patch and the Bela project use it. Set `juno~` to a channel other than the pads' (the help patch sends
 `channel 1`), or the pads play notes.
 
 ### Patches

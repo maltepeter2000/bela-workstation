@@ -60,8 +60,9 @@ OUTLETS = [
     "2 signal: right output.",
     "3 anything: info, name, 0-127 and value text for every",
     "  change, the patch that plays, its name, the channels.",
-    "3 display text: one line for a display: a control set by a",
-    "  message, the patch that plays, stored U11.",
+    "3 display title value: two lines for a display: a control",
+    "  set by a message (VCF freq, 64), the patch that plays",
+    "  (Preset 12, Harpsichord 1), a store (Stored, User 11).",
     "3 float: SysEx bytes for midiout.",
 ]
 
@@ -108,6 +109,9 @@ MIDI = [
     "junopads 10: the Launchkey pads in Drum mode, channel 10.",
     "channel 1 at load: juno~ plays channel 1 only, so the pads",
     "  on channel 10 do not play notes.",
+    "lkdisplay: the display line as SysEx for the Launchkey's",
+    "  display (custom firmware): the control you turn, the",
+    "  patch that plays.",
     "Without midiin: send note lists and bend, mod, sustain.",
 ]
 
@@ -310,7 +314,8 @@ def build(p):
         gr = p.obj(CX + 60, y + 134, "*~ 0.3")
         da = p.obj(CX, y + 164, "dac~")
         rf = p.obj(CX + 130, y + 134, "route float")
-        mo = p.obj(CX + 130, y + 164, "midiout")
+        mo = p.obj(CX + 130, y + 224, "midiout")
+        lk = p.obj(CX + 220, y + 194, "lkdisplay")
         so = p.obj(CX + 220, y + 164, f"s {BUS}-out")
         pr = p.obj(CX + 330, y + 164, "print JUNO")
         p.conn(ob, 0, gl, 0)
@@ -321,7 +326,9 @@ def build(p):
         p.conn(rf, 0, mo, 0)
         p.conn(rf, 1, so, 0)
         p.conn(rf, 1, pr, 0)
-    y += 200
+        p.conn(rf, 1, lk, 0)
+        p.conn(lk, 0, mo, 0)
+    y += 260
 
     # ---- text sections
     y = section(p, y, "Inlets", INLETS)
