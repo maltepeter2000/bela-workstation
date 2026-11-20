@@ -1,0 +1,15 @@
+0 czt-cz4 porta 1;
+0 czt-cz4 ptime 50;
+0 czt-cz4 bendrange 2;
+0 czt-note 48 100;
+1000 czt-note 48 0;
+0 czt-note 60 100;
+1000 czt-note 60 0;
+0 czt-note 48 100;
+1000 czt-note 48 0;
+1000 czt-note 57 100;
+1000 czt-bend 8191;
+1000 czt-bend -8192;
+1000 czt-bend 0;
+1000 czt-note 57 0;
+1000 czt-end bang;

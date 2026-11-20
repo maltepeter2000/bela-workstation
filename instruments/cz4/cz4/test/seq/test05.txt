@@ -1,0 +1,15 @@
+0 czt-note 57 127;
+800 czt-note 57 0;
+400 czt-note 57 100;
+800 czt-note 57 0;
+400 czt-note 57 80;
+800 czt-note 57 0;
+400 czt-note 57 60;
+800 czt-note 57 0;
+400 czt-note 57 40;
+800 czt-note 57 0;
+400 czt-note 57 20;
+800 czt-note 57 0;
+400 czt-note 57 1;
+800 czt-note 57 0;
+1000 czt-end bang;

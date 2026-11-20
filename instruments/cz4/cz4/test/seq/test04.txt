@@ -1,0 +1,11 @@
+0 czt-note 57 100;
+4000 czt-note 57 0;
+1000 czt-cc 1 127;
+0 czt-note 57 100;
+2500 czt-note 57 0;
+100 czt-cc 1 0;
+400 czt-note 57 100;
+0 czt-at 127;
+2500 czt-note 57 0;
+100 czt-at 0;
+400 czt-end bang;
