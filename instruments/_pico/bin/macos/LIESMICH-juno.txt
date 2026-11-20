@@ -31,7 +31,13 @@ mit Patch-Format und SysEx des Juno-106
    spielt ein empfangenes Patch, speichert es aber nur über sein eigenes
    WRITE. "SysEx for every change" schickt jede Reglerbewegung als
    Parameter-Nachricht, wie es ein Juno-106 tut.
-8. Anschlagstärke: vellevel und velcutoff auf Seite 4, 0 = aus wie beim
+8. MIDI-Thru (an, "MIDI thru" im Editor oder thru 0/1): alles, was am dritten
+   Inlet ankommt (Noten, Controller, Programmwechsel, Bend, Clock, SysEx), geht
+   unverändert am dritten Outlet wieder raus, Noten vom ersten Inlet auf dem
+   Sendekanal. Mit "SysEx for every change" spielt ein Juno-106 oder der
+   DCO-106 am MIDI-Ausgang parallel mit: gleiche Noten, gleiches Patch, jede
+   Änderung. Ausschalten, wenn der MIDI-Ausgang zurück zum Eingang führt.
+9. Anschlagstärke: vellevel und velcutoff auf Seite 4, 0 = aus wie beim
    Original.
 
 Falls macOS das Laden blockiert ("kann nicht geöffnet werden" / "beschädigt"),

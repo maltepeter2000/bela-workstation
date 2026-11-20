@@ -38,6 +38,10 @@
 //   dump                every control as info
 //   sysex b b b ...     one Juno-106 SysEx message as a list of bytes
 //   sysexdump           the playing patch as SysEx bytes
+//   thru 0/1            MIDI thru (default 1): notes, controllers, program
+//                       changes, bend, pressure, clock and SysEx arriving at
+//                       inlet 3 leave outlet 3 unchanged, notes from inlet 1
+//                       on txchannel
 //   sysexout 0/1        behave like a Juno-106: send a patch when one is
 //                       selected and a parameter message for every edit
 //
@@ -102,6 +106,7 @@ struct t_juno {
     int channel;               // receive, 0 = all
     int txchannel;             // send, 1..16
     int sysexout;              // send SysEx for every change, as a Juno-106 does
+    int thru;                  // pass incoming MIDI on to outlet 3
 };
 
 // ---- data files -------------------------------------------------------------
@@ -343,6 +348,9 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
         echo = false;
     } else if (is("sysexdump")) {
         y.dump_sysex(out_sysex, x, x->txchannel - 1);
+    } else if (is("thru")) {
+        x->thru = n != 0;
+        out_value(x, "thru", x->thru);
     } else if (is("sysexout")) {
         x->sysexout = n != 0;
         out_value(x, "sysexout", x->sysexout);
@@ -357,6 +365,7 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
         out_value(x, "channel", x->channel);
         out_value(x, "txchannel", x->txchannel);
         out_value(x, "sysexout", x->sysexout);
+        out_value(x, "thru", x->thru);
         out_value(x, "sustain", y.sustain());
         out_value(x, "sounding", y.voices_sounding());
     }
@@ -371,6 +380,12 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
 
 void juno_note(t_juno* x, t_float note, t_float velocity) {
     const int n = static_cast<int>(note);
+    if (x->thru && n >= 0 && n < 128) {
+        const int v = velocity < 0 ? 0 : (velocity > 127 ? 127 : static_cast<int>(velocity));
+        outlet_float(x->info, 0x90 | ((x->txchannel - 1) & 0x0F));
+        outlet_float(x->info, n);
+        outlet_float(x->info, v);
+    }
     if (velocity > 0) x->synth->note_on(n, velocity / 127.0f);
     else x->synth->note_off(n);
 }
@@ -391,6 +406,12 @@ void juno_proxy_anything(t_juno_proxy* p, t_symbol* s, int argc, t_atom* argv) {
 
 void midi_message(t_juno* x, int status, int d1, int d2) {
     juno::Synth& y = *x->synth;
+    if (x->thru) {      // a MIDI thru passes everything, on every channel
+        outlet_float(x->info, status);
+        outlet_float(x->info, d1);
+        const int t = status & 0xF0;
+        if (t != 0xC0 && t != 0xD0) outlet_float(x->info, d2);
+    }
     if (x->channel && (status & 0x0F) + 1 != x->channel) return;
     switch (status & 0xF0) {
         case 0x90:
@@ -421,16 +442,22 @@ void juno_proxy_float(t_juno_proxy* p, t_float f) {
     t_juno* x = p->owner;
     Midi& m = *x->midi;
     const int b = static_cast<int>(f) & 0xFF;
-    if (b >= 0xF8) return;                                   // real time
+    if (b >= 0xF8) {                                         // real time
+        if (x->thru) outlet_float(x->info, b);
+        return;
+    }
     if (b == 0xF0) { m.in_sx = true; m.sx.assign(1, 0xF0); return; }
     if (m.in_sx) {
         if (b < 0x80) {
-            if (m.sx.size() < 64) m.sx.push_back(static_cast<uint8_t>(b));
+            if (m.sx.size() < 65536) m.sx.push_back(static_cast<uint8_t>(b));
             return;
         }
         m.in_sx = false;
         if (b == 0xF7) {
             m.sx.push_back(0xF7);
+            // MIDI thru passes every SysEx message on, whoever it is for.
+            if (x->thru)
+                out_sysex(x, m.sx.data(), static_cast<int>(m.sx.size()));
             // Other makers' and other Rolands' messages pass by silently.
             if (m.sx.size() >= 7 && m.sx[1] == 0x41 && m.sx[2] >= 0x30 && m.sx[2] <= 0x32 &&
                 (!x->channel || (m.sx[3] & 0x0F) + 1 == x->channel)) {
@@ -479,6 +506,7 @@ void* juno_new(t_symbol*, int argc, t_atom* argv) {
     x->channel = 0;
     x->txchannel = 1;
     x->sysexout = 0;
+    x->thru = 1;
     x->midi = new Midi();
     x->shown = new Shown();
     x->shown->value.assign(static_cast<size_t>(juno::control_count()), INT32_MIN);

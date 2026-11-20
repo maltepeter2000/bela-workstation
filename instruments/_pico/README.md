@@ -193,6 +193,11 @@ none).
 - `usersend` and `sysexdump` send the bank or the playing patch as Juno-106
   SysEx. A Juno-106 plays a patch it receives but stores it only from its own
   panel, so after `usersend` it holds the last one.
+- MIDI thru (`thru 1`, the default): what arrives at inlet 3 — notes, controllers, program
+  changes, bend, pressure, clock and SysEx — leaves outlet 3 unchanged, and notes sent to
+  inlet 1 go out on `txchannel`. Together with `sysexout 1` a Juno-106 (or an emulation) on
+  the MIDI output plays along with `juno~`: same notes, same patch, every edit. `thru 0`
+  when the output leads back to the input.
 - A patch message (`F0 41 30 …`, `31`) replaces the playing patch, a
   parameter message (`F0 41 32 ch param value F7`) changes one byte.
   `sysexout 1` makes the object send those itself for every change, like a

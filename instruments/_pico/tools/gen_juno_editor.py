@@ -90,7 +90,8 @@ def top_band(c):
     c.add(f"#X text {X0 + 82} {y + 74} 0=all;")
     c.add(f"#X text {X0 + 130} {y + 74} out;")
     c.add(f"#X floatatom {X0 + 156} {y + 74} 3 1 16 0 - {D}0-txv {D}0-tx;")
-    c.add(f"#X obj {X0 + 220} {y + 74} tgl 15 0 {D}0-sxo {D}0-sxov SysEx{SP}for{SP}every{SP}change{SP}(as{SP}a{SP}Juno-106) 19 8 0 10 #fcfcfc #000000 #000000 0 1;")
+    c.add(f"#X obj {X0 + 220} {y + 74} tgl 15 0 {D}0-sxo {D}0-sxov SysEx{SP}for{SP}every{SP}change 19 8 0 10 #fcfcfc #000000 #000000 0 1;")
+    c.add(f"#X obj {X0 + 440} {y + 74} tgl 15 0 {D}0-thru {D}0-thruv MIDI{SP}thru 19 8 0 10 #fcfcfc #000000 #000000 0 1;")
 
 
 README = [
@@ -121,6 +122,9 @@ README = [
     "SysEx for every change: juno~ then behaves like a Juno-106 and sends a parameter message for "
     "every edit and the patch on every patch change, for editors and for a Juno-106 that should "
     "follow. Off by default.",
+    "MIDI thru: what arrives as MIDI at juno~ (notes, controllers, program changes, bend, pressure, "
+    "clock, SysEx) leaves its third outlet unchanged, notes sent as messages go out on the out channel. On "
+    "by default; switch it off when the MIDI output leads back to the input.",
     "MIDI in: receive channel of juno~ for raw MIDI, note lists and SysEx, 0 = all. out: the channel "
     "of the controller feedback and of SysEx. The controller layer follows both.",
 ]
@@ -205,6 +209,7 @@ def logic():
     send(930, yp, "ch", f"channel {D}1")
     send(1050, yp, "tx", f"txchannel {D}1")
     send(1170, yp, "sxo", f"sysexout {D}1")
+    send(1290, yp, "thru", f"thru {D}1")
     yn = yp
     # store to N (only the slot) + save patch: store N, then write the bank
     ys = yn + 110
@@ -218,7 +223,7 @@ def logic():
     # replies -> cells, names, numbers
     y2 = ys + 150
     ro = c.add(f"#X obj 10 {y2} r {D}1-out;")
-    ri = c.add(f"#X obj 10 {y2 + 30} route info name preset user channel txchannel sysexout;"); c.conn(ro, 0, ri, 0)
+    ri = c.add(f"#X obj 10 {y2 + 30} route info name preset user channel txchannel sysexout thru;"); c.conn(ro, 0, ri, 0)
     lp = c.add(f"#X obj 10 {y2 + 60} list prepend {D}0;")   # route info gives the list: name 0-127 text
     stm = c.add(f"#X msg 10 {y2 + 90} {SEMI} {D}1-v-{D}2 set {D}3 {SEMI} {D}1-t-{D}2 set {D}4;")
     c.conn(ri, 0, lp, 0); c.conn(lp, 0, stm, 0)
@@ -236,6 +241,7 @@ def logic():
     show(880, 4, f"set {D}1", "chv")
     show(1000, 5, f"set {D}1", "txv")
     show(1120, 6, f"set {D}1", "sxov")
+    show(1240, 7, f"set {D}1", "thruv")
     return c
 
 
