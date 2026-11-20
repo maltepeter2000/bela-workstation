@@ -122,9 +122,9 @@ README = [
     "SysEx for every change: juno~ then behaves like a Juno-106 and sends a parameter message for "
     "every edit and the patch on every patch change, for editors and for a Juno-106 that should "
     "follow. Off by default.",
-    "Launchkey pads ([junopads 10] beside the editor, Drum mode, Drums Channel 10). Top row: factory +, "
-    "user +, chorus off, I, II, I+II, Juno-6/60, Juno-106. Bottom row: 2nd factory -, 3rd user -, 4th save "
-    "(into the user slot chosen last, and the file), 6th init (twice within a second).",
+    "Launchkey pads ([junopads 10] beside the editor, Drum mode, Drums Channel 10). Pads 1-4 (top): "
+    "factory +, user +, init (twice within a second), chorus I > II > I+II > off. Pads 9-12 (below): factory -, "
+    "user -, save (into the user slot chosen last, and the file), Juno-106 / 60.",
     "MIDI thru: what arrives as MIDI at juno~ (notes, controllers, program changes, bend, pressure, "
     "clock, SysEx) leaves its third outlet unchanged, notes sent as messages go out on the out channel. On "
     "by default; switch it off when the MIDI output leads back to the input.",

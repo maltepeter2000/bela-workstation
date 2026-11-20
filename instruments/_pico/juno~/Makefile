@@ -43,6 +43,18 @@ mac-zig: juno~.cpp juno_core.cpp juno_core.h juno_params.h
 	rm -f $(MACDIR)/juno.aarch64 $(MACDIR)/juno.x86_64
 	cp 'juno~-help.pd' junocc.pd junopads.pd junoedit.pd $(MACDIR)/
 
+# ---- Bela Gem (64-bit ARM, Cortex-A53), cross-built from Linux ------------------
+#   make bela-gem   juno~.pd_linux and the abstractions into the Bela project ../bela/juno
+# glibc 2.31 or newer on the board, libc++ linked in. On the board itself a plain make works too.
+BELADIR = ../bela/juno
+BELA_OS ?= 2
+bela-gem: juno~.cpp juno_core.cpp juno_core.h juno_params.h
+	mkdir -p $(BELADIR)
+	$(ZIG) c++ -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O2 -std=c++17 \
+	  -DJUNO_HOST_BUILD -DJUNO_OVERSAMPLE=$(BELA_OS) -Iengine -I../third_party/pd \
+	  -fPIC -fvisibility=hidden -shared -s -o '$(BELADIR)/juno~.pd_linux' 'juno~.cpp' juno_core.cpp $(ENGINE)
+	cp junocc.pd junopads.pd $(BELADIR)/
+
 # ---- generated files ---------------------------------------------------------
 #   make gen        parameter header, controller layer, editor and help patch
 gen:
@@ -50,3 +62,4 @@ gen:
 	python3 ../tools/gen_junocc.py
 	python3 ../tools/gen_juno_editor.py
 	python3 ../tools/gen_juno_help.py
+	python3 ../tools/gen_juno_bela.py

@@ -60,6 +60,8 @@ OUTLETS = [
     "2 signal: right output.",
     "3 anything: info, name, 0-127 and value text for every",
     "  change, the patch that plays, its name, the channels.",
+    "3 display text: one line for a display: a control set by a",
+    "  message, the patch that plays, stored U11.",
     "3 float: SysEx bytes for midiout.",
 ]
 
@@ -77,6 +79,7 @@ MESSAGES = [
     "presetstep 1 or -1, userstep 1 or -1: the next or previous",
     "  factory preset or user slot, from the one chosen last.",
     "save: store, then userwrite (the pads' save).",
+    "cycle name [-1]: the next (previous) value, round and round.",
     "userwrite: write the user bank to junouser-bank.syx.",
     "userread: read it again. Both also take a file name.",
     "usersend: the user bank as SysEx on outlet 3.",
@@ -122,10 +125,10 @@ LAYER = [
     "Drums Channel (10, the argument). With the Launchkey custom firmware "
     "they send notes 36 to 43 on the top row and 44 to 51 on the bottom "
     "row, left to right.",
-    "Top row: factory +, user +, chorus off, chorus I, chorus II, chorus "
-    "I+II, Juno-6/60, Juno-106. Bottom row: second pad factory -, third user "
-    "-, fourth save (into the user slot chosen last, and the bank file), "
-    "sixth init (press twice within a second).",
+    "Pads 1 to 4 (top row): factory +, user +, init (press twice within a "
+    "second), chorus (I, II, I+II, off, round and round). Pads 9 to 12 (below "
+    "them): factory -, user -, save (into the user slot chosen last, and the "
+    "bank file), Juno-106 / Juno-60.",
     "All names are listed at the end of this patch with their CC numbers.",
 ]
 

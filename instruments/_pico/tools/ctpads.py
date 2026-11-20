@@ -7,8 +7,7 @@ notes in rows on the Drums Channel (10 at the factory):
     top row     36 37 38 39 40 41 42 43
     bottom row  44 45 46 47 48 49 50 51
 
-The same places as the TX81Z on Bela: 36 next factory preset, 37 next user patch, 45 / 46 back,
-47 save. write(path, title, table) makes the abstraction [<name> <channel>] (channel 0 or none
+write(path, title, table) makes the abstraction [<name> <channel>] (channel 0 or none
 = 10): [notein] inside, a pad pressed on that channel -> its message at the outlet (to the
 instrument). table: {note: "message"} or {note: ("twice", "message")} for a pad that has to be
 pressed twice within a second (for what drops the edits). Inlet: channel <n>.

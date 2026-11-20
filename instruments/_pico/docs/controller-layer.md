@@ -117,12 +117,12 @@ entstehen mit `make gen` in `juno~/`.
 
 `[junopads 10]` (`tools/ctpads.py`, Belegung in `PADS` von `tools/juno_params.py`):
 Launchkey im Drum-Modus, eigene Firmware, Drums Channel 10, Noten 36–43 oben,
-44–51 unten. Preset- und Save-Pads an denselben Stellen wie beim TX81Z auf Bela.
+44–51 unten. Jede Spalte eine Aufgabe: oben hoch, darunter runter bzw. das Gegenstück.
 
-| Pad | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
-|---|---|---|---|---|---|---|---|---|
-| oben | factory + | user + | Chorus aus | I | II | I+II | Juno-6/60 | Juno-106 |
-| unten | – | factory − | user − | save | – | init (2×) | – | – |
+| Pad | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|
+| oben (36–39) | factory + | user + | init (2×) | chorus I → II → I+II → aus |
+| unten (44–47) | factory − | user − | save | Juno-106 / 60 |
 
 `save` speichert in den zuletzt gewählten User-Platz und schreibt die Bankdatei.
 `juno~` muss auf einem anderen Kanal hören (Hilfe-Patch: `channel 1`).

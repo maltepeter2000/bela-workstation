@@ -15,12 +15,16 @@
 //   outlet 2  signal, right
 //   outlet 3  messages: info <name> <0-127> <text> for every change, preset /
 //             user names, channel ...   floats: SysEx bytes for [midiout]
+//             display <text>: one line for a display -- a control set by a
+//             message (not by a patch change), the patch that plays, stored U11
 //
 // Controls (the names of tools/juno_params.py, the same for the controller
 // layer [junocc] and the editor [junoedit]):
 //   <name> <value>      set a control, in the values the panel shows
 //   <name>              report it
 //   n <name> <0-127>    set it from a pot or a MIDI CC
+//   cycle <name> [n]    the next value (n = -1: the previous one), wrapping
+//                       round: cycle chorus goes off, I, II, I+II, off
 //   ninfo <name>        report it as info
 //
 // Patches:
@@ -205,8 +209,21 @@ void out_info(t_juno* x, int i) {
     outlet_anything(x->info, gensym("info"), 3, a);
 }
 
+// One line for a display (the OLED on Bela, later the Launchkey): what was
+// turned, which patch plays, what was stored.
+void out_display(t_juno* x, const std::string& text) {
+    t_atom a;
+    SETSYMBOL(&a, gensym(text.c_str()));
+    outlet_anything(x->info, gensym("display"), 1, &a);
+}
+
 void out_source(t_juno* x) {
     const int src = x->synth->source();
+    const int idx = x->synth->patch();
+    if (src == juno::Synth::kFactory) out_display(x, "P" + std::to_string(idx) + " " + x->synth->name());
+    else if (src == juno::Synth::kUser)
+        out_display(x, std::string("U") + juno::user_name(idx) + " " + x->synth->name());
+    else out_display(x, "Init");
     if (src == juno::Synth::kFactory) out_slot(x, "preset", x->synth->patch(), juno::patch_name(x->synth->patch()));
     else if (src == juno::Synth::kUser) out_slot(x, "user", x->synth->patch(), juno::user_name(x->synth->patch()));
     else outlet_anything(x->info, gensym("init"), 0, nullptr);
@@ -263,9 +280,11 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
     const int n = static_cast<int>(f);
     auto is = [c](const char* k) { return std::strcmp(c, k) == 0; };
     bool echo = true;
+    const juno::Control* touched = nullptr;   // shown on the display afterwards
+    bool stored = false;
 
     if (const juno::Control* ctl = juno::find_control(c)) {
-        if (argc > 0) y.set_control(*ctl, n);
+        if (argc > 0) { y.set_control(*ctl, n); touched = ctl; }
         else out_info(x, static_cast<int>(ctl - &juno::control(0)));
     } else if (is("n")) {
         if (argc < 2 || argv[0].a_type != A_SYMBOL) return;
@@ -279,8 +298,18 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
         const int i = static_cast<int>(nc - &juno::control(0));
         const int before = y.get_control(*nc);
         y.set_control(*nc, juno::control_from127(*nc, atom_getfloat(argv + 1)));
+        touched = nc;
         // Always answered, also when the pot stays inside one value's zone.
         if (y.get_control(*nc) == before) out_info(x, i);
+    } else if (is("cycle")) {
+        if (argc < 1 || argv[0].a_type != A_SYMBOL) return;
+        const juno::Control* nc = juno::find_control(atom_getsymbol(argv)->s_name);
+        if (!nc) { pd_error(x, "juno~: cycle: no control '%s'", atom_getsymbol(argv)->s_name); return; }
+        const int span = nc->hi - nc->lo + 1;
+        const int by = argc > 1 ? static_cast<int>(atom_getfloat(argv + 1)) : 1;
+        const int v = y.get_control(*nc) - nc->lo + by;
+        y.set_control(*nc, nc->lo + ((v % span) + span) % span);
+        touched = nc;
     } else if (is("ninfo")) {
         if (argc < 1 || argv[0].a_type != A_SYMBOL) return;
         if (const juno::Control* nc = juno::find_control(atom_getsymbol(argv)->s_name))
@@ -317,7 +346,7 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
         x->shown->source = -2;
     } else if (is("save")) {
         // store into the user slot selected or stored last, and write the bank
-        y.store(-1);
+        stored = y.store(-1);
         if (!g_data_dir.empty()) {
             std::string err;
             const std::string path = g_data_dir + "/" + kUserFile;
@@ -328,6 +357,7 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
     } else if (is("store")) {
         if (!y.store(argc > 0 ? n : -1))
             pd_error(x, "juno~: store: expected 0..%d", juno::kUserSlots - 1);
+        else stored = true;
         echo = false;                    // the sound did not change
     } else if (is("userwrite")) {
         if (g_data_dir.empty()) return;
@@ -393,6 +423,9 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
     else if (is("reset")) y.silence();
     else { pd_error(x, "juno~: no method for '%s'", c); return; }
     report(x, false, echo);
+    if (touched)
+        out_display(x, std::string(touched->label) + " " + y.control_text(*touched, y.get_control(*touched)));
+    if (stored) out_display(x, std::string("stored U") + juno::user_name(y.patch()));
 }
 
 void juno_note(t_juno* x, t_float note, t_float velocity) {

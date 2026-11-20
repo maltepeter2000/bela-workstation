@@ -40,8 +40,8 @@ mit Patch-Format und SysEx des Juno-106
    Änderung. Ausschalten, wenn der MIDI-Ausgang zurück zum Eingang führt.
 9. Pads: [junopads 10] macht die Pads des Launchkey im Drum-Modus (Shift +
    erster Pad unten, Drums Channel 10, eigene Firmware) zu Tastern:
-     oben   factory +, user +, Chorus aus, I, II, I+II, Juno-6/60, Juno-106
-     unten  -, factory -, user -, save, -, init (2x drücken), -, -
+     Pad 1-4 (oben):   factory +, user +, init (2x drücken), Chorus I > II > I+II > aus
+     Pad 9-12 (unten): factory -, user -, save, Juno-106 / 60
    save speichert in den zuletzt gewählten User-Platz und schreibt die Datei.
    juno~ selbst auf Kanal 1 stellen (macht der Hilfe-Patch), sonst spielen
    die Pads Noten.

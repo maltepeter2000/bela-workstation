@@ -8,7 +8,7 @@ synthesizers written for the RP2350; here they run as Pd objects.
 | Object | Instrument | State |
 |---|---|---|
 | `d50~` | Roland D-50 | macOS and Linux; no Bela version yet |
-| `juno~` | Roland Juno-60, with Juno-106 patches and SysEx | macOS and Linux; no Bela version yet |
+| `juno~` | Roland Juno-60, with Juno-106 patches and SysEx | macOS, Linux, Bela Gem (`bela/juno`) |
 
 ## d50~
 
@@ -185,17 +185,19 @@ none).
 ### Control pads
 
 `[junopads <channel>]` (default 10) turns the Launchkey's pads in Drum mode into buttons
-(`tools/ctpads.py`, the same places as the TX81Z on Bela). With the Launchkey custom firmware the
+(`tools/ctpads.py`). With the Launchkey custom firmware the
 pads send notes 36–43 (top row) and 44–51 (bottom row) on the Drums Channel:
 
-| Pad | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
-|---|---|---|---|---|---|---|---|---|
-| top | factory + | user + | chorus off | chorus I | chorus II | chorus I+II | Juno-6/60 | Juno-106 |
-| bottom | – | factory − | user − | save | – | init (2×) | – | – |
+| Pad | 1 | 2 | 3 | 4 |
+|---|---|---|---|---|
+| top (36–39) | factory + | user + | init (2×) | chorus I → II → I+II → off |
+| bottom (44–47) | factory − | user − | save | Juno-106 / 60 |
 
 `save` stores into the user slot chosen last and writes the bank file; `init` needs two presses
 within a second. The messages behind them work on their own too: `presetstep 1|-1`,
-`userstep 1|-1`, `save`. Set `juno~` to a channel other than the pads' (the help patch sends
+`userstep 1|-1`, `save`, `cycle chorus`, `cycle model`. `cycle <name> [-1]` steps any control round and round.
+Outlet 3 also says `display <text>`: one line for a display (a control set by a message, the
+patch that plays, `stored U11`); the Bela project (`bela/juno`) puts it on the OLED. Set `juno~` to a channel other than the pads' (the help patch sends
 `channel 1`), or the pads play notes.
 
 ### Patches
