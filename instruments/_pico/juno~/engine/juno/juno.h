@@ -105,7 +105,7 @@ private:
 
     /* Output stage, after the chorus. */
     JunoDCBlock  dcL_, dcR_;
-    JunoBiquadLP dec_[3];      /* decimation, on the summed voices */
+    JunoBiquadLP dec_[4];      /* decimation, on the summed voices (juno~: elliptic, juno_decim.h) */
     JunoNoise    hiss_;
 
     float p_[JUNO_TOTAL_COUNT] = {};

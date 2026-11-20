@@ -410,6 +410,8 @@ struct JunoBiquadLP {
         a1 = (-2.0f * cw) * inv;
         a2 = (1.0f - alpha) * inv;
     }
+    /* juno~ addition: coefficients from a table (b0 b1 b2 a1 a2, a0 = 1). */
+    void setRaw(const float* c) { b0 = c[0]; b1 = c[1]; b2 = c[2]; a1 = c[3]; a2 = c[4]; }
     void reset() { z1 = z2 = 0.0f; }
     float process(float x)
     {

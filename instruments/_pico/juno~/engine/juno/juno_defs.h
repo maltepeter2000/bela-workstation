@@ -97,6 +97,7 @@
 #define JUNO_OVERSAMPLE 1
 #endif
 
+/* juno~: no longer used, see juno_decim.h */
 #define JUNO_DECIMATE_HZ 15000.0f
 
 /* ------------------------------------------------------------------------   */

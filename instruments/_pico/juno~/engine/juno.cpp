@@ -6,6 +6,10 @@
 */
 
 #include "juno/juno.h"
+#include "juno/juno_decim.h"
+#if JUNO_OVERSAMPLE != 1 && JUNO_OVERSAMPLE != 2 && JUNO_OVERSAMPLE != 4
+#error "juno~: JUNO_OVERSAMPLE must be 1, 2 or 4 (juno_decim.h)"
+#endif
 
 #include <math.h>
 #include <stdio.h>
@@ -55,12 +59,22 @@ void Juno::setSampleRate(float sampleRate)
     dcR_.setCutoff(JUNO_DC_BLOCK_HZ, sampleRate);
     hiss_.seed(0x1F123BB5u);
 
-    /* 6th order Butterworth ahead of the decimation, on the summed voices --
-     * one chain for all six, not one each. */
-    dec_[0].set(JUNO_DECIMATE_HZ, 0.51764f, osSr);
-    dec_[1].set(JUNO_DECIMATE_HZ, 0.70711f, osSr);
-    dec_[2].set(JUNO_DECIMATE_HZ, 1.93185f, osSr);
-    for (int i = 0; i < 3; ++i) dec_[i].reset();
+    /* juno~ change: the low-pass ahead of the decimation, on the summed voices
+     * -- one chain for all six. Upstream had a 6th-order Butterworth at
+     * 15 kHz, which takes the top octave away; this is an 8th-order elliptic,
+     * flat to 0.42 of the output rate (20.2 kHz at 48 kHz) and at least 80 dB
+     * down where anything would fold back. Its corners are fractions of the
+     * output rate, so the table holds for any rate. At 1x there is nothing to
+     * decimate and the chain is not used. */
+    (void) osSr;
+    for (int i = 0; i < 4; ++i) {
+#if JUNO_OVERSAMPLE == 2
+        dec_[i].setRaw(kJunoDecim2[i]);
+#elif JUNO_OVERSAMPLE == 4
+        dec_[i].setRaw(kJunoDecim4[i]);
+#endif
+        dec_[i].reset();
+    }
 
     applyAll();
 }
@@ -369,7 +383,7 @@ void Juno::resetVoices()
     chorus_.reset();
     hpf_.reset();
     dcL_.reset(); dcR_.reset();
-    for (int i = 0; i < 3; ++i) dec_[i].reset();
+    for (int i = 0; i < 4; ++i) dec_[i].reset();
 }
 
 void Juno::stopVoices()
@@ -555,8 +569,12 @@ void Juno::processFloat(float* out_l, float* out_r, int frames)
             /* Six voices at once would otherwise run out of headroom before
              * the filter does. */
             float sum = 0.0f;
+#if JUNO_OVERSAMPLE == 1
+            sum = acc[0] * 0.64f;
+#else
             for (int os = 0; os < JUNO_OVERSAMPLE; ++os)
-                sum = dec_[2].process(dec_[1].process(dec_[0].process(acc[os] * 0.64f)));
+                sum = dec_[3].process(dec_[2].process(dec_[1].process(dec_[0].process(acc[os] * 0.64f))));
+#endif
 
             sum = hpf_.process(sum);
             sum += hiss_.white() * JUNO_HISS_LEVEL;

@@ -21,5 +21,11 @@ Changes, each marked `juno~ addition` in the source:
   runs on all of them. At 2x a sawtooth at C7 has its aliasing at -53 dB
   instead of -25 dB, and a sawtooth with the filter open is 3 to 7 dB brighter
   between 4 and 15 kHz. Upstream builds at 1x, where this does not arise.
+- Decimation filter (`juno.cpp`, `juno_dsp.h`, new `juno_decim.h` from
+  `tools/make_juno_decim.py`): an 8th-order elliptic low-pass instead of the
+  6th-order Butterworth at 15 kHz. Flat to 0.42 of the output rate (20.2 kHz
+  at 48 kHz), at least 80 dB down where anything would fold back. At 1x there
+  is nothing to decimate and the chain is skipped. `JUNO_OVERSAMPLE` must be
+  1, 2 or 4.
 
 The arpeggiator and the engine's own CC map are present but not used.
