@@ -164,7 +164,12 @@ public:
      * from the previous sample, which is what the Env position of the pulse
      * width mode selector uses.
      */
-    float process(const JunoVoiceParams& p, float lfo, float lfoRaw = 0.0f)
+    /* juno~ change: adds its JUNO_OVERSAMPLE samples at the oversampled rate
+     * into acc[] instead of returning the last of them. Upstream kept only the
+     * last sample and ran the decimation filter afterwards on that one value,
+     * held -- which is decimation without an anti-alias filter followed by a
+     * low-pass on a held signal: aliasing as at 1x, and highs taken away. */
+    void process(const JunoVoiceParams& p, float lfo, float lfoRaw, float* acc)
     {
         const float e = env_.process();
         /* The filter always gets the contour; only the amplifier is switched. */
@@ -172,7 +177,7 @@ public:
 
         if (env_.isIdle()) {
             active_ = false;
-            return 0.0f;
+            return;
         }
 
         dco_.setIncrement(baseInc_);
@@ -224,12 +229,10 @@ public:
          * oscillation" for a sound source and which carry no waveform at all
          * -- are silent. It sits inside the loop, where the original's is.
          * Far too quiet to hear on a patch that has an oscillator. */
-        float out = 0.0f;
+        const float gain = a * velGain_;
         for (int os = 0; os < JUNO_OVERSAMPLE; ++os)
-            out = vcf_.process(dco_.process(pitchMul) * 0.4f
-                               + hiss_.white() * JUNO_VCF_NOISE_FLOOR);
-
-        return out * a * velGain_;
+            acc[os] += gain * vcf_.process(dco_.process(pitchMul) * 0.4f
+                                           + hiss_.white() * JUNO_VCF_NOISE_FLOOR);
     }
 
 private:

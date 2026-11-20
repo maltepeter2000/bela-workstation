@@ -546,16 +546,17 @@ void Juno::processFloat(float* out_l, float* out_r, int frames)
 
             const float lfo = lfo_.process();
 
-            float sum = 0.0f;
+            /* juno~ change: the voices deliver every oversampled sample, the
+             * decimation filter runs on all of them and the last is kept. */
+            float acc[JUNO_OVERSAMPLE] = {};
             for (int v = 0; v < JUNO_VOICES; ++v)
-                sum += voice_[v].process(vp_, lfo, lfo_.raw());
+                voice_[v].process(vp_, lfo, lfo_.raw(), acc);
 
             /* Six voices at once would otherwise run out of headroom before
              * the filter does. */
-            sum *= 0.64f;
-
+            float sum = 0.0f;
             for (int os = 0; os < JUNO_OVERSAMPLE; ++os)
-                sum = dec_[2].process(dec_[1].process(dec_[0].process(sum)));
+                sum = dec_[2].process(dec_[1].process(dec_[0].process(acc[os] * 0.64f)));
 
             sum = hpf_.process(sum);
             sum += hiss_.white() * JUNO_HISS_LEVEL;
