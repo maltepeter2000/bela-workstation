@@ -92,6 +92,10 @@ an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
    `make`, `make mac-zig`, `make bela-gem` into `build/bela-gem`, `make gen`; see README).
 9. **Page 1 the same everywhere** (table above). New for it: d50~ `vib`, pdoly8~ `atk rel
    vol`, tx81zn~ FM page PERFORM with `vol`; the other pages moved to make room.
+10. **Levels:** `common/tools/measure_levels.py` plays every instrument offline and writes
+    `docs/levels.md`: a trim per instrument that brings the median sound to -20 dBFS, for
+    the rack (measured here: juno +3.9 dB, pdoly8 +2.5 dB; d50, tx81zn and cz4 need the
+    ROMs or a factory bank, so they are measured on a machine that has them).
 
 ## Next
 
