@@ -395,7 +395,10 @@ void p8_env_morph(float pos, float hsnap, float deg[6])
 /* per-sample coefficients of a group from its six DEG values */
 static void deg_coeffs(p8_engine_t *e, int g)
 {
-    const float *d = e->deg[g];
+    float d[6];
+    for (int k = 0; k < 6; k++) d[k] = e->deg[g][k];
+    if (g < 2) d[0] = clampf(d[0] + e->perf_att, 0.0f, 31.0f);            /* attack all */
+    if (g < 3) d[5] = clampf(d[5] + e->perf_rel, 0.0f, 31.0f);            /* release all */
     p8_deg_t *c = &e->dc[g];
     float fs = e->fs;
     c->att = 31.0f / (deg_time(DEG_TA, d[0]) * fs);

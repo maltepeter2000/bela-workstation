@@ -306,6 +306,14 @@ BLOCKS = [
       "a2 d2 bp2 sl2 su2 r2: the same for DEG2 (DCO2), env2 -1.",
       "vamp (0): velocity to the level of each voice (both DCOs, not on the "
       "Poly-800): 0 off, 127 level = velocity."]),
+    ("Performance",
+     [[("atk", -63, 63), ("rel", -63, 63)], [("vol", 0, 127)]], [],
+     ["Laid over the sound, not stored in it (as the performance controls of every "
+      "instrument on page 1 of the Launchkey). A sound recalled sets atk and rel back to 0.",
+      "atk, rel (0): attack of DEG1 and DEG2, release of DEG1, DEG2 and DEG3, -63..63 "
+      "= -31..+31 DEG steps on top of the sound's own or morphed values.",
+      "vol (100): output volume, 100 = 0 dB, 127 = +4 dB, square law. Set up once, "
+      "defaults and presets keep it."]),
     ("Portamento",
      [[("port", 0, 127), ("pmod", 0, 2)], [("mono", 0, 1), ("retr", 0, 1)]], [],
      ["Not on the Poly-800.",

@@ -198,6 +198,9 @@ typedef struct {
     float   ddl_ph;              /* mod LFO phase */
     float   ddl_lp[2], ddl_lpg;  /* 2-pole low-pass in the delay path (band limit of the DDL) */
     unsigned ddl_w;
+    /* performance offsets (not part of a sound), in DEG steps: attack of DEG1/DEG2, release
+     * of DEG1/DEG2/DEG3, laid over the DEG values (own or morphed) */
+    float   perf_att, perf_rel;
     float   ddl_buf[P8_DDL];
 } p8_engine_t;
 

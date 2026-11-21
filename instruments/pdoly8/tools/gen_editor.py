@@ -53,7 +53,7 @@ ROWS = [(f"PAGE {k + 1}  {t}", list(ns)) for k, (t, ns) in enumerate(GB.CC_ROWS)
 ROWS[10] = (ROWS[10][0], ROWS[10][1] + ["l3k", "l3f", "l3t2", "l3a2"])   # page 11 has 4 CCs: the rest by mouse
 LEFT = ROWS[:8]
 RIGHT = ROWS[8:] + [
-         ("MORE", ["leak", "mgf", "ch1", None, None, None, None, None]),
+         ("MORE", ["leak", "mgf", "ch1", "pol", "trg", "dgld", None, None]),
          ("DEG1 stages (sets env1 to own)", stages(1)),
          ("DEG2 stages (sets env2 to own)", stages(2)),
          ("DEG3 stages (sets env3 to own)", stages(3)),

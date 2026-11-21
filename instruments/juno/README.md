@@ -22,14 +22,17 @@ velocity, bend, program change, CC 1 7 64 and Juno-106 SysEx.
 
 | Page | CC | Controls |
 |---|---|---|
-| 1 VCF / ENV | 20–27 | `cutoff res env attack decay sustain release chorus` |
-| 2 DCO | 28–31, 33–36 | `range pulse saw sub noise pwm pwmmode dcolfo` |
-| 3 LFO / VCF / VCA | 37, 39–45 | `lforate lfodelay vcflfo kybd envpol hpf level vcamode` |
-| 4 SETUP | 46–52 | `volume tune bend octave vellevel velcutoff model` |
-| 5 VOICES | 53–54 | `calibrate chorusnoise` |
+| 1 PERFORM | 20–27 | `cutoff res attack release dcolfo chorus env volume` |
+| 2 DCO | 28–31, 33–36 | `range pulse saw sub noise pwm pwmmode hpf` |
+| 3 ENV / LFO / VCF / VCA | 37, 39–45 | `decay sustain lforate lfodelay vcflfo kybd envpol level` |
+| 4 VCA | 46 | `vcamode` |
+| 5 SETUP | 54–59 | `tune bend octave vellevel velcutoff model` |
+| 6 VOICES | 62–63 | `calibrate chorusnoise` |
 
-Pages 1 to 3 are the patch: the 16 sliders (0–127) and 8 switches of a
-Juno-106. Pages 4 and 5 belong to the instrument and are not stored: `calibrate`
+Page 1 is the same in every instrument of bela-workstation: bright, resonance, attack, release,
+vibrato, effect, the instrument's own (here the VCF envelope), volume. Everything on pages 1 to
+4 except `volume` is the patch: the 16 sliders (0–127) and 8 switches of a Juno-106. `volume`
+and pages 5 and 6 belong to the instrument and are not stored: `calibrate`
 lets the six voices drift apart in tuning, cutoff, resonance and level as on an
 instrument out of calibration, `chorusnoise` adds the hiss of the chorus lines. `<name> <value>`
 sets a control, `n <name> <0-127>` sets it from a pot, and every change is

@@ -221,7 +221,8 @@ def blocks():
         intro = []
         if title in ("SETUP", "VOICES"):
             intro = ["These belong to the instrument and are not stored in a patch."]
-        nice = {"DCO": "DCO", "LFO / VCF / VCA": "LFO VCF VCA", "SETUP": "Setup", "VOICES": "Voices"}[title]
+        nice = {"DCO": "DCO", "ENV / LFO / VCF / VCA": "ENV LFO VCF VCA", "VCA": "VCA mode",
+                "SETUP": "Setup", "VOICES": "Voices"}[title]
         out.append((nice, groups, [], intro + [para(n) for n in names]))
     return out
 
@@ -268,7 +269,7 @@ def build(p):
             p.conn(m, 0, s2, 0)
     y += 40
 
-    # ---- main controls: filter and envelope, two rows of four
+    # ---- main controls: page 1 (the same in every instrument), two rows of four
     for r in range(2):
         if p:
             snd = p.obj(CX + 400, y + 50, f"s {BUS}")

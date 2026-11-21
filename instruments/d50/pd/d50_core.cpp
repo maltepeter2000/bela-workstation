@@ -610,7 +610,7 @@ struct Synth::Impl {
     int tune = 0;
     int voice_limit = 8;
     int part = 0;                  // 0..3 = u1 u2 l1 l2
-    int cut = 0, res = 0, att = 0, rel = 0;
+    int cut = 0, res = 0, att = 0, rel = 0, vib = 0;
     int builtin_chorus = 50;
 
     float base_volume = 1.0f;
@@ -658,6 +658,12 @@ struct Synth::Impl {
                 p[26] = static_cast<uint8_t>(clamp(p[26] + rel * 100 / 63, 0, 100));
             }
         }
+        if (vib) {   // tone byte 22: LFO pitch modulation (vibrato) of both tones
+            for (int s : {kUpper, kLower}) {
+                uint8_t* p = work + s * 64;
+                p[22] = static_cast<uint8_t>(clamp(p[22] + vib * 100 / 63, 0, 100));
+            }
+        }
         d5::PatchSpec spec = d5::patch_from_bytes(work, d50::store().pcm.data());
         base_volume = spec.volume;
         fine_upper = spec.upper.voice.master_cents;
@@ -686,7 +692,7 @@ struct Synth::Impl {
     // A patch change: the macros that bend the patch go back to neutral.
     void load(const uint8_t* bytes) {
         release_all();
-        cut = res = att = rel = 0;
+        cut = res = att = rel = vib = 0;
         std::memcpy(temp, bytes, kPatchBytes);
         temp_valid = true;
         apply_temp(false);
@@ -694,7 +700,7 @@ struct Synth::Impl {
 
     void load_builtin(int i) {
         release_all();
-        cut = res = att = rel = 0;
+        cut = res = att = rel = vib = 0;
         temp_valid = false;
         dirty = false;
         d5::Preset pr = d5::preset(i % d5::kPresetCount);
@@ -900,7 +906,7 @@ bool Synth::available(const Control& c) const {
     if (!impl_) return false;
     if (c.kind != 'M') return impl_->temp_valid;
     switch (c.index) {
-        case kMacro_res: case kMacro_att: case kMacro_rel: return impl_->temp_valid;
+        case kMacro_res: case kMacro_att: case kMacro_rel: case kMacro_vib: return impl_->temp_valid;
         default: return true;
     }
 }
@@ -920,6 +926,7 @@ int Synth::get_control(const Control& c) const {
                 case kMacro_res: return m.res;
                 case kMacro_att: return m.att;
                 case kMacro_rel: return m.rel;
+                case kMacro_vib: return m.vib;
                 case kMacro_chorus:
                     return m.temp_valid ? m.temp[kUpper * 64 + 45] : m.builtin_chorus;
                 case kMacro_volume: return m.volume;
@@ -950,6 +957,7 @@ bool Synth::set_control(const Control& c, int v) {
                 case kMacro_res: m.res = v; m.dirty = true; break;
                 case kMacro_att: m.att = v; m.dirty = true; break;
                 case kMacro_rel: m.rel = v; m.dirty = true; break;
+                case kMacro_vib: m.vib = v; m.dirty = true; break;
                 case kMacro_chorus:
                     if (m.temp_valid) {
                         m.temp[kUpper * 64 + 45] = m.temp[kLower * 64 + 45] =

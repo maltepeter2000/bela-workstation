@@ -115,7 +115,9 @@ TABLE = [
 ]
 
 CC_ROWS = [
-    ("PERFORM", ["dcw", "attack", "release", "balance", "detune", "vibrato", "chorus", "volume"]),
+    # page 1 is the same in every instrument: bright, resonance (here detune), attack, release,
+    # vibrato, effect, own (here the line balance), volume (docs/instrument-contract.md)
+    ("PERFORM", ["dcw", "detune", "attack", "release", "vibrato", "chorus", "balance", "volume"]),
     ("LINE / WAVE", ["line", "linesel", "wave", "wave2", "window", "ringmod", "octave", "level"]),
     ("DETUNE / VIBRATO", ["dsign", "doct", "dnote", "dfine", "vwave", "vdelay", "vrate", "vdepth"]),
     ("ENVELOPE", ["env", "sus", "end", "kfw", "kfa", "velp", "velw", "vela"]),

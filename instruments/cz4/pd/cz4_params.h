@@ -4,12 +4,12 @@
 // default, label, value names
 static const Control kControls[] = {
     {"dcw", 'P', 0, -64, 63, 0, "DCW offset", ""},
+    {"detune", 'P', 4, -64, 63, 0, "Detune L2", ""},
     {"attack", 'P', 1, -64, 63, 0, "Attack", ""},
     {"release", 'P', 2, -64, 63, 0, "Release", ""},
-    {"balance", 'P', 3, -64, 63, 0, "Balance", ""},
-    {"detune", 'P', 4, -64, 63, 0, "Detune L2", ""},
     {"vibrato", 'P', 5, 0, 99, 0, "Vibrato", ""},
     {"chorus", 'P', 6, 0, 127, 64, "Chorus mix", ""},
+    {"balance", 'P', 3, -64, 63, 0, "Balance", ""},
     {"volume", 'P', 7, 0, 127, 100, "Volume", ""},
     {"line", 'S', 0, 0, 1, 0, "Edit line", "1|2"},
     {"linesel", 'T', CZP_LINESEL, 0, 3, 0, "Line select", "1|2|1+1'|1+2'"},

@@ -153,6 +153,7 @@ MACROS = [
     ("res", -63, 63, "Reso all", ""),
     ("att", -63, 63, "Attack all", ""),
     ("rel", -63, 63, "Release all", ""),
+    ("vib", -63, 63, "Vibrato all", ""),
     ("chorus", 0, 100, "Chorus", ""),
     ("volume", 0, 100, "Volume", ""),
     ("part", 0, 3, "Partial", "U1|U2|L1|L2"),
@@ -164,6 +165,7 @@ MACRO_HELP = {
     "res": "resonance of every synth partial, for the notes that follow",
     "att": "attack (TVA time 1) of all four partials, for the notes that follow",
     "rel": "release (TVA and TVF time 5) of all four partials, for the notes that follow",
+    "vib": "vibrato (LFO pitch modulation) of both tones, for the notes that follow",
     "chorus": "chorus balance of both tones",
     "volume": "master volume, not stored in a patch",
     "part": "the partial the partial names act on, and with it the tone (U1 U2: upper, L1 L2: lower)",
@@ -173,7 +175,9 @@ MACRO_HELP = {
 
 # Controller pages (row k = CC page k of tools/ctlayer.py): 10 pages of 8, page 11 of 4.
 CC_ROWS = [
-    ("PERFORMANCE", ["cut", "res", "att", "rel", "chorus", "reverb", "balance", "volume"]),
+    # page 1 is the same in every instrument: bright, resonance, attack, release, vibrato,
+    # effect, own (here the tone balance), volume (docs/instrument-contract.md)
+    ("PERFORMANCE", ["cut", "res", "att", "rel", "vib", "chorus", "balance", "volume"]),
     ("PARTIAL: WG", ["part", "coarse", "fine", "keyfollow", "wave", "pcm", "pw", "pwlfodepth"]),
     ("PARTIAL: TVF", ["cutoff", "reso", "tvfkf", "tvfenv", "tvfvelo", "tvfsustain",
                       "tvflfodepth", "tvfat"]),
@@ -189,14 +193,14 @@ CC_ROWS = [
                          "lfo2delay", "lfo2sync"]),
     ("TONE: LFO 3 / EQ", ["lfo3wave", "lfo3rate", "lfo3delay", "lfo3sync", "eqlowfreq",
                           "eqlowgain", "eqhighfreq", "eqhighgain"]),
-    ("TONE: CHORUS", ["chorustype", "chorusrate", "chorusdepth", "eqhighq"]),
+    ("TONE: CHORUS / REVERB", ["chorustype", "chorusrate", "chorusdepth", "reverb"]),
 ]
 # The rest: in the editor only (mouse).
 EXTRA_ROWS = [
     ("PARTIAL: WG MODES", ["lfomode", "penvmode", "bendmode", "pwvelo", "pwlfo", "pwat",
                            "tvaend", "tvatimekf"]),
     ("PARTIAL: TVF / TVA MORE", ["tvfbiaspoint", "tvfbiaslevel", "tvfdepthkf", "tvftimekf",
-                                 "tvflfo", "tvfend", "tvalfo"]),
+                                 "tvflfo", "tvfend", "tvalfo", "eqhighq"]),
     ("PATCH", ["keymode", "split", "portamode", "porta", "portatime", "bendrange", "atbend",
                "outmode"]),
     ("PATCH / TONE MORE", ["ukeyshift", "lkeyshift", "ufine", "lfine", "reverbtype", "pvol",

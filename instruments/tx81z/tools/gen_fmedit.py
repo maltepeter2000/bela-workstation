@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generates pd/txfm.pd: the FM view of tx81zn~ (pd/txfm.h) as an editor with 7 pages of 8 controls.
+"""Generates pd/txfm.pd: the FM view of tx81zn~ (pd/txfm.h) as an editor with 8 pages of up to 8 controls.
 
 usage: python3 tools/gen_fmedit.py [outfile]   (default: pd/txfm.pd)
 
@@ -59,7 +59,8 @@ def macros():
 MACROS, PAGES = macros()
 import ctlayer                                   # noqa: E402
 CCTEXT = [ctlayer.page_text(k) for k in range(len(PAGES))]
-assert len(MACROS) == len({m[0] for m in MACROS}) == 8 * len(PAGES)
+assert len(MACROS) == len({m[0] for m in MACROS})
+assert all(sum(1 for m in MACROS if m[2] == k) <= 8 for k in range(len(PAGES)))
 
 CW, ROWH, X0 = 84, 80, 10
 BAND_Y = 40
@@ -98,15 +99,17 @@ README = [
     "shows the value of the first one. Roles of the 8 algorithms (manual numbering, > = modulates): "
     "1-4 C:1 A:2 B:3+4, 5 C:1+3 A:2 B:4, 6 and 7 C:1+2+3 A:4, 8 C:1+2+3+4. A control without an "
     "operator in its role shows - and does nothing.",
-    "SYN 1: algorithm, ratio of C / A / B (frequency ratio, fine on SYN 2), mod A / B = output level of "
-    "the modulators (brightness), feedback of OP4, mix = carriers against each other (only with "
-    "several carriers: left the main carrier OP1, right the others).",
-    "SYN 2: waveform W1-W8 per role, detune (spreads all operators around the centre), fine ratio per "
-    "role, level C = output level of the carriers.",
+    "PERFORM (page 1, the same in every instrument): mod A (brightness), feedback of OP4, attack and "
+    "release of the carriers, pitch depth of the LFO (vibrato), detune (spreads all operators around "
+    "the centre), mix = carriers against each other (only with several carriers: left the main "
+    "carrier OP1, right the others), volume (100 = 0 dB, not stored in the voice).",
+    "SYN 1: algorithm, ratio of C / A / B (frequency ratio, fine on SYN 2), mod B = output level of "
+    "the other modulators, level C = output level of the carriers.",
+    "SYN 2: waveform W1-W8 per role, fine ratio per role.",
     "ENV C / A / B: envelope of the role (C = the amplitude, A and B = the brightness): attack, decay, "
     "sustain level, fade (decay 2 while the key is held), release, velocity sensitivity, level and rate "
-    "scaling along the keyboard.",
-    "LFO: speed, wave, delay, pitch and amp depth, pitch and amp sensitivity, key sync. VOICE: poly / "
+    "scaling along the keyboard (attack and release of C are on PERFORM).",
+    "LFO: speed, wave, delay, amp depth, pitch and amp sensitivity, key sync. VOICE: poly / "
     "mono, bend range, portamento mode and time, transpose, LFO amp modulation on / off per role.",
     "Changing the algorithm keeps the operator settings: an operator that becomes a carrier sounds with "
     "its output level (level C / mix).",

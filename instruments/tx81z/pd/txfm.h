@@ -64,7 +64,7 @@ static inline double ratio(int crs, int fine)
 }
 
 // ---- macros --------------------------------------------------------------------------------
-enum Kind { PARAM, ROLE, MIX, DETUNE };
+enum Kind { PARAM, ROLE, MIX, DETUNE, GAIN };   // GAIN: get / set ('G', 0), not a voice parameter
 
 struct t_macro
 {
@@ -80,7 +80,10 @@ struct t_macro
 	int offset;
 };
 
-static const char *const PAGES[7] = { "SYN 1", "SYN 2", "ENV C", "ENV A", "ENV B", "LFO", "VOICE" };
+// page 1 is the same in every instrument of bela-workstation: bright (mod A), resonance (here
+// feedback), attack, release (of the carriers), vibrato, effect (here detune), own (mix),
+// volume (docs/instrument-contract.md). Up to 8 controls per page.
+static const char *const PAGES[8] = { "PERFORM", "SYN 1", "SYN 2", "ENV C", "ENV A", "ENV B", "LFO", "VOICE" };
 
 #define TXFM_ENV(pg, r, R) \
 	{ "atk" R, "attack", pg, ROLE, 'V', 0, r, 0, 31, "", 0 }, \
@@ -95,46 +98,55 @@ static const char *const PAGES[7] = { "SYN 1", "SYN 2", "ENV C", "ENV A", "ENV B
 #define TXFM_WAVES "W1|W2|W3|W4|W5|W6|W7|W8"
 
 static const t_macro MACROS[] = {
-	// SYN 1
-	{ "algo", "algorithm", 0, PARAM, 'V', 52, 0, 0, 7, "", 1 },
-	{ "ratc", "ratio C", 0, ROLE, 'V', 11, ROLE_C, 0, 63, "", 0 },
-	{ "rata", "ratio A", 0, ROLE, 'V', 11, ROLE_A, 0, 63, "", 0 },
-	{ "ratb", "ratio B", 0, ROLE, 'V', 11, ROLE_B, 0, 63, "", 0 },
+	// PERFORM
 	{ "moda", "mod A", 0, ROLE, 'V', 10, ROLE_A, 0, 99, "", 0 },
-	{ "modb", "mod B", 0, ROLE, 'V', 10, ROLE_B, 0, 99, "", 0 },
 	{ "fdbk", "feedback", 0, PARAM, 'V', 53, 0, 0, 7, "", 0 },
+	{ "atkc", "attack", 0, ROLE, 'V', 0, ROLE_C, 0, 31, "", 0 },
+	{ "relc", "release", 0, ROLE, 'V', 3, ROLE_C, 0, 15, "", 0 },
+	{ "lpmd", "pitch depth", 0, PARAM, 'V', 56, 0, 0, 99, "", 0 },
+	{ "dtun", "detune", 0, DETUNE, 0, 0, 0, 0, 3, "", 0 },
 	{ "mix", "mix", 0, MIX, 0, 0, ROLE_C, -99, 99, "", 0 },
-	// SYN 2
-	{ "wavc", "wave C", 1, ROLE, 'A', 3, ROLE_C, 0, 7, TXFM_WAVES, 0 },
-	{ "wava", "wave A", 1, ROLE, 'A', 3, ROLE_A, 0, 7, TXFM_WAVES, 0 },
-	{ "wavb", "wave B", 1, ROLE, 'A', 3, ROLE_B, 0, 7, TXFM_WAVES, 0 },
-	{ "dtun", "detune", 1, DETUNE, 0, 0, 0, 0, 3, "", 0 },
-	{ "finc", "fine C", 1, ROLE, 'A', 2, ROLE_C, 0, 15, "", 0 },
-	{ "fina", "fine A", 1, ROLE, 'A', 2, ROLE_A, 0, 15, "", 0 },
-	{ "finb", "fine B", 1, ROLE, 'A', 2, ROLE_B, 0, 15, "", 0 },
+	{ "vol", "volume", 0, GAIN, 'G', 0, 0, 0, 127, "", 0 },
+	// SYN 1
+	{ "algo", "algorithm", 1, PARAM, 'V', 52, 0, 0, 7, "", 1 },
+	{ "ratc", "ratio C", 1, ROLE, 'V', 11, ROLE_C, 0, 63, "", 0 },
+	{ "rata", "ratio A", 1, ROLE, 'V', 11, ROLE_A, 0, 63, "", 0 },
+	{ "ratb", "ratio B", 1, ROLE, 'V', 11, ROLE_B, 0, 63, "", 0 },
+	{ "modb", "mod B", 1, ROLE, 'V', 10, ROLE_B, 0, 99, "", 0 },
 	{ "lvlc", "level C", 1, ROLE, 'V', 10, ROLE_C, 0, 99, "", 0 },
-	// envelopes per role (C = amplitude)
-	TXFM_ENV(2, ROLE_C, "c"),
-	TXFM_ENV(3, ROLE_A, "a"),
-	TXFM_ENV(4, ROLE_B, "b"),
+	// SYN 2
+	{ "wavc", "wave C", 2, ROLE, 'A', 3, ROLE_C, 0, 7, TXFM_WAVES, 0 },
+	{ "wava", "wave A", 2, ROLE, 'A', 3, ROLE_A, 0, 7, TXFM_WAVES, 0 },
+	{ "wavb", "wave B", 2, ROLE, 'A', 3, ROLE_B, 0, 7, TXFM_WAVES, 0 },
+	{ "finc", "fine C", 2, ROLE, 'A', 2, ROLE_C, 0, 15, "", 0 },
+	{ "fina", "fine A", 2, ROLE, 'A', 2, ROLE_A, 0, 15, "", 0 },
+	{ "finb", "fine B", 2, ROLE, 'A', 2, ROLE_B, 0, 15, "", 0 },
+	// envelopes per role (C = amplitude; its attack and release are on PERFORM)
+	{ "decc", "decay", 3, ROLE, 'V', 1, ROLE_C, 0, 31, "", 0 },
+	{ "susc", "sustain", 3, ROLE, 'V', 4, ROLE_C, 0, 15, "", 0 },
+	{ "d2rc", "fade", 3, ROLE, 'V', 2, ROLE_C, 0, 31, "", 0 },
+	{ "velc", "velocity", 3, ROLE, 'V', 9, ROLE_C, 0, 7, "", 0 },
+	{ "lscc", "key level", 3, ROLE, 'V', 5, ROLE_C, 0, 99, "", 0 },
+	{ "rscc", "key rate", 3, ROLE, 'V', 6, ROLE_C, 0, 3, "", 0 },
+	TXFM_ENV(4, ROLE_A, "a"),
+	TXFM_ENV(5, ROLE_B, "b"),
 	// LFO
-	{ "lspd", "speed", 5, PARAM, 'V', 54, 0, 0, 99, "", 0 },
-	{ "lwav", "wave", 5, PARAM, 'V', 59, 0, 0, 3, "saw|square|triangle|s+h", 0 },
-	{ "ldly", "delay", 5, PARAM, 'V', 55, 0, 0, 99, "", 0 },
-	{ "lpmd", "pitch depth", 5, PARAM, 'V', 56, 0, 0, 99, "", 0 },
-	{ "lamd", "amp depth", 5, PARAM, 'V', 57, 0, 0, 99, "", 0 },
-	{ "lpms", "pitch sens", 5, PARAM, 'V', 60, 0, 0, 7, "", 0 },
-	{ "lams", "amp sens", 5, PARAM, 'V', 61, 0, 0, 3, "", 0 },
-	{ "lsyn", "key sync", 5, PARAM, 'V', 58, 0, 0, 1, "off|on", 0 },
+	{ "lspd", "speed", 6, PARAM, 'V', 54, 0, 0, 99, "", 0 },
+	{ "lwav", "wave", 6, PARAM, 'V', 59, 0, 0, 3, "saw|square|triangle|s+h", 0 },
+	{ "ldly", "delay", 6, PARAM, 'V', 55, 0, 0, 99, "", 0 },
+	{ "lamd", "amp depth", 6, PARAM, 'V', 57, 0, 0, 99, "", 0 },
+	{ "lpms", "pitch sens", 6, PARAM, 'V', 60, 0, 0, 7, "", 0 },
+	{ "lams", "amp sens", 6, PARAM, 'V', 61, 0, 0, 3, "", 0 },
+	{ "lsyn", "key sync", 6, PARAM, 'V', 58, 0, 0, 1, "off|on", 0 },
 	// VOICE
-	{ "poly", "poly/mono", 6, PARAM, 'V', 63, 0, 0, 1, "poly|mono", 0 },
-	{ "pbr", "bend range", 6, PARAM, 'V', 64, 0, 0, 12, "", 0 },
-	{ "pmod", "porta mode", 6, PARAM, 'V', 65, 0, 0, 1, "full|fingered", 0 },
-	{ "port", "porta time", 6, PARAM, 'V', 66, 0, 0, 99, "", 0 },
-	{ "trps", "transpose", 6, PARAM, 'V', 62, 0, 0, 48, "", -24 },
-	{ "amec", "LFO amp C", 6, ROLE, 'V', 8, ROLE_C, 0, 1, "off|on", 0 },
-	{ "amea", "LFO amp A", 6, ROLE, 'V', 8, ROLE_A, 0, 1, "off|on", 0 },
-	{ "ameb", "LFO amp B", 6, ROLE, 'V', 8, ROLE_B, 0, 1, "off|on", 0 },
+	{ "poly", "poly/mono", 7, PARAM, 'V', 63, 0, 0, 1, "poly|mono", 0 },
+	{ "pbr", "bend range", 7, PARAM, 'V', 64, 0, 0, 12, "", 0 },
+	{ "pmod", "porta mode", 7, PARAM, 'V', 65, 0, 0, 1, "full|fingered", 0 },
+	{ "port", "porta time", 7, PARAM, 'V', 66, 0, 0, 99, "", 0 },
+	{ "trps", "transpose", 7, PARAM, 'V', 62, 0, 0, 48, "", -24 },
+	{ "amec", "LFO amp C", 7, ROLE, 'V', 8, ROLE_C, 0, 1, "off|on", 0 },
+	{ "amea", "LFO amp A", 7, ROLE, 'V', 8, ROLE_A, 0, 1, "off|on", 0 },
+	{ "ameb", "LFO amp B", 7, ROLE, 'V', 8, ROLE_B, 0, 1, "off|on", 0 },
 };
 
 #undef TXFM_ENV
@@ -201,6 +213,7 @@ template <class Get> static inline bool fm_get(int i, Get get, int &v127, char *
 	switch (m.kind)
 	{
 	case PARAM:
+	case GAIN:
 		v = get(m.group, m.num);
 		break;
 	case ROLE:
@@ -251,6 +264,7 @@ template <class Get, class Set> static inline void fm_set(int i, int v127, Get g
 	switch (m.kind)
 	{
 	case PARAM:
+	case GAIN:
 		set(m.group, m.num, v);
 		break;
 	case ROLE:

@@ -67,11 +67,14 @@ SETTINGS = [
 
 # Controller pages (row k = CC page k of tools/ctlayer.py).
 CC_ROWS = [
-    ("VCF / ENV", ["cutoff", "res", "env", "attack", "decay", "sustain", "release", "chorus"]),
-    ("DCO", ["range", "pulse", "saw", "sub", "noise", "pwm", "pwmmode", "dcolfo"]),
-    ("LFO / VCF / VCA", ["lforate", "lfodelay", "vcflfo", "kybd", "envpol", "hpf", "level",
-                         "vcamode"]),
-    ("SETUP", ["volume", "tune", "bend", "octave", "vellevel", "velcutoff", "model"]),
+    # page 1 is the same in every instrument: bright, resonance, attack, release, vibrato,
+    # effect, own (here the VCF envelope amount), volume (docs/instrument-contract.md)
+    ("PERFORM", ["cutoff", "res", "attack", "release", "dcolfo", "chorus", "env", "volume"]),
+    ("DCO", ["range", "pulse", "saw", "sub", "noise", "pwm", "pwmmode", "hpf"]),
+    ("ENV / LFO / VCF / VCA", ["decay", "sustain", "lforate", "lfodelay", "vcflfo", "kybd",
+                               "envpol", "level"]),
+    ("VCA", ["vcamode"]),
+    ("SETUP", ["tune", "bend", "octave", "vellevel", "velcutoff", "model"]),
     ("VOICES", ["calibrate", "chorusnoise"]),
 ]
 EXTRA_ROWS = []

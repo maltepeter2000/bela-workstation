@@ -33,7 +33,7 @@ Hardware reference is the CZ-1, software reference Arturia's CZ V: everything a 
 
 | Page (CC) | Controls | Kind |
 |---|---|---|
-| 1 PERFORM (20–27) | `dcw attack release balance detune vibrato chorus volume` | acts at once, not stored |
+| 1 PERFORM (20–27) | `dcw detune attack release vibrato chorus balance volume` (the same order in every instrument) | acts at once, not stored |
 | 2 LINE / WAVE | `line linesel wave wave2 window ringmod octave level` | tone; `line` selects line 1/2 |
 | 3 DETUNE / VIBRATO | `dsign doct dnote dfine vwave vdelay vrate vdepth` | tone |
 | 4 ENVELOPE | `env sus end kfw kfa velp velw vela` | `env` selects DCO / DCW / DCA |

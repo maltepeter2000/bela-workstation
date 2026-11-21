@@ -124,7 +124,7 @@ I01-I32, master tune and receive channel.
 
 ### `[txfm <bus>]`: FM editor for `tx81zn~`
 
-A second editor with 7 pages of 8 controls (one page per row, made for 8 encoders), in the
+A second editor with 8 pages of up to 8 controls (one page per row, made for 8 encoders), in the
 style of 4-operator groovebox synths. The algorithm gives the operators roles: **C** = the
 carriers, **A** = the modulator of the main carrier OP1, **B** = the other modulators
 (algorithms 1-4: C 1, A 2, B 3+4; 5: C 1+3, A 2, B 4; 6 and 7: C 1+2+3, A 4; 8: C 1+2+3+4).
@@ -132,14 +132,15 @@ A control of a role changes all of its operators.
 
 | Page | Controls |
 |---|---|
-| SYN 1 | algorithm, ratio C / A / B, mod A / B (modulator levels), feedback, mix (carriers against each other) |
-| SYN 2 | wave C / A / B, detune, fine C / A / B, level C |
-| ENV C / A / B | attack, decay, sustain, fade (decay 2), release, velocity, key level, key rate |
-| LFO | speed, wave, delay, pitch depth, amp depth, pitch sens, amp sens, key sync |
+| PERFORM | mod A (brightness), feedback, attack C, release C, LFO pitch depth, detune, mix (carriers against each other), volume (not in the voice) – page 1 is the same in every instrument |
+| SYN 1 | algorithm, ratio C / A / B, mod B, level C |
+| SYN 2 | wave C / A / B, fine C / A / B |
+| ENV C / A / B | attack, decay, sustain, fade (decay 2), release, velocity, key level, key rate (C: attack and release on PERFORM) |
+| LFO | speed, wave, delay, amp depth, pitch sens, amp sens, key sync |
 | VOICE | poly / mono, bend range, porta mode, porta time, transpose, LFO amp on C / A / B |
 
-`[txfmcc <channel>]` is the controller layer for it: Launchkey pages 1-7 = the 7 rows of the
-editor (CC 20-83, page 7 VOICE: CC 80 = transpose), with feedback, pickup and sync like `txcc`.
+`[txfmcc <channel>]` is the controller layer for it: Launchkey pages 1-8 = the 8 rows of the
+editor (from CC 20, page 1 = CC 20-27), with feedback, pickup and sync like `txcc`.
 In a patch: `[r tx1-out]` -> `[txfmcc 0]` -> `[s tx1]`.
 
 `tx81zn~` takes `fm <control> <0-127>` and `fminfo <control>` and reports `fm <control> <0-127> <text>` (the text is

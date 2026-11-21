@@ -60,6 +60,10 @@ static const char *EXT_NAME[NEXT] = {
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 25, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0, 31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 31, 0, 31, 0, 0, 2, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 64, 1};
 
+/* performance controls (see apply_perf) */
+static const char *PERF_NAME[3] = {"atk", "rel", "vol"};
+static const float PERF_DEFAULT[3] = {0, 0, 100};
+
 static t_class *pdoly8_class;
 
 typedef struct _pdoly8 {
@@ -84,6 +88,8 @@ typedef struct _pdoly8 {
     t_canvas *canvas;
     t_float *rep_v[160]; float rep_last[160];
     int      txch;                 /* send channel for the controller's feedback, 0 = the receive channel */
+    t_float  perf[3];              /* atk rel (-63..63, 0 = the sound as it is) vol (0..127): not in a sound */
+    float    vol_gain;
 #ifdef P8_OLED
     /* OLED via O2O: the audio thread only copies text (seqlock), a thread of
      * its own sends the OSC packet, so no network call runs in the audio
@@ -115,7 +121,8 @@ static t_int *pdoly8_perform(t_int *w)
     x->e.fm_in = fi;
     p8_render(&x->e, ol, or_, (unsigned)n);
     x->e.fm_in = 0;
-    for (int i = 0; i < n; i++) { out_l[i] = ol[i]; out_r[i] = or_[i]; }
+    float g = x->vol_gain;
+    for (int i = 0; i < n; i++) { out_l[i] = ol[i] * g; out_r[i] = or_[i] * g; }
     return w + 6;
 }
 
@@ -472,6 +479,7 @@ static void pdoly8_voiceoff(t_pdoly8 *x, t_floatarg v) { p8_voice_off(&x->e, (in
 static void out_display(t_pdoly8 *x, t_symbol *name);
 
 /* <name> <value>: one setting; reported as "display <label> <value>" for the Launchkey / OLED */
+static void apply_perf(t_pdoly8 *x, int i, t_float v);
 static void pdoly8_anything(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 {
     if (argc < 1) { pd_error(x, "pdoly8~: %s needs a value", s->s_name); return; }
@@ -484,6 +492,7 @@ static void pdoly8_anything(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
     }
     for (int i = 0; i < NCTL; i++) if (s == gensym(CTL_NAME[i])) { apply_ctl(x, i, v); out_display(x, s); return; }
     for (int i = 0; i < NEXT; i++) if (s == gensym(EXT_NAME[i])) { apply_ext(x, i, v); out_display(x, s); return; }
+    for (int i = 0; i < 3; i++) if (s == gensym(PERF_NAME[i])) { apply_perf(x, i, v); out_display(x, s); return; }
     pd_error(x, "pdoly8~: unknown message '%s'", s->s_name);
 }
 
@@ -610,7 +619,10 @@ static const t_p8range RANGE[] = {
     {"sl4",'z',0,31,"Env 4 slope",""},
     {"su4",'z',0,31,"Env 4 sustain",""},
     {"r4",'z',0,31,"Env 4 release",""},
-    {"ch1",'z',0,16,"MIDI channel","all|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16"}};
+    {"ch1",'z',0,16,"MIDI channel","all|1|2|3|4|5|6|7|8|9|10|11|12|13|14|15|16"},
+    {"atk",'b',-63,63,"Attack all",""},
+    {"rel",'b',-63,63,"Release all",""},
+    {"vol",'i',0,127,"Volume",""}};
 #define NRANGE ((int)(sizeof RANGE / sizeof RANGE[0]))
 typedef char p8_rep_fits[(sizeof RANGE / sizeof RANGE[0]) <= 160 ? 1 : -1];
 
@@ -620,11 +632,35 @@ static const t_p8range *find_range(t_symbol *s)
     return 0;
 }
 
+/* performance controls: the same three in every instrument's page 1 (with cut, res, mgi,
+ * dlev, egi); laid over the sound, not stored in it. A sound recalled sets atk and rel to 0. */
+
 static t_float *find_value(t_pdoly8 *x, t_symbol *s)
 {
     for (int i = 0; i < NCTL; i++) if (s == gensym(CTL_NAME[i])) return &x->ctl[i];
     for (int i = 0; i < NEXT; i++) if (s == gensym(EXT_NAME[i])) return &x->ext[i];
+    for (int i = 0; i < 3; i++) if (s == gensym(PERF_NAME[i])) return &x->perf[i];
     return 0;
+}
+
+static void apply_perf(t_pdoly8 *x, int i, t_float v)
+{
+    if (i == 2) {                                /* vol: 100 = 0 dB, square law, 127 = +4 dB */
+        v = clampf_((float)v, 0.0f, 127.0f); x->perf[2] = v;
+        x->vol_gain = ((float)v / 100.0f) * ((float)v / 100.0f);
+    } else {
+        v = (t_float)(int)lroundf(clampf_((float)v, -63.0f, 63.0f)); x->perf[i] = v;
+        if (i == 0) x->e.perf_att = (float)v * 31.0f / 63.0f; else x->e.perf_rel = (float)v * 31.0f / 63.0f;
+        p8_update(&x->e);
+    }
+    rep_kick(x);
+}
+
+/* a sound recalled: attack and release back to the sound */
+static void perf_reset(t_pdoly8 *x)
+{
+    if (x->perf[0] != 0) apply_perf(x, 0, 0);
+    if (x->perf[1] != 0) apply_perf(x, 1, 0);
 }
 
 /* fmr from a pot / CC: harmonic ratios in steps, so 1 (and every other one) can be found again;
@@ -849,6 +885,8 @@ static void set_defaults(t_pdoly8 *x)
     for (int i = 0; i < NEXT; i++) apply_ext(x, i, i == X_CH1 ? ch : EXT_DEFAULT[i]);
     x->restoring = 0;
     for (int i = 0; i < NCTL; i++) apply_ctl(x, i, CTL_DEFAULT[i]);
+    if (!x->inited) apply_perf(x, 2, PERF_DEFAULT[2]);   /* vol: set up once, like ch1 */
+    perf_reset(x);
     x->inited = 1;
 }
 static void pdoly8_defaults(t_pdoly8 *x) { set_defaults(x); }
@@ -887,6 +925,7 @@ static void pdoly8_dump(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
         if (i - 1 - NCTL != X_CH1) apply_ext(x, i - 1 - NCTL, atom_getfloatarg(i, argc, argv));
     x->restoring = 0;
     for (int i = 1; i < argc && i <= NCTL; i++) apply_ctl(x, i - 1, atom_getfloatarg(i, argc, argv));
+    perf_reset(x);
 }
 
 

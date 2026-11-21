@@ -66,6 +66,7 @@ struct t_txn
 	int last_user;                    // user slot 0-63 played or stored last
 	bool ready;
 	float gain;
+	int vol;                          // fm vol 0-127 (page 1): 100 = 0 dB, square law; not in a voice
 	int channel;                      // 0 = omni, 1-16
 	int txchannel;                    // feedback to the controller, 0 = the receive channel
 	int reported[NTXPARAMS];
@@ -172,7 +173,7 @@ static_assert(sizeof txfm::MACROS / sizeof txfm::MACROS[0] <= 64, "fm cache");
 static int fm_value(t_txn *x, int i, char *text, size_t nb)
 {
 	int v;
-	bool on = txfm::fm_get(i, [x](char g, int n) { return x->eng->get_param(g, n); }, v, text, nb);
+	bool on = txfm::fm_get(i, [x](char g, int n) { return g == 'G' ? x->vol : x->eng->get_param(g, n); }, v, text, nb);
 	return on ? v : -1 - v;   // the cache tells an empty role apart
 }
 
@@ -450,8 +451,8 @@ static void txn_fm(t_txn *x, t_symbol *name, t_floatarg v)
 	int i = txfm::fm_find(name->s_name);
 	if (i < 0) { pd_error(x, "tx81zn~: fm: unknown control '%s'", name->s_name); return; }
 	if (!x->ready) return;
-	txfm::fm_set(i, int(v), [x](char g, int n) { return x->eng->get_param(g, n); },
-		[x](char g, int n, int val) { x->eng->set_param(g, n, val, false); });
+	txfm::fm_set(i, int(v), [x](char g, int n) { return g == 'G' ? x->vol : x->eng->get_param(g, n); },
+		[x](char g, int n, int val) { if (g == 'G') x->vol = val; else x->eng->set_param(g, n, val, false); });
 	clock_delay(x->rep_clock, 0);
 	char text[32];
 	if (fm_value(x, i, text, sizeof text) >= 0) out_display(x, txfm::MACROS[i].label, text);
@@ -703,6 +704,7 @@ static t_int *txn_perform(t_int *w)
 		std::memset(outr, 0, n * sizeof(t_sample));
 		return w + 5;
 	}
+	const float g = x->gain * (x->vol / 100.0f) * (x->vol / 100.0f);
 	for (int i = 0; i < n; i++)
 	{
 		x->phase += x->step;
@@ -722,8 +724,8 @@ static t_int *txn_perform(t_int *w)
 			float c3 = 0.5f * (y[3] - y[0]) + 1.5f * (y[1] - y[2]);
 			return ((c3 * t + c2) * t + c1) * t + c0;
 		};
-		outl[i] = herm(x->hl) * x->gain;
-		outr[i] = herm(x->hr) * x->gain;
+		outl[i] = herm(x->hl) * g;
+		outr[i] = herm(x->hr) * g;
 	}
 	return w + 5;
 }
@@ -750,6 +752,7 @@ static void *txn_new(t_symbol *, int argc, t_atom *argv)
 	txbank::read(x, "tx81zn~", find_nocase(resolve(x, gensym(txbank::FILE_NAME))), *x->user, true);
 	x->ready = false;
 	x->gain = 1.0f;
+	x->vol = 100;
 	x->channel = 0;          // omni until the battery RAM says otherwise
 	x->txchannel = 0;
 	for (int i = 0; i < NTXPARAMS; i++) x->reported[i] = -1;

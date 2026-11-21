@@ -41,7 +41,7 @@ PERF = list(T.CC_ROWS[0][1])
 PERF_HELP = dict(T.MACRO_HELP)
 PERF_HELP["reverb"] = "reverb balance of the patch"
 PERF_HELP["balance"] = "balance of the two tones, lower at 0, upper at 100"
-PERF_DEFAULT = {"cut": "0", "res": "0", "att": "0", "rel": "0", "volume": "80"}
+PERF_DEFAULT = {"cut": "0", "res": "0", "att": "0", "rel": "0", "vib": "0", "volume": "80"}
 
 
 def rng(nm):

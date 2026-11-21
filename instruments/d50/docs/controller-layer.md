@@ -91,8 +91,9 @@ Rückmeldung nicht an.
   die Schicht 84 Plätze. Der Regler `part` (Seite 2, erster Platz) wählt U1, U2, L1 oder L2. Die
   Seiten 2–6 zeigen dieses Partial, die Seiten 7–11 den Tone, zu dem es gehört. Beim Umschalten
   meldet d50~ alle Werte, die sich dadurch ändern, als `info`: Controller und Editor folgen.
-- **Seite 1 ist die Performance-Reihe:** `cut res att rel chorus reverb balance volume`. `cut`, `res`,
-  `att`, `rel` sind Verschiebungen über dem Patch (64 = unverändert), werden nicht gespeichert und
+- **Seite 1 ist die Performance-Reihe,** in allen Instrumenten gleich aufgebaut:
+  `cut res att rel vib chorus balance volume`. `cut`, `res`, `att`, `rel`, `vib` (Vibrato beider
+  Tones) sind Verschiebungen über dem Patch (64 = unverändert), werden nicht gespeichert und
   gehen bei jedem Patch-Wechsel auf 0. `cut` wirkt auch auf klingende Noten.
 - **Getrennter Sendekanal.** d50~ meldet `channel <0-16>` (Empfang) und `txchannel <1-16>` (Senden).
   `tools/ctlayer.py` in diesem Repo hat dafür einen Zusatz: mit `txchannel` geht die Rückmeldung

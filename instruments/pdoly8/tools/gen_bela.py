@@ -47,18 +47,21 @@ PAGES = [
 import ctlayer                                   # noqa: E402
 MIDI_CH = 1
 CC_ROWS = [
+    # page 1 is the same in every instrument: bright, resonance, attack, release, vibrato,
+    # effect, own (here the filter EG intensity), volume (docs/instrument-contract.md)
+    ("PERFORM",          ["cut", "res", "atk", "rel", "mgi", "dlev", "egi", "vol"]),
     ("PLAY",             ["har1", "har2", "env1", "env2", "intv", "detn", "lev1", "lev2"]),
-    ("FILTER",           ["cut", "res", "egi", "env3", "kbd", "vcut", "drv", "nois"]),
+    ("FILTER-MG",        ["env3", "kbd", "vcut", "drv", "nois", "mgr", "mgd", "mgv"]),
     ("OSC",              ["oct1", "oct2", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
     ("WALSH-RING",       ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "ring", "rmf"]),
     ("SYNC-FM",          ["sync", "swp2", "swe", "swm", "fm1", "fm2", "fmr", "fmhz"]),
-    ("MG-FMSOURCE-DEG3", ["mgr", "mgi", "mgd", "mgv", "fms", "fmig", "pol", "trg"]),
-    ("DELAY-EQ",         ["dtim", "dfb", "dmf", "dmi", "dlev", "dgld", "treb", "bass"]),
-    ("PERFORM",          ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
+    ("FMSOURCE-DELAY-EQ", ["fms", "fmig", "dtim", "dfb", "dmf", "dmi", "treb", "bass"]),
+    ("PLAY MODE",        ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
     ("DEG4-DRIVE",       ["env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2", "drvp", "tone"]),
     ("LFO2",             ["l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2"]),
     ("LFO3",             ["l3r", "l3w", "l3t1", "l3a1"]),
 ]
+# not on the pages (editor and messages only): pol, trg (DEG3 polarity / trigger), dgld
 CC_OF = ctlayer.cc_map(CC_ROWS)                  # name -> CC
 CCS = {cc: nm for nm, cc in CC_OF.items()}       # CC -> name
 BUTTONS = [26, 25, 24, 23]                       # Pepper buttons 1-4, pressed = 0

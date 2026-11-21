@@ -48,7 +48,7 @@
 #X obj 10 940 inlet;
 #X obj 10 970 route info pickup sync channel txchannel;
 #X obj 420 1000 t b f;
-#X msg 560 1000 ninfo cutoff \, ninfo res \, ninfo env \, ninfo attack \, ninfo decay \, ninfo sustain \, ninfo release \, ninfo chorus \, ninfo range \, ninfo pulse \, ninfo saw \, ninfo sub \, ninfo noise \, ninfo pwm \, ninfo pwmmode \, ninfo dcolfo \, ninfo lforate \, ninfo lfodelay \, ninfo vcflfo \, ninfo kybd \, ninfo envpol \, ninfo hpf \, ninfo level \, ninfo vcamode \, ninfo volume \, ninfo tune \, ninfo bend \, ninfo octave \, ninfo vellevel \, ninfo velcutoff \, ninfo model \, ninfo calibrate \, ninfo chorusnoise;
+#X msg 560 1000 ninfo cutoff \, ninfo res \, ninfo attack \, ninfo release \, ninfo dcolfo \, ninfo chorus \, ninfo env \, ninfo volume \, ninfo range \, ninfo pulse \, ninfo saw \, ninfo sub \, ninfo noise \, ninfo pwm \, ninfo pwmmode \, ninfo hpf \, ninfo decay \, ninfo sustain \, ninfo lforate \, ninfo lfodelay \, ninfo vcflfo \, ninfo kybd \, ninfo envpol \, ninfo level \, ninfo vcamode \, ninfo tune \, ninfo bend \, ninfo octave \, ninfo vellevel \, ninfo velcutoff \, ninfo model \, ninfo calibrate \, ninfo chorusnoise;
 #X obj 300 440 sel 3;
 #X obj 160 1000 list;
 #X obj 10 1030 unpack s f s;
@@ -97,7 +97,7 @@
 #X msg 420 1230 0;
 #X obj 540 1230 f;
 #X obj 560 940 text define -k \$0-map;
-#A set - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; cutoff \; res \; env \; attack \; decay \; sustain \; release \; chorus \; range \; pulse \; saw \; sub \; - \; noise \; pwm \; pwmmode \; dcolfo \; lforate \; - \; lfodelay \; vcflfo \; kybd \; envpol \; hpf \; level \; vcamode \; volume \; tune \; bend \; octave \; vellevel \; velcutoff \; model \; - \; calibrate \; chorusnoise \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \;;
+#A set - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; cutoff \; res \; attack \; release \; dcolfo \; chorus \; env \; volume \; range \; pulse \; saw \; sub \; - \; noise \; pwm \; pwmmode \; hpf \; decay \; - \; sustain \; lforate \; lfodelay \; vcflfo \; kybd \; envpol \; level \; vcamode \; - \; - \; - \; - \; - \; - \; - \; tune \; bend \; octave \; vellevel \; velcutoff \; model \; - \; - \; calibrate \; chorusnoise \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \;;
 #X connect 1 0 2 0;
 #X connect 2 3 3 0;
 #X connect 2 3 4 0;

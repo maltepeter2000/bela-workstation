@@ -35,6 +35,21 @@ aligned. State: 20 Nov 2026.
 | `<x>user-bank.*` | the instrument, on save |
 | a Bela Gem project or slot | the instrument's Bela generator |
 
+**Page 1 (CC 20-27) is the same in every instrument**, so a hand finds it at once after
+switching instruments:
+
+| Encoder | 1 bright | 2 resonance | 3 attack | 4 release | 5 vibrato | 6 effect | 7 own | 8 volume |
+|---|---|---|---|---|---|---|---|---|
+| juno~ | cutoff | res | attack | release | dcolfo | chorus | env | volume |
+| d50~ | cut | res | att | rel | vib | chorus | balance | volume |
+| cz4~ | dcw | detune | attack | release | vibrato | chorus | balance | volume |
+| pdoly8~ | cut | res | atk | rel | mgi | dlev | egi | vol |
+| tx81zn~ (fm) | moda | fdbk | atkc | relc | lpmd | dtun | mix | vol |
+
+Volume is not stored in a sound (100 or the instrument's default = unity). d50's cut, res,
+att, rel, vib and pdoly8's atk, rel are offsets over the sound (0 = as stored) and go back to
+0 when a sound is recalled; the others are the sound's own settings.
+
 **On Bela**: control channel 10 for the pads, the Launchkey display for names and values,
 an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
 
@@ -75,6 +90,8 @@ an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
    by side in the rack's folder.
 8. **One layout and the same make targets** in every instrument (`pd/`, `bin/macos`, `bela/`,
    `make`, `make mac-zig`, `make bela-gem` into `build/bela-gem`, `make gen`; see README).
+9. **Page 1 the same everywhere** (table above). New for it: d50~ `vib`, pdoly8~ `atk rel
+   vol`, tx81zn~ FM page PERFORM with `vol`; the other pages moved to make room.
 
 ## Next
 
