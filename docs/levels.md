@@ -7,5 +7,5 @@ Made by `common/tools/measure_levels.py` (run it again after changes, and on a m
 | juno | 32/32 | -23.9 | -61.6 .. -17.9 | -4.3 | +3.9 | built-in Juno-106 factory patches |
 | d50 | - | - | - | - | - | not measured: needs d50_pcm.bin |
 | cz4 | - | - | - | - | - | not measured: needs a factory bank (.syx) beside cz4~ |
-| pdoly8 | - | - | - | - | - | not measured: Poly-800 II factory bank through p8nav |
+| pdoly8 | 30/32 | -22.5 | -55.5 .. -14.1 | -0.9 | +2.5 | Poly-800 II factory bank through p8nav |
 | tx81z | - | - | - | - | - | not measured: needs tx81z-v1.6.bin (ROM presets A01-) |

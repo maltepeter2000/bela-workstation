@@ -49,20 +49,25 @@ INSTRUMENTS = {
 
 
 def patch(obj, n, wav):
-    """the measuring patch: n sounds, presetstep before each"""
+    """the measuring patch: n sounds, presetstep before each; recorded into two arrays that
+    soundfiler writes at the end (synchronous: writesf~ may not have flushed when pd -batch quits)"""
     bs = chr(92)
+    size = int((n * SEG + 1) * 48000)
     L, C = ["#N canvas 0 0 800 600 10;"], []
 
     def add(t):
         L.append(t + ";")
         return len(L) - 2
     lb = add("#X obj 10 10 loadbang")
-    ini = add(f"#X msg 10 40 {bs}; pd dsp 1 {bs}; rec open -bytes 4 {wav} {bs}; rec start")
+    ini = add(f"#X msg 10 40 {bs}; pd dsp 1 {bs}; rec bang")
     o = add(f"#X obj 10 200 {obj}")
     r = add("#X obj 10 170 r inst")
-    w = add("#X obj 10 300 writesf~ 2")
+    wl = add("#X obj 10 300 tabwrite~ mlv-l")
+    wr = add("#X obj 120 300 tabwrite~ mlv-r")
     rr = add("#X obj 200 270 r rec")
-    C += [(lb, 0, ini, 0), (r, 0, o, 0), (o, 0, w, 0), (o, 1, w, 1), (rr, 0, w, 0)]
+    add(f"#X obj 300 300 array define mlv-l {size}")
+    add(f"#X obj 300 330 array define mlv-r {size}")
+    C += [(lb, 0, ini, 0), (r, 0, o, 0), (o, 0, wl, 0), (o, 1, wr, 0), (rr, 0, wl, 0), (rr, 0, wr, 0)]
     d0 = add("#X obj 300 10 del 200")
     cnt = add("#X obj 300 40 f")
     inc = add("#X obj 340 40 + 1")
@@ -72,7 +77,10 @@ def patch(obj, n, wav):
     d1 = add("#X obj 450 100 del 1600")
     off = add(f"#X msg 450 130 {bs}; inst 60 0 {bs}; inst 64 0 {bs}; inst 67 0")
     d2 = add(f"#X obj 300 130 del {int(SEG * 1000)}")
-    fin = add(f"#X msg 380 100 {bs}; rec stop {bs}; pd quit")
+    fin = add(f"#X msg 380 100 {bs}; mlv-sf write -bytes 4 {wav} mlv-l mlv-r {bs}; pd quit")
+    sv = add("#X obj 380 230 r mlv-sf")
+    sfl = add("#X obj 380 260 soundfiler")
+    C += [(sv, 0, sfl, 0)]
     C += [(lb, 0, d0, 0), (d0, 0, cnt, 0), (cnt, 0, inc, 0), (inc, 0, cnt, 1), (cnt, 0, sel, 0),
           (sel, 0, tt, 0), (tt, 1, on, 0), (tt, 0, d1, 0), (d1, 0, off, 0), (tt, 0, d2, 0),
           (d2, 0, cnt, 0), (sel, 1, fin, 0)]
