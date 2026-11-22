@@ -18,7 +18,9 @@ Bela Gem (with network; else clone on the Mac and copy the folder, see `bela-syn
     cd /root/Bela/projects/pd-externals
     git clone -b pd --single-branch https://github.com/maltepeter2000/bela-workstation.git bela-workstation
 
-and in the project's `_main.pd`: `[declare -path ../pd-externals/bela-workstation]`.
+and in the project's `_main.pd`: `[declare -path ../pd-externals/bela-workstation]`. Ready
+projects that do this are in `bela-projects/` (juno, tx81zn-pd, tx81z-pd): copy one to
+`/root/Bela/projects/` and run it (tx81z needs its ROM `tx81z-v1.6.bin` in the project folder).
 
 ## Update
 
