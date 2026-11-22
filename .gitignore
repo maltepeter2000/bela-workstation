@@ -1,0 +1,8 @@
+# your own files beside the externals: git pull never touches them
+*user-bank.*
+*.nvram
+d50_pcm.bin
+tx81z-v1.6.bin
+*.rom
+*.bin
+.DS_Store
