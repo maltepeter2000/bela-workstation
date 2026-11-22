@@ -40,6 +40,24 @@ tests/ docs/ third_party/
 ``` What is aligned and what is still open is in
 [docs/instrument-contract.md](docs/instrument-contract.md).
 
+## Using it: the branch `pd` and git pull
+
+The branch `pd` is one flat folder with everything Pd needs, for the Mac (`.pd_darwin`) and
+the Bela Gem (`.pd_linux`) side by side: externals, abstractions, help patches, editors,
+presets, the effects. It is made from main by `make dist` and updated with `git pull`:
+
+```
+cd ~/Documents/Pd/externals            # Mac; Bela Gem: /root/Bela/projects/pd-externals
+git clone -b pd --single-branch https://github.com/maltepeter2000/bela-workstation.git bela-workstation
+cd bela-workstation && git pull         # later, to update
+```
+
+On the Mac add the folder once under Preferences -> Path. The Bela projects in
+`instruments/*/bela` find it with `[declare -path ../pd-externals/bela-workstation]`; without
+network on the Bela, `sh bela-sync.sh` in the folder copies it there from the Mac. User banks,
+ROMs and nvram files are not in git (`.gitignore` of the branch), so `git pull` never touches
+them. Objects look for them beside the patch that uses them.
+
 ## Building
 
 The same targets in every instrument folder (`instruments/<name>`), or for all of them from the
@@ -49,8 +67,9 @@ top (`make <target>` here):
 |---|---|
 | `make` | build for this machine into `pd/` (Pd's `m_pd.h`: one is in each `third_party/pd`; juno and d50 take `PDINCLUDEDIR=…`, the others `PDINCLUDE=…`) |
 | `make mac-zig` | universal macOS binaries (arm64 + x86_64) and the patches into `bin/macos` |
-| `make bela-gem` | cross-built for the Bela Gem (aarch64, glibc 2.31) into `build/bela-gem/`, all instruments side by side (the rack's folder), and into the instrument's own Bela projects (juno: `bela/juno`, tx81z: `bela/tx81zn-pd`, `bela/tx81z-pd`) |
+| `make bela-gem` | cross-built for the Bela Gem (aarch64, glibc 2.31) into `build/bela-gem/`, all instruments side by side |
 | `make gen` | the generated files: parameter header, controller layer, pads, editor, help, Bela patches |
+| `make dist` (top only) | the branch `pd` from all of it (`make dist-push` pushes it) |
 | `make clean` | |
 
 The cross builds need zig (`pip install ziglang`) and llvm-lipo. On the board itself a plain

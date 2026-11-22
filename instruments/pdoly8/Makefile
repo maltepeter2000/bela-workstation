@@ -68,9 +68,8 @@ bela-gem: $(DEP)
 	mkdir -p $(GEMDIR)
 	$(ZIG) cc -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O3 -ffast-math -std=c99 -fPIC -fvisibility=hidden \
 	    -Ithird_party/pd -shared -s -o '$(GEMDIR)/pdoly8~.pd_linux' $(SRC) -lm -lpthread
-	cp pd/p8cc.pd pd/p8pads.pd pd/p8nav.pd pd/lkdisplay.pd $(GEMDIR)/
+	cp pd/p8cc.pd pd/p8pads.pd pd/p8nav.pd pd/lkdisplay.pd pd/ufread.pd $(GEMDIR)/
 	mkdir -p $(GEMDIR)/presets && cp pd/presets/poly800mk2-factory.txt $(GEMDIR)/presets/
-	test -f $(GEMDIR)/p8user-bank.txt || cp pd/p8user-bank.txt $(GEMDIR)/
 
 LIPO ?= llvm-lipo-18
 mac-zig: $(DEP)
@@ -82,8 +81,7 @@ mac-zig: $(DEP)
 	$(LIPO) -create bin/macos/pdoly8~.aarch64 bin/macos/pdoly8~.x86_64 -output 'bin/macos/pdoly8~.pd_darwin'
 	rm -f bin/macos/pdoly8~.aarch64 bin/macos/pdoly8~.x86_64
 	cp 'pd/pdoly8~-help.pd' pd/p8factory.pd pd/p8user.pd pd/p8cc.pd pd/p8edit.pd pd/p8pads.pd pd/p8nav.pd \
-	    pd/lkdisplay.pd bin/macos/
-	test -f bin/macos/p8user-bank.txt || cp pd/p8user-bank.txt bin/macos/
+	    pd/lkdisplay.pd pd/ufread.pd bin/macos/
 	mkdir -p bin/macos/presets && cp pd/presets/poly800mk2-factory.txt bin/macos/presets/
 
 test: pdoly8_test
@@ -100,6 +98,7 @@ gen help:
 	python3 tools/gen_editor.py
 	python3 tools/gen_help.py
 	cd pd && python3 ../../../common/tools/lkdisplay.py lkdisplay.pd
+	cd pd && python3 ../../../common/tools/ufread.py ufread.pd
 
 presets: pd/presets/poly800mk2-factory.syx
 	python3 tools/p8sysex.py syx2txt pd/presets/poly800mk2-factory.syx pd/presets/poly800mk2-factory.txt

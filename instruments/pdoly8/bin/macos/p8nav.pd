@@ -29,7 +29,7 @@
 #X obj 10 360 list trim;
 #X obj 400 520 text define \$0-user;
 #X obj 400 460 loadbang;
-#X msg 400 490 read p8user-bank.txt;
+#X obj 400 490 ufread p8user-bank.txt presets/poly800mk2-factory.txt \$0-user;
 #X msg 520 490 write p8user-bank.txt;
 #X obj 300 560 f;
 #X obj 300 590 expr int(\$f1 / 8) * 10 + \$f1 % 8 + 11;
@@ -95,7 +95,6 @@
 #X connect 26 0 27 0;
 #X connect 27 0 5 0;
 #X connect 29 0 30 0;
-#X connect 30 0 28 0;
 #X connect 31 0 28 0;
 #X connect 32 0 33 0;
 #X connect 33 0 34 0;

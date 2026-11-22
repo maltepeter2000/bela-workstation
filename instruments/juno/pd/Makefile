@@ -45,10 +45,9 @@ mac-zig: juno~.cpp juno_core.cpp juno_core.h juno_params.h
 
 # ---- Bela Gem (64-bit ARM, Cortex-A53), cross-built from Linux ------------------
 #   make bela-gem   juno~.pd_linux and the abstractions into ../../../build/bela-gem (all
-#                   instruments side by side) and into the Bela project ../bela/juno
+#                   instruments side by side; make dist puts them on the branch pd)
 # glibc 2.31 or newer on the board, libc++ linked in. On the board itself a plain make works too.
 GEMDIR = ../../../build/bela-gem
-BELADIR = ../bela/juno
 BELA_OS ?= 2
 bela-gem: juno~.cpp juno_core.cpp juno_core.h juno_params.h
 	mkdir -p $(GEMDIR)
@@ -56,7 +55,6 @@ bela-gem: juno~.cpp juno_core.cpp juno_core.h juno_params.h
 	  -DJUNO_HOST_BUILD -DJUNO_OVERSAMPLE=$(BELA_OS) -Iengine -I../third_party/pd \
 	  -fPIC -fvisibility=hidden -shared -s -o '$(GEMDIR)/juno~.pd_linux' 'juno~.cpp' juno_core.cpp $(ENGINE)
 	cp junocc.pd junopads.pd lkdisplay.pd $(GEMDIR)/
-	cp '$(GEMDIR)/juno~.pd_linux' junocc.pd junopads.pd lkdisplay.pd $(BELADIR)/
 
 # ---- generated files ---------------------------------------------------------
 #   make gen        parameter header, controller layer, editor and help patch

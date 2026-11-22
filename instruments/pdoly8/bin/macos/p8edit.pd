@@ -1030,7 +1030,7 @@
 #X obj 700 2040 text define \$0-user;
 #X obj 700 1890 loadbang;
 #X obj 780 1890 r \$0-uload;
-#X msg 700 1920 read p8user-bank.txt;
+#X obj 700 1920 ufread p8user-bank.txt presets/poly800mk2-factory.txt \$0-user;
 #X obj 900 1950 del 20;
 #X msg 900 1980 write p8user-bank.txt;
 #X obj 1060 1890 r \$0-finit;
@@ -1397,7 +1397,6 @@
 #X connect 371 0 380 0;
 #X connect 380 0 381 0;
 #X connect 382 0 383 0;
-#X connect 379 0 376 0;
 #X connect 381 0 376 0;
 #X connect 383 0 376 0;
 #X connect 384 0 385 0;

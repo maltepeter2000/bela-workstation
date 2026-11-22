@@ -7,3 +7,4 @@ pdoly8_test
 demos/*.wav
 __pycache__/
 *.pyc
+p8user-bank.txt

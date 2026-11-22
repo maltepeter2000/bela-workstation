@@ -268,13 +268,15 @@ def build():
     top = G.P(None, 900, 420)
     if NATIVE:
         top.note("TX81Z on Bela: tx81zn~ (native engine) - MIDI in, controller layer, OLED, "
-                 "Launchkey pads and display, OSC remote. Files: tx81zn~.pd_linux, txfmcc.pd, txpads.pd, lkdisplay.pd, "
-                 "lkdisplay.pd, tx81z-v1.6.bin, tx81z.nvram (optional, read only: bank I and MIDI channel), "
-                 "txuser-bank.syx.", 10, 10)
+                 "Launchkey pads and display, OSC remote. tx81zn~ and its abstractions come from the folder "
+                 "bela-workstation (branch pd, git pull) in pd-externals; here: tx81z-v1.6.bin, tx81z.nvram "
+                 "(optional, read only: bank I and MIDI channel), txuser-bank.syx.", 10, 10)
     else:
         top.note("TX81Z on Bela: tx81z~ (original firmware) - MIDI in, controller layer, OLED, "
-                 "control channel, OSC remote. Files: tx81z~.pd_linux, txcc.pd, tx81z-v1.6.bin, "
-                 "tx81z.nvram (made by the factory init), txuser-bank.syx.", 10, 10)
+                 "control channel, OSC remote. tx81z~ and txcc come from the folder bela-workstation "
+                 "(branch pd, git pull) in pd-externals; here: tx81z-v1.6.bin, tx81z.nvram (made by the "
+                 "factory init), txuser-bank.syx.", 10, 10)
+    top.add("declare -path ../pd-externals/bela-workstation", 600, 60)
     r = top.add("r tx", 10, 70)
     t = top.add(f"{OBJ} tx81z-v1.6.bin tx81z.nvram", 10, 100); top.con(r, 0, t, 0)
     d = top.add("dac~ 1 2", 10, 150); top.con(t, 0, d, 0); top.con(t, 1, d, 1)

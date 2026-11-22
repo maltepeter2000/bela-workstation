@@ -127,8 +127,10 @@ def build():
     top = G.P(None, 820, 460)
     top.note("Juno on Bela: juno~ (Juno-60 engine, Juno-106 patches) - MIDI in, controller layer "
              f"(junocc, CC 20 on, channel 1), pads (junopads, channel {PAD_CH}), OLED, OSC remote "
-             f"(UDP {OSC_PORT}). Files: juno~.pd_linux, junocc.pd, junopads.pd, lkdisplay.pd, "
-             "junouser-bank.syx (the user bank, made on the first save).", 10, 10)
+             f"(UDP {OSC_PORT}). juno~ and its abstractions come from the folder bela-workstation "
+             "(branch pd, git pull) in pd-externals; here only junouser-bank.syx (the user bank, made "
+             "on the first save).", 10, 10)
+    top.add("declare -path ../pd-externals/bela-workstation", 600, 60)
     lb = top.add("loadbang", 300, 60)
     st = top.msg("channel 1, thru 0, sysexout 0", 300, 90); top.con(lb, 0, st, 0)
     r = top.add("r juno", 10, 70)

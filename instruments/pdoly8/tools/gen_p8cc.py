@@ -30,7 +30,7 @@ OWN_PADS = {39: "random pluck", 40: "random bass", 41: "random lead", 42: "rando
 
 # pdoly8~ keeps presets and user bank in Pd: [p8nav] turns the pad messages into dumps
 NAV = {"factory_count": 64, "factory_file": "presets/poly800mk2-factory.txt",
-       "user_file": "p8user-bank.txt", "user_slots": 64,
+       "user_file": "p8user-bank.txt", "user_default": "presets/poly800mk2-factory.txt", "user_slots": 64,
        "get_msg": "dump", "reply": "dump", "recall": "dump", "init_msg": "defaults", "name": None}
 
 

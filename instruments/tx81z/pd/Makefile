@@ -62,8 +62,8 @@ tx81zn~.$(EXT): $(NSRC) $(NATIVE)/*.h $(NATIVE)/opz/*.h $(NATIVE)/opz/*.ipp txsh
 	@echo "built $@ (Pd headers: $(PD_INCLUDE))"
 
 # Bela Gem (64-bit ARM, Cortex-A53), cross-built from Linux (as juno~): make bela-gem
-# puts both externals and the abstractions into ../../../build/bela-gem and the Bela projects
-# in ../bela. glibc 2.31 or newer on the board. On the board itself build_on_bela.sh does the same.
+# puts both externals and the abstractions into ../../../build/bela-gem (make dist puts them
+# on the branch pd, which the Bela projects in ../bela use). glibc 2.31 or newer on the board. On the board itself build_on_bela.sh does the same.
 ZIG ?= python3 -m ziglang
 GEMDIR := ../../../build/bela-gem
 GEM := $(ZIG) c++ -target aarch64-linux-gnu.2.31 -mcpu=cortex_a53 -O3 -fPIC -fvisibility=hidden \
@@ -73,8 +73,6 @@ bela-gem:
 	$(GEM) -std=c++17 -I$(NATIVE) $(NSRC) -o $(GEMDIR)/tx81zn~.pd_linux
 	$(GEM) -std=c++14 -I$(YMFM) -I$(NATIVE) $(SRC) -o $(GEMDIR)/tx81z~.pd_linux
 	cp txfmcc.pd txpads.pd txcc.pd lkdisplay.pd $(GEMDIR)/
-	cp $(GEMDIR)/tx81zn~.pd_linux txfmcc.pd txpads.pd lkdisplay.pd ../bela/tx81zn-pd/
-	cp $(GEMDIR)/tx81z~.pd_linux txcc.pd ../bela/tx81z-pd/
 
 # macOS package, cross-built from Linux (as juno~): universal binaries (arm64 + x86_64) and the
 # patches into ../bin/macos. Needs zig (pip install ziglang) and llvm-lipo.

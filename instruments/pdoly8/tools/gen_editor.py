@@ -239,12 +239,14 @@ def logic():
     td = c.add(f"#X obj 700 {yb + 150} text define {D}0-user;")
     lbf = c.add(f"#X obj 700 {yb} loadbang;")
     rl = c.add(f"#X obj 780 {yb} r {D}0-uload;")
-    rd = c.add(f"#X msg 700 {yb + 30} read p8user-bank.txt;"); c.conn(lbf, 0, rd, 0); c.conn(rl, 0, rd, 0)
+    # p8user-bank.txt is not in git (git pull never touches it): missing -> the factory bank
+    rd = c.add(f"#X obj 700 {yb + 30} ufread p8user-bank.txt presets/poly800mk2-factory.txt {D}0-user;")
+    c.conn(lbf, 0, rd, 0); c.conn(rl, 0, rd, 0)
     dsv = c.add(f"#X obj 900 {yb + 60} del 20;"); c.conn(tsv, 0, dsv, 0)          # after the store
     wr = c.add(f"#X msg 900 {yb + 90} write p8user-bank.txt;"); c.conn(dsv, 0, wr, 0)
     rfi = c.add(f"#X obj 1060 {yb} r {D}0-finit;")
     mfi = c.add(f"#X msg 1060 {yb + 30} read presets/poly800mk2-factory.txt;"); c.conn(rfi, 0, mfi, 0)
-    c.conn(rd, 0, td, 0); c.conn(wr, 0, td, 0); c.conn(mfi, 0, td, 0)
+    c.conn(wr, 0, td, 0); c.conn(mfi, 0, td, 0)
     # MIDI channel: ch1 to pdoly8~, its report (channel <n>) back into the box
     rmc = c.add(f"#X obj 1060 {yb + 60} r {D}0-midich;")
     mmc = c.add(f"#X msg 1060 {yb + 90} ch1 {D}1;"); c.conn(rmc, 0, mmc, 0)

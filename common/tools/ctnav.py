@@ -26,7 +26,8 @@ write(path, title, cfg), cfg:
   factory_msg     message recalling factory sound $1 (e.g. "pgm $1"), or
   factory_file    a preset file beside the abstraction, one sound per line, sent as
                   "<recall> <line>" (recall below)
-  user_file       the user bank file beside the abstraction ("-" = empty slot)
+  user_file       the user bank file beside the abstraction ("-" = empty slot); not in git
+  user_default    read instead while user_file does not exist yet (ufread.pd beside it)
   user_slots      its number of slots (64: shown as 11 ... 88)
   get_msg         asks the instrument for its sound ("getvoice", "dump")
   reply           the selector of the answer ("voicedata", "dump"); its arguments are the line
@@ -117,7 +118,8 @@ def build(title, cfg):
     # ---- user bank
     udef = p.add("text define $0-user", 400, 520)
     lbu = p.add("loadbang", 400, 460)
-    rdu = p.msg(f"read {ufile}", 400, 490); p.con(lbu, 0, rdu, 0); p.con(rdu, 0, udef, 0)
+    rdu = p.add(f"ufread {ufile} {cfg.get('user_default', ufile)} $0-user", 400, 490)
+    p.con(lbu, 0, rdu, 0)
     wru = p.msg(f"write {ufile}", 520, 490); p.con(wru, 0, udef, 0)
     # the slot recalled last and its label (11 ... 88)
     uslot = p.add("f", 300, 560)

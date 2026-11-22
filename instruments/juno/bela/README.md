@@ -2,17 +2,20 @@
 
 `juno/` is a Bela Pd project (made for the Bela Gem, 64-bit ARM): `[juno~]` with MIDI in, the
 controller layer, the Launchkey pads, the OLED and an OSC remote. No GUI. `_main.pd` is generated
-by `tools/gen_juno_bela.py`, `juno~.pd_linux` is cross-built with `make bela-gem` (in the instrument folder).
+by `tools/gen_juno_bela.py`.
+
+`juno~` and its abstractions (`junocc`, `junopads`, `lkdisplay`) come from the folder
+`bela-workstation` in `pd-externals` (the branch `pd`, see the main README), which
+`[declare -path ../pd-externals/bela-workstation]` in `_main.pd` puts on the path.
 
 | File | |
 |---|---|
 | `_main.pd` | the patch |
-| `juno~.pd_linux` | the external for the Bela Gem (aarch64) |
-| `junocc.pd` | controller layer (CC pages from 20, same as on the desktop) |
-| `junopads.pd` | the Launchkey pads in Drum mode |
 | `junouser-bank.syx` | the user bank, written on the first save (Juno-106 SysEx, same file as on the desktop) |
 
 ## Setup
+
+Once the folder `bela-workstation` is in `/root/Bela/projects/pd-externals`:
 
 ```
 scp -r bela/juno root@bela-multi.local:~/Bela/projects/
@@ -23,12 +26,13 @@ the USB host port). A user bank from the desktop can be copied in beside the pat
 `scp junouser-bank.syx root@bela-multi.local:~/Bela/projects/juno/`.
 
 An older Bela (32-bit, Cortex-A8) needs the external built on the board: copy the repository there
-and run `make` in `instruments/juno`, then copy `juno~.pd_linux` into the project.
+and run `make` in `instruments/juno`, then copy `pd/juno~.pd_linux` and the abstractions into the
+project.
 
 ## Playing
 
 - Channel 1: notes, bend, mod wheel (vibrato), CC 7 volume, CC 64 hold, program change.
-- CC 20 on, channel 1: the controller layer, 5 pages of 8, with feedback to the controller
+- CC 20 on, channel 1: the controller layer, 6 pages, page 1 as in every instrument, with feedback to the controller
   (the Launchkey's encoders in Custom 1 with the custom firmware).
 - Channel 10 (the Launchkey's Drums Channel), pads in Drum mode:
 
