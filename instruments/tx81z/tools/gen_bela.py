@@ -173,11 +173,11 @@ def nav_sub():
     pads = p.add(f"txpads {CTL_CH}", 10, 90)
     stx = p.add("s tx", 10, 130); p.con(pads, 0, stx, 0)
     ro = p.add("r tx-out", 200, 90)
-    rd = p.add("route display", 200, 130); p.con(ro, 0, rd, 0)
-    dm = p.msg("display $1 $2", 200, 160); p.con(rd, 0, dm, 0)
-    lk = p.add("lkdisplay", 200, 200); p.con(dm, 0, lk, 0)
-    mo = p.add("midiout", 200, 230); p.con(lk, 0, mo, 0)
-    so = p.add("s tx-oled-note", 400, 200); p.con(rd, 0, so, 0)
+    # everything from tx81zn~ straight into lkdisplay (it takes only display), as in juno
+    lk = p.add("lkdisplay", 200, 130); p.con(ro, 0, lk, 0)
+    mo = p.add("midiout", 200, 160); p.con(lk, 0, mo, 0)
+    rd = p.add("route display", 400, 130); p.con(ro, 0, rd, 0)
+    so = p.add("s tx-oled-note", 400, 160); p.con(rd, 0, so, 0)
     return p
 
 
