@@ -45,6 +45,7 @@
 
 #include <climits>
 #include <cstdint>
+#include <cstdlib>
 #include <cstring>
 #include <fstream>
 #include <iterator>
@@ -226,7 +227,14 @@ static void out_display(t_txn *x, const char *title, const char *value)
 {
 	t_atom a[2];
 	SETSYMBOL(&a[0], gensym(title));
-	SETSYMBOL(&a[1], gensym(value));
+	// a whole number goes out as a float, as the other instruments send it (a symbol that looks
+	// like a number does not survive every Pd version on the way to [lkdisplay])
+	const char *c = value;
+	if (*c == '-') c++;
+	bool whole = *c != 0;
+	for (; *c; c++) if (*c < '0' || *c > '9') { whole = false; break; }
+	if (whole) SETFLOAT(&a[1], float(std::atoi(value)));
+	else SETSYMBOL(&a[1], gensym(value));
 	outlet_anything(x->out_msg, gensym("display"), 2, a);
 }
 
