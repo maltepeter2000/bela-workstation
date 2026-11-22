@@ -99,7 +99,7 @@ an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
 
 ## Next
 
-1. **Measure CPU** of every instrument on the Bela Gem at block size 64.
+1. **Measure CPU** (started, `docs/cpu.md`: juno~ and tx81zn~ at block size 64; the rest and an empty project still to do) of every instrument on the Bela Gem at block size 64.
 2. **One Bela generator.** A shared generator writes the instrument part of a Bela patch
    (object, layer, pads, display, OSC) from a small table per instrument, instead of five
    hand-grown `_main.pd` generators.
