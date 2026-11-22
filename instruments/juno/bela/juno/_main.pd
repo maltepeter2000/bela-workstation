@@ -1,4 +1,5 @@
 #N canvas 0 50 820 460 10;
+#X declare -path ../pd-externals/bela-workstation;
 #X text 10 10 Juno on Bela: juno~ (Juno-60 engine \, Juno-106 patches) - MIDI in \, controller layer (junocc \, CC 20 on \, channel 1) \, pads (junopads \, channel 10) \, OLED \, OSC remote (UDP 7563). juno~ and its abstractions come from the folder bela-workstation (branch pd \, git pull) in pd-externals \; here only junouser-bank.syx (the user bank \, made on the first save)., f 100;
 #X obj 600 60 declare -path ../pd-externals/bela-workstation;
 #X obj 300 60 loadbang;

@@ -31,6 +31,11 @@ class P:
 
     def lines(s, top=False):
         L = [f"#N canvas 0 50 {s.w} {s.h} {FONT};" if top else f"#N canvas 0 50 {s.w} {s.h} {s.name} 0;"]
+        # Pd applies a [declare] only through its "#X declare" line right after the canvas header
+        # (a patch saved by Pd has it); the object alone does nothing while the patch loads
+        for k, x, y, t in s.o:
+            if k == "obj" and t.split()[0] == "declare":
+                L.append(f"#X declare {esc(' '.join(t.split()[1:]))};")
         for k, x, y, t in s.o:
             if k == "sub":
                 L += t.lines()

@@ -1,4 +1,5 @@
 #N canvas 0 50 900 420 10;
+#X declare -path ../pd-externals/bela-workstation;
 #X text 10 10 TX81Z on Bela: tx81z~ (original firmware) - MIDI in \, controller layer \, OLED \, control channel \, OSC remote. tx81z~ and txcc come from the folder bela-workstation (branch pd \, git pull) in pd-externals \; here: tx81z-v1.6.bin \, tx81z.nvram (made by the factory init) \, txuser-bank.syx., f 100;
 #X obj 600 60 declare -path ../pd-externals/bela-workstation;
 #X obj 10 70 r tx;
