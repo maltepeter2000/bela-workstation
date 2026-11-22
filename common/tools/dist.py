@@ -57,7 +57,9 @@ Bela Gem (with network; else clone on the Mac and copy the folder, see `bela-syn
     cd /root/Bela/projects/pd-externals
     git clone -b pd --single-branch https://github.com/maltepeter2000/bela-workstation.git bela-workstation
 
-and in the project's `_main.pd`: `[declare -path ../pd-externals/bela-workstation]`.
+and in the project's `_main.pd`: `[declare -path ../pd-externals/bela-workstation]`. Ready
+projects that do this are in `bela-projects/` (juno, tx81zn-pd, tx81z-pd): copy one to
+`/root/Bela/projects/` and run it (tx81z needs its ROM `tx81z-v1.6.bin` in the project folder).
 
 ## Update
 
@@ -113,6 +115,9 @@ def collect():
     for n in sorted(os.listdir(fx)):
         if n.endswith(".pd") or n == "vrs23-clap.wav":
             put(n, os.path.join(fx, n))
+    for proj in ("juno/bela/juno", "tx81z/bela/tx81zn-pd", "tx81z/bela/tx81z-pd"):
+        src = os.path.join(REPO, "instruments", proj)
+        files["bela-projects/" + os.path.basename(proj)] = src
     return files
 
 
@@ -155,7 +160,9 @@ def main():
         shutil.rmtree(p) if os.path.isdir(p) else os.remove(p)
     for n, src in files.items():
         dst = os.path.join(WT, n)
-        shutil.copytree(src, dst) if os.path.isdir(src) else shutil.copy2(src, dst)
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        shutil.copytree(src, dst, ignore=shutil.ignore_patterns("*.pd_linux", "*user-bank.*", "*.nvram", "*.bin")) \
+            if os.path.isdir(src) else shutil.copy2(src, dst)
     open(os.path.join(WT, ".gitignore"), "w").write(IGNORE)
     open(os.path.join(WT, "README.md"), "w").write(README.replace("{contents}", contents(files)))
     open(os.path.join(WT, "bela-sync.sh"), "w").write(SYNC)
