@@ -39,6 +39,7 @@ go into this folder too; they are not in git, so `git pull` never touches them.
 | `d50~` | Mac | Bela Gem | `d50~-help.pd` |
 | `juno~` | Mac | Bela Gem | `juno~-help.pd` |
 | `pdoly8~` | Mac | Bela Gem | `pdoly8~-help.pd` |
+| `sverb~` | Mac | Bela Gem | `sverb~-help.pd` |
 | `tx81zn~` | Mac | Bela Gem | `tx81zn~-help.pd` |
 | `tx81z~` | Mac | Bela Gem | `tx81z~-help.pd` |
 | `vrs23~` (abstraction) | Mac | Bela Gem | `vrs23~-help.pd` |
