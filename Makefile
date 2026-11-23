@@ -1,4 +1,4 @@
-# bela-workstation: the same target in every instrument (see README.md "Building").
+# bela-workstation: the same target in every instrument and effect (see README.md "Building").
 #   make bela-gem   all instruments cross-built for the Bela Gem into build/bela-gem
 #   make mac-zig    all Mac packages (instruments/*/bin/macos)
 #   make gen        all generated files
@@ -6,9 +6,11 @@
 #                   then common/tools/dist.py; make dist-push pushes it
 #   make all, make clean
 INSTRUMENTS = juno d50 cz4 pdoly8 tx81z
+EFFECTS = sverb
 TARGETS = all mac-zig bela-gem gen clean
 $(TARGETS):
 	@for i in $(INSTRUMENTS); do $(MAKE) -C instruments/$$i $@ || exit 1; done
+	@for e in $(EFFECTS); do $(MAKE) -C effects/$$e $@ || exit 1; done
 	@if [ "$@" = gen ]; then python3 rack/gen_rack.py; fi
 .PHONY: $(TARGETS)
 

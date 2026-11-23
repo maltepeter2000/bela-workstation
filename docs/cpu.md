@@ -17,7 +17,7 @@ percent, tx81zn~ idle even reads below the base):
 | tx81zn~ | about 0 % | about 5-7 % (a few notes) |
 | juno~ | about 2.5 % | about 12 % (6 voices, about 1.6 % per voice) |
 
-To do: tx81zn~ with all 8 voices, d50~, cz4~ and pdoly8~; the rack (several instruments in
+To do: sverb~ (estimate from x86: about 8-14 % of a core on the Gem), tx81zn~ with all 8 voices, d50~, cz4~ and pdoly8~; the rack (several instruments in
 one patch) once it exists, to see whether the shares add up.
 
 Estimate for one Pd patch: base 17 % plus about 10-15 % per instrument playing at full voice

@@ -5,7 +5,7 @@ usage: python3 common/tools/dist.py [--push]      (make dist runs make mac-zig b
 
 Collects from main: every instrument's Mac package (instruments/*/bin/macos: externals as
 .pd_darwin, abstractions, help patches, editors, presets), the Bela Gem externals
-(build/bela-gem/*.pd_linux) and the effects (effects/vrs23). Pd takes the binary that fits:
+(build/bela-gem/*.pd_linux) and the effects (effects/vrs23, effects/sverb). Pd takes the binary that fits:
 .pd_darwin on the Mac, .pd_linux on the Bela Gem. User banks, ROMs and nvram files are not
 in it and are listed in its .gitignore, so they can lie in the same folder and git pull never
 touches them.
@@ -24,6 +24,7 @@ REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 WT = os.path.join(REPO, "build", "pd-branch")
 BRANCH = "pd"
 INSTRUMENTS = ["juno", "d50", "cz4", "pdoly8", "tx81z"]
+EFFECTS = ["sverb"]                     # built effects: effects/<name>/bin/macos like the instruments
 SKIP = {"test", "LIESMICH.txt", "LIESMICH-juno.txt", "README.md", "cz4test.pd"}
 SKIP_SUFFIX = ("user-bank.txt", "user-bank.syx", ".nvram")
 
@@ -102,8 +103,8 @@ def collect():
         if name in files and not (os.path.isdir(src) or filecmp.cmp(files[name], src, shallow=False)):
             sys.exit(f"dist: {name} differs between {files[name]} and {src}")
         files.setdefault(name, src)
-    for ins in INSTRUMENTS:
-        d = os.path.join(REPO, "instruments", ins, "bin", "macos")
+    for d in [os.path.join(REPO, "instruments", i, "bin", "macos") for i in INSTRUMENTS] + \
+             [os.path.join(REPO, "effects", e, "bin", "macos") for e in EFFECTS]:
         for n in sorted(os.listdir(d)):
             if n in SKIP or n.endswith(SKIP_SUFFIX):
                 continue

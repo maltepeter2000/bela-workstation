@@ -18,6 +18,7 @@ instruments/          one folder per instrument, each with its own history
   m1/                 m1~      Korg M1, planned (no code yet)
 effects/
   vrs23/              vrs23~   Dynacord VRS 23 echo / reverb, Pd vanilla
+  sverb/              sverb~   Signalsmith reverb (FDN), send effect, mono or stereo in
 common/tools/         shared generators: ctlayer.py (controller layer), ctpads.py (pads and
                       their colours), ctnav.py (pad translator), lkdisplay.py (Launchkey
                       display), patchwriter.py
@@ -95,6 +96,7 @@ The instruments were moved here with their full commit history on 20 Nov 2026:
 | `instruments/cz4` | maltepeter2000/CZ4 | main, 72c9f00 |
 | `instruments/juno`, `instruments/d50` | maltepeter2000/pico-vintage-synths | main, 7a916f8 |
 | `effects/vrs23` | vrs23-pd.zip, 1 Nov 2026 | (not in a repository before) |
+| `effects/sverb` | new, 23 Nov 2026 (reverb from Signalsmith-Audio/basics, MIT) | |
 
 `git log --follow <file>` shows a file's history across the move. `m1~` stays in
 pico-vintage-synths.
