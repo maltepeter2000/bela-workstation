@@ -9,6 +9,7 @@ INSTRUMENTS = juno d50 cz4 pdoly8 tx81z
 TARGETS = all mac-zig bela-gem gen clean
 $(TARGETS):
 	@for i in $(INSTRUMENTS); do $(MAKE) -C instruments/$$i $@ || exit 1; done
+	@if [ "$@" = gen ]; then python3 rack/gen_rack.py; fi
 .PHONY: $(TARGETS)
 
 dist: mac-zig bela-gem

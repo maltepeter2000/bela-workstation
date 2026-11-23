@@ -58,7 +58,10 @@ def build(title, cfg):
     inl = p.add("inlet", 10, 60)
     inr = p.add("inlet", 700, 60)
     pd_ = p.add("route display", 1000, 90); p.con(inr, 0, pd_, 0)
-    pdm = p.msg("display $1 $2", 1000, 115); p.con(pd_, 0, pdm, 0)
+    # rebuilt with list prepend, not a message box with $1 $2 (which on the Bela turned a value into
+    # 0 and fails on a line with a single atom)
+    pdl = p.add("list prepend display", 1000, 115); p.con(pd_, 0, pdl, 0)
+    pdm = p.add("list trim", 1000, 140); p.con(pdl, 0, pdm, 0)
     out = p.add("outlet", 10, 860)
     dout = p.add("outlet", 700, 860)
     p.con(pdm, 0, dout, 0)

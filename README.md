@@ -22,6 +22,8 @@ common/tools/         shared generators: ctlayer.py (controller layer), ctpads.p
                       their colours), ctnav.py (pad translator), lkdisplay.py (Launchkey
                       display), patchwriter.py
 build/bela-gem/       make bela-gem: all instruments cross-built side by side (not in git)
+rack/                 the rack: rack/gen_rack.py -> rack/bela/rack4 (juno, d50, cz4, pdoly8 in one
+                      Bela patch, channels 1-4)
 launchkey/            the controller: CC pages, pads, display; lkdisplay.pd
 docs/                 instrument-contract.md: what every instrument provides, state, next steps
 ```

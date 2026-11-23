@@ -58,7 +58,8 @@ Bela Gem (with network; else clone on the Mac and copy the folder, see `bela-syn
     git clone -b pd --single-branch https://github.com/maltepeter2000/bela-workstation.git bela-workstation
 
 and in the project's `_main.pd`: `[declare -path ../pd-externals/bela-workstation]`. Ready
-projects that do this are in `bela-projects/` (juno, tx81zn-pd, tx81z-pd): copy one to
+projects that do this are in `bela-projects/` (juno, tx81zn-pd, tx81z-pd, and rack4: juno,
+d50, cz4 and pdoly8 at once on channels 1-4): copy one to
 `/root/Bela/projects/` and run it (tx81z needs its ROM `tx81z-v1.6.bin` in the project folder).
 
 ## Update
@@ -115,8 +116,9 @@ def collect():
     for n in sorted(os.listdir(fx)):
         if n.endswith(".pd") or n == "vrs23-clap.wav":
             put(n, os.path.join(fx, n))
-    for proj in ("juno/bela/juno", "tx81z/bela/tx81zn-pd", "tx81z/bela/tx81z-pd"):
-        src = os.path.join(REPO, "instruments", proj)
+    for proj in ("instruments/juno/bela/juno", "instruments/tx81z/bela/tx81zn-pd",
+                 "instruments/tx81z/bela/tx81z-pd", "rack/bela/rack4"):
+        src = os.path.join(REPO, proj)
         files["bela-projects/" + os.path.basename(proj)] = src
     return files
 
