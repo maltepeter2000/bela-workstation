@@ -190,9 +190,9 @@ def build():
 
 def finish(top):
     # connect every r~ rack-<nm>-l/-r to the master gains
-    idx = {t: i for i, (k, x, y, t) in enumerate(top.o) if k == "obj"}
-    gl = idx[f"*~ {MASTER}"]
-    gr = max(i for i, (k, x, y, t) in enumerate(top.o) if k == "obj" and t == f"*~ {MASTER}")
+    gains = [i for i, (k, x, y, t) in enumerate(top.o) if k == "obj" and t == f"*~ {MASTER}"]
+    assert len(gains) == 2, gains
+    gl, gr = gains  # left gain is created first
     for k, x, y, t in list(top.o):
         if k == "obj" and t.startswith("r~ rack-") and t.endswith("-l"):
             top.con(top.o.index((k, x, y, t)), 0, gl, 0)
