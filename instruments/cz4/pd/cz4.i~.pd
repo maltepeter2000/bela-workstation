@@ -1386,8 +1386,8 @@
 #X connect 43 0 13 0;
 #X connect 45 0 13 0;
 #X connect 41 0 27 0;
-#X restore 470 1701 pd pads;
-#X obj 470 1731 s \$0-cz4;
+#X restore 492 1701 pd pads;
+#X obj 492 1731 s \$0-cz4;
 #N canvas 0 50 760 560 lkdisplay 0;
 #X text 10 6 lkdisplay: display <title> <value> -> SysEx F0 7D 4C 4B 01 title 00 value F7 for [midiout]: the Launchkey custom firmware shows the two lines in its popup., f 100;
 #X obj 10 50 inlet;
@@ -1480,8 +1480,8 @@
 #X connect 36 1 38 1;
 #X connect 31 0 38 2;
 #X connect 38 0 39 0;
-#X restore 550 1791 pd lkdisplay;
-#X obj 550 1821 midiout;
+#X restore 572 1791 pd lkdisplay;
+#X obj 572 1821 midiout;
 #X connect 432 0 434 0;
 #X connect 433 0 434 0;
 #X connect 434 0 435 0;
@@ -1511,8 +1511,8 @@
 #X connect 450 0 453 0;
 #X connect 451 0 454 0;
 #X connect 452 0 454 0;
-#X connect 436 0 456 0;
 #X connect 434 5 456 0;
+#X connect 436 0 456 0;
 #X connect 444 0 456 0;
 #X connect 445 0 456 0;
 #X connect 453 0 456 0;

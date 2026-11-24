@@ -11,7 +11,8 @@ yellow writing surface, pink strip, blue panel, blue heading squares; font 12.
 sections: a list of
     ("text", title, paragraphs)        paragraph mode: Pd wraps, one paragraph per line start
     ("lines", title, lines)            line mode: every line at most 62 characters
-    ("controls", intro, rows, line)    intro paragraphs, then one heading per editor row:
+    ("controls", intro, rows, line[, heading])   intro paragraphs under heading (default
+                                       "Controls"), then one heading per editor row:
                                        rows = [(row title, [name, ...]), ...],
                                        line(name) -> "name (label) lo..hi, CC n: text"
 """
@@ -120,8 +121,8 @@ def build(p, title, subtitle, obj, sections, credits):
         elif kind == "lines":
             y = section(p, y, sec[1], sec[2])
         elif kind == "controls":
-            _, intro, rows, line = sec
-            y = section(p, y, "Controls", intro, para=True)
+            _, intro, rows, line = sec[:4]
+            y = section(p, y, sec[4] if len(sec) > 4 else "Controls", intro, para=True)
             for rtitle, names in rows:
                 y = section(p, y, rtitle, [l for nm in names if nm for l in entry(line(nm))])
         else:

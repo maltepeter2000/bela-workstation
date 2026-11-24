@@ -87,10 +87,14 @@ def subst(lines, rules, name):
 
 
 def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkdisplay=None,
-          midi=("raw", 2), pads_channel_rule=True):
+          midi=("raw", 2), pads_channel_rule=True, more_edits=(), save=True, store_writes=False):
     """obj: 'juno.i~', ext: the external with its arguments ('juno~'), short: bus name,
     edit / cc / pads / nav / lkdisplay: paths of the generated abstractions,
-    edit_title: the title of the bare editor ('juno~ editor')."""
+    edit_title: the title of the bare editor ('juno~ editor'), more_edits: [(path, name)] more
+    editors on the same bus, as subpatches [pd name] (click to open). save: 'save' becomes store,
+    then the first write (False: 'save' goes to the external unchanged, e.g. tx81z~'s battery RAM).
+    store_writes: after every store the first bank is written beside the patch as well (for an
+    external whose store writes its own file)."""
     bus = "\\$0-" + short
     extname = ext.split()[0]
     title_re = r"^(#X obj \d+ \d+ cnv 10 10 10 empty empty )" + re.escape(edit_title.replace(" ", "\\ ")) + "(?= )"
@@ -149,14 +153,27 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     rb = add(f"#X obj {X + 60} {Y} r {bus};")
     to_ext = []                                  # (object, outlet) -> external inlet 1
     if banks:
-        sel = ["save"] + [m for w, r, _ in banks for m in (w, r)]
+        sel = (["save"] if save else []) + (["store"] if store_writes else []) + \
+            [m for w, r, _ in banks for m in (w, r)]
         ru = add(f"#X obj {X} {Y + 30} route {' '.join(sel)};")
         for a in (inl, rb):
             con(a, 0, ru, 0)
-        sv = add(f"#X obj {X} {Y + 60} t b b;")
-        st = add(f"#X msg {X + 30} {Y + 120} store;")
-        con(ru, 0, sv, 0); con(sv, 1, st, 0)
-        to_ext += [(st, 0), (ru, len(sel))]
+        to_ext.append((ru, len(sel)))
+        first_write = []                         # what bangs the path of the first bank
+        if save:
+            sv = add(f"#X obj {X} {Y + 60} t b b;")
+            st = add(f"#X msg {X + 30} {Y + 120} store;")
+            con(ru, sel.index("save"), sv, 0); con(sv, 1, st, 0)
+            to_ext.append((st, 0))
+            first_write.append((sv, 0))
+        if store_writes:                         # store [n] on, then the file beside the patch
+            tb_ = add(f"#X obj {X} {Y + 88} t b a;")
+            lp = add(f"#X obj {X} {Y + 150} list prepend store;")
+            lt = add(f"#X obj {X} {Y + 175} list trim;")
+            con(ru, sel.index("store"), tb_, 0); con(tb_, 1, lp, 0); con(lp, 0, lt, 0)
+            to_ext.append((lt, 0))
+            first_write.append((tb_, 0))
+        off = len(sel) - 2 * len(banks)
         for k, (w, r, _) in enumerate(banks):
             by = Y + 60 + k * 100
             bw = add(f"#X obj {X + 70} {by} route bang;")
@@ -168,16 +185,17 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
             ar = add(f"#X obj {X + 220} {by + 35} symbol;")
             mw = add(f"#X msg {X + 70} {by + 65} {w} \\$1;")
             mr = add(f"#X msg {X + 170} {by + 65} {r} \\$1;")
-            con(ru, 1 + 2 * k, bw, 0); con(ru, 2 + 2 * k, br, 0)
+            con(ru, off + 2 * k, bw, 0); con(ru, off + 1 + 2 * k, br, 0)
             if k == 0:
-                con(sv, 0, sw, 0)                # save: store, then the first bank written
+                for a, o in first_write:         # save / store: then the first bank written
+                    con(a, o, sw, 0)
             con(bw, 0, sw, 0); con(bw, 1, aw, 0)
             con(br, 0, sr, 0); con(br, 1, ar, 0)
             con(rp, 0, sw, 1); con(rp, 0, sr, 1)
             con(sw, 0, mw, 0); con(aw, 0, mw, 0)
             con(sr, 0, mr, 0); con(ar, 0, mr, 0)
             to_ext += [(mw, 0), (mr, 0)]
-        my = Y + 60 + len(banks) * 100
+        my = Y + 60 + len(banks) * 100 + (60 if store_writes else 0)
     else:
         to_ext += [(inl, 0), (rb, 0)]
         my = Y + 40
@@ -258,20 +276,30 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     sc = add(f"#X obj {XR} {cy + 60} s {bus};")
     con(ro, 0, pcc, 0); con(pcc, 0, sc, 0)       # info in, n <name> <value> out
     disp = (ro, 0)                               # what the display shows
+    xp = XR + max(70, 6 * len(f"r $0-{short}-out") + 20)   # beside the receive, not over it
     if pdl:
-        ppd = add(as_subpatch(pdl, "pads", XR + 70, cy))
+        ppd = add(as_subpatch(pdl, "pads", xp, cy))
         if nvl:                                  # pads -> translator -> instrument, display
-            pnv = add(as_subpatch(nvl, "nav", XR + 70, cy + 30))
-            sp = add(f"#X obj {XR + 70} {cy + 60} s {bus};")
+            pnv = add(as_subpatch(nvl, "nav", xp, cy + 30))
+            sp = add(f"#X obj {xp} {cy + 60} s {bus};")
             con(ppd, 0, pnv, 0); con(ro, 0, pnv, 1); con(pnv, 0, sp, 0)
             disp = (pnv, 1)
         else:
-            sp = add(f"#X obj {XR + 70} {cy + 30} s {bus};")
+            sp = add(f"#X obj {xp} {cy + 30} s {bus};")
             con(ppd, 0, sp, 0)                   # pads (their save goes to the bank beside the patch)
     if lkl:
-        plk = add(as_subpatch(lkl, "lkdisplay", XR + 150, cy + 90))
-        ml = add(f"#X obj {XR + 150} {cy + 120} midiout;")
+        plk = add(as_subpatch(lkl, "lkdisplay", xp + 80, cy + 90))
+        ml = add(f"#X obj {xp + 80} {cy + 120} midiout;")
         con(disp[0], disp[1], plk, 0); con(plk, 0, ml, 0)
+
+    # ---- more editors on the same bus (right, below): click to open
+    if more_edits:
+        ey = cy + 170
+        note(XR, ey, "more editors on the same bus: click to open", 50)
+        for k, (path, name) in enumerate(more_edits):
+            el = subst(read(path), [(r"^(#X obj \d+ \d+ s )\\\$1;$", bus + ";"),
+                                    (r"^(#X obj \d+ \d+ r )\\\$1-out;$", bus + "-out;")], path)
+            add(as_subpatch(el, name, XR + k * 100, ey + 30))
 
     for b in blocks:
         lines += b

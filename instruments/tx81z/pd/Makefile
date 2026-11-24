@@ -89,7 +89,7 @@ mac-zig:
 	$(LIPO) -create $(MACDIR)/tx.aarch64 $(MACDIR)/tx.x86_64 -output '$(MACDIR)/tx81z~.pd_darwin'
 	rm -f $(MACDIR)/*.aarch64 $(MACDIR)/*.x86_64
 	cp 'tx81zn~-help.pd' 'tx81z~-help.pd' txcc.pd txedit.pd txfm.pd txfmcc.pd txpads.pd \
-	    lkdisplay.pd $(MACDIR)/
+	    lkdisplay.pd 'tx81zn.i~.pd' 'tx81zn.i~-help.pd' 'tx81z.i~.pd' 'tx81z.i~-help.pd' $(MACDIR)/
 
 gen:
 	python3 ../tools/tx81z_params.py
@@ -101,6 +101,7 @@ gen:
 	python3 ../../../common/tools/lkdisplay.py lkdisplay.pd
 	python3 ../tools/gen_bela.py
 	python3 ../tools/gen_bela.py --native
+	python3 ../tools/gen_tx_inst.py
 
 clean:
 	rm -f tx81z~.pd_darwin tx81z~.pd_linux tx81zn~.pd_darwin tx81zn~.pd_linux

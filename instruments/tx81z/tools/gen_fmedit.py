@@ -19,6 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
+import style as S                                  # noqa: E402
 from gen_editor import Canvas, bng, D, SP, SEMI, COMMA   # noqa: E402
 
 RANDOM = ["pluck", "bass", "lead", "brass", "pad", "strings", "total"]
@@ -65,16 +66,17 @@ assert all(sum(1 for m in MACROS if m[2] == k) <= 8 for k in range(len(PAGES)))
 CW, ROWH, X0 = 84, 80, 10
 BAND_Y = 40
 TOP = BAND_Y + 84
-BAND = ("#e8eef6", "#dde5f0")
+BAND = (S.YELLOW, S.ROW)
+TITLE = "tx81zn~ FM editor"        # tools/gen_tx_inst.py puts the object's name here
 
 
 def top_band(c):
     y = BAND_Y
-    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} 76 empty empty VOICE 4 8 0 10 #f2ece2 #404040 0;")
+    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} 76 empty empty VOICE 4 8 0 10 {S.PATCH} {S.BLUE} 0;")
     c.add(f"#X text {X0} {y + 18} name;")
     c.add(f"#X symbolatom {X0 + 40} {y + 18} 12 0 0 0 - {D}0-voice -;")
     c.add(f"#X text {X0 + 170} {y + 18} bank;")
-    c.add(f"#X obj {X0 + 206} {y + 18} hradio 17 1 0 5 {D}0-bank {D}0-bankv empty 0 -8 0 10 #fcfcfc #000000 #000000 0;")
+    c.add(f"#X obj {X0 + 206} {y + 18} hradio 17 1 0 5 {D}0-bank {D}0-bankv empty 0 -8 0 10 {S.WIDGET} {S.INK} {S.INK} 0;")
     for k, b in enumerate(BANKS):
         c.add(f"#X text {X0 + 210 + 17 * k} {y + 2} {b};")
     c.add(f"#X text {X0 + 304} {y + 18} patch;")
@@ -89,53 +91,19 @@ def top_band(c):
         bng(c, X0 + 384 + (k % 3) * 100, y + 34 + (k // 3) * 20, f"rnd-{cat}", cat)
 
 
-README = [
-    "tx81zn~ FM editor",
-    "[txfm <bus>] sends to [s <bus>] (the [r <bus>] in front of tx81zn~) and reads outlet 2 of tx81zn~ "
-    "from [r <bus>-out]. In your own patch: [r tx1] -> [tx81zn~ <rom> <nvram>] -> outlet 2 -> [s tx1-out] "
-    "and [txfm tx1]. [txedit tx1] on the same bus shows every single parameter.",
-    "The algorithm gives the operators roles: C = the carriers (what you hear), A = the modulator of the "
-    "main carrier OP1, B = the other modulators. A control of a role changes all of its operators and "
-    "shows the value of the first one. Roles of the 8 algorithms (manual numbering, > = modulates): "
-    "1-4 C:1 A:2 B:3+4, 5 C:1+3 A:2 B:4, 6 and 7 C:1+2+3 A:4, 8 C:1+2+3+4. A control without an "
-    "operator in its role shows - and does nothing.",
-    "PERFORM (page 1, the same in every instrument): mod A (brightness), feedback of OP4, attack and "
-    "release of the carriers, pitch depth of the LFO (vibrato), detune (spreads all operators around "
-    "the centre), mix = carriers against each other (only with several carriers: left the main "
-    "carrier OP1, right the others), volume (100 = 0 dB, not stored in the voice).",
-    "SYN 1: algorithm, ratio of C / A / B (frequency ratio, fine on SYN 2), mod B = output level of "
-    "the other modulators, level C = output level of the carriers.",
-    "SYN 2: waveform W1-W8 per role, fine ratio per role.",
-    "ENV C / A / B: envelope of the role (C = the amplitude, A and B = the brightness): attack, decay, "
-    "sustain level, fade (decay 2 while the key is held), release, velocity sensitivity, level and rate "
-    "scaling along the keyboard (attack and release of C are on PERFORM).",
-    "LFO: speed, wave, delay, amp depth, pitch and amp sensitivity, key sync. VOICE: poly / "
-    "mono, bend range, portamento mode and time, transpose, LFO amp modulation on / off per role.",
-    "Changing the algorithm keeps the operator settings: an operator that becomes a carrier sounds with "
-    "its output level (level C / mix).",
-]
-
-
-def readme(c):
-    body = (" " + SEMI + " " + SEMI + " ").join(t.replace(",", " " + COMMA).replace(";", SEMI) for t in README)
-    c.lines.append("#N canvas 60 60 620 520 readme 0;")
-    c.lines.append(f"#X text 10 10 {body}, f 92;")
-    c.add(f"#X restore {X0} 12 pd readme;")
-
-
 def gui(c):
-    readme(c)
-    c.add(f"#X text {X0 + 90} 14 tx81zn~ FM editor - open [pd readme] for how it works;")
+    # title as in the help: a blue square with the name
+    c.add(f"#X obj {X0} 14 cnv 10 10 10 empty empty {TITLE.replace(' ', SP)} 24 6 0 22 {S.BLUE} {S.INK} 0;")
     top_band(c)
     for p, title in enumerate(PAGES):
         y = TOP + p * ROWH
         c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {(title + '  CC ' + CCTEXT[p]).replace(' ', SP)} 4 8 0 10 "
-              f"{BAND[p % 2]} #404040 0;")
+              f"{BAND[p % 2]} {S.BLUE} 0;")
         for k, (nm, lbl, _) in enumerate(m for m in MACROS if m[2] == p):
             x, yc = X0 + k * CW, y + 18
             c.add(f"#X text {x} {yc} {lbl};")
             c.add(f"#X obj {x} {yc + 18} hsl 74 12 0 127 0 0 {D}0-e-{nm} {D}0-v-{nm} empty -2 -8 0 10"
-                  f" #fcfcfc #000000 #000000 0 1;")
+                  f" {S.WIDGET} {S.INK} {S.INK} 0 1;")
             c.add(f"#X floatatom {x} {yc + 34} 3 0 127 0 - {D}0-v-{nm} {D}0-e-{nm};")
             c.add(f"#X symbolatom {x + 26} {yc + 34} 8 0 0 0 - {D}0-t-{nm} -;")
 

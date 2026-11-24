@@ -21,6 +21,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
+import style as S                                  # noqa: E402
 import ctlayer                                    # noqa: E402
 import tx81z_params as T                          # noqa: E402
 
@@ -39,7 +40,8 @@ RANDOM = ["pluck", "bass", "lead", "brass", "pad", "strings", "total"]
 BAND_Y = 44
 TOP = BAND_Y + 110
 X1 = X0 + 8 * CW + 30
-BAND = ("#ececec", "#dcdcdc")
+BAND = (S.YELLOW, S.ROW)
+TITLE = "tx81z~ editor"            # tools/gen_tx_inst.py puts the object's name here
 
 
 def label(nm):
@@ -66,17 +68,17 @@ class Canvas:
 
 
 def bng(c, x, y, send, text):
-    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {text.replace(' ', SP)} 21 9 0 10 #fcfcfc #000000 #000000;")
+    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {text.replace(' ', SP)} 21 9 0 10 {S.WIDGET} {S.INK} {S.INK};")
 
 
 def top_band(c):
     """voice name and LCD of the TX81Z, program change, refresh"""
     y = BAND_Y
-    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} 100 empty empty VOICE 4 8 0 10 #e4ecf4 #404040 0;")
+    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} 100 empty empty VOICE 4 8 0 10 {S.PATCH} {S.BLUE} 0;")
     c.add(f"#X text {X0} {y + 20} name;")
     c.add(f"#X symbolatom {X0 + 40} {y + 20} 12 0 0 0 - {D}0-voice -;")
     c.add(f"#X text {X0 + 170} {y + 20} bank;")
-    c.add(f"#X obj {X0 + 206} {y + 20} hradio 17 1 0 4 {D}0-bank {D}0-bankv empty 0 -8 0 10 #fcfcfc #000000 #000000 0;")
+    c.add(f"#X obj {X0 + 206} {y + 20} hradio 17 1 0 4 {D}0-bank {D}0-bankv empty 0 -8 0 10 {S.WIDGET} {S.INK} {S.INK} 0;")
     c.add(f"#X text {X0 + 206} {y + 2} I{SP}{SP}A{SP}{SP}B{SP}{SP}C;")
     c.add(f"#X text {X0 + 286} {y + 20} patch;")
     c.add(f"#X floatatom {X0 + 326} {y + 20} 3 1 32 0 - {D}0-patchv {D}0-patch;")
@@ -98,52 +100,20 @@ def top_band(c):
     for k, cat in enumerate(RANDOM):
         bng(c, X0 + 52 + k * 82, y + 70, f"rnd-{cat}", cat)
     x1 = X1
-    c.add(f"#X obj {x1 - 4} {y} cnv 15 {8 * CW} 100 empty empty TX81Z{SP}LCD 4 8 0 10 #f4ece4 #404040 0;")
+    c.add(f"#X obj {x1 - 4} {y} cnv 15 {8 * CW} 100 empty empty TX81Z{SP}LCD 4 8 0 10 {S.SELECT} {S.BLUE} 0;")
     c.add(f"#X symbolatom {x1} {y + 20} 20 0 0 0 - {D}0-lcd0 -;")
     c.add(f"#X symbolatom {x1} {y + 42} 20 0 0 0 - {D}0-lcd1 -;")
 
 
-README = [
-    "tx81z~ editor",
-    "[txedit <bus>] sends to [s <bus>] (the [r <bus>] in front of tx81z~) and reads outlet 2 of tx81z~ "
-    "from [r <bus>-out]. In your own patch: [r tx1] -> [tx81z~ <rom> <nvram>] -> outlet 2 -> [s tx1-out] "
-    "and [txedit tx1]. Every change (controller, program change, messages, random) shows up here.",
-    "Rows of 8: rows 1-11 are the pages of the controller layer [txcc] (page k on the controller = row k), "
-    "the last two rows have no CC. Each cell: name and CC number, slider and number box: the value as from "
-    "a pot (0-127), the box right of it: the value as on the TX81Z.",
-    "bank + patch: program change I01-C32. In EDIT mode tx81z~ presses PLAY first (the firmware ignores "
-    "program changes while editing), then it reads the new voice for the editor.",
-    "MIDI ch: receive channel of the TX81Z, 0 = omni. Notes, the controller layer and SysEx follow it.",
-    "user N: recall slot N of the user bank (64 voices in txuser-bank.syx beside the patch, two TX81Z "
-    "voice bulk dumps, kept by tx81z~ / tx81zn~). store to N chooses a slot, save patch stores the "
-    "current voice there and writes the file. load bank reads the file again.",
-    "factory init: factory voices in bank I and the factory setup of the TX81Z (about 26 s, DSP on). "
-    "It overwrites what you stored in bank I with STORE on the TX81Z, not txuser-bank.syx.",
-    "random: a new voice of that kind into the edit buffer - pluck (harp, piano, guitar: fast attack, "
-    "decaying), bass (ratio 0.5, short decay), lead (sustained, vibrato, sometimes mono with portamento), "
-    "brass (slower attack, 1:1 and 1:2 ratios, feedback), pad (slow attack, several carriers, detune, LFO), "
-    "strings (bowed attack, detuned carriers, delayed vibrato), total (anything that still sounds). "
-    "Keep a good one with store to + save patch.",
-    "All changes go to the edit buffer of the TX81Z. STORE on the TX81Z (press store) keeps a voice in bank I.",
-]
-
-
-def readme(c):
-    body = (" " + SEMI + " " + SEMI + " ").join(t.replace(",", " " + COMMA).replace(";", SEMI) for t in README)
-    c.lines.append("#N canvas 60 60 620 520 readme 0;")
-    c.lines.append(f"#X text 10 10 {body}, f 92;")
-    c.add(f"#X restore {X0} 12 pd readme;")
-
-
 def gui(c):
-    readme(c)
-    c.add(f"#X text {X0 + 90} 14 tx81z~ editor - open [pd readme] for how it works;")
+    # title as in the help: a blue square with the name
+    c.add(f"#X obj {X0} 14 cnv 10 10 10 empty empty {TITLE.replace(' ', SP)} 24 6 0 22 {S.BLUE} {S.INK} 0;")
     top_band(c)
     for x0, rows in ((X0, LEFT), (X1, RIGHT)):
         for r, (title, ns) in enumerate(rows):
             y = TOP + r * ROWH
             lbl = f"{title}  {cc_text(ns)}".replace(" ", SP)
-            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {BAND[r % 2]} #404040 0;")
+            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {BAND[r % 2]} {S.BLUE} 0;")
             for k, nm in enumerate(ns):
                 if not nm:
                     continue
@@ -152,7 +122,7 @@ def gui(c):
                 c.add(f"#X text {x} {yc} {head};")
                 c.add(f"#X text {x} {yc + 12} {label(nm).replace('/', '/')};")
                 c.add(f"#X obj {x} {yc + 30} hsl 70 12 0 127 0 0 {D}0-e-{nm} {D}0-v-{nm} empty -2 -8 0 10"
-                      f" #fcfcfc #000000 #000000 0 1;")
+                      f" {S.WIDGET} {S.INK} {S.INK} 0 1;")
                 c.add(f"#X floatatom {x} {yc + 46} 3 0 127 0 - {D}0-v-{nm} {D}0-e-{nm};")
                 c.add(f"#X symbolatom {x + 26} {yc + 46} 7 0 0 0 - {D}0-t-{nm} -;")
 

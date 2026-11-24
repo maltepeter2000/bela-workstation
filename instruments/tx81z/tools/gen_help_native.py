@@ -1,318 +1,210 @@
 #!/usr/bin/env python3
-"""Generate pd/tx81zn~-help.pd (native engine) in the layout of Peter's help patches (pd-help-layout).
+"""Generate the help patch of tx81zn.i~ and tx81zn~ (native engine; one patch, written under both
+names), in the form of the skill pd-help-layout: no GUI, one example and the reference as text;
+the FM view row by row as in the editor txfm, then every voice parameter as in txedit. Never
+edit the help patch by hand: change this script and run it again.
 
-usage: python3 tools/gen_help_native.py [outfile]   (default: pd/tx81zn~-help.pd)
-
-Same grid, colours and checks as tools/gen_help.py (tx81z~); the controls are the FM view
-(pd/txfm.h), the controller layer is [txfmcc], both editors are live.
+    python3 tools/gen_help_native.py       writes pd/tx81zn.i~-help.pd and pd/tx81zn~-help.pd
 """
 import os
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
-sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
-import helpkit  # noqa: E402
+sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, helpdraw, helpkit
 import ctlayer as CL                             # noqa: E402
-import gen_help as H                             # noqa: E402
-import gen_fmedit as F                           # noqa: E402
-from gen_help import (BS, COMMA, DOLLAR, SEMI, YEL_X, YEL_Y, YEL_W, PINK_X, PINK_TOP, PINK_W,  # noqa: E402
-                      BLUE_X, BLUE_TOP, BLUE_W, HX, TX, CX, LINE, TXT_GAP, OBJ_GAP, BOX, STEP, M,
-                      YELLOW, PINK, BLUE, box_w, esc, nlines)
+import gen_fmedit as F                           # noqa: E402  (pages and labels of txfm)
+import gen_help as TXH                           # noqa: E402  (voice parameters, as txedit)
+import helpdraw as HD                            # noqa: E402
+import helpkit                                   # noqa: E402
 
-OBJ, SHORT = "tx81zn~", "tx81zn"
-SUBTITLE = "Yamaha TX81Z sound engine rebuilt natively (no CPU emulation)"
+OBJ = "tx81zn.i~"
+FILES = ("tx81zn.i~-help.pd", "tx81zn~-help.pd")
+TITLE = "tx81zn.i~ and tx81zn~"
+SUBTITLE = "Yamaha TX81Z sound engine rebuilt natively"
 ROM, NVRAM = "tx81z-v1.6.bin", "tx81z.nvram"
-CHANNEL = 0             # controller layer [txfmcc 0]: omni until tx81zn~ reports its channel
 
-# example controls of the FM view: name, description (two rows of 4, values 0-127)
-CONTROLS = [
-    ("algo", "algorithm 1-8, it sets the roles C / A / B."),
-    ("ratc", "frequency ratio of the carriers C."),
-    ("rata", "frequency ratio of modulator A."),
-    ("ratb", "frequency ratio of the modulators B."),
-    ("moda", "output level of A = brightness."),
-    ("modb", "output level of B."),
-    ("fdbk", "feedback of operator 4, 0-7."),
-    ("mix", "carriers against each other (only with several: algorithms 5-8)."),
-]
+# descriptions of some FM controls (the label of txfm otherwise)
+FMDESC = {
+    "algo": "algorithm 1-8, it sets the roles C / A / B",
+    "ratc": "frequency ratio of the carriers C",
+    "rata": "frequency ratio of modulator A",
+    "ratb": "frequency ratio of the modulators B",
+    "moda": "output level of A = brightness",
+    "modb": "output level of B",
+    "fdbk": "feedback of operator 4, 0-7",
+    "mix": "carriers against each other (only with several: algorithms 5-8)",
+}
 
 ROLES = "Algorithms (> = modulates) and roles: " + ", ".join(
     f"{k + 1} {g} {c} {a} {b}" for k, (g, c, a, b) in enumerate(F.ALGS)) + "."
 
-EXBLOCKS = [
-    ("Voices", ["bank <I|A|B|C|D> <1-32> selects any voice, bank D included. Program change "
-                "0-127 selects I01-I32 and A01-C32 as on the TX81Z (I 0-31, A 32-63, B 64-95, C 96-127). "
-                "Bank I comes from the battery RAM file; without it bank I is empty. random <kind> [seed] "
-                "makes a new voice (the same generator as tx81z~)."],
-     ["bank A 1", "bank C 15", "bank D 3", "pgm 0", "pgm 40", "random pad", "random bass", "random lead",
-      "random total"]),
-    ("FM view", ["fm <control> <0-127> sets a control of the FM view, fminfo <control> asks for it. "
-                 "Every change comes back as fm <control> <0-127> <text> on outlet 2 (the text is - "
-                 "when the role has no operator in this algorithm). All controls: FM view below."],
-     ["fm algo 0", "fm algo 73", "fm algo 127", "fm ratc 30", "fm rata 60", "fm moda 110",
-      "fm dtun 127", "fm atkc 60", "fm lpmd 80"]),
+FM = ["The FM view gives the four operators roles from the algorithm: C = the carriers (what you "
+      "hear), A = the modulator of the main carrier OP1, B = the other modulators. A control of a "
+      "role changes all of its operators and shows the value of the first one. In the end everything "
+      "is an ordinary TX81Z voice parameter: the voice stays a TX81Z voice (txedit shows every "
+      "single value).",
+      "Ratio shows the real frequency ratio of coarse and fine. Mix: left the main carrier OP1, right "
+      "the other carriers (the louder side keeps its level). Detune spreads all operators around the "
+      "centre. ENV C is the amplitude, ENV A and ENV B are the brightness. Changing the algorithm "
+      "keeps the operator settings: an operator that becomes a carrier sounds with its output level."]
+FM.insert(1, ROLES)
+
+OBJECT = [
+    "tx81zn.i~ is the TX81Z in one object: tx81zn~ (the voice routines of "
+    "the firmware rebuilt natively), the FM editor txfm, the controller "
+    "layer txfmcc, the Launchkey pads and display, MIDI in and out, and "
+    "txedit with every single voice parameter. Put it in a patch, connect "
+    "the two left outlets to dac~ and play. Click it to open the FM editor, "
+    "see Editors.",
+    "Argument 1 is the MIDI channel (0 or none = 1), argument 2 the channel "
+    "of the pads (0 or none = 10, the Drums Channel). Several tx81zn.i~ do "
+    "not get in each other's way, each has its own editors.",
+    f"It needs the firmware {ROM} beside tx81zn~ (tables and preset banks A "
+    "to D are read from it, inside tx81zn.i~ the patch that holds tx81zn~ is "
+    "tx81zn.i~.pd itself), see ROM and battery RAM.",
+    "tx81zn~ is the bare engine inside, for patches of your own: raw MIDI "
+    "bytes from midiin go into its inlet, its outlet 3 reports every change. "
+    "Open tx81zn.i~ to see the wiring.",
 ]
 
+EDITORS = [
+    "The FM editor txfm is the window of tx81zn.i~: the rows of the FM view "
+    "(Controls), row k = page k of txfmcc. On top: voice name, bank I A B C "
+    "D and patch, the algorithm with its roles, random voices.",
+    "txedit (pd txedit below the editor, click it): all 100 voice parameters "
+    "in rows of 8 (Voice parameters), voice name, program change, MIDI "
+    "channel, the user bank. Both work on the same bus and stay in sync.",
+    "Each cell: label, a slider and a number box with the value as from a "
+    "pot (0 to 127), the box beside it the value as on the TX81Z (- when "
+    "the role has no operator in this algorithm).",
+]
 
-def fm_pages():
-    """FM view: one paragraph per page, the controls with their labels"""
-    out = []
+INLETS = [
+    "1 note, cc, pgm, bend messages, raw MIDI (float, list,",
+    "  midi <bytes>) and the messages below.",
+]
+
+OUTLETS = [
+    "1 signal: left output (~55.9 kHz resampled).",
+    "2 signal: right output.",
+    "3 anything: info, fm, voice, voicedata, channel, status,",
+    "  display <title> <value>, lcd (splash, once).",
+]
+
+PRESETS = [
+    "bank <I|A|B|C|D> <1-32> selects any voice, bank D included. Program "
+    "change 0-127 selects I01-I32 and A01-C32 as on the TX81Z. Bank I comes "
+    "from the battery RAM file, without it bank I is empty.",
+    "The user bank (64 voices, two TX81Z voice bulk dumps) is "
+    "txuser-bank.syx in the folder of your patch, so every project keeps "
+    "its own. tx81zn.i~ reads it at load if it is there, otherwise the bank "
+    "beside tx81zn~ is the starting point. save, store and userwrite / "
+    "userread without a file name use this file. Save the patch first, an "
+    "unsaved patch has no folder of its own. tx81z.i~ uses the same file.",
+]
+
+MESSAGES = [
+    "note <p> <v> [ch], cc <n> <v> [ch], pgm <n> [ch],",
+    "  bend <-8192..8191> [ch]",
+    "<float> / list, midi <bytes>: raw MIDI bytes ([midiin]),",
+    "  SysEx parameter changes and voice dumps included",
+    "bank <I|A|B|C|D> <1-32>: select a voice",
+    "fm <control> <0-127>, fminfo <control>: FM view",
+    "<name> <value>: a voice parameter, TX81Z data value,",
+    "  e.g. alg 4, out1 99 (all names: Voice parameters)",
+    "n <name> <0-127>: the same from a pot / CC position",
+    "ninfo <name>: outlet 3 gets info <name> <0-127> <value>,",
+    "  every change is reported this way by itself",
+    "vced <p> <d>, aced <p> <d>: raw parameter change",
+    "dumpreq: report every value again (info, fm, channel)",
+    "getvoice: outlet 3 gets voicedata <name> <93 VCED>",
+    "  <23 ACED>, voicedata ...: load that voice",
+    "random <kind> [seed]: a new voice,",
+    "  kind: pluck bass lead brass pad strings total",
+    "presetstep [n], userstep [n]: ROM preset A01-D32 / user",
+    "  slot n after the one played last (the Launchkey pads)",
+    "init: the TX81Z Init Voice",
+    "user <0-63>: recall a slot of the user bank",
+    "store [0-63], save: the voice into a slot (save: the last",
+    "  one), writes the user bank (see Presets)",
+    "userread [file], userwrite [file]: the user bank. A file",
+    "  name without a path is beside tx81zn~.",
+    "channel <0-16>: receive channel, 0 = omni",
+    "tune <0-127>: master tune (64 = centre)",
+    "rom <file>, nvram <file>: load (the nvram is only read)",
+    "factoryinit: all notes off, voice A01",
+    "gain <f>: output gain (default 1)",
+]
+
+ABOUT = [
+    "The voice, note, modulation and controller routines of the TX81Z "
+    "firmware v1.6 are rebuilt in C++ and drive the YM2414 directly, with "
+    "the same register values as the firmware (tested against the firmware "
+    "running in tx81z~). A YM2414 core derived from ymfm, bit-identical to "
+    "it, renders the sound. About a third to a sixth of the CPU of tx81z~, "
+    "and parameter changes take effect at once (no SysEx round trip).",
+    "Single mode only: no performance mode, no micro tuning, no front panel. "
+    "The display shows the splash screen once (lcd), the voice name comes as "
+    "voice <name>.",
+]
+
+ROMTEXT = [
+    "Arguments: [tx81zn~ <firmware> <battery RAM file>], paths relative to "
+    f"the patch that holds tx81zn~ (for tx81zn.i~: beside tx81zn~, it gives "
+    f"{ROM} {NVRAM}). The firmware (64 KB, e.g. {ROM} from the MAME set "
+    "tx81z) is not included: tx81zn~ reads its tables and the preset banks "
+    "A-D from it. The battery RAM file of tx81z~ is optional and only read: "
+    "bank I, master tune and receive channel. tx81zn~ never writes it.",
+]
+
+FM_INTRO = [
+    "The FM view in the order of the editor txfm: one heading per row, the "
+    "same title as the row there, page k on the controller is row k. Each "
+    "line: name (the label in the editor), range, CC number and what it "
+    "does. Set them with fm <control> <0-127>.",
+]
+
+CREDITS = ("Credits: Modelled on the Yamaha TX81Z firmware v1.6 and service manual, "
+           "YM2414 after ymfm (Aaron Giles) with help by Claude")
+
+
+def fm_rows():
+    rows = []
     for k, title in enumerate(F.PAGES):
-        ms = [m for m in F.MACROS if m[2] == k]
-        out.append(f"page {k + 1} {title}, CC {CL.page_text(k)}: "
-                   + ", ".join(f"{n} {lbl}" for n, lbl, _ in ms))
-    return out
+        names = [m[0] for m in F.MACROS if m[2] == k]
+        rows.append((f"PAGE {k + 1}  {title}  CC {CL.page_text(k)}" if k < len(CL.PAGES) else title, names))
+    return rows
 
 
-def build():
-    p = H.Patch()
-    bus = DOLLAR + "0-" + SHORT
-    out = DOLLAR + "0-" + SHORT + "-out"
-    rows = (len(CONTROLS) + 3) // 4
-    top_y = YEL_Y + 3 * M + 24 + 28
-    util_y = top_y
-    demo_y = util_y + STEP + BOX + 24
-    ctl_y0 = demo_y + 5 * STEP + BOX + 24
-    ROW = 2 * STEP + BOX + 11
-    ni_y = ctl_y0 + ROW * (rows - 1) + 2 * STEP + BOX + 24
-    cc_y = ni_y + 4 * STEP + 10
-    r_y = cc_y + 3 * STEP + 24
-    obj_y = r_y + STEP
-    mul_y, dac_y = obj_y + STEP, obj_y + 2 * STEP
-    y = dac_y + 3 * STEP + BOX + 32
+LABEL = {m[0]: m[1] for m in F.MACROS}
+PAGE = {m[0]: m[2] for m in F.MACROS}
 
-    fm = ["The FM view gives the four operators roles from the algorithm: C = the carriers (what you "
-          "hear), A = the modulator of the main carrier OP1, B = the other modulators. A control of a "
-          "role changes all of its operators and shows the value of the first one. In the end everything "
-          "is an ordinary TX81Z voice parameter: the voice stays a TX81Z voice (txedit shows every "
-          "single value).",
-          "Ratio shows the real frequency ratio of coarse and fine. Mix: left the main carrier OP1, right "
-          "the other carriers (the louder side keeps its level). Detune spreads all operators around the "
-          "centre. ENV C is the amplitude, ENV A and ENV B are the brightness. Changing the algorithm "
-          "keeps the operator settings: an operator that becomes a carrier sounds with its output level."]
-    fm.insert(1, ROLES)
-    fm += fm_pages()
 
-    cc = [f"[txfmcc {CHANNEL}] above is the controller layer for the FM view: Launchkey pages 1-7 = the "
-          "7 rows of the editor txfm (CC 20-83), transpose is on CC 80 (page 7 VOICE, encoder 5). It follows the "
-          "receive channel tx81zn~ reports (0 = omni = all channels).",
-          "Changes from elsewhere (voice change, editor, messages) go back to the controller as CC, one "
-          "every 2 ms. Pickup: after such a change an encoder acts only when it reaches the value or "
-          "crosses it (pickup 0 turns that off). CC 3 or sync sends all values to the controller.",
-          "For the single parameters use [txcc] of tx81z~ instead (CC pages 20-119, n <name> <0-127>): "
-          "tx81zn~ takes the same messages."]
+def fm_line(nm):
+    k = PAGE[nm]
+    idx = [m[0] for m in F.MACROS if m[2] == k].index(nm)
+    cc = f", CC {CL.PAGES[k][idx]}" if k < len(CL.PAGES) and idx < len(CL.PAGES[k]) else ""
+    text = f": {FMDESC[nm]}" if nm in FMDESC else ""
+    return f"{nm} ({LABEL[nm]}) 0..127{cc}{text}"
 
-    sections = [
-        ("Inlets and outlets", ["Inlet: messages (see Messages)",
-                                "Outlet 0, 1: signal left / right (~55.9 kHz resampled)",
-                                "Outlet 2: info, fm, voice, voicedata, channel, status,",
-                                "  display <title> <value> (Launchkey), lcd (splash, once)"]),
-        ("Messages", [
-            "note <p> <v> [ch], cc <n> <v> [ch], pgm <n> [ch],",
-            "  bend <-8192..8191> [ch]",
-            "<float> / list, midi <bytes>: raw MIDI bytes ([midiin]),",
-            "  SysEx parameter changes and voice dumps included",
-            "bank <I|A|B|C|D> <1-32>: select a voice",
-            "fm <control> <0-127>, fminfo <control>: FM view",
-            "<name> <value>: a voice parameter, TX81Z data value,",
-            "  e.g. alg 4, out1 99 (all names: Voice parameters)",
-            "n <name> <0-127>: the same from a pot / CC position",
-            "ninfo <name>: outlet 2 gets info <name> <0-127> <value>,",
-            "  every change is reported this way by itself",
-            "vced <p> <d>, aced <p> <d>: raw parameter change",
-            "dumpreq: report every value again (info, fm, channel)",
-            "getvoice: outlet 2 gets voicedata <name> <93 VCED>",
-            "  <23 ACED>, voicedata ...: load that voice",
-            "random <kind> [seed]: a new voice,",
-            "  kind: pluck bass lead brass pad strings total",
-            "presetstep [n], userstep [n]: ROM preset A01-D32 / user",
-            "  slot n after the one played last (the Launchkey pads)",
-            "init: the TX81Z Init Voice",
-            "user <0-63>: recall a slot of the user bank",
-            "store [0-63], save: the voice into a slot (save: the last",
-            "  one), writes txuser-bank.syx (two TX81Z voice dumps)",
-            "userread [file], userwrite [file]: the user bank",
-            "channel <0-16>: receive channel, 0 = omni",
-            "tune <0-127>: master tune (64 = centre)",
-            "rom <file>, nvram <file>: load (the nvram is only read)",
-            "factoryinit: all notes off, voice A01",
-            "gain <f>: output gain (default 1)"]),
-        ("Editors (txfm and txedit)", [
-            "[txfm " + bus.replace(BS, "") + "] above: the FM editor, 7 rows of 8 controls = the "
-            "Launchkey pages of txfmcc. On top: voice name, bank I A B C D and patch, the algorithm with "
-            "its roles, random voices. [txedit " + bus.replace(BS, "") + "]: all 100 voice parameters in "
-            "rows of 8, voice name, program change, MIDI channel, user bank (txuser-bank.syx: 64 voices as two TX81Z voice bulk dumps, kept by the object). Both work "
-            "on the same bus and stay in sync, click to open them.",
-            "In your own patch: [r tx1] -> [tx81zn~ <rom> <nvram>] -> outlet 2 -> [s tx1-out], "
-            "[txfm tx1], [txedit tx1], [r tx1-out] -> [txfmcc 0] -> [s tx1]."], True),
-        ("FM view", fm, True),
-        ("MIDI CC: controller layer (txfmcc)", cc, True),
-        ("Launchkey", helpkit.launchkey(
-            OBJ, "txfmcc", "txpads", "39-43 random pluck, bass, lead, brass, pad, 47 random "
-            "strings, 48 random total") + [
-            "channel 1 at load (below): the pads on channel 10 must not play notes, so the help "
-            "patch sets the receive channel to 1."], True),
-        ("Controls of the FM view (0-127)", [f"{n}: {t}" for n, t in CONTROLS], True),
-        ("Voice parameters", H.param_lines()),
-        ("How it works", [
-            "The voice, note, modulation and controller routines of the TX81Z firmware v1.6 are rebuilt "
-            "in C++ and drive the YM2414 directly, with the same register values as the firmware (tested "
-            "against the firmware running in tx81z~). A YM2414 core derived from ymfm, bit-identical to "
-            "it, renders the sound. About a third to a sixth of the CPU of tx81z~, and parameter changes "
-            "take effect at once (no SysEx round trip).",
-            "Single mode only: no performance mode, no micro tuning, no front panel. The display shows "
-            "the splash screen once (lcd); the voice name comes as voice <name>."], True),
-        ("ROM and battery RAM", [
-            f"Arguments: [{OBJ} <firmware> <battery RAM file>], paths relative to the patch. The firmware "
-            f"(64 KB, e.g. {ROM} from the MAME set tx81z) is not included: tx81zn~ reads its tables and "
-            "the preset banks A-D from it. The battery RAM file of tx81z~ is optional and only read: "
-            "bank I, master tune and receive channel. tx81zn~ never writes it, so a channel set here "
-            "lasts until the patch closes; without the file tx81zn~ receives omni."], True),
-    ]
 
-    placed = []
-    for sec in sections:
-        title, lines = sec[0], sec[1]
-        para = sec[2] if len(sec) > 2 else False
-        placed.append((title, lines, y, para))
-        y += 28 + LINE * (nlines(lines) if para else len(lines)) + TXT_GAP
-        if title == "Launchkey":
-            y += 3 * STEP + BOX + TXT_GAP
-    placed_ex = []
-    for title, intro, msgs in EXBLOCKS:
-        placed_ex.append((title, intro, msgs, y))
-        nr = (len(msgs) + 2) // 3
-        y += 28 + LINE * nlines(intro) + OBJ_GAP + STEP * nr + BOX + TXT_GAP
-    credits = ["Credits: Modelled on the Yamaha TX81Z firmware v1.6 and",
-               "service manual, YM2414 after ymfm (Aaron Giles) with help",
-               "by Claude"]
-    credits_y = y
-    yel_bottom = credits_y + 3 * LINE + M
-    bar_bottom = yel_bottom + M
-
-    p.cnv(YEL_X, YEL_Y, YEL_W, yel_bottom - YEL_Y, bg=YELLOW)
-    p.cnv(PINK_X, PINK_TOP, PINK_W, bar_bottom - PINK_TOP, bg=PINK)
-    p.cnv(BLUE_X, BLUE_TOP, BLUE_W, bar_bottom - BLUE_TOP, bg=BLUE)
-    p.heading(HX, YEL_Y + M, OBJ, 22)
-    p.heading(HX, YEL_Y + 3 * M, SUBTITLE, 16)
-
-    # utility messages
-    snd1 = p.add(f"#X obj {CX} {util_y + STEP} s {bus};")
-    x = CX
-    for text in ("bank A 1", "bank C 15", "bank D 3", "pgm 0", "dumpreq"):
-        m = p.add(f"#X msg {x} {util_y} {text};")
-        p.conn(m, 0, snd1, 0)
-        x += box_w(text) + 16
-    p.add(f"#X text {CX + 100} {util_y + STEP} C15 = LatelyBass {COMMA} pgm 0 = I01;")
-
-    # demo: a chord every second
-    tg = p.add(f"#X obj {CX} {demo_y} tgl 19 0 empty empty empty 17 7 0 10 #fcfcfc #000000 #000000 0 1;")
-    p.add(f"#X text {CX + 30} {demo_y} demo: a chord every second;")
-    p.add(f"#X msg {CX + 300} {demo_y} {SEMI} pd dsp 1;")
-    p.add(f"#X msg {CX + 380} {demo_y} {SEMI} pd dsp 0;")
-    mt = p.add(f"#X obj {CX} {demo_y + STEP} metro 1000;")
-    tb = p.add(f"#X obj {CX} {demo_y + 2 * STEP} t b b;")
-    on = p.add(f"#X msg {CX + 160} {demo_y + 3 * STEP} note 43 100 {COMMA} note 50 100 {COMMA} note 58 100;")
-    dl = p.add(f"#X obj {CX} {demo_y + 3 * STEP} delay 500;")
-    off = p.add(f"#X msg {CX} {demo_y + 4 * STEP} note 43 0 {COMMA} note 50 0 {COMMA} note 58 0;")
-    sd = p.add(f"#X obj {CX} {demo_y + 5 * STEP} s {bus};")
-    p.conn(tg, 0, mt, 0); p.conn(mt, 0, tb, 0); p.conn(tb, 1, on, 0); p.conn(tb, 0, dl, 0)
-    p.conn(dl, 0, off, 0); p.conn(on, 0, sd, 0); p.conn(off, 0, sd, 0)
-
-    # example controls of the FM view
-    snds = {}
-    for i, (cname, _) in enumerate(CONTROLS):
-        r, c = divmod(i, 4)
-        cx = CX + c * 112
-        ay = ctl_y0 + ROW * r
-        if r not in snds:
-            snds[r] = p.add(f"#X obj {CX} {ay + 2 * STEP} s {bus};")
-        a = p.add(f"#X floatatom {cx} {ay} 4 0 127 0 - - -;")
-        m = p.add(f"#X msg {cx} {ay + STEP} fm {cname} {DOLLAR}1;")
-        p.conn(a, 0, m, 0)
-        p.conn(m, 0, snds[r], 0)
-
-    # MIDI in: controller layer, notes, CC, program change, bend -> bus
-    rco = p.add(f"#X obj {CX} {cc_y} r {out};")
-    pcc = p.add(f"#X obj {CX} {cc_y + STEP} txfmcc {CHANNEL};")
-    scc = p.add(f"#X obj {CX} {cc_y + 2 * STEP} s {bus};")
-    p.add(f"#X text {CX + 130} {cc_y + STEP} <- controller layer: the pages of the FM editor;")
-    p.conn(rco, 0, pcc, 0); p.conn(pcc, 0, scc, 0)
-    cols = [("notein", "pack f f f", f"note {DOLLAR}1 {DOLLAR}2 {DOLLAR}3", 3),
-            ("ctlin", "pack f f f", f"cc {DOLLAR}2 {DOLLAR}1 {DOLLAR}3", 3),
-            ("pgmin", "- 1", f"pgm {DOLLAR}1", 1),
-            ("bendin", "- 8192", f"bend {DOLLAR}1", 1)]
-    xs = [CX, CX + 110, CX + 210, CX + 300]
-    for xx, (a_, b_, m_, n_) in zip(xs, cols):
-        oa = p.add(f"#X obj {xx} {ni_y} {a_};")
-        ob = p.add(f"#X obj {xx} {ni_y + STEP} {b_};")
-        om = p.add(f"#X msg {xx} {ni_y + 2 * STEP} {m_};")
-        os_ = p.add(f"#X obj {xx} {ni_y + 3 * STEP} s {bus};")
-        for k in range(n_):
-            p.conn(oa, k, ob, k)
-        p.conn(ob, 0, om, 0); p.conn(om, 0, os_, 0)
-
-    # the object, its outputs, the editors
-    rcv = p.add(f"#X obj {CX} {r_y} r {bus};")
-    o = p.add(f"#X obj {CX} {obj_y} {OBJ} {ROM} {NVRAM};")
-    p.conn(rcv, 0, o, 0)
-    mull = p.add(f"#X obj {CX} {mul_y} *~ 0.5;")
-    mulr = p.add(f"#X obj {CX + 70} {mul_y} *~ 0.5;")
-    dac = p.add(f"#X obj {CX} {dac_y} dac~;")
-    p.conn(o, 0, mull, 0); p.conn(o, 1, mulr, 0); p.conn(mull, 0, dac, 0); p.conn(mulr, 0, dac, 1)
-    sev = p.add(f"#X obj {CX + 340} {mul_y} s {out};")
-    rl = p.add(f"#X obj {CX + 150} {mul_y} route voice status;")
-    p.conn(o, 2, sev, 0); p.conn(o, 2, rl, 0)
-    lvn = p.add(f"#X obj {CX + 150} {dac_y} list;")
-    p.conn(rl, 0, lvn, 0)
-    vn = p.add(f"#X symbolatom {CX + 150} {dac_y + STEP} 10 0 0 0 - - -;")
-    p.conn(lvn, 0, vn, 0)
-    lst = p.add(f"#X obj {CX + 270} {dac_y} list;")
-    p.conn(rl, 1, lst, 0)
-    st = p.add(f"#X symbolatom {CX + 270} {dac_y + STEP} 14 0 0 0 - - -;")
-    p.conn(lst, 0, st, 0)
-    p.add(f"#X text {CX + 150} {dac_y + 2 * STEP} voice name / status;")
-    p.add(f"#X obj {CX + 300} {r_y} txfm {bus};")
-    p.add(f"#X obj {CX + 300} {obj_y} txedit {bus};")
-    p.add(f"#X text {CX + 400} {r_y} <- click: editors;")
-
-    for title, lines, sy, para in placed:
-        p.heading(HX, sy, title, 14)
-        p.comment(TX, sy + 28, lines, para=para)
-        if title == "Launchkey":
-            ly = sy + 28 + LINE * nlines(lines) + TXT_GAP
-            pp = p.add(f"#X obj {TX} {ly} txpads 10;")
-            sp = p.add(f"#X obj {TX} {ly + STEP} s {bus};")
-            lb = p.add(f"#X obj {TX + 110} {ly} loadbang;")
-            c1 = p.add(f"#X msg {TX + 110} {ly + STEP} channel 1;")
-            sc = p.add(f"#X obj {TX + 110} {ly + 2 * STEP} s {bus};")
-            rv = p.add(f"#X obj {TX + 220} {ly} r {out};")
-            lk = p.add(f"#X obj {TX + 220} {ly + STEP} lkdisplay;")
-            mo = p.add(f"#X obj {TX + 220} {ly + 2 * STEP} midiout;")
-            p.conn(pp, 0, sp, 0); p.conn(lb, 0, c1, 0); p.conn(c1, 0, sc, 0)
-            p.conn(rv, 0, lk, 0); p.conn(lk, 0, mo, 0)
-    for title, intro, msgs, sy in placed_ex:
-        p.heading(HX, sy, title, 14)
-        p.comment(TX, sy + 28, intro, para=True)
-        ly = sy + 28 + LINE * nlines(intro) + OBJ_GAP
-        nr = (len(msgs) + 2) // 3
-        sp = p.add(f"#X obj {CX + 380} {ly + STEP * nr} s {bus};")
-        for i, txt in enumerate(msgs):
-            r, c = divmod(i, 3)
-            m = p.add(f"#X msg {CX + c * 130} {ly + STEP * r} {esc(txt)};")
-            p.conn(m, 0, sp, 0)
-    p.comment(TX, credits_y, credits)
-
-    head = f"#N canvas 348 20 820 {bar_bottom + M} 12;"
-    txt = head + "\n" + "\n".join(p.lines) + "\n" + "\n".join(p.conns) + "\n"
-    H.check(txt)
-    return txt
+def main():
+    HD.write([os.path.normpath(os.path.join(HERE, "..", "pd", f)) for f in FILES],
+             title=TITLE, subtitle=SUBTITLE, obj=OBJ, credits=CREDITS,
+             sections=[("text", OBJ, OBJECT), ("text", "Editors", EDITORS),
+                       ("text", "Launchkey", helpkit.launchkey(
+                           "tx81zn~", "txfmcc", "txpads", "39-43 random pluck, bass, lead, brass, "
+                           "pad, 47 random strings, 48 random total")),
+                       ("lines", "Inlet", INLETS), ("lines", "Outlets", OUTLETS),
+                       ("text", "Presets and user bank", PRESETS),
+                       ("lines", "Messages", MESSAGES), ("text", "FM view", FM),
+                       ("text", "The instrument", ABOUT),
+                       ("text", "ROM and battery RAM", ROMTEXT),
+                       ("controls", FM_INTRO, fm_rows(), fm_line),
+                       ("controls", TXH.CONTROLS_INTRO, TXH.param_rows(), TXH.param_line,
+                        "Voice parameters (txedit)")])
 
 
 if __name__ == "__main__":
-    out = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, "pd", OBJ + "-help.pd")
-    with open(out, "w") as f:
-        f.write(build())
-    print("wrote", out)
+    main()
