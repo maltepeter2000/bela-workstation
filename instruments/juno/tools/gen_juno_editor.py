@@ -19,6 +19,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import ctlayer                                    # noqa: E402
 import juno_params as T                            # noqa: E402
+import style as S                                  # noqa: E402
 
 BS = chr(92)
 D, SP, SEMI, COMMA = BS + "$", BS + " ", BS + ";", BS + ","
@@ -34,9 +35,10 @@ BAND_Y = 44
 BAND_H = 100
 TOP = BAND_Y + BAND_H + 10
 X1 = X0 + 8 * CW + 30
-BAND = ("#ececec", "#dcdcdc")
-# The row that is not stored in a patch gets its own tint.
-TINT = {"SETUP": ("#f3ecdf", "#e8dfcc"), "VOICES": ("#f3ecdf", "#e8dfcc")}
+BAND = (S.YELLOW, S.ROW)
+# The rows that are not stored in a patch get their own tint.
+TINT = {"SETUP": S.SETUP, "VOICES": S.SETUP}
+TITLE = "juno~ editor"            # tools/gen_juno_inst.py puts the object's name here
 
 
 def label(nm):
@@ -63,13 +65,13 @@ class Canvas:
 
 
 def bng(c, x, y, send, text):
-    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {text.replace(' ', SP)} 21 9 0 10 #fcfcfc #000000 #000000;")
+    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {text.replace(' ', SP)} 21 9 0 10 {S.WIDGET} {S.INK} {S.INK};")
 
 
 def top_band(c):
     """patch name, factory and user bank, MIDI channels"""
     y = BAND_Y
-    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} {BAND_H} empty empty PATCH 4 8 0 10 #e4ecf4 #404040 0;")
+    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} {BAND_H} empty empty PATCH 4 8 0 10 {S.PATCH} {S.BLUE} 0;")
     c.add(f"#X text {X0} {y + 20} name;")
     c.add(f"#X symbolatom {X0 + 40} {y + 20} 20 0 0 0 - {D}0-namev -;")
     c.add(f"#X text {X0 + 190} {y + 20} factory;")
@@ -91,54 +93,8 @@ def top_band(c):
     c.add(f"#X text {X0 + 82} {y + 74} 0=all;")
     c.add(f"#X text {X0 + 130} {y + 74} out;")
     c.add(f"#X floatatom {X0 + 156} {y + 74} 3 1 16 0 - {D}0-txv {D}0-tx;")
-    c.add(f"#X obj {X0 + 220} {y + 74} tgl 15 0 {D}0-sxo {D}0-sxov SysEx{SP}for{SP}every{SP}change 19 8 0 10 #fcfcfc #000000 #000000 0 1;")
-    c.add(f"#X obj {X0 + 440} {y + 74} tgl 15 0 {D}0-thru {D}0-thruv MIDI{SP}thru 19 8 0 10 #fcfcfc #000000 #000000 0 1;")
-
-
-README = [
-    "juno~ editor",
-    "[junoedit <bus>] sends to [s <bus>] (the [r <bus>] in front of juno~) and reads outlet 3 of "
-    "juno~ from [r <bus>-out]. In your own patch: [r j1] -> [juno~] -> outlet 3 -> [route float] -> "
-    "right outlet -> [s j1-out] and [junoedit j1]. Every change (controller, patch change, messages, "
-    "SysEx) shows up here.",
-    "Rows of 8: the rows are the pages of the controller layer [junocc] (page k on the controller = "
-    "row k). Each cell: name and label, slider and number box: the value as from a pot (0-127), the "
-    "box right of it: the value as on the panel. Edits are heard at once.",
-    "Rows 1 to 3 are the patch: the 16 sliders and 8 switches of a Juno-106 patch. sub is the level "
-    "of the sub oscillator, 0 is off. chorus I+II is the third mode of the Juno-60, a Juno-106 plays "
-    "it as I. The SETUP row belongs to the instrument and is not stored in a patch: volume, tune, "
-    "bend range, octave, and how much the velocity changes level and cutoff (0 = not at all, as on "
-    "the instrument).",
-    "factory N: a factory preset (read only). 0 to 55 are the sounds of the Juno-60, after them come "
-    "the Juno-106 banks (.syx) found next to juno~. user N: a slot of the user bank (0-55, shown as "
-    "bank and number 11 to 78). reload: the same patch again, edits dropped. init patch: a plain "
-    "sawtooth to start from.",
-    "store to N chooses a user slot, save patch stores the playing patch there and writes "
-    "junouser-bank.syx (next to juno~). load bank reads that file again, write bank writes it without "
-    "storing.",
-    "send bank / send patch: the user bank or the playing patch as Juno-106 SysEx on the third "
-    "outlet of juno~ (to [midiout]). A Juno-106 plays a patch it receives but does not store it by "
-    "itself: after send bank it holds the last patch, press WRITE on it to keep one. A patch that "
-    "arrives at juno~ replaces the playing patch, store it to keep it.",
-    "SysEx for every change: juno~ then behaves like a Juno-106 and sends a parameter message for "
-    "every edit and the patch on every patch change, for editors and for a Juno-106 that should "
-    "follow. Off by default.",
-    "Launchkey pads ([junopads 10] beside the editor, Drum mode, Drums Channel 10). Pads 1-4 (top): "
-    "factory +, user +, init (twice within a second), chorus I > II > I+II > off. Pads 9-12 (below): factory -, "
-    "user -, save (into the user slot chosen last, and the file), Juno-106 / 60.",
-    "MIDI thru: what arrives as MIDI at juno~ (notes, controllers, program changes, bend, pressure, "
-    "clock, SysEx) leaves its third outlet unchanged, notes sent as messages go out on the out channel. On "
-    "by default; switch it off when the MIDI output leads back to the input.",
-    "MIDI in: receive channel of juno~ for raw MIDI, note lists and SysEx, 0 = all. out: the channel "
-    "of the controller feedback and of SysEx. The controller layer follows both.",
-]
-
-
-def readme(c):
-    body = (" " + SEMI + " " + SEMI + " ").join(t.replace(",", " " + COMMA).replace(";", SEMI) for t in README)
-    c.lines.append("#N canvas 60 60 620 620 readme 0;")
-    c.lines.append(f"#X text 10 10 {body}, f 92;")
-    c.add(f"#X restore {X0} 12 pd readme;")
+    c.add(f"#X obj {X0 + 220} {y + 74} tgl 15 0 {D}0-sxo {D}0-sxov SysEx{SP}for{SP}every{SP}change 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
+    c.add(f"#X obj {X0 + 440} {y + 74} tgl 15 0 {D}0-thru {D}0-thruv MIDI{SP}thru 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
 
 
 def tint(title, r):
@@ -149,14 +105,14 @@ def tint(title, r):
 
 
 def gui(c):
-    readme(c)
-    c.add(f"#X text {X0 + 90} 14 juno~ editor - open [pd readme] for how it works;")
+    # title as in the help: a blue square with the name
+    c.add(f"#X obj {X0} 14 cnv 10 10 10 empty empty {TITLE.replace(' ', SP)} 24 6 0 22 {S.BLUE} {S.INK} 0;")
     top_band(c)
     for x0, rows in ((X0, LEFT), (X1, RIGHT)):
         for r, (title, ns) in enumerate(rows):
             y = TOP + r * ROWH
             lbl = f"{title}  {cc_text(ns)}".replace(" ", SP).replace(":", "")
-            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {tint(title, r)} #404040 0;")
+            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {tint(title, r)} {S.BLUE} 0;")
             for k, nm in enumerate(ns):
                 if not nm:
                     continue
@@ -164,7 +120,7 @@ def gui(c):
                 c.add(f"#X text {x} {yc} {nm};")
                 c.add(f"#X text {x} {yc + 12} {label(nm)};")
                 c.add(f"#X obj {x} {yc + 30} hsl 70 12 0 127 0 0 {D}0-e-{nm} {D}0-v-{nm} empty -2 -8 0 10"
-                      f" #fcfcfc #000000 #000000 0 1;")
+                      f" {S.WIDGET} {S.INK} {S.INK} 0 1;")
                 c.add(f"#X floatatom {x} {yc + 46} 3 0 127 0 - {D}0-v-{nm} {D}0-e-{nm};")
                 c.add(f"#X symbolatom {x + 26} {yc + 46} 7 0 0 0 - {D}0-t-{nm} -;")
 

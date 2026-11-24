@@ -1,9 +1,6 @@
 #N canvas 20 20 660 716 10;
-#N canvas 60 60 620 620 readme 0;
-#X text 10 10 juno~ editor \; \; [junoedit <bus>] sends to [s <bus>] (the [r <bus>] in front of juno~) and reads outlet 3 of juno~ from [r <bus>-out]. In your own patch: [r j1] -> [juno~] -> outlet 3 -> [route float] -> right outlet -> [s j1-out] and [junoedit j1]. Every change (controller \, patch change \, messages \, SysEx) shows up here. \; \; Rows of 8: the rows are the pages of the controller layer [junocc] (page k on the controller = row k). Each cell: name and label \, slider and number box: the value as from a pot (0-127) \, the box right of it: the value as on the panel. Edits are heard at once. \; \; Rows 1 to 3 are the patch: the 16 sliders and 8 switches of a Juno-106 patch. sub is the level of the sub oscillator \, 0 is off. chorus I+II is the third mode of the Juno-60 \, a Juno-106 plays it as I. The SETUP row belongs to the instrument and is not stored in a patch: volume \, tune \, bend range \, octave \, and how much the velocity changes level and cutoff (0 = not at all \, as on the instrument). \; \; factory N: a factory preset (read only). 0 to 55 are the sounds of the Juno-60 \, after them come the Juno-106 banks (.syx) found next to juno~. user N: a slot of the user bank (0-55 \, shown as bank and number 11 to 78). reload: the same patch again \, edits dropped. init patch: a plain sawtooth to start from. \; \; store to N chooses a user slot \, save patch stores the playing patch there and writes junouser-bank.syx (next to juno~). load bank reads that file again \, write bank writes it without storing. \; \; send bank / send patch: the user bank or the playing patch as Juno-106 SysEx on the third outlet of juno~ (to [midiout]). A Juno-106 plays a patch it receives but does not store it by itself: after send bank it holds the last patch \, press WRITE on it to keep one. A patch that arrives at juno~ replaces the playing patch \, store it to keep it. \; \; SysEx for every change: juno~ then behaves like a Juno-106 and sends a parameter message for every edit and the patch on every patch change \, for editors and for a Juno-106 that should follow. Off by default. \; \; Launchkey pads ([junopads 10] beside the editor \, Drum mode \, Drums Channel 10). Pads 1-4 (top): factory + \, user + \, init (twice within a second) \, chorus I > II > I+II > off. Pads 9-12 (below): factory - \, user - \, save (into the user slot chosen last \, and the file) \, Juno-106 / 60. \; \; MIDI thru: what arrives as MIDI at juno~ (notes \, controllers \, program changes \, bend \, pressure \, clock \, SysEx) leaves its third outlet unchanged \, notes sent as messages go out on the out channel. On by default\; switch it off when the MIDI output leads back to the input. \; \; MIDI in: receive channel of juno~ for raw MIDI \, note lists and SysEx \, 0 = all. out: the channel of the controller feedback and of SysEx. The controller layer follows both., f 92;
-#X restore 10 12 pd readme;
-#X text 100 14 juno~ editor - open [pd readme] for how it works;
-#X obj 6 44 cnv 15 640 100 empty empty PATCH 4 8 0 10 #e4ecf4 #404040 0;
+#X obj 10 14 cnv 10 10 10 empty empty juno~\ editor 24 6 0 22 #1e3791 #000000 0;
+#X obj 6 44 cnv 15 640 100 empty empty PATCH 4 8 0 10 #e4ecf4 #1e3791 0;
 #X text 10 64 name;
 #X symbolatom 50 64 20 0 0 0 - \$0-namev -;
 #X text 200 64 factory;
@@ -27,7 +24,7 @@
 #X floatatom 166 118 3 1 16 0 - \$0-txv \$0-tx;
 #X obj 230 118 tgl 15 0 \$0-sxo \$0-sxov SysEx\ for\ every\ change 19 8 0 10 #fcfcfc #000000 #000000 0 1;
 #X obj 450 118 tgl 15 0 \$0-thru \$0-thruv MIDI\ thru 19 8 0 10 #fcfcfc #000000 #000000 0 1;
-#X obj 6 154 cnv 15 640 82 empty empty PAGE\ 1\ \ PERFORM\ \ CC\ 20-27 4 8 0 10 #ececec #404040 0;
+#X obj 6 154 cnv 15 640 82 empty empty PAGE\ 1\ \ PERFORM\ \ CC\ 20-27 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 172 cutoff;
 #X text 10 184 VCF freq;
 #X obj 10 202 hsl 70 12 0 127 0 0 \$0-e-cutoff \$0-v-cutoff empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -68,7 +65,7 @@
 #X obj 570 202 hsl 70 12 0 127 0 0 \$0-e-volume \$0-v-volume empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 218 3 0 127 0 - \$0-v-volume \$0-e-volume;
 #X symbolatom 596 218 7 0 0 0 - \$0-t-volume -;
-#X obj 6 242 cnv 15 640 82 empty empty PAGE\ 2\ \ DCO\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 242 cnv 15 640 82 empty empty PAGE\ 2\ \ DCO\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 260 range;
 #X text 10 272 DCO range;
 #X obj 10 290 hsl 70 12 0 127 0 0 \$0-e-range \$0-v-range empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -109,7 +106,7 @@
 #X obj 570 290 hsl 70 12 0 127 0 0 \$0-e-hpf \$0-v-hpf empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 306 3 0 127 0 - \$0-v-hpf \$0-e-hpf;
 #X symbolatom 596 306 7 0 0 0 - \$0-t-hpf -;
-#X obj 6 330 cnv 15 640 82 empty empty PAGE\ 3\ \ ENV\ /\ LFO\ /\ VCF\ /\ VCA\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #ececec #404040 0;
+#X obj 6 330 cnv 15 640 82 empty empty PAGE\ 3\ \ ENV\ /\ LFO\ /\ VCF\ /\ VCA\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 348 decay;
 #X text 10 360 Decay;
 #X obj 10 378 hsl 70 12 0 127 0 0 \$0-e-decay \$0-v-decay empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -150,13 +147,13 @@
 #X obj 570 378 hsl 70 12 0 127 0 0 \$0-e-level \$0-v-level empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 394 3 0 127 0 - \$0-v-level \$0-e-level;
 #X symbolatom 596 394 7 0 0 0 - \$0-t-level -;
-#X obj 6 418 cnv 15 640 82 empty empty PAGE\ 4\ \ VCA\ \ CC\ 46-46 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 418 cnv 15 640 82 empty empty PAGE\ 4\ \ VCA\ \ CC\ 46-46 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 436 vcamode;
 #X text 10 448 VCA mode;
 #X obj 10 466 hsl 70 12 0 127 0 0 \$0-e-vcamode \$0-v-vcamode empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 10 482 3 0 127 0 - \$0-v-vcamode \$0-e-vcamode;
 #X symbolatom 36 482 7 0 0 0 - \$0-t-vcamode -;
-#X obj 6 506 cnv 15 640 82 empty empty PAGE\ 5\ \ SETUP\ \ CC\ 54-59 4 8 0 10 #f3ecdf #404040 0;
+#X obj 6 506 cnv 15 640 82 empty empty PAGE\ 5\ \ SETUP\ \ CC\ 54-59 4 8 0 10 #f3ecdf #1e3791 0;
 #X text 10 524 tune;
 #X text 10 536 Tune;
 #X obj 10 554 hsl 70 12 0 127 0 0 \$0-e-tune \$0-v-tune empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -187,7 +184,7 @@
 #X obj 410 554 hsl 70 12 0 127 0 0 \$0-e-model \$0-v-model empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 410 570 3 0 127 0 - \$0-v-model \$0-e-model;
 #X symbolatom 436 570 7 0 0 0 - \$0-t-model -;
-#X obj 6 594 cnv 15 640 82 empty empty PAGE\ 6\ \ VOICES\ \ CC\ 62-63 4 8 0 10 #e8dfcc #404040 0;
+#X obj 6 594 cnv 15 640 82 empty empty PAGE\ 6\ \ VOICES\ \ CC\ 62-63 4 8 0 10 #e8dfcc #1e3791 0;
 #X text 10 612 calibrate;
 #X text 10 624 Calibrate;
 #X obj 10 642 hsl 70 12 0 127 0 0 \$0-e-calibrate \$0-v-calibrate empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;

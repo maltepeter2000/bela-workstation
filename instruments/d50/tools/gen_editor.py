@@ -25,6 +25,7 @@ sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import ctlayer                                    # noqa: E402
 import d50_params as T                            # noqa: E402
+import style as S                                  # noqa: E402
 
 BS = chr(92)
 D, SP, SEMI, COMMA = BS + "$", BS + " ", BS + ";", BS + ","
@@ -40,9 +41,10 @@ BAND_Y = 44
 BAND_H = 100
 TOP = BAND_Y + BAND_H + 10
 X1 = X0 + 8 * CW + 30
-BAND = ("#ececec", "#dcdcdc")
+BAND = (S.YELLOW, S.ROW)
 # Rows that follow the selected partial or its tone get their own tint.
-TINT = {"PARTIAL": ("#e6eef6", "#d6e2ee"), "TONE": ("#f3ecdf", "#e8dfcc")}
+TINT = {"PARTIAL": S.FOLLOW, "TONE": S.SETUP}
+TITLE = "d50~ editor"             # tools/gen_d50_inst.py puts the object's name here
 
 
 def label(nm):
@@ -69,13 +71,13 @@ class Canvas:
 
 
 def bng(c, x, y, send, text):
-    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {text.replace(' ', SP)} 21 9 0 10 #fcfcfc #000000 #000000;")
+    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {text.replace(' ', SP)} 21 9 0 10 {S.WIDGET} {S.INK} {S.INK};")
 
 
 def top_band(c):
     """patch name, factory and user bank, MIDI channels, partial select"""
     y = BAND_Y
-    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} {BAND_H} empty empty PATCH 4 8 0 10 #e4ecf4 #404040 0;")
+    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} {BAND_H} empty empty PATCH 4 8 0 10 {S.PATCH} {S.BLUE} 0;")
     c.add(f"#X text {X0} {y + 20} name;")
     c.add(f"#X symbolatom {X0 + 40} {y + 20} 20 0 0 0 - {D}0-namev {D}0-name;")
     c.add(f"#X text {X0 + 190} {y + 20} factory;")
@@ -98,54 +100,14 @@ def top_band(c):
     c.add(f"#X text {X0 + 130} {y + 74} out;")
     c.add(f"#X floatatom {X0 + 156} {y + 74} 3 1 16 0 - {D}0-txv {D}0-tx;")
     x1 = X1
-    c.add(f"#X obj {x1 - 4} {y} cnv 15 {8 * CW} {BAND_H} empty empty PARTIAL{SP}SELECT 4 8 0 10 #f4ece4 #404040 0;")
-    c.add(f"#X obj {x1} {y + 34} hradio 22 1 0 4 {D}0-partsel {D}0-partselv empty 0 -8 0 10 #fcfcfc #000000 #000000 0;")
+    c.add(f"#X obj {x1 - 4} {y} cnv 15 {8 * CW} {BAND_H} empty empty PARTIAL{SP}SELECT 4 8 0 10 {S.SELECT} {S.BLUE} 0;")
+    c.add(f"#X obj {x1} {y + 34} hradio 22 1 0 4 {D}0-partsel {D}0-partselv empty 0 -8 0 10 {S.WIDGET} {S.INK} {S.INK} 0;")
     c.add(f"#X text {x1} {y + 18} U1{SP}{SP}U2{SP}{SP}L1{SP}{SP}L2;")
     c.add(f"#X text {x1 + 110} {y + 22} upper tone;")
     c.add(f"#X symbolatom {x1 + 180} {y + 22} 12 0 0 0 - {D}0-upperv {D}0-uppername;")
     c.add(f"#X text {x1 + 110} {y + 46} lower tone;")
     c.add(f"#X symbolatom {x1 + 180} {y + 46} 12 0 0 0 - {D}0-lowerv {D}0-lowername;")
     c.add(f"#X text {x1} {y + 74} The PARTIAL rows show the selected partial \\, the TONE rows its tone.;")
-
-
-README = [
-    "d50~ editor",
-    "[d50edit <bus>] sends to [s <bus>] (the [r <bus>] in front of d50~) and reads outlet 3 of d50~ "
-    "from [r <bus>-out]. In your own patch: [r d1] -> [d50~] -> outlet 3 -> [route float] -> right "
-    "outlet -> [s d1-out] and [d50edit d1]. Every change (controller, patch change, messages, SysEx) "
-    "shows up here.",
-    "Rows of 8: rows 1-11 are the pages of the controller layer [d50cc] (page k on the controller = "
-    "row k), the last rows have no CC. Each cell: name and label, slider and number box: the value "
-    "as from a pot (0-127), the box right of it: the value as on the D-50.",
-    "PARTIAL SELECT: the D-50 has four partials, two per tone. The PARTIAL rows always show and "
-    "change the selected one (U1 U2 L1 L2), the TONE rows the tone it belongs to (upper for U1 U2, "
-    "lower for L1 L2). It is the control part, first cell of page 2, so the controller can switch it too.",
-    "PERFORMANCE (row 1) acts on the whole patch: cut moves the cutoff of every synth partial and "
-    "also of notes that are sounding. res, att and rel shift resonance, attack and release of all "
-    "partials for the notes that follow. These four are not stored and go back to 0 with every patch "
-    "change. chorus, reverb and balance are patch values, volume is the master.",
-    "An edit of a partial or tone value is heard from the next note on. Chorus, equalizer, reverb and "
-    "the balances follow at once.",
-    "factory N: a factory preset (read only), numbered through all .syx banks next to d50~. user N: a "
-    "slot of the user bank (0-63). reload: the same patch again, edits dropped. init patch: a plain "
-    "sawtooth to start from.",
-    "store to N chooses a user slot, save patch stores the playing patch there and writes "
-    "d50user-bank.syx (next to d50~). load bank reads that file again, write bank writes it without "
-    "storing. name: type a new patch name and press enter, up to 18 characters (upper / lower tone: 10).",
-    "send bank / send patch: the user bank or the playing patch as D-50 SysEx on the third outlet of "
-    "d50~ (to [midiout]: a real D-50 or a librarian). A bulk dump that arrives at d50~ replaces the "
-    "user bank in memory, write bank keeps it. Bank files and send bank also carry the reverb data of "
-    "the D-50 (reverb types 17-32), unchanged from the dump they came with.",
-    "MIDI in: receive channel of d50~ for raw MIDI and note lists, 0 = all. out: the channel of the "
-    "controller feedback and the device number of SysEx dumps. The controller layer follows both.",
-]
-
-
-def readme(c):
-    body = (" " + SEMI + " " + SEMI + " ").join(t.replace(",", " " + COMMA).replace(";", SEMI) for t in README)
-    c.lines.append("#N canvas 60 60 620 620 readme 0;")
-    c.lines.append(f"#X text 10 10 {body}, f 92;")
-    c.add(f"#X restore {X0} 12 pd readme;")
 
 
 def tint(title, r):
@@ -156,14 +118,14 @@ def tint(title, r):
 
 
 def gui(c):
-    readme(c)
-    c.add(f"#X text {X0 + 90} 14 d50~ editor - open [pd readme] for how it works;")
+    # title as in the help: a blue square with the name
+    c.add(f"#X obj {X0} 14 cnv 10 10 10 empty empty {TITLE.replace(' ', SP)} 24 6 0 22 {S.BLUE} {S.INK} 0;")
     top_band(c)
     for x0, rows in ((X0, LEFT), (X1, RIGHT)):
         for r, (title, ns) in enumerate(rows):
             y = TOP + r * ROWH
             lbl = f"{title}  {cc_text(ns)}".replace(" ", SP).replace(":", "")
-            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {tint(title, r)} #404040 0;")
+            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {tint(title, r)} {S.BLUE} 0;")
             for k, nm in enumerate(ns):
                 if not nm:
                     continue
@@ -171,7 +133,7 @@ def gui(c):
                 c.add(f"#X text {x} {yc} {nm};")
                 c.add(f"#X text {x} {yc + 12} {label(nm)};")
                 c.add(f"#X obj {x} {yc + 30} hsl 70 12 0 127 0 0 {D}0-e-{nm} {D}0-v-{nm} empty -2 -8 0 10"
-                      f" #fcfcfc #000000 #000000 0 1;")
+                      f" {S.WIDGET} {S.INK} {S.INK} 0 1;")
                 c.add(f"#X floatatom {x} {yc + 46} 3 0 127 0 - {D}0-v-{nm} {D}0-e-{nm};")
                 c.add(f"#X symbolatom {x + 26} {yc + 46} 7 0 0 0 - {D}0-t-{nm} -;")
 
