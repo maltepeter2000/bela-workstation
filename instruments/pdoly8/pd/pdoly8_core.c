@@ -1144,8 +1144,9 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         }
         if (ddl_on || e->ddl_fb > 0.0f) {
             if (e->ddl_glide) e->ddl_ms_s += 0.0003f * (e->ddl_ms - e->ddl_ms_s);   /* glide, about 70 ms at 48 kHz */
-            else if (e->ddl_mute < 1.0f) {                          /* muted while the time jumps */
-                if (e->ddl_mute < 0.5f) e->ddl_ms_s = e->ddl_ms;
+            else if (e->ddl_mute < 0.5f) e->ddl_ms_s = e->ddl_ms;  /* muted while the time jumps */
+            if (e->ddl_mute < 1.0f) {   /* fade in: after a muted change, and at the start (in both modes;
+                                           the ramp used to run only with dgld 0, so dgld 1 stayed silent) */
                 e->ddl_mute += inv_fs / 0.04f; if (e->ddl_mute > 1.0f) e->ddl_mute = 1.0f;
             }
             float ms = e->ddl_ms_s;
