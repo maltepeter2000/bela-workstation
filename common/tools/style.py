@@ -11,6 +11,7 @@
             also the second kind of row that follows a selection (d50~: the TONE rows)
     FOLLOW  rows of an editor that follow a selection (d50~: the selected PARTIAL; two tones)
     SELECT  the band of an editor that makes such a selection
+    OPERATION  rows of an editor stored apart from the sound (cz4~: the operation memory)
     WIDGET  background of sliders, toggles, bangs
     INK     text and lines
 """
@@ -22,5 +23,6 @@ PATCH = "#e4ecf4"
 SETUP = ("#f3ecdf", "#e8dfcc")
 FOLLOW = ("#e6eef6", "#d6e2ee")
 SELECT = "#f4ece4"
+OPERATION = ("#e6efe4", "#d8e6d4")
 WIDGET = "#fcfcfc"
 INK = "#000000"

@@ -84,7 +84,7 @@ mac-zig:
 	$(LIPO) -create $(MACDIR)/cz1.aarch64 $(MACDIR)/cz1.x86_64 -output '$(MACDIR)/cz1~.pd_darwin'
 	$(LIPO) -create $(MACDIR)/cz4.aarch64 $(MACDIR)/cz4.x86_64 -output '$(MACDIR)/cz4~.pd_darwin'
 	rm -f $(MACDIR)/*.aarch64 $(MACDIR)/*.x86_64 $(MACDIR)/*.o
-	cp 'pd/cz1~-help.pd' 'pd/cz4~-help.pd' pd/cz4cc.pd pd/cz4pads.pd pd/cz4edit.pd pd/cz4test.pd pd/lkdisplay.pd $(MACDIR)/
+	cp 'pd/cz1~-help.pd' 'pd/cz4~-help.pd' 'pd/cz4.i~.pd' 'pd/cz4.i~-help.pd' pd/cz4cc.pd pd/cz4pads.pd pd/cz4edit.pd pd/cz4test.pd pd/lkdisplay.pd $(MACDIR)/
 	mkdir -p $(MACDIR)/test && cp -r pd/test/seq pd/test/tones pd/test/cz4test-bank*.syx $(MACDIR)/test/
 	cp tools/cz_compare.py tools/cz4_tests.py $(MACDIR)/test/
 
@@ -123,6 +123,7 @@ gen generate:
 	python3 tools/gen_cz4_editor.py
 	python3 tools/gen_cz4_help.py
 	cd pd && python3 ../../../common/tools/lkdisplay.py lkdisplay.pd
+	python3 tools/gen_cz4_inst.py
 	python3 tools/gen_cz1_help.py 'pd/cz1~-help.pd'
 	python3 tools/cz4_tests.py
 	python3 tools/gen_cz4_testrig.py

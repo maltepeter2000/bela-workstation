@@ -18,7 +18,8 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import ctlayer                                    # noqa: E402
-import cz4_params as T                             # noqa: E402
+import cz4_params as T  # noqa: E402
+import style as S                             # noqa: E402
 
 BS = chr(92)
 D, SP, SEMI, COMMA = BS + "$", BS + " ", BS + ";", BS + ","
@@ -34,11 +35,10 @@ BAND_Y = 44
 BAND_H = 128
 TOP = BAND_Y + BAND_H + 10
 X1 = X0 + 8 * CW + 30
-BAND = ("#ececec", "#dcdcdc")
-# Rows not stored in a tone get their own tint: performance and setup (never stored),
-# operation memory (stored in an operation slot).
-TINT = {"PERFORM": ("#f3ecdf", "#e8dfcc"), "SETUP": ("#f3ecdf", "#e8dfcc"),
-        "OPERATION": ("#e6efe4", "#d8e6d4")}
+BAND = (S.YELLOW, S.ROW)
+# Rows that are not stored in a tone (PERFORM, SETUP) and the operation memory get their own tint.
+TINT = {"PERFORM": S.SETUP, "SETUP": S.SETUP, "OPERATION": S.OPERATION}
+TITLE = "cz4~ editor"             # tools/gen_cz4_inst.py puts the object's name here
 
 
 def label(nm):
@@ -65,13 +65,13 @@ class Canvas:
 
 
 def bng(c, x, y, send, text):
-    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {text.replace(' ', SP)} 21 9 0 10 #fcfcfc #000000 #000000;")
+    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {text.replace(' ', SP)} 21 9 0 10 {S.WIDGET} {S.INK} {S.INK};")
 
 
 def top_band(c):
     """tone name, factory and user bank, operation memory, SysEx, MIDI channels"""
     y = BAND_Y
-    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} {BAND_H} empty empty TONE 4 8 0 10 #e4ecf4 #404040 0;")
+    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} {BAND_H} empty empty TONE 4 8 0 10 {S.PATCH} {S.BLUE} 0;")
     c.add(f"#X text {X0} {y + 20} name;")
     c.add(f"#X symbolatom {X0 + 40} {y + 20} 17 0 0 0 - {D}0-namev {D}0-name;")
     c.add(f"#X text {X0 + 170} {y + 20} factory;")
@@ -80,7 +80,7 @@ def top_band(c):
     c.add(f"#X floatatom {X0 + 294} {y + 20} 3 0 63 0 - {D}0-userv {D}0-urecall;")
     bng(c, X0 + 330, y + 20, "reload", "reload")
     bng(c, X0 + 400, y + 20, "init", "init")
-    c.add(f"#X obj {X0 + 450} {y + 20} tgl 17 0 {D}0-cmp {D}0-cmpv compare 21 9 0 10 #fcfcfc #000000 #000000 0 1;")
+    c.add(f"#X obj {X0 + 450} {y + 20} tgl 17 0 {D}0-cmp {D}0-cmpv compare 21 9 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
     bng(c, X0 + 8 * CW - 80, y + 20, "refresh", "refresh")
     c.add(f"#X text {X0} {y + 46} store to;")
     c.add(f"#X floatatom {X0 + 56} {y + 46} 3 0 63 0 - - {D}0-uslot;")
@@ -106,48 +106,6 @@ def top_band(c):
     bng(c, X0 + 400, y + 98, "czsend", "send to CZ")
 
 
-README = [
-    "cz4~ editor",
-    "[cz4edit <bus>] sends to [s <bus>] (the [r <bus>] in front of cz4~) and reads outlet 3 of "
-    "cz4~ from [r <bus>-out]. In your own patch: [r c1] -> [cz4~] -> outlet 3 -> [route float] -> "
-    "right outlet -> [s c1-out] and [cz4edit c1]. Every change (controller, tone change, messages, "
-    "SysEx) shows up here.",
-    "Rows of 8: the rows are the pages of the controller layer [cz4cc] (page k on the controller = "
-    "row k). Each cell: name and label, slider and number box: the value as from a pot (0-127), the "
-    "box right of it: the value as the CZ shows it. Edits are heard at once.",
-    "Line, envelope and tone: the LINE / WAVE, ENVELOPE, RATES and LEVELS rows edit the line chosen "
-    "with 'line' (1 or 2) and the envelope chosen with 'env' (DCO pitch, DCW wave, DCA amplitude), "
-    "in tone A or, with 'edit' B, in tone B of a split or mix. The cells follow the selection.",
-    "An envelope has 8 steps of rate and level. sus is the step that holds while the key is down "
-    "(off: none), end the last step, which goes to zero. Easy A D S R write a simple envelope into "
-    "the selected one: attack to the top, decay to the sustain level, release to zero.",
-    "PERFORM and SETUP (light brown) are not stored. OPERATION (green) is the operation memory of "
-    "the CZ-1: key mode (normal, split, mix), split point, tone B, volumes, chorus, portamento, glide, "
-    "bend range, wheel and aftertouch. It is stored in an operation slot, not in the tone.",
-    "factory N: a factory tone (read only): the CZ banks (.syx) found next to cz4~. user N: a slot "
-    "of the user bank (0-63). reload: the same tone again, edits dropped. compare: hear the stored "
-    "tone while it is on. init: a plain sawtooth to start from. A new name: type it in the name box "
-    "(16 characters, _ for a space).",
-    "store to N chooses a user slot, save tone stores the edited tone there and writes "
-    "cz4user-bank.syx (next to cz4~). load bank reads that file again, write bank writes it without "
-    "storing. operation N recalls an operation slot, save operation stores the current one and "
-    "writes cz4user-op.syx.",
-    "send bank / send tone: the user bank or the edited tone as CZ SysEx on the third outlet of "
-    "cz4~ (to [midiout]), as a librarian sends it. get from CZ / send to CZ: talk to a real CZ with "
-    "its handshake: CZ program 96 is the tone it plays, 32-95 are the user slots here (a CZ-101 "
-    "has its own numbers: see the help patch).",
-    "MIDI in: receive channel of cz4~ for raw MIDI, note lists and SysEx, 0 = all. out: the channel "
-    "of the controller feedback and of SysEx. The controller layer follows both.",
-]
-
-
-def readme(c):
-    body = (" " + SEMI + " " + SEMI + " ").join(t.replace(",", " " + COMMA).replace(";", SEMI) for t in README)
-    c.lines.append("#N canvas 60 60 620 620 readme 0;")
-    c.lines.append(f"#X text 10 10 {body}, f 92;")
-    c.add(f"#X restore {X0} 12 pd readme;")
-
-
 def tint(title, r):
     for key, colours in TINT.items():
         if key in title:
@@ -156,14 +114,14 @@ def tint(title, r):
 
 
 def gui(c):
-    readme(c)
-    c.add(f"#X text {X0 + 90} 14 cz4~ editor - open [pd readme] for how it works;")
+    # title as in the help: a blue square with the name
+    c.add(f"#X obj {X0} 14 cnv 10 10 10 empty empty {TITLE.replace(' ', SP)} 24 6 0 22 {S.BLUE} {S.INK} 0;")
     top_band(c)
     for x0, rows in ((X0, LEFT), (X1, RIGHT)):
         for r, (title, ns) in enumerate(rows):
             y = TOP + r * ROWH
             lbl = f"{title}  {cc_text(ns)}".replace(" ", SP).replace(":", "")
-            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {tint(title, r)} #404040 0;")
+            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {tint(title, r)} {S.BLUE} 0;")
             for k, nm in enumerate(ns):
                 if not nm:
                     continue
@@ -171,7 +129,7 @@ def gui(c):
                 c.add(f"#X text {x} {yc} {nm};")
                 c.add(f"#X text {x} {yc + 12} {label(nm)};")
                 c.add(f"#X obj {x} {yc + 30} hsl 70 12 0 127 0 0 {D}0-e-{nm} {D}0-v-{nm} empty -2 -8 0 10"
-                      f" #fcfcfc #000000 #000000 0 1;")
+                      f" {S.WIDGET} {S.INK} {S.INK} 0 1;")
                 c.add(f"#X floatatom {x} {yc + 46} 3 0 127 0 - {D}0-v-{nm} {D}0-e-{nm};")
                 c.add(f"#X symbolatom {x + 26} {yc + 46} 7 0 0 0 - {D}0-t-{nm} -;")
 
