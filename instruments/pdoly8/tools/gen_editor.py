@@ -290,9 +290,10 @@ def logic():
     y2 = y + 380
     ro = c.add(f"#X obj 10 {y2} r {D}1-out;")
     ri = c.add(f"#X obj 10 {y2 + 30} route info;")
-    lp = c.add(f"#X obj 10 {y2 + 60} list prepend {D}0;")   # route info gives the list: name 0-127 text
-    st = c.add(f"#X msg 10 {y2 + 90} {SEMI} {D}1-v-{D}2 set {D}3 {SEMI} {D}1-t-{D}2 set {D}4;")
-    c.conn(ro, 0, ri, 0); c.conn(ri, 0, lp, 0); c.conn(lp, 0, st, 0)
+    rc = c.add(f"#X obj 10 {y2 + 60} route ch1;")            # ch1 has no cell (top of the editor)
+    lp = c.add(f"#X obj 10 {y2 + 90} list prepend {D}0;")   # route info gives the list: name 0-127 text
+    st = c.add(f"#X msg 10 {y2 + 120} {SEMI} {D}1-v-{D}2 set {D}3 {SEMI} {D}1-t-{D}2 set {D}4;")
+    c.conn(ro, 0, ri, 0); c.conn(ri, 0, rc, 0); c.conn(rc, 1, lp, 0); c.conn(lp, 0, st, 0)
     c.add(f"#X text 200 {y2 + 30} info <name> <0-127> <value text> -> slider / number and text of the cell, f 50;")
     return c
 

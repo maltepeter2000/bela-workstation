@@ -896,8 +896,9 @@
 #X obj 950 2000 s \$1;
 #X obj 10 2590 r \$1-out;
 #X obj 10 2620 route info;
-#X obj 10 2650 list prepend \$0;
-#X msg 10 2680 \; \$1-v-\$2 set \$3 \; \$1-t-\$2 set \$4;
+#X obj 10 2650 route ch1;
+#X obj 10 2680 list prepend \$0;
+#X msg 10 2710 \; \$1-v-\$2 set \$3 \; \$1-t-\$2 set \$4;
 #X text 200 2620 info <name> <0-127> <value text> -> slider / number and text of the cell, f 50;
 #X connect 1 0 2 0;
 #X connect 2 0 3 0;
@@ -1186,5 +1187,6 @@
 #X connect 393 0 394 0;
 #X connect 395 0 396 0;
 #X connect 396 0 397 0;
-#X connect 397 0 398 0;
+#X connect 397 1 398 0;
+#X connect 398 0 399 0;
 #X restore 10 880 pd logic;
