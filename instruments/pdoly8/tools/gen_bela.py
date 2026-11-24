@@ -30,9 +30,9 @@ OUT = os.path.join(ROOT, "bela", "pepper")
 
 # page name, 8 pot parameters ("none" = free)
 PAGES = [
-    ("PLAY",       ["har1", "har2", "env1", "env2", "intv", "detn", "lev1", "lev2"]),
+    ("PLAY",       ["har1", "oct1", "har2", "oct2", "env1", "env2", "lev1", "lev2"]),
     ("FILTER",     ["cut", "res", "egi", "kbd", "env3", "vcut", "drv", "nois"]),
-    ("OSC",        ["oct1", "oct2", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
+    ("OSC",        ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
     ("WALSH",      ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "lev1", "lev2"]),
     ("SYNC-RING",  ["sync", "swp2", "swe", "swm", "ring", "rmf", "lev1", "lev2"]),
     ("FM",         ["fm1", "fm2", "fmr", "fmhz", "fms", "fmig", "lev1", "lev2"]),
@@ -48,9 +48,9 @@ CC_ROWS = [
     # page 1 is the same in every instrument: bright, resonance, attack, release, vibrato,
     # effect, own (here the filter EG intensity), volume (docs/instrument-contract.md)
     ("PERFORM",          ["cut", "res", "atk", "rel", "mgi", "dlev", "egi", "vol"]),
-    ("PLAY",             ["har1", "har2", "env1", "env2", "intv", "detn", "lev1", "lev2"]),
+    ("PLAY",             ["har1", "oct1", "har2", "oct2", "env1", "env2", "lev1", "lev2"]),
     ("FILTER-MG",        ["env3", "kbd", "vcut", "drv", "nois", "mgr", "mgd", "mgv"]),
-    ("OSC",              ["oct1", "oct2", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
+    ("OSC",              ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
     ("WALSH-RING",       ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "ring", "rmf"]),
     ("SYNC-FM",          ["sync", "swp2", "swe", "swm", "fm1", "fm2", "fmr", "fmhz"]),
     ("FMSOURCE-DELAY-EQ", ["fms", "fmig", "dtim", "dfb", "dmf", "dmi", "treb", "bass"]),
