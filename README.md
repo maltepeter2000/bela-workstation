@@ -21,7 +21,8 @@ effects/
   sverb/              sverb~   Signalsmith reverb (FDN), send effect, mono or stereo in
 common/tools/         shared generators: ctlayer.py (controller layer), ctpads.py (pads and
                       their colours), ctnav.py (pad translator), lkdisplay.py (Launchkey
-                      display), patchwriter.py
+                      display), instobj.py (the instrument objects <x>.i~), helpdraw.py
+                      (help patches), style.py (colours of help and editors), patchwriter.py
 build/bela-gem/       make bela-gem: all instruments cross-built side by side (not in git)
 rack/                 the rack: rack/gen_rack.py -> rack/bela/rack4 (juno, d50, cz4, pdoly8 in one
                       Bela patch, channels 1-4)
@@ -33,8 +34,10 @@ Every instrument folder has the same layout:
 
 ```
 Makefile      make, make mac-zig, make bela-gem, make gen, make clean
-pd/           the Pd package: external source, help patch, controller layer <x>cc.pd, pads
-              <x>pads.pd, editor, user bank - the folder to put on Pd's path
+pd/           the Pd package: external source, the instrument object <x>.i~.pd (external,
+              editor, controller layer, pads, display, MIDI in one object: [<x>.i~ 1] ->
+              [dac~]), help patch, controller layer <x>cc.pd, pads <x>pads.pd, editor -
+              the folder to put on Pd's path
 src/          engine code outside the Pd package (tx81z, cz4)
 bin/macos/    the Mac package (universal, cross-built with make mac-zig)
 bela/         Bela projects (_main.pd and its files; the externals are built into them)

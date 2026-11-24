@@ -22,6 +22,7 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))   # shared: ctlayer, patchwriter
 import gen_bela as GB                             # noqa: E402  (CC_GROUPS, CC_EXTRA)
+import style as S                                  # noqa: E402
 
 BS = chr(92)
 D, SP, SEMI, COMMA = BS + "$", BS + " ", BS + ";", BS + ","
@@ -65,7 +66,8 @@ assert len(ALL) == len(set(ALL)) and set(ALL) == set(RANGE), set(RANGE) ^ set(AL
 CW, ROWH, TOP, X0 = 80, 88, 172, 10
 BAND_Y = 44                                      # presets / delay / sysex band
 X1 = X0 + 8 * CW + 30
-BAND = ("#ececec", "#dcdcdc")
+BAND = (S.YELLOW, S.ROW)
+TITLE = "pdoly8~ editor"           # tools/gen_p8_inst.py puts the object's name here
 
 
 def cc_text(ns):
@@ -90,46 +92,10 @@ class Canvas:
 
 
 def bng(c, x, y, send, label):
-    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {label.replace(' ', SP)} 21 9 0 10 #fcfcfc #000000 #000000;")
+    c.add(f"#X obj {x} {y} bng 17 250 50 0 {D}0-{send} empty {label.replace(' ', SP)} 21 9 0 10 {S.WIDGET} {S.INK} {S.INK};")
 
 
 RANDOM = ["pluck", "bass", "lead", "brass", "pad", "strings", "total"]
-README = [
-    "pdoly8~ editor",
-    "[p8edit <bus>] sends to [s <bus>] (the [r <bus>] in front of pdoly8~) and reads outlet 3 of pdoly8~ "
-    "from [r <bus>-out]. In your own patch: [r p1] -> [pdoly8~] -> outlet 3 -> [s p1-out], [p8edit p1] and "
-    "the controller layer [r p1-out] -> [p8cc 1] -> [s p1]. Every change (controller, presets, messages, "
-    "random) shows up here.",
-    "Rows of 8: rows 1-11 are the pages of the controller layer [p8cc] (page k on the Launchkey = row k), "
-    "then the rows without CC. Each cell: name and CC number, slider and number box: the value as from a pot "
-    "(0-127), the box right of it: the real value.",
-    "factory N: factory program N (0-63, = program 11-88 of the Poly-800 II).",
-    "MIDI ch: the channel pdoly8~ listens to (ch1), 0 = omni. Notes and the controller layer follow it, "
-    "presets and defaults keep it.",
-    "user N: load slot N of p8user-bank.txt (64 slots, next to p8edit.pd). store to N only chooses the slot, "
-    "save patch stores the current sound there and writes the file. load bank reads the file again. "
-    "factory init fills the user bank with the 64 factory programs (the file only changes with save patch).",
-    "delay: the delay presets of the Poly-800 II.",
-    "random: a new sound of that kind - pluck (fast attack, decaying), bass (low octave, short decay, "
-    "sometimes mono with portamento), lead (sustained, vibrato, sometimes mono or sync), brass (slower "
-    "attack, saw), pad (slow attack, detune, chorus), strings (bowed attack, detuned saws, delayed vibrato, "
-    "chorus), total (anything that still sounds, also FM, ring, sync, Walsh). Keep a good one with store to "
-    "+ save patch.",
-    "POLY-800 II SYSEX (the user bank): send bank sends the user bank as a data dump ([midiout], MIDI out "
-    "port, the Poly-800's MIDI channel must match), write .syx saves it as a file. A dump from the synth "
-    "(start it on the synth) and read .syx replace the user bank, save patch keeps it. The memory outside "
-    "the programs (sequencer, chord memory) comes from the factory dump, loaded at start. The Launchkey "
-    "does not pass MIDI from the computer to its MIDI out: use a MIDI interface.",
-]
-
-
-def readme(c):
-    body = (" " + SEMI + " " + SEMI + " ").join(t.replace(",", " " + COMMA).replace(";", SEMI) for t in README)
-    c.lines.append("#N canvas 60 60 640 640 readme 0;")
-    c.lines.append(f"#X text 10 10 {body}, f 92;")
-    c.add(f"#X restore {X0} 12 pd readme;")
-
-
 DELAYS = [("flanger", "flanger"), ("chorus1", "chorus small"), ("chorus2", "chorus big"),
           ("slap", "slapback"), ("long", "long delay"), ("off", "off")]
 
@@ -137,7 +103,7 @@ DELAYS = [("flanger", "flanger"), ("chorus1", "chorus small"), ("chorus2", "chor
 def top_band(c):
     """presets (factory, user bank), delay presets, Poly-800 II sysex: send names into [pd logic]"""
     y = BAND_Y
-    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} 118 empty empty PRESETS{SP}DELAY{SP}RANDOM 4 8 0 10 #e4ecf4 #404040 0;")
+    c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} 118 empty empty PRESETS{SP}DELAY{SP}RANDOM 4 8 0 10 {S.PATCH} {S.BLUE} 0;")
     c.add(f"#X text {X0} {y + 20} factory;")
     c.add(f"#X floatatom {X0 + 52} {y + 20} 3 0 63 0 - - {D}0-fac;")
     c.add(f"#X text {X0 + 82} {y + 20} = program;")
@@ -160,7 +126,7 @@ def top_band(c):
         bng(c, X0 + 52 + k * 82, y + 92, f"rnd-{cat}", cat)
     x1 = X1
     c.add(f"#X obj {x1 - 4} {y} cnv 15 {8 * CW} 118 empty empty POLY-800{SP}II{SP}SYSEX{SP}(the{SP}user{SP}bank)"
-          f" 4 8 0 10 #f4ece4 #404040 0;")
+          f" 4 8 0 10 {S.SELECT} {S.BLUE} 0;")
     bng(c, x1, y + 20, "syxsend", "send bank")
     bng(c, x1 + 110, y + 20, "syxread", "read .syx")
     bng(c, x1 + 220, y + 20, "syxwrite", "write .syx")
@@ -174,14 +140,14 @@ def top_band(c):
 
 
 def gui(c):
-    readme(c)
-    c.add(f"#X text {X0 + 90} 14 pdoly8~ editor - open [pd readme] for how it works;")
+    # title as in the help: a blue square with the name
+    c.add(f"#X obj {X0} 14 cnv 10 10 10 empty empty {TITLE.replace(' ', SP)} 24 6 0 22 {S.BLUE} {S.INK} 0;")
     top_band(c)
     for col, (x0, rows) in enumerate(((X0, LEFT), (X1, RIGHT))):
         for r, (title, ns) in enumerate(rows):
             y = TOP + r * ROWH
             lbl = f"{title}  {cc_text(ns)}".replace(" ", SP)
-            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {BAND[r % 2]} #404040 0;")
+            c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {ROWH - 6} empty empty {lbl} 4 8 0 10 {BAND[r % 2]} {S.BLUE} 0;")
             for k, nm in enumerate(ns):
                 if not nm:
                     continue
@@ -190,7 +156,7 @@ def gui(c):
                 c.add(f"#X text {x} {yc} {head};")
                 c.add(f"#X text {x} {yc + 12} {short(nm).replace(',', ' ' + COMMA)};")
                 c.add(f"#X obj {x} {yc + 30} hsl 70 12 0 127 0 0 {D}0-e-{nm} {D}0-v-{nm} empty -2 -8 0 10"
-                      f" #fcfcfc #000000 #000000 0 1;")
+                      f" {S.WIDGET} {S.INK} {S.INK} 0 1;")
                 c.add(f"#X floatatom {x} {yc + 46} 3 0 127 0 - {D}0-v-{nm} {D}0-e-{nm};")
                 c.add(f"#X symbolatom {x + 26} {yc + 46} 7 0 0 0 - {D}0-t-{nm} -;")
 

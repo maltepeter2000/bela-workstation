@@ -1,9 +1,6 @@
 #N canvas 20 20 1330 892 10;
-#N canvas 60 60 620 620 readme 0;
-#X text 10 10 d50~ editor \; \; [d50edit <bus>] sends to [s <bus>] (the [r <bus>] in front of d50~) and reads outlet 3 of d50~ from [r <bus>-out]. In your own patch: [r d1] -> [d50~] -> outlet 3 -> [route float] -> right outlet -> [s d1-out] and [d50edit d1]. Every change (controller \, patch change \, messages \, SysEx) shows up here. \; \; Rows of 8: rows 1-11 are the pages of the controller layer [d50cc] (page k on the controller = row k) \, the last rows have no CC. Each cell: name and label \, slider and number box: the value as from a pot (0-127) \, the box right of it: the value as on the D-50. \; \; PARTIAL SELECT: the D-50 has four partials \, two per tone. The PARTIAL rows always show and change the selected one (U1 U2 L1 L2) \, the TONE rows the tone it belongs to (upper for U1 U2 \, lower for L1 L2). It is the control part \, first cell of page 2 \, so the controller can switch it too. \; \; PERFORMANCE (row 1) acts on the whole patch: cut moves the cutoff of every synth partial and also of notes that are sounding. res \, att and rel shift resonance \, attack and release of all partials for the notes that follow. These four are not stored and go back to 0 with every patch change. chorus \, reverb and balance are patch values \, volume is the master. \; \; An edit of a partial or tone value is heard from the next note on. Chorus \, equalizer \, reverb and the balances follow at once. \; \; factory N: a factory preset (read only) \, numbered through all .syx banks next to d50~. user N: a slot of the user bank (0-63). reload: the same patch again \, edits dropped. init patch: a plain sawtooth to start from. \; \; store to N chooses a user slot \, save patch stores the playing patch there and writes d50user-bank.syx (next to d50~). load bank reads that file again \, write bank writes it without storing. name: type a new patch name and press enter \, up to 18 characters (upper / lower tone: 10). \; \; send bank / send patch: the user bank or the playing patch as D-50 SysEx on the third outlet of d50~ (to [midiout]: a real D-50 or a librarian). A bulk dump that arrives at d50~ replaces the user bank in memory \, write bank keeps it. Bank files and send bank also carry the reverb data of the D-50 (reverb types 17-32) \, unchanged from the dump they came with. \; \; MIDI in: receive channel of d50~ for raw MIDI and note lists \, 0 = all. out: the channel of the controller feedback and the device number of SysEx dumps. The controller layer follows both., f 92;
-#X restore 10 12 pd readme;
-#X text 100 14 d50~ editor - open [pd readme] for how it works;
-#X obj 6 44 cnv 15 640 100 empty empty PATCH 4 8 0 10 #e4ecf4 #404040 0;
+#X obj 10 14 cnv 10 10 10 empty empty d50~\ editor 24 6 0 22 #1e3791 #000000 0;
+#X obj 6 44 cnv 15 640 100 empty empty PATCH 4 8 0 10 #e4ecf4 #1e3791 0;
 #X text 10 64 name;
 #X symbolatom 50 64 20 0 0 0 - \$0-namev \$0-name;
 #X text 200 64 factory;
@@ -25,7 +22,7 @@
 #X text 92 118 0=all;
 #X text 140 118 out;
 #X floatatom 166 118 3 1 16 0 - \$0-txv \$0-tx;
-#X obj 676 44 cnv 15 640 100 empty empty PARTIAL\ SELECT 4 8 0 10 #f4ece4 #404040 0;
+#X obj 676 44 cnv 15 640 100 empty empty PARTIAL\ SELECT 4 8 0 10 #f4ece4 #1e3791 0;
 #X obj 680 78 hradio 22 1 0 4 \$0-partsel \$0-partselv empty 0 -8 0 10 #fcfcfc #000000 #000000 0;
 #X text 680 62 U1\ \ U2\ \ L1\ \ L2;
 #X text 790 66 upper tone;
@@ -33,7 +30,7 @@
 #X text 790 90 lower tone;
 #X symbolatom 860 90 12 0 0 0 - \$0-lowerv \$0-lowername;
 #X text 680 118 The PARTIAL rows show the selected partial \, the TONE rows its tone.;
-#X obj 6 154 cnv 15 640 82 empty empty PAGE\ 1\ \ PERFORMANCE\ \ CC\ 20-27 4 8 0 10 #ececec #404040 0;
+#X obj 6 154 cnv 15 640 82 empty empty PAGE\ 1\ \ PERFORMANCE\ \ CC\ 20-27 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 172 cut;
 #X text 10 184 Cutoff all;
 #X obj 10 202 hsl 70 12 0 127 0 0 \$0-e-cut \$0-v-cut empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -74,7 +71,7 @@
 #X obj 570 202 hsl 70 12 0 127 0 0 \$0-e-volume \$0-v-volume empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 218 3 0 127 0 - \$0-v-volume \$0-e-volume;
 #X symbolatom 596 218 7 0 0 0 - \$0-t-volume -;
-#X obj 6 242 cnv 15 640 82 empty empty PAGE\ 2\ \ PARTIAL\ WG\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #d6e2ee #404040 0;
+#X obj 6 242 cnv 15 640 82 empty empty PAGE\ 2\ \ PARTIAL\ WG\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #d6e2ee #1e3791 0;
 #X text 10 260 part;
 #X text 10 272 Partial;
 #X obj 10 290 hsl 70 12 0 127 0 0 \$0-e-part \$0-v-part empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -115,7 +112,7 @@
 #X obj 570 290 hsl 70 12 0 127 0 0 \$0-e-pwlfodepth \$0-v-pwlfodepth empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 306 3 0 127 0 - \$0-v-pwlfodepth \$0-e-pwlfodepth;
 #X symbolatom 596 306 7 0 0 0 - \$0-t-pwlfodepth -;
-#X obj 6 330 cnv 15 640 82 empty empty PAGE\ 3\ \ PARTIAL\ TVF\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #e6eef6 #404040 0;
+#X obj 6 330 cnv 15 640 82 empty empty PAGE\ 3\ \ PARTIAL\ TVF\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #e6eef6 #1e3791 0;
 #X text 10 348 cutoff;
 #X text 10 360 Cutoff;
 #X obj 10 378 hsl 70 12 0 127 0 0 \$0-e-cutoff \$0-v-cutoff empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -156,7 +153,7 @@
 #X obj 570 378 hsl 70 12 0 127 0 0 \$0-e-tvfat \$0-v-tvfat empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 394 3 0 127 0 - \$0-v-tvfat \$0-e-tvfat;
 #X symbolatom 596 394 7 0 0 0 - \$0-t-tvfat -;
-#X obj 6 418 cnv 15 640 82 empty empty PAGE\ 4\ \ PARTIAL\ TVF\ ENV\ \ CC\ 46-53 4 8 0 10 #d6e2ee #404040 0;
+#X obj 6 418 cnv 15 640 82 empty empty PAGE\ 4\ \ PARTIAL\ TVF\ ENV\ \ CC\ 46-53 4 8 0 10 #d6e2ee #1e3791 0;
 #X text 10 436 tvft1;
 #X text 10 448 TVF T1;
 #X obj 10 466 hsl 70 12 0 127 0 0 \$0-e-tvft1 \$0-v-tvft1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -197,7 +194,7 @@
 #X obj 570 466 hsl 70 12 0 127 0 0 \$0-e-tvfl3 \$0-v-tvfl3 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 482 3 0 127 0 - \$0-v-tvfl3 \$0-e-tvfl3;
 #X symbolatom 596 482 7 0 0 0 - \$0-t-tvfl3 -;
-#X obj 6 506 cnv 15 640 82 empty empty PAGE\ 5\ \ PARTIAL\ TVA\ \ CC\ 54-61 4 8 0 10 #e6eef6 #404040 0;
+#X obj 6 506 cnv 15 640 82 empty empty PAGE\ 5\ \ PARTIAL\ TVA\ \ CC\ 54-61 4 8 0 10 #e6eef6 #1e3791 0;
 #X text 10 524 level;
 #X text 10 536 Level;
 #X obj 10 554 hsl 70 12 0 127 0 0 \$0-e-level \$0-v-level empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -238,7 +235,7 @@
 #X obj 570 554 hsl 70 12 0 127 0 0 \$0-e-tvavelofollow \$0-v-tvavelofollow empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 570 3 0 127 0 - \$0-v-tvavelofollow \$0-e-tvavelofollow;
 #X symbolatom 596 570 7 0 0 0 - \$0-t-tvavelofollow -;
-#X obj 6 594 cnv 15 640 82 empty empty PAGE\ 6\ \ PARTIAL\ TVA\ ENV\ \ CC\ 62\ 63\ 70\ 71\ 72\ 73\ 74\ 75 4 8 0 10 #d6e2ee #404040 0;
+#X obj 6 594 cnv 15 640 82 empty empty PAGE\ 6\ \ PARTIAL\ TVA\ ENV\ \ CC\ 62\ 63\ 70\ 71\ 72\ 73\ 74\ 75 4 8 0 10 #d6e2ee #1e3791 0;
 #X text 10 612 tvat1;
 #X text 10 624 TVA T1;
 #X obj 10 642 hsl 70 12 0 127 0 0 \$0-e-tvat1 \$0-v-tvat1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -279,7 +276,7 @@
 #X obj 570 642 hsl 70 12 0 127 0 0 \$0-e-tval3 \$0-v-tval3 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 658 3 0 127 0 - \$0-v-tval3 \$0-e-tval3;
 #X symbolatom 596 658 7 0 0 0 - \$0-t-tval3 -;
-#X obj 6 682 cnv 15 640 82 empty empty PAGE\ 7\ \ TONE\ \ CC\ 76-83 4 8 0 10 #f3ecdf #404040 0;
+#X obj 6 682 cnv 15 640 82 empty empty PAGE\ 7\ \ TONE\ \ CC\ 76-83 4 8 0 10 #f3ecdf #1e3791 0;
 #X text 10 700 structure;
 #X text 10 712 Structure;
 #X obj 10 730 hsl 70 12 0 127 0 0 \$0-e-structure \$0-v-structure empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -320,7 +317,7 @@
 #X obj 570 730 hsl 70 12 0 127 0 0 \$0-e-penvtimekf \$0-v-penvtimekf empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 746 3 0 127 0 - \$0-v-penvtimekf \$0-e-penvtimekf;
 #X symbolatom 596 746 7 0 0 0 - \$0-t-penvtimekf -;
-#X obj 6 770 cnv 15 640 82 empty empty PAGE\ 8\ \ TONE\ P-ENV\ \ CC\ 85\ 86\ 87\ 89\ 90\ 91\ 92\ 93 4 8 0 10 #e8dfcc #404040 0;
+#X obj 6 770 cnv 15 640 82 empty empty PAGE\ 8\ \ TONE\ P-ENV\ \ CC\ 85\ 86\ 87\ 89\ 90\ 91\ 92\ 93 4 8 0 10 #e8dfcc #1e3791 0;
 #X text 10 788 penvt1;
 #X text 10 800 P-ENV T1;
 #X obj 10 818 hsl 70 12 0 127 0 0 \$0-e-penvt1 \$0-v-penvt1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -361,7 +358,7 @@
 #X obj 570 818 hsl 70 12 0 127 0 0 \$0-e-penvsustain \$0-v-penvsustain empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 834 3 0 127 0 - \$0-v-penvsustain \$0-e-penvsustain;
 #X symbolatom 596 834 7 0 0 0 - \$0-t-penvsustain -;
-#X obj 676 154 cnv 15 640 82 empty empty PAGE\ 9\ \ TONE\ LFO\ 1\ /\ 2\ \ CC\ 94\ 95\ 102\ 103\ 104\ 105\ 106\ 107 4 8 0 10 #f3ecdf #404040 0;
+#X obj 676 154 cnv 15 640 82 empty empty PAGE\ 9\ \ TONE\ LFO\ 1\ /\ 2\ \ CC\ 94\ 95\ 102\ 103\ 104\ 105\ 106\ 107 4 8 0 10 #f3ecdf #1e3791 0;
 #X text 680 172 lfo1wave;
 #X text 680 184 LFO1 wave;
 #X obj 680 202 hsl 70 12 0 127 0 0 \$0-e-lfo1wave \$0-v-lfo1wave empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -402,7 +399,7 @@
 #X obj 1240 202 hsl 70 12 0 127 0 0 \$0-e-lfo2sync \$0-v-lfo2sync empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 218 3 0 127 0 - \$0-v-lfo2sync \$0-e-lfo2sync;
 #X symbolatom 1266 218 7 0 0 0 - \$0-t-lfo2sync -;
-#X obj 676 242 cnv 15 640 82 empty empty PAGE\ 10\ \ TONE\ LFO\ 3\ /\ EQ\ \ CC\ 108-115 4 8 0 10 #e8dfcc #404040 0;
+#X obj 676 242 cnv 15 640 82 empty empty PAGE\ 10\ \ TONE\ LFO\ 3\ /\ EQ\ \ CC\ 108-115 4 8 0 10 #e8dfcc #1e3791 0;
 #X text 680 260 lfo3wave;
 #X text 680 272 LFO3 wave;
 #X obj 680 290 hsl 70 12 0 127 0 0 \$0-e-lfo3wave \$0-v-lfo3wave empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -443,7 +440,7 @@
 #X obj 1240 290 hsl 70 12 0 127 0 0 \$0-e-eqhighgain \$0-v-eqhighgain empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 306 3 0 127 0 - \$0-v-eqhighgain \$0-e-eqhighgain;
 #X symbolatom 1266 306 7 0 0 0 - \$0-t-eqhighgain -;
-#X obj 676 330 cnv 15 640 82 empty empty PAGE\ 11\ \ TONE\ CHORUS\ /\ REVERB\ \ CC\ 116-119 4 8 0 10 #f3ecdf #404040 0;
+#X obj 676 330 cnv 15 640 82 empty empty PAGE\ 11\ \ TONE\ CHORUS\ /\ REVERB\ \ CC\ 116-119 4 8 0 10 #f3ecdf #1e3791 0;
 #X text 680 348 chorustype;
 #X text 680 360 Chorus type;
 #X obj 680 378 hsl 70 12 0 127 0 0 \$0-e-chorustype \$0-v-chorustype empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -464,7 +461,7 @@
 #X obj 920 378 hsl 70 12 0 127 0 0 \$0-e-reverb \$0-v-reverb empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 920 394 3 0 127 0 - \$0-v-reverb \$0-e-reverb;
 #X symbolatom 946 394 7 0 0 0 - \$0-t-reverb -;
-#X obj 676 418 cnv 15 640 82 empty empty PARTIAL\ WG\ MODES\ \ no\ CC\ (mouse\ only) 4 8 0 10 #d6e2ee #404040 0;
+#X obj 676 418 cnv 15 640 82 empty empty PARTIAL\ WG\ MODES\ \ no\ CC\ (mouse\ only) 4 8 0 10 #d6e2ee #1e3791 0;
 #X text 680 436 lfomode;
 #X text 680 448 LFO mode;
 #X obj 680 466 hsl 70 12 0 127 0 0 \$0-e-lfomode \$0-v-lfomode empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -505,7 +502,7 @@
 #X obj 1240 466 hsl 70 12 0 127 0 0 \$0-e-tvatimekf \$0-v-tvatimekf empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 482 3 0 127 0 - \$0-v-tvatimekf \$0-e-tvatimekf;
 #X symbolatom 1266 482 7 0 0 0 - \$0-t-tvatimekf -;
-#X obj 676 506 cnv 15 640 82 empty empty PARTIAL\ TVF\ /\ TVA\ MORE\ \ no\ CC\ (mouse\ only) 4 8 0 10 #e6eef6 #404040 0;
+#X obj 676 506 cnv 15 640 82 empty empty PARTIAL\ TVF\ /\ TVA\ MORE\ \ no\ CC\ (mouse\ only) 4 8 0 10 #e6eef6 #1e3791 0;
 #X text 680 524 tvfbiaspoint;
 #X text 680 536 TVF bias pt;
 #X obj 680 554 hsl 70 12 0 127 0 0 \$0-e-tvfbiaspoint \$0-v-tvfbiaspoint empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -546,7 +543,7 @@
 #X obj 1240 554 hsl 70 12 0 127 0 0 \$0-e-eqhighq \$0-v-eqhighq empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 570 3 0 127 0 - \$0-v-eqhighq \$0-e-eqhighq;
 #X symbolatom 1266 570 7 0 0 0 - \$0-t-eqhighq -;
-#X obj 676 594 cnv 15 640 82 empty empty PATCH\ \ no\ CC\ (mouse\ only) 4 8 0 10 #dcdcdc #404040 0;
+#X obj 676 594 cnv 15 640 82 empty empty PATCH\ \ no\ CC\ (mouse\ only) 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 612 keymode;
 #X text 680 624 Key mode;
 #X obj 680 642 hsl 70 12 0 127 0 0 \$0-e-keymode \$0-v-keymode empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -587,7 +584,7 @@
 #X obj 1240 642 hsl 70 12 0 127 0 0 \$0-e-outmode \$0-v-outmode empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 658 3 0 127 0 - \$0-v-outmode \$0-e-outmode;
 #X symbolatom 1266 658 7 0 0 0 - \$0-t-outmode -;
-#X obj 676 682 cnv 15 640 82 empty empty PATCH\ /\ TONE\ MORE\ \ no\ CC\ (mouse\ only) 4 8 0 10 #f3ecdf #404040 0;
+#X obj 676 682 cnv 15 640 82 empty empty PATCH\ /\ TONE\ MORE\ \ no\ CC\ (mouse\ only) 4 8 0 10 #f3ecdf #1e3791 0;
 #X text 680 700 ukeyshift;
 #X text 680 712 U key shift;
 #X obj 680 730 hsl 70 12 0 127 0 0 \$0-e-ukeyshift \$0-v-ukeyshift empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -628,7 +625,7 @@
 #X obj 1240 730 hsl 70 12 0 127 0 0 \$0-e-tchorus \$0-v-tchorus empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 746 3 0 127 0 - \$0-v-tchorus \$0-e-tchorus;
 #X symbolatom 1266 746 7 0 0 0 - \$0-t-tchorus -;
-#X obj 676 770 cnv 15 640 82 empty empty SETUP\ \ no\ CC\ (mouse\ only) 4 8 0 10 #dcdcdc #404040 0;
+#X obj 676 770 cnv 15 640 82 empty empty SETUP\ \ no\ CC\ (mouse\ only) 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 788 tune;
 #X text 680 800 Master tune;
 #X obj 680 818 hsl 70 12 0 127 0 0 \$0-e-tune \$0-v-tune empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;

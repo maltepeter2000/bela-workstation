@@ -97,6 +97,19 @@ an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
     the rack (measured here: juno +3.9 dB, pdoly8 +2.5 dB; d50, tx81zn and cz4 need the
     ROMs or a factory bank, so they are measured on a machine that has them).
 
+11. **One object per instrument** (`common/tools/instobj.py`): `[<x>.i~ <channel> <pads
+    channel>]` holds the external, its editor (the object's window), controller layer, pads
+    (and translator), Launchkey display, MIDI in and out; connect it to `[dac~]` and play.
+    `juno.i~`, `d50.i~`, `cz4.i~`, `pdoly8.i~`, `tx81zn.i~` (txfm, txedit inside),
+    `tx81z.i~`. User banks (cz4: also the operation memory) lie beside the patch that holds
+    the object; until they are there, the bank beside the external is the starting point.
+    Inside an `.i~` the external's own folder is "the patch's folder": ROMs and data files
+    (d50_pcm.bin, tx81z-v1.6.bin) lie beside the externals.
+12. **Help patches without GUI** (`common/tools/helpdraw.py`, skill pd-help-layout): one
+    example, the reference as text, the controls row by row as in the editor; one patch
+    under both names (`<x>.i~-help.pd`, `<x>~-help.pd`). Editors and help share their
+    colours (`common/tools/style.py`); the editors have no readme any more.
+
 ## Next
 
 1. **Measure CPU** (started, `docs/cpu.md`: juno~ and tx81zn~ at block size 64; the rest and an empty project still to do) of every instrument on the Bela Gem at block size 64.

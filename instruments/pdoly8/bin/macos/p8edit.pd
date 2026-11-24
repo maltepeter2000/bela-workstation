@@ -1,9 +1,6 @@
 #N canvas 20 20 1330 910 10;
-#N canvas 60 60 640 640 readme 0;
-#X text 10 10 pdoly8~ editor \; \; [p8edit <bus>] sends to [s <bus>] (the [r <bus>] in front of pdoly8~) and reads outlet 3 of pdoly8~ from [r <bus>-out]. In your own patch: [r p1] -> [pdoly8~] -> outlet 3 -> [s p1-out] \, [p8edit p1] and the controller layer [r p1-out] -> [p8cc 1] -> [s p1]. Every change (controller \, presets \, messages \, random) shows up here. \; \; Rows of 8: rows 1-11 are the pages of the controller layer [p8cc] (page k on the Launchkey = row k) \, then the rows without CC. Each cell: name and CC number \, slider and number box: the value as from a pot (0-127) \, the box right of it: the real value. \; \; factory N: factory program N (0-63 \, = program 11-88 of the Poly-800 II). \; \; MIDI ch: the channel pdoly8~ listens to (ch1) \, 0 = omni. Notes and the controller layer follow it \, presets and defaults keep it. \; \; user N: load slot N of p8user-bank.txt (64 slots \, next to p8edit.pd). store to N only chooses the slot \, save patch stores the current sound there and writes the file. load bank reads the file again. factory init fills the user bank with the 64 factory programs (the file only changes with save patch). \; \; delay: the delay presets of the Poly-800 II. \; \; random: a new sound of that kind - pluck (fast attack \, decaying) \, bass (low octave \, short decay \, sometimes mono with portamento) \, lead (sustained \, vibrato \, sometimes mono or sync) \, brass (slower attack \, saw) \, pad (slow attack \, detune \, chorus) \, strings (bowed attack \, detuned saws \, delayed vibrato \, chorus) \, total (anything that still sounds \, also FM \, ring \, sync \, Walsh). Keep a good one with store to + save patch. \; \; POLY-800 II SYSEX (the user bank): send bank sends the user bank as a data dump ([midiout] \, MIDI out port \, the Poly-800's MIDI channel must match) \, write .syx saves it as a file. A dump from the synth (start it on the synth) and read .syx replace the user bank \, save patch keeps it. The memory outside the programs (sequencer \, chord memory) comes from the factory dump \, loaded at start. The Launchkey does not pass MIDI from the computer to its MIDI out: use a MIDI interface., f 92;
-#X restore 10 12 pd readme;
-#X text 100 14 pdoly8~ editor - open [pd readme] for how it works;
-#X obj 6 44 cnv 15 640 118 empty empty PRESETS\ DELAY\ RANDOM 4 8 0 10 #e4ecf4 #404040 0;
+#X obj 10 14 cnv 10 10 10 empty empty pdoly8~\ editor 24 6 0 22 #1e3791 #000000 0;
+#X obj 6 44 cnv 15 640 118 empty empty PRESETS\ DELAY\ RANDOM 4 8 0 10 #e4ecf4 #1e3791 0;
 #X text 10 64 factory;
 #X floatatom 62 64 3 0 63 0 - - \$0-fac;
 #X text 92 64 = program;
@@ -33,7 +30,7 @@
 #X obj 390 136 bng 17 250 50 0 \$0-rnd-pad empty pad 21 9 0 10 #fcfcfc #000000 #000000;
 #X obj 472 136 bng 17 250 50 0 \$0-rnd-strings empty strings 21 9 0 10 #fcfcfc #000000 #000000;
 #X obj 554 136 bng 17 250 50 0 \$0-rnd-total empty total 21 9 0 10 #fcfcfc #000000 #000000;
-#X obj 676 44 cnv 15 640 118 empty empty POLY-800\ II\ SYSEX\ (the\ user\ bank) 4 8 0 10 #f4ece4 #404040 0;
+#X obj 676 44 cnv 15 640 118 empty empty POLY-800\ II\ SYSEX\ (the\ user\ bank) 4 8 0 10 #f4ece4 #1e3791 0;
 #X obj 680 64 bng 17 250 50 0 \$0-syxsend empty send\ bank 21 9 0 10 #fcfcfc #000000 #000000;
 #X obj 790 64 bng 17 250 50 0 \$0-syxread empty read\ .syx 21 9 0 10 #fcfcfc #000000 #000000;
 #X obj 900 64 bng 17 250 50 0 \$0-syxwrite empty write\ .syx 21 9 0 10 #fcfcfc #000000 #000000;
@@ -44,7 +41,7 @@
 #X symbolatom 730 94 36 0 0 0 - \$0-syxst -;
 #X text 1060 94 Poly-800 MIDI channel;
 #X floatatom 1220 94 2 1 16 0 - \$0-sxchv \$0-syxch;
-#X obj 6 172 cnv 15 640 82 empty empty PAGE\ 1\ \ PERFORM\ \ CC\ 20-27 4 8 0 10 #ececec #404040 0;
+#X obj 6 172 cnv 15 640 82 empty empty PAGE\ 1\ \ PERFORM\ \ CC\ 20-27 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 190 cut 20;
 #X text 10 202 Cutoff;
 #X obj 10 220 hsl 70 12 0 127 0 0 \$0-e-cut \$0-v-cut empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -85,7 +82,7 @@
 #X obj 570 220 hsl 70 12 0 127 0 0 \$0-e-vol \$0-v-vol empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 236 3 0 127 0 - \$0-v-vol \$0-e-vol;
 #X symbolatom 596 236 7 0 0 0 - \$0-t-vol -;
-#X obj 6 260 cnv 15 640 82 empty empty PAGE\ 2\ \ PLAY\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 260 cnv 15 640 82 empty empty PAGE\ 2\ \ PLAY\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 278 har1 28;
 #X text 10 290 Timbre 1;
 #X obj 10 308 hsl 70 12 0 127 0 0 \$0-e-har1 \$0-v-har1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -126,7 +123,7 @@
 #X obj 570 308 hsl 70 12 0 127 0 0 \$0-e-lev2 \$0-v-lev2 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 324 3 0 127 0 - \$0-v-lev2 \$0-e-lev2;
 #X symbolatom 596 324 7 0 0 0 - \$0-t-lev2 -;
-#X obj 6 348 cnv 15 640 82 empty empty PAGE\ 3\ \ FILTER-MG\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #ececec #404040 0;
+#X obj 6 348 cnv 15 640 82 empty empty PAGE\ 3\ \ FILTER-MG\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 366 env3 37;
 #X text 10 378 Env3 morph;
 #X obj 10 396 hsl 70 12 0 127 0 0 \$0-e-env3 \$0-v-env3 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -167,7 +164,7 @@
 #X obj 570 396 hsl 70 12 0 127 0 0 \$0-e-mgv \$0-v-mgv empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 412 3 0 127 0 - \$0-v-mgv \$0-e-mgv;
 #X symbolatom 596 412 7 0 0 0 - \$0-t-mgv -;
-#X obj 6 436 cnv 15 640 82 empty empty PAGE\ 4\ \ OSC\ \ CC\ 46-53 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 436 cnv 15 640 82 empty empty PAGE\ 4\ \ OSC\ \ CC\ 46-53 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 454 oct1 46;
 #X text 10 466 Octave 1;
 #X obj 10 484 hsl 70 12 0 127 0 0 \$0-e-oct1 \$0-v-oct1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -208,7 +205,7 @@
 #X obj 570 484 hsl 70 12 0 127 0 0 \$0-e-drft \$0-v-drft empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 500 3 0 127 0 - \$0-v-drft \$0-e-drft;
 #X symbolatom 596 500 7 0 0 0 - \$0-t-drft -;
-#X obj 6 524 cnv 15 640 82 empty empty PAGE\ 5\ \ WALSH-RING\ \ CC\ 54-61 4 8 0 10 #ececec #404040 0;
+#X obj 6 524 cnv 15 640 82 empty empty PAGE\ 5\ \ WALSH-RING\ \ CC\ 54-61 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 542 wsh1 54;
 #X text 10 554 Walsh pos 1;
 #X obj 10 572 hsl 70 12 0 127 0 0 \$0-e-wsh1 \$0-v-wsh1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -249,7 +246,7 @@
 #X obj 570 572 hsl 70 12 0 127 0 0 \$0-e-rmf \$0-v-rmf empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 588 3 0 127 0 - \$0-v-rmf \$0-e-rmf;
 #X symbolatom 596 588 7 0 0 0 - \$0-t-rmf -;
-#X obj 6 612 cnv 15 640 82 empty empty PAGE\ 6\ \ SYNC-FM\ \ CC\ 62\ 63\ 70\ 71\ 72\ 73\ 74\ 75 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 612 cnv 15 640 82 empty empty PAGE\ 6\ \ SYNC-FM\ \ CC\ 62\ 63\ 70\ 71\ 72\ 73\ 74\ 75 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 630 sync 62;
 #X text 10 642 Sync;
 #X obj 10 660 hsl 70 12 0 127 0 0 \$0-e-sync \$0-v-sync empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -290,7 +287,7 @@
 #X obj 570 660 hsl 70 12 0 127 0 0 \$0-e-fmhz \$0-v-fmhz empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 676 3 0 127 0 - \$0-v-fmhz \$0-e-fmhz;
 #X symbolatom 596 676 7 0 0 0 - \$0-t-fmhz -;
-#X obj 6 700 cnv 15 640 82 empty empty PAGE\ 7\ \ FMSOURCE-DELAY-EQ\ \ CC\ 76-83 4 8 0 10 #ececec #404040 0;
+#X obj 6 700 cnv 15 640 82 empty empty PAGE\ 7\ \ FMSOURCE-DELAY-EQ\ \ CC\ 76-83 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 718 fms 76;
 #X text 10 730 FM source;
 #X obj 10 748 hsl 70 12 0 127 0 0 \$0-e-fms \$0-v-fms empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -331,7 +328,7 @@
 #X obj 570 748 hsl 70 12 0 127 0 0 \$0-e-bass \$0-v-bass empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 764 3 0 127 0 - \$0-v-bass \$0-e-bass;
 #X symbolatom 596 764 7 0 0 0 - \$0-t-bass -;
-#X obj 6 788 cnv 15 640 82 empty empty PAGE\ 8\ \ PLAY\ MODE\ \ CC\ 85\ 86\ 87\ 89\ 90\ 91\ 92\ 93 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 788 cnv 15 640 82 empty empty PAGE\ 8\ \ PLAY\ MODE\ \ CC\ 85\ 86\ 87\ 89\ 90\ 91\ 92\ 93 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 806 port 85;
 #X text 10 818 Portamento;
 #X obj 10 836 hsl 70 12 0 127 0 0 \$0-e-port \$0-v-port empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -372,7 +369,7 @@
 #X obj 570 836 hsl 70 12 0 127 0 0 \$0-e-mrph \$0-v-mrph empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 852 3 0 127 0 - \$0-v-mrph \$0-e-mrph;
 #X symbolatom 596 852 7 0 0 0 - \$0-t-mrph -;
-#X obj 676 172 cnv 15 640 82 empty empty PAGE\ 9\ \ DEG4-DRIVE\ \ CC\ 94\ 95\ 102\ 103\ 104\ 105\ 106\ 107 4 8 0 10 #ececec #404040 0;
+#X obj 676 172 cnv 15 640 82 empty empty PAGE\ 9\ \ DEG4-DRIVE\ \ CC\ 94\ 95\ 102\ 103\ 104\ 105\ 106\ 107 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 680 190 env4 94;
 #X text 680 202 Env4 morph;
 #X obj 680 220 hsl 70 12 0 127 0 0 \$0-e-env4 \$0-v-env4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -413,7 +410,7 @@
 #X obj 1240 220 hsl 70 12 0 127 0 0 \$0-e-tone \$0-v-tone empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 236 3 0 127 0 - \$0-v-tone \$0-e-tone;
 #X symbolatom 1266 236 7 0 0 0 - \$0-t-tone -;
-#X obj 676 260 cnv 15 640 82 empty empty PAGE\ 10\ \ LFO2\ \ CC\ 108-115 4 8 0 10 #dcdcdc #404040 0;
+#X obj 676 260 cnv 15 640 82 empty empty PAGE\ 10\ \ LFO2\ \ CC\ 108-115 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 278 l2r 108;
 #X text 680 290 LFO2 rate;
 #X obj 680 308 hsl 70 12 0 127 0 0 \$0-e-l2r \$0-v-l2r empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -454,7 +451,7 @@
 #X obj 1240 308 hsl 70 12 0 127 0 0 \$0-e-l2a2 \$0-v-l2a2 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 324 3 0 127 0 - \$0-v-l2a2 \$0-e-l2a2;
 #X symbolatom 1266 324 7 0 0 0 - \$0-t-l2a2 -;
-#X obj 676 348 cnv 15 640 82 empty empty PAGE\ 11\ \ LFO3\ \ CC\ 116\ 117\ 118\ 119\ (the\ rest\ by\ mouse) 4 8 0 10 #ececec #404040 0;
+#X obj 676 348 cnv 15 640 82 empty empty PAGE\ 11\ \ LFO3\ \ CC\ 116\ 117\ 118\ 119\ (the\ rest\ by\ mouse) 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 680 366 l3r 116;
 #X text 680 378 LFO3 rate;
 #X obj 680 396 hsl 70 12 0 127 0 0 \$0-e-l3r \$0-v-l3r empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -495,7 +492,7 @@
 #X obj 1240 396 hsl 70 12 0 127 0 0 \$0-e-l3a2 \$0-v-l3a2 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 412 3 0 127 0 - \$0-v-l3a2 \$0-e-l3a2;
 #X symbolatom 1266 412 7 0 0 0 - \$0-t-l3a2 -;
-#X obj 676 436 cnv 15 640 82 empty empty MORE\ \ no\ CC 4 8 0 10 #dcdcdc #404040 0;
+#X obj 676 436 cnv 15 640 82 empty empty MORE\ \ no\ CC 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 454 leak;
 #X text 680 466 Leak;
 #X obj 680 484 hsl 70 12 0 127 0 0 \$0-e-leak \$0-v-leak empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -526,7 +523,7 @@
 #X obj 1080 484 hsl 70 12 0 127 0 0 \$0-e-dgld \$0-v-dgld empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1080 500 3 0 127 0 - \$0-v-dgld \$0-e-dgld;
 #X symbolatom 1106 500 7 0 0 0 - \$0-t-dgld -;
-#X obj 676 524 cnv 15 640 82 empty empty DEG1\ stages\ (sets\ env1\ to\ own)\ \ no\ CC 4 8 0 10 #ececec #404040 0;
+#X obj 676 524 cnv 15 640 82 empty empty DEG1\ stages\ (sets\ env1\ to\ own)\ \ no\ CC 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 680 542 a1;
 #X text 680 554 Env1 attack;
 #X obj 680 572 hsl 70 12 0 127 0 0 \$0-e-a1 \$0-v-a1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -557,7 +554,7 @@
 #X obj 1080 572 hsl 70 12 0 127 0 0 \$0-e-r1 \$0-v-r1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1080 588 3 0 127 0 - \$0-v-r1 \$0-e-r1;
 #X symbolatom 1106 588 7 0 0 0 - \$0-t-r1 -;
-#X obj 676 612 cnv 15 640 82 empty empty DEG2\ stages\ (sets\ env2\ to\ own)\ \ no\ CC 4 8 0 10 #dcdcdc #404040 0;
+#X obj 676 612 cnv 15 640 82 empty empty DEG2\ stages\ (sets\ env2\ to\ own)\ \ no\ CC 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 630 a2;
 #X text 680 642 Env2 attack;
 #X obj 680 660 hsl 70 12 0 127 0 0 \$0-e-a2 \$0-v-a2 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -588,7 +585,7 @@
 #X obj 1080 660 hsl 70 12 0 127 0 0 \$0-e-r2 \$0-v-r2 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1080 676 3 0 127 0 - \$0-v-r2 \$0-e-r2;
 #X symbolatom 1106 676 7 0 0 0 - \$0-t-r2 -;
-#X obj 676 700 cnv 15 640 82 empty empty DEG3\ stages\ (sets\ env3\ to\ own)\ \ no\ CC 4 8 0 10 #ececec #404040 0;
+#X obj 676 700 cnv 15 640 82 empty empty DEG3\ stages\ (sets\ env3\ to\ own)\ \ no\ CC 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 680 718 a3;
 #X text 680 730 Env3 attack;
 #X obj 680 748 hsl 70 12 0 127 0 0 \$0-e-a3 \$0-v-a3 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -619,7 +616,7 @@
 #X obj 1080 748 hsl 70 12 0 127 0 0 \$0-e-r3 \$0-v-r3 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1080 764 3 0 127 0 - \$0-v-r3 \$0-e-r3;
 #X symbolatom 1106 764 7 0 0 0 - \$0-t-r3 -;
-#X obj 676 788 cnv 15 640 82 empty empty DEG4\ stages\ (sets\ env4\ to\ own)\ \ no\ CC 4 8 0 10 #dcdcdc #404040 0;
+#X obj 676 788 cnv 15 640 82 empty empty DEG4\ stages\ (sets\ env4\ to\ own)\ \ no\ CC 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 806 a4;
 #X text 680 818 Env4 attack;
 #X obj 680 836 hsl 70 12 0 127 0 0 \$0-e-a4 \$0-v-a4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;

@@ -86,15 +86,60 @@ def subst(lines, rules, name):
     return out
 
 
+def bank_rewrite(lines, f):
+    """[ufread f <default> <text>] and [write f( -> the file beside the patch ($0-path0)"""
+    out = []
+    uf = re.compile(r"^#X obj (\d+) (\d+) ufread " + re.escape(f) + r" (\S+) (\S+);$")
+    wr = re.compile(r"^#X msg (\d+) (\d+) write " + re.escape(f) + ";$")
+    hits = 0
+    for ln in lines:
+        m = uf.match(ln)
+        if m:
+            x, y, default, text = m[1], m[2], m[3], m[4]
+            out += ["#N canvas 0 50 460 300 bankread 0;",
+                    "#X text 10 270 the user bank beside the patch \\, else as before (ufread), f 60;",
+                    "#X obj 10 10 inlet;", "#X obj 10 40 t b;", "#X obj 150 10 r \\$0-path0;",
+                    "#X obj 150 40 t b s;", "#X obj 10 70 symbol;", "#X obj 10 100 file isfile;",
+                    "#X obj 10 130 t b;", "#X obj 10 160 symbol;", "#X obj 10 190 list prepend read;",
+                    "#X obj 10 220 list trim;", "#X obj 10 250 s " + text + ";",
+                    f"#X obj 200 160 ufread {f} {default} {text};",
+                    "#X connect 1 0 2 0;", "#X connect 2 0 5 0;", "#X connect 3 0 4 0;",
+                    "#X connect 4 1 5 1;", "#X connect 4 1 8 1;", "#X connect 4 0 5 0;",
+                    "#X connect 5 0 6 0;", "#X connect 6 0 7 0;", "#X connect 7 0 8 0;",
+                    "#X connect 8 0 9 0;", "#X connect 9 0 10 0;", "#X connect 10 0 11 0;",
+                    "#X connect 6 1 12 0;",
+                    f"#X restore {x} {y} pd bankread;"]
+            hits += 1
+            continue
+        m = wr.match(ln)
+        if m:
+            out += ["#N canvas 0 50 360 220 bankwrite 0;",
+                    "#X obj 10 10 inlet;", "#X obj 10 40 t b;", "#X obj 120 10 r \\$0-path0;",
+                    "#X obj 10 70 symbol;", "#X obj 10 100 list prepend write;",
+                    "#X obj 10 130 list trim;", "#X obj 10 160 outlet;",
+                    "#X connect 0 0 1 0;", "#X connect 1 0 3 0;", "#X connect 2 0 3 1;",
+                    "#X connect 3 0 4 0;", "#X connect 4 0 5 0;", "#X connect 5 0 6 0;",
+                    f"#X restore {m[1]} {m[2]} pd bankwrite;"]
+            hits += 1
+            continue
+        out.append(ln)
+    assert hits >= 2, f"{f}: ufread / write not found"
+    return out
+
+
 def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkdisplay=None,
-          midi=("raw", 2), pads_channel_rule=True, more_edits=(), save=True, store_writes=False):
+          midi=("raw", 2), pads_channel_rule=True, more_edits=(), save=True, store_writes=False,
+          editor_bank=None, channel_msg="channel"):
     """obj: 'juno.i~', ext: the external with its arguments ('juno~'), short: bus name,
     edit / cc / pads / nav / lkdisplay: paths of the generated abstractions,
     edit_title: the title of the bare editor ('juno~ editor'), more_edits: [(path, name)] more
     editors on the same bus, as subpatches [pd name] (click to open). save: 'save' becomes store,
     then the first write (False: 'save' goes to the external unchanged, e.g. tx81z~'s battery RAM).
     store_writes: after every store the first bank is written beside the patch as well (for an
-    external whose store writes its own file)."""
+    external whose store writes its own file). editor_bank: the file of a user bank kept in Pd
+    by the editor and the pad translator with [ufread <file> <default> <text>] and [write <file>(
+    (pdoly8~): those become the file beside the patch (ufread as before when it is not there).
+    channel_msg: the external's message for the receive channel ('ch1' for pdoly8~)."""
     bus = "\\$0-" + short
     extname = ext.split()[0]
     title_re = r"^(#X obj \d+ \d+ cnv 10 10 10 empty empty )" + re.escape(edit_title.replace(" ", "\\ ")) + "(?= )"
@@ -110,6 +155,8 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
         if pads_channel_rule:                    # the pads' channel is argument 2
             pdl = subst(pdl, [(r"^(#X obj \d+ \d+ f )\\\$1;$", "\\$2;")], pads)
     nvl = read(nav) if nav else None
+    if editor_bank:
+        ed = bank_rewrite(ed, editor_bank)
     lkl = read(lkdisplay) if lkdisplay else None
 
     n = len(top_objects(ed)[0])
@@ -136,9 +183,10 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     argtext = "Argument 1: MIDI channel (0 or none = 1)"
     if pads:
         argtext += " \\, argument 2: Launchkey pads (0 or none = 10)"
-    files = " and ".join(f for _, _, f in banks)
-    banktext = (f" The user bank{'s are' if len(banks) > 1 else ' is'} {files} beside the patch that "
-                f"holds {obj}." if banks else "")
+    files = " and ".join([f for _, _, f in banks] + ([editor_bank] if editor_bank else []))
+    nfiles = len(banks) + (1 if editor_bank else 0)
+    banktext = (f" The user bank{'s are' if nfiles > 1 else ' is'} {files} beside the patch that "
+                f"holds {obj}." if nfiles else "")
     note(X, Y, f"{obj} {args}: {extname} with the editor above{parts} \\, MIDI in and out. "
          f"{argtext}.{banktext} Generated by common/tools/instobj.py \\, do not edit by hand.", 104)
     Y += 70
@@ -205,11 +253,11 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
         mi = add(f"#X obj {X + 290} {my - 35} midiin;")
         midi_src = [(mi, 0, midi[1])]
     else:
-        ni = add(f"#X obj {X + 150} {my - 35} notein;")
-        pk = add(f"#X obj {X + 150} {my - 10} pack f f f;")
-        bi = add(f"#X obj {X + 250} {my - 35} bendin;")
-        bx = add(f"#X obj {X + 250} {my - 10} expr (\\$f1 - 8192) / 8192;")
-        bm = add(f"#X msg {X + 250} {my + 15} bend \\$1;")
+        ni = add(f"#X obj {X + 130} {my - 35} notein;")
+        pk = add(f"#X obj {X + 130} {my - 10} pack f f f;")
+        bi = add(f"#X obj {X + 215} {my - 35} bendin;")
+        bx = add(f"#X obj {X + 215} {my - 10} expr (\\$f1 - 8192) / 8192;")
+        bm = add(f"#X msg {X + 215} {my + 15} bend \\$1;")
         for k in range(3):
             con(ni, k, pk, k)
         con(bi, 0, bx, 0); con(bx, 0, bm, 0)
@@ -235,17 +283,24 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
 
     # ---- at load (right): channel; per bank its path, read it if it is there
     ly = Y - 40
-    note(XR, ly, "at load: MIDI channel" + (" \\, user bank" if banks else ""), 40)
+    note(XR, ly, "at load: MIDI channel" + (" \\, user bank" if banks or editor_bank else ""), 40)
     ly += 40
     lb = add(f"#X obj {XR} {ly} loadbang;")
     tl = add(f"#X obj {XR} {ly + 25} t b b;")
     fa = add(f"#X obj {XR + 80} {ly + 50} f \\$1;")
     mx = add(f"#X obj {XR + 80} {ly + 75} max 1;")
-    ch = add(f"#X msg {XR + 80} {ly + 100} channel \\$1;")
+    ch = add(f"#X msg {XR + 80} {ly + 100} {channel_msg} \\$1;")
     sc1 = add(f"#X obj {XR + 80} {ly + 125} s {bus};")
     con(lb, 0, tl, 0)
     con(tl, 1, fa, 0); con(fa, 0, mx, 0); con(mx, 0, ch, 0); con(ch, 0, sc1, 0)
     cy = ly + 160
+    if editor_bank:
+        dm = add(f"#X msg {XR} {ly + 50} dir 1;")
+        pc = add(f"#X obj {XR} {ly + 75} pdcontrol;")
+        mf = add(f"#X obj {XR} {ly + 155} makefilename %s/{editor_bank};")
+        sp_ = add(f"#X obj {XR} {ly + 180} s \\$0-path0;")
+        con(tl, 0, dm, 0); con(dm, 0, pc, 0); con(pc, 0, mf, 0); con(mf, 0, sp_, 0)
+        cy = ly + 215
     if banks:
         dm = add(f"#X msg {XR} {ly + 50} dir 1;")
         pc = add(f"#X obj {XR} {ly + 75} pdcontrol;")
@@ -280,7 +335,10 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     if pdl:
         ppd = add(as_subpatch(pdl, "pads", xp, cy))
         if nvl:                                  # pads -> translator -> instrument, display
-            pnv = add(as_subpatch(nvl, "nav", xp, cy + 30))
+            nsub = as_subpatch(nvl, "nav", xp, cy + 30)
+            if editor_bank:
+                nsub = nsub[:1] + bank_rewrite(nsub[1:-1], editor_bank) + nsub[-1:]
+            pnv = add(nsub)
             sp = add(f"#X obj {xp} {cy + 60} s {bus};")
             con(ppd, 0, pnv, 0); con(ro, 0, pnv, 1); con(pnv, 0, sp, 0)
             disp = (pnv, 1)

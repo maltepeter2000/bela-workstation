@@ -54,6 +54,7 @@ class Patch:
                         f"{xo} {yo} 0 {fs} {bg} {INK} 0;")
 
     def heading(self, x, y, text, fs):
+        assert "," not in text and ";" not in text, f"heading labels take no , or ; ({text})"
         return self.cnv(x, y, 10, 10, text.replace(" ", SPACE), LBL, 6, fs, BLUE, 10)
 
     def comment(self, x, y, lines, para=False, semi=False):
