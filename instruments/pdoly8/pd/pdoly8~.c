@@ -1305,7 +1305,7 @@ static void *pdoly8_new(void)
     x->e.level = 0.5f;                           /* fixed output level (headroom for 4 voices, both DCOs) */
     x->last = -1;
     for (int i = 0; i < NRANGE && i < 160; i++) {
-        x->rep_v[i] = find_value(x, gensym(RANGE[i].name)); x->rep_last[i] = NAN;   /* first tick: all */
+        x->rep_v[i] = find_value(x, gensym(RANGE[i].name)); x->rep_last[i] = -1e30f;   /* first tick: all (no NaN: -ffast-math on the Bela) */
     }
     x->rep_clk = clock_new(x, (t_method)rep_tick);
     x->canvas = canvas_getcurrent();
