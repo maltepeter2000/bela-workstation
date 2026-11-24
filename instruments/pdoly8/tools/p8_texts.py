@@ -166,8 +166,7 @@ BLOCKS = [
       "Poly-800): 0 off, 127 level = velocity."]),
     ("Performance",
      [[("atk", -63, 63), ("rel", -63, 63)], [("vol", 0, 127)]], [],
-     ["Laid over the sound, not stored in it (as the performance controls of every "
-      "instrument on page 1 of the Launchkey). A sound recalled sets atk and rel back to 0.",
+     ["Laid over the sound, not stored in it (Launchkey page 9 MORE). A sound recalled sets atk and rel back to 0.",
       "atk, rel (0): attack of DEG1 and DEG2, release of DEG1, DEG2 and DEG3, -63..63 "
       "= -31..+31 DEG steps on top of the sound's own or morphed values.",
       "vol (100): output volume, 100 = 0 dB, 127 = +4 dB, square law. Set up once, "

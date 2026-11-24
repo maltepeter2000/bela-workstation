@@ -31,12 +31,12 @@ OUT = os.path.join(ROOT, "bela", "pepper")
 # page name, 8 pot parameters ("none" = free)
 PAGES = [
     ("PLAY",       ["har1", "oct1", "har2", "oct2", "env1", "env2", "lev1", "lev2"]),
-    ("FILTER",     ["cut", "res", "egi", "kbd", "env3", "vcut", "drv", "nois"]),
+    ("FILTER",     ["cut", "res", "egi", "kbd", "env3", "vcut", "drv", "drvp"]),
     ("OSC",        ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
     ("WALSH",      ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "lev1", "lev2"]),
     ("SYNC-RING",  ["sync", "swp2", "swe", "swm", "ring", "rmf", "lev1", "lev2"]),
     ("FM",         ["fm1", "fm2", "fmr", "fmhz", "fms", "fmig", "lev1", "lev2"]),
-    ("MG-MORE",    ["mgr", "mgi", "mgd", "mgv", "drvp", "tone", "leak", "dgld"]),
+    ("MG-MORE",    ["mgr", "mgi", "mgd", "mgv", "nois", "tone", "leak", "dgld"]),
     ("FX-PERFORM", ["dtim", "dfb", "dmf", "dmi", "dlev", "port", "mono", "vamp"]),
 ]
 # MIDI CC -> parameter: the controller layer (tools/ctlayer.py), one MIDI channel for
@@ -45,17 +45,16 @@ PAGES = [
 import ctlayer                                   # noqa: E402
 MIDI_CH = 1
 CC_ROWS = [
-    # page 1 is the same in every instrument: bright, resonance, attack, release, vibrato,
-    # effect, own (here the filter EG intensity), volume (docs/instrument-contract.md)
-    ("PERFORM",          ["cut", "res", "atk", "rel", "mgi", "dlev", "egi", "vol"]),
-    ("PLAY",             ["har1", "oct1", "har2", "oct2", "env1", "env2", "lev1", "lev2"]),
-    ("FILTER-MG",        ["env3", "kbd", "vcut", "drv", "nois", "mgr", "mgd", "mgv"]),
-    ("OSC",              ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
-    ("WALSH-RING",       ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "ring", "rmf"]),
-    ("SYNC-FM",          ["sync", "swp2", "swe", "swm", "fm1", "fm2", "fmr", "fmhz"]),
-    ("FMSOURCE-DELAY-EQ", ["fms", "fmig", "dtim", "dfb", "dmf", "dmi", "treb", "bass"]),
-    ("PLAY MODE",        ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
-    ("MORE",             ["drvp", "tone", "leak", "mgf", "pol", "trg", "dgld"]),
+    # pdoly8 keeps its own order (no shared PERFORM page): play, filter, oscillators, ...
+    ("PLAY",        ["har1", "oct1", "har2", "oct2", "env1", "env2", "lev1", "lev2"]),
+    ("FILTER",      ["cut", "res", "egi", "kbd", "env3", "vcut", "drv", "drvp"]),
+    ("OSC",         ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
+    ("WALSH-RING",  ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "ring", "rmf"]),
+    ("SYNC-FM",     ["sync", "swp2", "swe", "swm", "fm1", "fm2", "fmr", "fmhz"]),
+    ("FMSOURCE-MG", ["fms", "fmig", "mgr", "mgf", "mgi", "mgd", "mgv", "nois"]),
+    ("DELAY-EQ",    ["dtim", "dfb", "dmf", "dmi", "dlev", "dgld", "treb", "bass"]),
+    ("PLAY MODE",   ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
+    ("MORE",        ["atk", "rel", "vol", "tone", "leak", "pol", "trg"]),
 ]
 # not on the pages (editor and messages only): ch1 (the MIDI channel, at the top of the editor)
 CC_OF = ctlayer.cc_map(CC_ROWS)                  # name -> CC

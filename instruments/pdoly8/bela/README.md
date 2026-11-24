@@ -37,81 +37,81 @@ Rückmeldung: Änderungen von woanders (Preset, Program Change, Editor) gehen al
 
 | Seite | CC | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 |---|---|---|---|---|---|---|---|---|---|
-| **1** PERFORM | 20-27 | `cut` | `res` | `atk` | `rel` | `mgi` | `dlev` | `egi` | `vol` |
-| **2** PLAY | 28-31 33-36 | `har1` | `oct1` | `har2` | `oct2` | `env1` | `env2` | `lev1` | `lev2` |
-| **3** FILTER-MG | 37 39-45 | `env3` | `kbd` | `vcut` | `drv` | `nois` | `mgr` | `mgd` | `mgv` |
-| **4** OSC | 46-53 | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
-| **5** WALSH-RING | 54-61 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
-| **6** SYNC-FM | 62-63 70-75 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
-| **7** FMSOURCE-DELAY-EQ | 76-83 | `fms` | `fmig` | `dtim` | `dfb` | `dmf` | `dmi` | `treb` | `bass` |
+| **1** PLAY | 20-27 | `har1` | `oct1` | `har2` | `oct2` | `env1` | `env2` | `lev1` | `lev2` |
+| **2** FILTER | 28-31 33-36 | `cut` | `res` | `egi` | `kbd` | `env3` | `vcut` | `drv` | `drvp` |
+| **3** OSC | 37 39-45 | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
+| **4** WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
+| **5** SYNC-FM | 54-61 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
+| **6** FMSOURCE-MG | 62-63 70-75 | `fms` | `fmig` | `mgr` | `mgf` | `mgi` | `mgd` | `mgv` | `nois` |
+| **7** DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
 | **8** PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
-| **9** MORE | 94-95 102-107 | `drvp` | `tone` | `leak` | `mgf` | `pol` | `trg` | `dgld` |  |
+| **9** MORE | 94-95 102-107 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` |  |
 
 Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `mgf`, `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4`.
 
 | CC | Parameter | Anzeige (OLED) | Bereich |
 |---|---|---|---|
-| **Seite 1: PERFORM** | | | |
-| 20 | `cut` | Cutoff | 0 … 99 |
-| 21 | `res` | Resonance | 0 … 15 |
-| 22 | `atk` | Attack all | -63 … 63 |
-| 23 | `rel` | Release all | -63 … 63 |
-| 24 | `mgi` | Vibrato | 0 … 200 ct |
-| 25 | `dlev` | Delay level | 0 … 15 |
-| 26 | `egi` | EG depth | 0 … 15 |
-| 27 | `vol` | Volume | 0 … 127 |
-| **Seite 2: PLAY** | | | |
-| 28 | `har1` | Timbre 1 | 0 … 127 |
-| 29 | `oct1` | Octave 1 | -1 / 0 / +1 / +2 / +3 / +4 |
-| 30 | `har2` | Timbre 2 | 0 … 127 |
-| 31 | `oct2` | Octave 2 | -1 / 0 / +1 / +2 / +3 / +4 |
-| 33 | `env1` | Env 1 morph | 0 … 127 |
-| 34 | `env2` | Env 2 morph | 0 … 127 |
-| 35 | `lev1` | Level 1 | 0 … 127 |
-| 36 | `lev2` | Level 2 | 0 … 127 |
-| **Seite 3: FILTER-MG** | | | |
-| 37 | `env3` | Env 3 morph | 0 … 127 |
-| 39 | `kbd` | Key track | off / half / full |
-| 40 | `vcut` | Vel>cutoff | 0 … 127 |
-| 41 | `drv` | Drive | 0 … 127 |
-| 42 | `nois` | Noise | 0 … 15 |
-| 43 | `mgr` | MG rate | 0 … 15 |
-| 44 | `mgd` | MG delay | 0 … 15 |
-| 45 | `mgv` | MG>cutoff | 0 … 15 |
-| **Seite 4: OSC** | | | |
-| 46 | `intv` | Interval | 0 … 12 st |
-| 47 | `detn` | Detune | 0 … 127 |
-| 48 | `pw1` | Pulse width 1 | 0 … 127 |
-| 49 | `pw2` | Pulse width 2 | 0 … 127 |
-| 50 | `pwm1` | PWM 1 | 0 … 127 |
-| 51 | `pwm2` | PWM 2 | 0 … 127 |
-| 52 | `hmg` | MG>timbre | 0 … 127 |
-| 53 | `drft` | Drift | 0 … 127 |
-| **Seite 5: WALSH-RING** | | | |
-| 54 | `wsh1` | Walsh pos 1 | 0 … 127 |
-| 55 | `wsh2` | Walsh pos 2 | 0 … 127 |
-| 56 | `wmx1` | Walsh mix 1 | 0 … 127 |
-| 57 | `wmx2` | Walsh mix 2 | 0 … 127 |
-| 58 | `wsm` | MG>Walsh | 0 … 127 |
-| 59 | `wse` | EG3>Walsh | -127 … 127 |
-| 60 | `ring` | Ring mod | 0 … 127 |
-| 61 | `rmf` | Ring source | 0 … 14 |
-| **Seite 6: SYNC-FM** | | | |
-| 62 | `sync` | Sync | off / on |
-| 63 | `swp2` | DCO2 pitch | 0 … 72 st |
-| 70 | `swe` | EG3>DCO2 | 0 … 72 st |
-| 71 | `swm` | MG>DCO2 | 0 … 24 st |
-| 72 | `fm1` | FM depth 1 | 0 … 127 |
-| 73 | `fm2` | FM depth 2 | 0 … 127 |
-| 74 | `fmr` | FM ratio | 0.125f … 16 x |
-| 75 | `fmhz` | FM offset | -1000 … 1000 Hz |
-| **Seite 7: FMSOURCE-DELAY-EQ** | | | |
-| 76 | `fms` | FM source | sine / other DCO / input |
-| 77 | `fmig` | FM input gain | 0 … 127 |
-| 78 | `dtim` | Delay time | 0 … 99 |
-| 79 | `dfb` | Delay feedback | 0 … 15 |
-| 80 | `dmf` | Delay mod rate | 0 … 31 |
-| 81 | `dmi` | Delay mod depth | 0 … 31 |
+| **Seite 1: PLAY** | | | |
+| 20 | `har1` | Timbre 1 | 0 … 127 |
+| 21 | `oct1` | Octave 1 | -1 / 0 / +1 / +2 / +3 / +4 |
+| 22 | `har2` | Timbre 2 | 0 … 127 |
+| 23 | `oct2` | Octave 2 | -1 / 0 / +1 / +2 / +3 / +4 |
+| 24 | `env1` | Env 1 morph | 0 … 127 |
+| 25 | `env2` | Env 2 morph | 0 … 127 |
+| 26 | `lev1` | Level 1 | 0 … 127 |
+| 27 | `lev2` | Level 2 | 0 … 127 |
+| **Seite 2: FILTER** | | | |
+| 28 | `cut` | Cutoff | 0 … 99 |
+| 29 | `res` | Resonance | 0 … 15 |
+| 30 | `egi` | EG depth | 0 … 15 |
+| 31 | `kbd` | Key track | off / half / full |
+| 33 | `env3` | Env 3 morph | 0 … 127 |
+| 34 | `vcut` | Vel>cutoff | 0 … 127 |
+| 35 | `drv` | Drive | 0 … 127 |
+| 36 | `drvp` | Drive position | post / pre |
+| **Seite 3: OSC** | | | |
+| 37 | `intv` | Interval | 0 … 12 st |
+| 39 | `detn` | Detune | 0 … 127 |
+| 40 | `pw1` | Pulse width 1 | 0 … 127 |
+| 41 | `pw2` | Pulse width 2 | 0 … 127 |
+| 42 | `pwm1` | PWM 1 | 0 … 127 |
+| 43 | `pwm2` | PWM 2 | 0 … 127 |
+| 44 | `hmg` | MG>timbre | 0 … 127 |
+| 45 | `drft` | Drift | 0 … 127 |
+| **Seite 4: WALSH-RING** | | | |
+| 46 | `wsh1` | Walsh pos 1 | 0 … 127 |
+| 47 | `wsh2` | Walsh pos 2 | 0 … 127 |
+| 48 | `wmx1` | Walsh mix 1 | 0 … 127 |
+| 49 | `wmx2` | Walsh mix 2 | 0 … 127 |
+| 50 | `wsm` | MG>Walsh | 0 … 127 |
+| 51 | `wse` | EG3>Walsh | -127 … 127 |
+| 52 | `ring` | Ring mod | 0 … 127 |
+| 53 | `rmf` | Ring source | 0 … 14 |
+| **Seite 5: SYNC-FM** | | | |
+| 54 | `sync` | Sync | off / on |
+| 55 | `swp2` | DCO2 pitch | 0 … 72 st |
+| 56 | `swe` | EG3>DCO2 | 0 … 72 st |
+| 57 | `swm` | MG>DCO2 | 0 … 24 st |
+| 58 | `fm1` | FM depth 1 | 0 … 127 |
+| 59 | `fm2` | FM depth 2 | 0 … 127 |
+| 60 | `fmr` | FM ratio | 0.125f … 16 x |
+| 61 | `fmhz` | FM offset | -1000 … 1000 Hz |
+| **Seite 6: FMSOURCE-MG** | | | |
+| 62 | `fms` | FM source | sine / other DCO / input |
+| 63 | `fmig` | FM input gain | 0 … 127 |
+| 70 | `mgr` | MG rate | 0 … 15 |
+| 71 | `mgf` | MG rate | 0.1f … 30 Hz |
+| 72 | `mgi` | Vibrato | 0 … 200 ct |
+| 73 | `mgd` | MG delay | 0 … 15 |
+| 74 | `mgv` | MG>cutoff | 0 … 15 |
+| 75 | `nois` | Noise | 0 … 15 |
+| **Seite 7: DELAY-EQ** | | | |
+| 76 | `dtim` | Delay time | 0 … 99 |
+| 77 | `dfb` | Delay feedback | 0 … 15 |
+| 78 | `dmf` | Delay mod rate | 0 … 31 |
+| 79 | `dmi` | Delay mod depth | 0 … 31 |
+| 80 | `dlev` | Delay level | 0 … 15 |
+| 81 | `dgld` | Delay changes | mute / glide |
 | 82 | `treb` | Treble | -6 … 6 |
 | 83 | `bass` | Bass | -6 … 6 |
 | **Seite 8: PLAY MODE** | | | |
@@ -124,13 +124,13 @@ Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `m
 | 92 | `sprd` | Stereo spread | 0 … 127 |
 | 93 | `mrph` | Smoothing | 0 … 100 ms |
 | **Seite 9: MORE** | | | |
-| 94 | `drvp` | Drive position | post / pre |
-| 95 | `tone` | Output stage | off / on |
-| 102 | `leak` | Leak | off / on |
-| 103 | `mgf` | MG rate | 0.1f … 30 Hz |
-| 104 | `pol` | EG polarity | down / up |
-| 105 | `trg` | Env 3 trigger | single / multi |
-| 106 | `dgld` | Delay changes | mute / glide |
+| 94 | `atk` | Attack all | -63 … 63 |
+| 95 | `rel` | Release all | -63 … 63 |
+| 102 | `vol` | Volume | 0 … 127 |
+| 103 | `tone` | Output stage | off / on |
+| 104 | `leak` | Leak | off / on |
+| 105 | `pol` | EG polarity | down / up |
+| 106 | `trg` | Env 3 trigger | single / multi |
 
 ## Installation
 

@@ -35,7 +35,7 @@ aligned. State: 20 Nov 2026.
 | `<x>user-bank.*` | the instrument, on save |
 | a Bela Gem project or slot | the instrument's Bela generator |
 
-**Page 1 (CC 20-27) is the same in every instrument**, so a hand finds it at once after
+**Page 1 (CC 20-27) is the same in every instrument** (except pdoly8~, which keeps its own order: page 1 PLAY, page 2 FILTER), so a hand finds it at once after
 switching instruments:
 
 | Encoder | 1 bright | 2 resonance | 3 attack | 4 release | 5 vibrato | 6 effect | 7 own | 8 volume |
@@ -43,7 +43,6 @@ switching instruments:
 | juno~ | cutoff | res | attack | release | dcolfo | chorus | env | volume |
 | d50~ | cut | res | att | rel | vib | chorus | balance | volume |
 | cz4~ | dcw | detune | attack | release | vibrato | chorus | balance | volume |
-| pdoly8~ | cut | res | atk | rel | mgi | dlev | egi | vol |
 | tx81zn~ (fm) | moda | fdbk | atkc | relc | lpmd | dtun | mix | vol |
 
 Volume is not stored in a sound (100 or the instrument's default = unity). d50's cut, res,
@@ -90,8 +89,7 @@ an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
    by side in the rack's folder.
 8. **One layout and the same make targets** in every instrument (`pd/`, `bin/macos`, `bela/`,
    `make`, `make mac-zig`, `make bela-gem` into `build/bela-gem`, `make gen`; see README).
-9. **Page 1 the same everywhere** (table above). New for it: d50~ `vib`, pdoly8~ `atk rel
-   vol`, tx81zn~ FM page PERFORM with `vol`; the other pages moved to make room.
+9. **Page 1 the same everywhere** (table above). New for it: d50~ `vib`, tx81zn~ FM page PERFORM with `vol`; the other pages moved to make room.
 10. **Levels:** `common/tools/measure_levels.py` plays every instrument offline and writes
     `docs/levels.md`: a trim per instrument that brings the median sound to -20 dBFS, for
     the rack (measured here: juno +3.9 dB, pdoly8 +2.5 dB; d50, tx81zn and cz4 need the

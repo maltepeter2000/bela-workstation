@@ -133,7 +133,7 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 
 ### MIDI CC: the controller layer (`p8cc.pd`)
 
-The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` (help and Bela: channel 1, 0 = all channels) turns MIDI CC into `n <name> <value>` for the object. Every instrument gets its own MIDI channel and the same CC pages, so the controller (Launchkey) keeps one setup: page k = row k in the editor. The pages are 20–119 without 32, 38, 64–69, 84, 88, 96–101 (bank / data LSB, pedals, portamento control, high-res velocity, NRPN / RPN); pdoly8~ uses pages 1–9. The generic part is `tools/ctlayer.py` (for every instrument), the rows of pdoly8~ are `CC_ROWS` in `tools/gen_bela.py`.
+The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` (help and Bela: channel 1, 0 = all channels) turns MIDI CC into `n <name> <value>` for the object. Every instrument gets its own MIDI channel and CC pages 20–119, so the controller (Launchkey) keeps one setup: page k = row k in the editor. The pages are 20–119 without 32, 38, 64–69, 84, 88, 96–101 (bank / data LSB, pedals, portamento control, high-res velocity, NRPN / RPN); pdoly8~ uses pages 1–9 in its own order (no shared PERFORM page: page 1 PLAY, page 2 FILTER). The generic part is `tools/ctlayer.py` (for every instrument), the rows of pdoly8~ are `CC_ROWS` in `tools/gen_bela.py`.
 
 - **Feedback:** the object reports every change on outlet 3 (`info <name> <0-127> <text>`, also its own). The layer sends changes that did not come from the encoder itself (presets, program change, editor, messages) back to the controller as CC on the same channel and number (`[ctlout]`), so a controller that takes incoming CC knows the new value.
 - **Pickup:** after such a change an encoder acts only when it reaches the value (within 3) or crosses it, so nothing jumps with a controller that ignores the feedback. `pickup 0` turns it off.
@@ -141,15 +141,15 @@ The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` 
 
 | Page | CC | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 PERFORM | 20-27 | `cut` | `res` | `atk` | `rel` | `mgi` | `dlev` | `egi` | `vol` |
-| 2 PLAY | 28-31 33-36 | `har1` | `har2` | `env1` | `env2` | `intv` | `detn` | `lev1` | `lev2` |
-| 3 FILTER-MG | 37 39-45 | `env3` | `kbd` | `vcut` | `drv` | `nois` | `mgr` | `mgd` | `mgv` |
-| 4 OSC | 46-53 | `oct1` | `oct2` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
-| 5 WALSH-RING | 54-61 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
-| 6 SYNC-FM | 62-63 70-75 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
-| 7 FMSOURCE-DELAY-EQ | 76-83 | `fms` | `fmig` | `dtim` | `dfb` | `dmf` | `dmi` | `treb` | `bass` |
+| 1 PLAY | 20-27 | `har1` | `oct1` | `har2` | `oct2` | `env1` | `env2` | `lev1` | `lev2` |
+| 2 FILTER | 28-31 33-36 | `cut` | `res` | `egi` | `kbd` | `env3` | `vcut` | `drv` | `drvp` |
+| 3 OSC | 37 39-45 | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
+| 4 WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
+| 5 SYNC-FM | 54-61 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
+| 6 FMSOURCE-MG | 62-63 70-75 | `fms` | `fmig` | `mgr` | `mgf` | `mgi` | `mgd` | `mgv` | `nois` |
+| 7 DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
 | 8 PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
-| 9 MORE | 94-95 102-107 | `drvp` | `tone` | `leak` | `mgf` | `pol` | `trg` | `dgld` |  |
+| 9 MORE | 94-95 102-106 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` |   |
 
 Not by CC (editor or message only): `ch1` (at the top of the editor) and the DEG stages `a1` … `r3`.
 
