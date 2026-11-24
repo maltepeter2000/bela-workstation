@@ -1,9 +1,6 @@
 #N canvas 20 20 660 1096 10;
-#N canvas 60 60 620 620 readme 0;
-#X text 10 10 cz4~ editor \; \; [cz4edit <bus>] sends to [s <bus>] (the [r <bus>] in front of cz4~) and reads outlet 3 of cz4~ from [r <bus>-out]. In your own patch: [r c1] -> [cz4~] -> outlet 3 -> [route float] -> right outlet -> [s c1-out] and [cz4edit c1]. Every change (controller \, tone change \, messages \, SysEx) shows up here. \; \; Rows of 8: the rows are the pages of the controller layer [cz4cc] (page k on the controller = row k). Each cell: name and label \, slider and number box: the value as from a pot (0-127) \, the box right of it: the value as the CZ shows it. Edits are heard at once. \; \; Line \, envelope and tone: the LINE / WAVE \, ENVELOPE \, RATES and LEVELS rows edit the line chosen with 'line' (1 or 2) and the envelope chosen with 'env' (DCO pitch \, DCW wave \, DCA amplitude) \, in tone A or \, with 'edit' B \, in tone B of a split or mix. The cells follow the selection. \; \; An envelope has 8 steps of rate and level. sus is the step that holds while the key is down (off: none) \, end the last step \, which goes to zero. Easy A D S R write a simple envelope into the selected one: attack to the top \, decay to the sustain level \, release to zero. \; \; PERFORM and SETUP (light brown) are not stored. OPERATION (green) is the operation memory of the CZ-1: key mode (normal \, split \, mix) \, split point \, tone B \, volumes \, chorus \, portamento \, glide \, bend range \, wheel and aftertouch. It is stored in an operation slot \, not in the tone. \; \; factory N: a factory tone (read only): the CZ banks (.syx) found next to cz4~. user N: a slot of the user bank (0-63). reload: the same tone again \, edits dropped. compare: hear the stored tone while it is on. init: a plain sawtooth to start from. A new name: type it in the name box (16 characters \, _ for a space). \; \; store to N chooses a user slot \, save tone stores the edited tone there and writes cz4user-bank.syx (next to cz4~). load bank reads that file again \, write bank writes it without storing. operation N recalls an operation slot \, save operation stores the current one and writes cz4user-op.syx. \; \; send bank / send tone: the user bank or the edited tone as CZ SysEx on the third outlet of cz4~ (to [midiout]) \, as a librarian sends it. get from CZ / send to CZ: talk to a real CZ with its handshake: CZ program 96 is the tone it plays \, 32-95 are the user slots here (a CZ-101 has its own numbers: see the help patch). \; \; MIDI in: receive channel of cz4~ for raw MIDI \, note lists and SysEx \, 0 = all. out: the channel of the controller feedback and of SysEx. The controller layer follows both., f 92;
-#X restore 10 12 pd readme;
-#X text 100 14 cz4~ editor - open [pd readme] for how it works;
-#X obj 6 44 cnv 15 640 128 empty empty TONE 4 8 0 10 #e4ecf4 #404040 0;
+#X obj 10 14 cnv 10 10 10 empty empty cz4~\ editor 24 6 0 22 #1e3791 #000000 0;
+#X obj 6 44 cnv 15 640 128 empty empty TONE 4 8 0 10 #e4ecf4 #1e3791 0;
 #X text 10 64 name;
 #X symbolatom 50 64 17 0 0 0 - \$0-namev \$0-name;
 #X text 180 64 factory;
@@ -36,7 +33,7 @@
 #X floatatom 280 142 3 0 127 0 - - \$0-czp;
 #X obj 316 142 bng 17 250 50 0 \$0-czget empty get\ from\ CZ 21 9 0 10 #fcfcfc #000000 #000000;
 #X obj 410 142 bng 17 250 50 0 \$0-czsend empty send\ to\ CZ 21 9 0 10 #fcfcfc #000000 #000000;
-#X obj 6 182 cnv 15 640 82 empty empty PAGE\ 1\ \ PERFORM\ \ CC\ 20-27 4 8 0 10 #f3ecdf #404040 0;
+#X obj 6 182 cnv 15 640 82 empty empty PAGE\ 1\ \ PERFORM\ \ CC\ 20-27 4 8 0 10 #f3ecdf #1e3791 0;
 #X text 10 200 dcw;
 #X text 10 212 DCW offset;
 #X obj 10 230 hsl 70 12 0 127 0 0 \$0-e-dcw \$0-v-dcw empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -77,7 +74,7 @@
 #X obj 570 230 hsl 70 12 0 127 0 0 \$0-e-volume \$0-v-volume empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 246 3 0 127 0 - \$0-v-volume \$0-e-volume;
 #X symbolatom 596 246 7 0 0 0 - \$0-t-volume -;
-#X obj 6 270 cnv 15 640 82 empty empty PAGE\ 2\ \ LINE\ /\ WAVE\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 270 cnv 15 640 82 empty empty PAGE\ 2\ \ LINE\ /\ WAVE\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 288 line;
 #X text 10 300 Edit line;
 #X obj 10 318 hsl 70 12 0 127 0 0 \$0-e-line \$0-v-line empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -118,7 +115,7 @@
 #X obj 570 318 hsl 70 12 0 127 0 0 \$0-e-level \$0-v-level empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 334 3 0 127 0 - \$0-v-level \$0-e-level;
 #X symbolatom 596 334 7 0 0 0 - \$0-t-level -;
-#X obj 6 358 cnv 15 640 82 empty empty PAGE\ 3\ \ DETUNE\ /\ VIBRATO\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #ececec #404040 0;
+#X obj 6 358 cnv 15 640 82 empty empty PAGE\ 3\ \ DETUNE\ /\ VIBRATO\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 376 dsign;
 #X text 10 388 Det. sign;
 #X obj 10 406 hsl 70 12 0 127 0 0 \$0-e-dsign \$0-v-dsign empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -159,7 +156,7 @@
 #X obj 570 406 hsl 70 12 0 127 0 0 \$0-e-vdepth \$0-v-vdepth empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 422 3 0 127 0 - \$0-v-vdepth \$0-e-vdepth;
 #X symbolatom 596 422 7 0 0 0 - \$0-t-vdepth -;
-#X obj 6 446 cnv 15 640 82 empty empty PAGE\ 4\ \ ENVELOPE\ \ CC\ 46-53 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 446 cnv 15 640 82 empty empty PAGE\ 4\ \ ENVELOPE\ \ CC\ 46-53 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 464 env;
 #X text 10 476 Edit env;
 #X obj 10 494 hsl 70 12 0 127 0 0 \$0-e-env \$0-v-env empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -200,7 +197,7 @@
 #X obj 570 494 hsl 70 12 0 127 0 0 \$0-e-vela \$0-v-vela empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 510 3 0 127 0 - \$0-v-vela \$0-e-vela;
 #X symbolatom 596 510 7 0 0 0 - \$0-t-vela -;
-#X obj 6 534 cnv 15 640 82 empty empty PAGE\ 5\ \ RATES\ \ CC\ 54-61 4 8 0 10 #ececec #404040 0;
+#X obj 6 534 cnv 15 640 82 empty empty PAGE\ 5\ \ RATES\ \ CC\ 54-61 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 552 r1;
 #X text 10 564 Rate 1;
 #X obj 10 582 hsl 70 12 0 127 0 0 \$0-e-r1 \$0-v-r1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -241,7 +238,7 @@
 #X obj 570 582 hsl 70 12 0 127 0 0 \$0-e-r8 \$0-v-r8 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 598 3 0 127 0 - \$0-v-r8 \$0-e-r8;
 #X symbolatom 596 598 7 0 0 0 - \$0-t-r8 -;
-#X obj 6 622 cnv 15 640 82 empty empty PAGE\ 6\ \ LEVELS\ \ CC\ 62\ 63\ 70\ 71\ 72\ 73\ 74\ 75 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 622 cnv 15 640 82 empty empty PAGE\ 6\ \ LEVELS\ \ CC\ 62\ 63\ 70\ 71\ 72\ 73\ 74\ 75 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 640 l1;
 #X text 10 652 Level 1;
 #X obj 10 670 hsl 70 12 0 127 0 0 \$0-e-l1 \$0-v-l1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -282,7 +279,7 @@
 #X obj 570 670 hsl 70 12 0 127 0 0 \$0-e-l8 \$0-v-l8 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 686 3 0 127 0 - \$0-v-l8 \$0-e-l8;
 #X symbolatom 596 686 7 0 0 0 - \$0-t-l8 -;
-#X obj 6 710 cnv 15 640 82 empty empty PAGE\ 7\ \ EASY\ ENV\ /\ TOUCH\ \ CC\ 76-83 4 8 0 10 #ececec #404040 0;
+#X obj 6 710 cnv 15 640 82 empty empty PAGE\ 7\ \ EASY\ ENV\ /\ TOUCH\ \ CC\ 76-83 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 728 eattack;
 #X text 10 740 Easy A;
 #X obj 10 758 hsl 70 12 0 127 0 0 \$0-e-eattack \$0-v-eattack empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -323,7 +320,7 @@
 #X obj 570 758 hsl 70 12 0 127 0 0 \$0-e-atamp \$0-v-atamp empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 774 3 0 127 0 - \$0-v-atamp \$0-e-atamp;
 #X symbolatom 596 774 7 0 0 0 - \$0-t-atamp -;
-#X obj 6 798 cnv 15 640 82 empty empty PAGE\ 8\ \ OPERATION\ \ CC\ 85\ 86\ 87\ 89\ 90\ 91\ 92\ 93 4 8 0 10 #d8e6d4 #404040 0;
+#X obj 6 798 cnv 15 640 82 empty empty PAGE\ 8\ \ OPERATION\ \ CC\ 85\ 86\ 87\ 89\ 90\ 91\ 92\ 93 4 8 0 10 #d8e6d4 #1e3791 0;
 #X text 10 816 keymode;
 #X text 10 828 Key mode;
 #X obj 10 846 hsl 70 12 0 127 0 0 \$0-e-keymode \$0-v-keymode empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -364,7 +361,7 @@
 #X obj 570 846 hsl 70 12 0 127 0 0 \$0-e-bdet \$0-v-bdet empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 862 3 0 127 0 - \$0-v-bdet \$0-e-bdet;
 #X symbolatom 596 862 7 0 0 0 - \$0-t-bdet -;
-#X obj 6 886 cnv 15 640 82 empty empty PAGE\ 9\ \ OPERATION\ 2\ \ CC\ 94\ 95\ 102\ 103\ 104\ 105\ 106\ 107 4 8 0 10 #e6efe4 #404040 0;
+#X obj 6 886 cnv 15 640 82 empty empty PAGE\ 9\ \ OPERATION\ 2\ \ CC\ 94\ 95\ 102\ 103\ 104\ 105\ 106\ 107 4 8 0 10 #e6efe4 #1e3791 0;
 #X text 10 904 achorus;
 #X text 10 916 A chorus;
 #X obj 10 934 hsl 70 12 0 127 0 0 \$0-e-achorus \$0-v-achorus empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -405,7 +402,7 @@
 #X obj 570 934 hsl 70 12 0 127 0 0 \$0-e-solo \$0-v-solo empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 950 3 0 127 0 - \$0-v-solo \$0-e-solo;
 #X symbolatom 596 950 7 0 0 0 - \$0-t-solo -;
-#X obj 6 974 cnv 15 640 82 empty empty PAGE\ 10\ \ SETUP\ \ CC\ 108-112 4 8 0 10 #e8dfcc #404040 0;
+#X obj 6 974 cnv 15 640 82 empty empty PAGE\ 10\ \ SETUP\ \ CC\ 108-112 4 8 0 10 #e8dfcc #1e3791 0;
 #X text 10 992 bendrange;
 #X text 10 1004 Bend range;
 #X obj 10 1022 hsl 70 12 0 127 0 0 \$0-e-bendrange \$0-v-bendrange empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;

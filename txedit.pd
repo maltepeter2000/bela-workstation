@@ -1,9 +1,6 @@
 #N canvas 20 20 1330 804 10;
-#N canvas 60 60 620 520 readme 0;
-#X text 10 10 tx81z~ editor \; \; [txedit <bus>] sends to [s <bus>] (the [r <bus>] in front of tx81z~) and reads outlet 2 of tx81z~ from [r <bus>-out]. In your own patch: [r tx1] -> [tx81z~ <rom> <nvram>] -> outlet 2 -> [s tx1-out] and [txedit tx1]. Every change (controller \, program change \, messages \, random) shows up here. \; \; Rows of 8: rows 1-11 are the pages of the controller layer [txcc] (page k on the controller = row k) \, the last two rows have no CC. Each cell: name and CC number \, slider and number box: the value as from a pot (0-127) \, the box right of it: the value as on the TX81Z. \; \; bank + patch: program change I01-C32. In EDIT mode tx81z~ presses PLAY first (the firmware ignores program changes while editing) \, then it reads the new voice for the editor. \; \; MIDI ch: receive channel of the TX81Z \, 0 = omni. Notes \, the controller layer and SysEx follow it. \; \; user N: recall slot N of the user bank (64 voices in txuser-bank.syx beside the patch \, two TX81Z voice bulk dumps \, kept by tx81z~ / tx81zn~). store to N chooses a slot \, save patch stores the current voice there and writes the file. load bank reads the file again. \; \; factory init: factory voices in bank I and the factory setup of the TX81Z (about 26 s \, DSP on). It overwrites what you stored in bank I with STORE on the TX81Z \, not txuser-bank.syx. \; \; random: a new voice of that kind into the edit buffer - pluck (harp \, piano \, guitar: fast attack \, decaying) \, bass (ratio 0.5 \, short decay) \, lead (sustained \, vibrato \, sometimes mono with portamento) \, brass (slower attack \, 1:1 and 1:2 ratios \, feedback) \, pad (slow attack \, several carriers \, detune \, LFO) \, strings (bowed attack \, detuned carriers \, delayed vibrato) \, total (anything that still sounds). Keep a good one with store to + save patch. \; \; All changes go to the edit buffer of the TX81Z. STORE on the TX81Z (press store) keeps a voice in bank I., f 92;
-#X restore 10 12 pd readme;
-#X text 100 14 tx81z~ editor - open [pd readme] for how it works;
-#X obj 6 44 cnv 15 640 100 empty empty VOICE 4 8 0 10 #e4ecf4 #404040 0;
+#X obj 10 14 cnv 10 10 10 empty empty tx81z~\ editor 24 6 0 22 #1e3791 #000000 0;
+#X obj 6 44 cnv 15 640 100 empty empty VOICE 4 8 0 10 #e4ecf4 #1e3791 0;
 #X text 10 64 name;
 #X symbolatom 50 64 12 0 0 0 - \$0-voice -;
 #X text 180 64 bank;
@@ -32,10 +29,10 @@
 #X obj 390 114 bng 17 250 50 0 \$0-rnd-pad empty pad 21 9 0 10 #fcfcfc #000000 #000000;
 #X obj 472 114 bng 17 250 50 0 \$0-rnd-strings empty strings 21 9 0 10 #fcfcfc #000000 #000000;
 #X obj 554 114 bng 17 250 50 0 \$0-rnd-total empty total 21 9 0 10 #fcfcfc #000000 #000000;
-#X obj 676 44 cnv 15 640 100 empty empty TX81Z\ LCD 4 8 0 10 #f4ece4 #404040 0;
+#X obj 676 44 cnv 15 640 100 empty empty TX81Z\ LCD 4 8 0 10 #f4ece4 #1e3791 0;
 #X symbolatom 680 64 20 0 0 0 - \$0-lcd0 -;
 #X symbolatom 680 86 20 0 0 0 - \$0-lcd1 -;
-#X obj 6 154 cnv 15 640 82 empty empty PAGE\ 1\ \ VOICE\ \ CC\ 20-27 4 8 0 10 #ececec #404040 0;
+#X obj 6 154 cnv 15 640 82 empty empty PAGE\ 1\ \ VOICE\ \ CC\ 20-27 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 172 alg 20;
 #X text 10 184 Algorithm;
 #X obj 10 202 hsl 70 12 0 127 0 0 \$0-e-alg \$0-v-alg empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -76,7 +73,7 @@
 #X obj 570 202 hsl 70 12 0 127 0 0 \$0-e-rev \$0-v-rev empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 218 3 0 127 0 - \$0-v-rev \$0-e-rev;
 #X symbolatom 596 218 7 0 0 0 - \$0-t-rev -;
-#X obj 6 242 cnv 15 640 82 empty empty PAGE\ 2\ \ OP1\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 242 cnv 15 640 82 empty empty PAGE\ 2\ \ OP1\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 260 crs1 28;
 #X text 10 272 Freq coarse;
 #X obj 10 290 hsl 70 12 0 127 0 0 \$0-e-crs1 \$0-v-crs1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -117,7 +114,7 @@
 #X obj 570 290 hsl 70 12 0 127 0 0 \$0-e-rr1 \$0-v-rr1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 306 3 0 127 0 - \$0-v-rr1 \$0-e-rr1;
 #X symbolatom 596 306 7 0 0 0 - \$0-t-rr1 -;
-#X obj 6 330 cnv 15 640 82 empty empty PAGE\ 3\ \ OP2\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #ececec #404040 0;
+#X obj 6 330 cnv 15 640 82 empty empty PAGE\ 3\ \ OP2\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 348 crs2 37;
 #X text 10 360 Freq coarse;
 #X obj 10 378 hsl 70 12 0 127 0 0 \$0-e-crs2 \$0-v-crs2 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -158,7 +155,7 @@
 #X obj 570 378 hsl 70 12 0 127 0 0 \$0-e-rr2 \$0-v-rr2 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 394 3 0 127 0 - \$0-v-rr2 \$0-e-rr2;
 #X symbolatom 596 394 7 0 0 0 - \$0-t-rr2 -;
-#X obj 6 418 cnv 15 640 82 empty empty PAGE\ 4\ \ OP3\ \ CC\ 46-53 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 418 cnv 15 640 82 empty empty PAGE\ 4\ \ OP3\ \ CC\ 46-53 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 436 crs3 46;
 #X text 10 448 Freq coarse;
 #X obj 10 466 hsl 70 12 0 127 0 0 \$0-e-crs3 \$0-v-crs3 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -199,7 +196,7 @@
 #X obj 570 466 hsl 70 12 0 127 0 0 \$0-e-rr3 \$0-v-rr3 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 482 3 0 127 0 - \$0-v-rr3 \$0-e-rr3;
 #X symbolatom 596 482 7 0 0 0 - \$0-t-rr3 -;
-#X obj 6 506 cnv 15 640 82 empty empty PAGE\ 5\ \ OP4\ \ CC\ 54-61 4 8 0 10 #ececec #404040 0;
+#X obj 6 506 cnv 15 640 82 empty empty PAGE\ 5\ \ OP4\ \ CC\ 54-61 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 524 crs4 54;
 #X text 10 536 Freq coarse;
 #X obj 10 554 hsl 70 12 0 127 0 0 \$0-e-crs4 \$0-v-crs4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -240,7 +237,7 @@
 #X obj 570 554 hsl 70 12 0 127 0 0 \$0-e-rr4 \$0-v-rr4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 570 3 0 127 0 - \$0-v-rr4 \$0-e-rr4;
 #X symbolatom 596 570 7 0 0 0 - \$0-t-rr4 -;
-#X obj 6 594 cnv 15 640 82 empty empty PAGE\ 6\ \ DETUNE\ /\ VELOCITY\ \ CC\ 62\ 63\ 70\ 71\ 72\ 73\ 74\ 75 4 8 0 10 #dcdcdc #404040 0;
+#X obj 6 594 cnv 15 640 82 empty empty PAGE\ 6\ \ DETUNE\ /\ VELOCITY\ \ CC\ 62\ 63\ 70\ 71\ 72\ 73\ 74\ 75 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 612 det1 62;
 #X text 10 624 Detune;
 #X obj 10 642 hsl 70 12 0 127 0 0 \$0-e-det1 \$0-v-det1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -281,7 +278,7 @@
 #X obj 570 642 hsl 70 12 0 127 0 0 \$0-e-kvs4 \$0-v-kvs4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 658 3 0 127 0 - \$0-v-kvs4 \$0-e-kvs4;
 #X symbolatom 596 658 7 0 0 0 - \$0-t-kvs4 -;
-#X obj 6 682 cnv 15 640 82 empty empty PAGE\ 7\ \ LFO\ \ CC\ 76-83 4 8 0 10 #ececec #404040 0;
+#X obj 6 682 cnv 15 640 82 empty empty PAGE\ 7\ \ LFO\ \ CC\ 76-83 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 700 lfw 76;
 #X text 10 712 LFO wave;
 #X obj 10 730 hsl 70 12 0 127 0 0 \$0-e-lfw \$0-v-lfw empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -322,7 +319,7 @@
 #X obj 570 730 hsl 70 12 0 127 0 0 \$0-e-sync \$0-v-sync empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 746 3 0 127 0 - \$0-v-sync \$0-e-sync;
 #X symbolatom 596 746 7 0 0 0 - \$0-t-sync -;
-#X obj 676 154 cnv 15 640 82 empty empty PAGE\ 8\ \ SCALING\ \ CC\ 85\ 86\ 87\ 89\ 90\ 91\ 92\ 93 4 8 0 10 #ececec #404040 0;
+#X obj 676 154 cnv 15 640 82 empty empty PAGE\ 8\ \ SCALING\ \ CC\ 85\ 86\ 87\ 89\ 90\ 91\ 92\ 93 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 680 172 rs1 85;
 #X text 680 184 Rate scale;
 #X obj 680 202 hsl 70 12 0 127 0 0 \$0-e-rs1 \$0-v-rs1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -363,7 +360,7 @@
 #X obj 1240 202 hsl 70 12 0 127 0 0 \$0-e-ls4 \$0-v-ls4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 218 3 0 127 0 - \$0-v-ls4 \$0-e-ls4;
 #X symbolatom 1266 218 7 0 0 0 - \$0-t-ls4 -;
-#X obj 676 242 cnv 15 640 82 empty empty PAGE\ 9\ \ FIXED\ /\ AM\ \ CC\ 94\ 95\ 102\ 103\ 104\ 105\ 106\ 107 4 8 0 10 #dcdcdc #404040 0;
+#X obj 676 242 cnv 15 640 82 empty empty PAGE\ 9\ \ FIXED\ /\ AM\ \ CC\ 94\ 95\ 102\ 103\ 104\ 105\ 106\ 107 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 260 fix1 94;
 #X text 680 272 Fixed freq;
 #X obj 680 290 hsl 70 12 0 127 0 0 \$0-e-fix1 \$0-v-fix1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -404,7 +401,7 @@
 #X obj 1240 290 hsl 70 12 0 127 0 0 \$0-e-ame4 \$0-v-ame4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 306 3 0 127 0 - \$0-v-ame4 \$0-e-ame4;
 #X symbolatom 1266 306 7 0 0 0 - \$0-t-ame4 -;
-#X obj 676 330 cnv 15 640 82 empty empty PAGE\ 10\ \ EG\ SHIFT\ /\ BIAS\ \ CC\ 108-115 4 8 0 10 #ececec #404040 0;
+#X obj 676 330 cnv 15 640 82 empty empty PAGE\ 10\ \ EG\ SHIFT\ /\ BIAS\ \ CC\ 108-115 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 680 348 sh1 108;
 #X text 680 360 EG shift;
 #X obj 680 378 hsl 70 12 0 127 0 0 \$0-e-sh1 \$0-v-sh1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -445,7 +442,7 @@
 #X obj 1240 378 hsl 70 12 0 127 0 0 \$0-e-ebs4 \$0-v-ebs4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 394 3 0 127 0 - \$0-v-ebs4 \$0-e-ebs4;
 #X symbolatom 1266 394 7 0 0 0 - \$0-t-ebs4 -;
-#X obj 676 418 cnv 15 640 82 empty empty PAGE\ 11\ \ CONTROLLERS\ \ CC\ 116-119 4 8 0 10 #dcdcdc #404040 0;
+#X obj 676 418 cnv 15 640 82 empty empty PAGE\ 11\ \ CONTROLLERS\ \ CC\ 116-119 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 436 pbr 116;
 #X text 680 448 Bend range;
 #X obj 680 466 hsl 70 12 0 127 0 0 \$0-e-pbr \$0-v-pbr empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -466,7 +463,7 @@
 #X obj 920 466 hsl 70 12 0 127 0 0 \$0-e-mwa \$0-v-mwa empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 920 482 3 0 127 0 - \$0-v-mwa \$0-e-mwa;
 #X symbolatom 946 482 7 0 0 0 - \$0-t-mwa -;
-#X obj 676 506 cnv 15 640 82 empty empty FIXED\ RANGE\ /\ PLAY\ \ no\ CC\ (mouse\ only) 4 8 0 10 #ececec #404040 0;
+#X obj 676 506 cnv 15 640 82 empty empty FIXED\ RANGE\ /\ PLAY\ \ no\ CC\ (mouse\ only) 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 680 524 fixr1;
 #X text 680 536 Fixed range;
 #X obj 680 554 hsl 70 12 0 127 0 0 \$0-e-fixr1 \$0-v-fixr1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -507,7 +504,7 @@
 #X obj 1240 554 hsl 70 12 0 127 0 0 \$0-e-sus \$0-v-sus empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 570 3 0 127 0 - \$0-v-sus \$0-e-sus;
 #X symbolatom 1266 570 7 0 0 0 - \$0-t-sus -;
-#X obj 676 594 cnv 15 640 82 empty empty BREATH\ /\ FOOT\ \ no\ CC\ (mouse\ only) 4 8 0 10 #dcdcdc #404040 0;
+#X obj 676 594 cnv 15 640 82 empty empty BREATH\ /\ FOOT\ \ no\ CC\ (mouse\ only) 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 612 bcp;
 #X text 680 624 BC pitch;
 #X obj 680 642 hsl 70 12 0 127 0 0 \$0-e-bcp \$0-v-bcp empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
