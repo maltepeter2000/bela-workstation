@@ -1,6 +1,6 @@
 #N canvas 0 50 700 470 10;
 #X text 10 6 pdoly8~ on the Bela Pepper, f 26;
-#X text 10 21 Button 1 / 2: page down / up (LED 1-10). Button 3 / 4: factory preset down / up., f 80;
+#X text 10 21 Button 1 / 2: page down / up (LED 1-8). Button 3 / 4: factory preset down / up., f 79;
 #X text 10 36 Pots 1-8: the parameters of the page (pickup: a pot takes over once it passes the current value)., f 97;
 #X text 10 51 CV-Lock: hold button 4 and turn a pot - that input stays on its parameter on every page (for CV)., f 97;
 #X text 10 66   Again to unlock. The console names pages \, presets \, locks and modulation targets., f 82;
@@ -30,13 +30,13 @@
 #N canvas 0 50 900 200 tables 0;
 #X text 10 6 TABLES: p8-map = 8 pot parameters + name per page (line = page) \; the CC table is in p8cc.pd, f 91;
 #X obj 10 40 text define -k p8-map;
-#A set har1 har2 env1 env2 intv detn lev1 lev2 PLAY \; cut res egi kbd env3 vcut drv nois FILTER \; oct1 oct2 pw1 pw2 pwm1 pwm2 hmg drft OSC \; wsh1 wsh2 wmx1 wmx2 wsm wse lev1 lev2 WALSH \; sync swp2 swe swm ring rmf lev1 lev2 SYNC-RING \; fm1 fm2 fmr fmhz fms fmig lev1 lev2 FM \; mgr mgi mgd mgv env4 trg4 d4t1 d4a1 MG-DEG4 \; l2r l2w l2k l2f l2t1 l2a1 l2t2 l2a2 LFO2 \; l3r l3w l3k l3f l3t1 l3a1 l3t2 l3a2 LFO3 \; dtim dfb dmf dmi dlev port mono vamp FX-PERFORM \;;
+#A set har1 har2 env1 env2 intv detn lev1 lev2 PLAY \; cut res egi kbd env3 vcut drv nois FILTER \; oct1 oct2 pw1 pw2 pwm1 pwm2 hmg drft OSC \; wsh1 wsh2 wmx1 wmx2 wsm wse lev1 lev2 WALSH \; sync swp2 swe swm ring rmf lev1 lev2 SYNC-RING \; fm1 fm2 fmr fmhz fms fmig lev1 lev2 FM \; mgr mgi mgd mgv drvp tone leak dgld MG-MORE \; dtim dfb dmf dmi dlev port mono vamp FX-PERFORM \;;
 #X restore 10 135 pd tables;
 #X text 140 135 pages and CC tables, f 19;
 #N canvas 0 50 900 360 pages 0;
-#X text 10 6 PAGES: p8-setpage N -> page N (0-9): the pots read their parameters \, LED N+1 lights \, the console names the page, f 100;
+#X text 10 6 PAGES: p8-setpage N -> page N (0-7): the pots read their parameters \, LED N+1 lights \, the console names the page, f 100;
 #X obj 10 40 r p8-setpage;
-#X obj 10 65 mod 10;
+#X obj 10 65 mod 8;
 #X obj 10 90 t f f f;
 #X obj 200 120 v p8-pagev;
 #X obj 100 120 s p8-page;
@@ -102,7 +102,7 @@
 #X obj 10 65 change 1;
 #X obj 10 90 sel 0;
 #X obj 10 115 v p8-pagev;
-#X obj 10 140 + 9;
+#X obj 10 140 + 7;
 #X obj 10 165 s p8-setpage;
 #X obj 210 40 r bela_digitalIn25;
 #X obj 210 65 change 1;

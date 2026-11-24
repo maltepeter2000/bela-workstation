@@ -1,12 +1,12 @@
 # pdoly8~ auf dem Bela Pepper
 
-10 Seiten zu je 8 Pots, Pickup, CV-Lock, Factory-Presets, MIDI über USB mit CC für alle Seiten-Parameter.
+8 Seiten zu je 8 Pots, Pickup, CV-Lock, Factory-Presets, MIDI über USB mit CC für alle Seiten-Parameter.
 
 ## Bedienung
 
 | | |
 |---|---|
-| Taste 1 / 2 | Seite zurück / vor (LED 1–10 zeigt die Seite, die Konsole nennt sie) |
+| Taste 1 / 2 | Seite zurück / vor (LED 1–8 zeigt die Seite, die Konsole nennt sie) |
 | Taste 3 / 4 | Factory-Preset runter / hoch (Taste 4: beim Loslassen) |
 | Pots 1–8 | die Parameter der Seite. **Pickup:** nach Seiten- oder Presetwechsel übernimmt ein Pot erst, wenn er den aktuellen Wert überstreicht |
 | CV-Eingänge | ohne Kabel setzt der Pot den Wert; mit Kabel schwächt der Pot die CV ab |
@@ -24,12 +24,10 @@
 | **4 WALSH** | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `lev1` | `lev2` |
 | **5 SYNC-RING** | `sync` | `swp2` | `swe` | `swm` | `ring` | `rmf` | `lev1` | `lev2` |
 | **6 FM** | `fm1` | `fm2` | `fmr` | `fmhz` | `fms` | `fmig` | `lev1` | `lev2` |
-| **7 MG-DEG4** | `mgr` | `mgi` | `mgd` | `mgv` | `env4` | `trg4` | `d4t1` | `d4a1` |
-| **8 LFO2** | `l2r` | `l2w` | `l2k` | `l2f` | `l2t1` | `l2a1` | `l2t2` | `l2a2` |
-| **9 LFO3** | `l3r` | `l3w` | `l3k` | `l3f` | `l3t1` | `l3a1` | `l3t2` | `l3a2` |
-| **10 FX-PERFORM** | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `port` | `mono` | `vamp` |
+| **7 MG-MORE** | `mgr` | `mgi` | `mgd` | `mgv` | `drvp` | `tone` | `leak` | `dgld` |
+| **8 FX-PERFORM** | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `port` | `mono` | `vamp` |
 
-Schalter (`kbd`, `sync`, `fms`, `mono`, LFO-Welle …) und Ziele (`d4t1`, `l2t1` …) werden über den Drehweg in gleich große Zonen geteilt; ±127-Parameter haben 0 in der Pot-Mitte. Bei Ziel-Pots nennt die Konsole das gewählte Ziel.
+Schalter (`kbd`, `sync`, `fms`, `mono`, `tone`, `leak`, `dgld` …) werden über den Drehweg in gleich große Zonen geteilt; ±127-Parameter haben 0 in der Pot-Mitte.
 
 ## MIDI-CC
 
@@ -47,9 +45,7 @@ Rückmeldung: Änderungen von woanders (Preset, Program Change, Editor) gehen al
 | **6** SYNC-FM | 62-63 70-75 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
 | **7** FMSOURCE-DELAY-EQ | 76-83 | `fms` | `fmig` | `dtim` | `dfb` | `dmf` | `dmi` | `treb` | `bass` |
 | **8** PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
-| **9** DEG4-DRIVE | 94-95 102-107 | `env4` | `trg4` | `d4t1` | `d4a1` | `d4t2` | `d4a2` | `drvp` | `tone` |
-| **10** LFO2 | 108-115 | `l2r` | `l2w` | `l2k` | `l2f` | `l2t1` | `l2a1` | `l2t2` | `l2a2` |
-| **11** LFO3 | 116-119 | `l3r` | `l3w` | `l3t1` | `l3a1` |  |  |  |  |
+| **9** MORE | 94-95 102-107 | `drvp` | `tone` | `leak` | `mgf` | `pol` | `trg` | `dgld` |  |
 
 Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `mgf`, `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4`.
 
@@ -127,29 +123,14 @@ Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `m
 | 91 | `bnd` | Bend range | 0 … 12 st |
 | 92 | `sprd` | Stereo spread | 0 … 127 |
 | 93 | `mrph` | Smoothing | 0 … 100 ms |
-| **Seite 9: DEG4-DRIVE** | | | |
-| 94 | `env4` | Env 4 morph | 0 … 127 |
-| 95 | `trg4` | Env 4 trigger | single / multi |
-| 102 | `d4t1` | Env4 target 1 | Ziel 0–32 |
-| 103 | `d4a1` | Env4 amount 1 | -127 … 127 |
-| 104 | `d4t2` | Env4 target 2 | Ziel 0–32 |
-| 105 | `d4a2` | Env4 amount 2 | -127 … 127 |
-| 106 | `drvp` | Drive position | post / pre |
-| 107 | `tone` | Output stage | off / on |
-| **Seite 10: LFO2** | | | |
-| 108 | `l2r` | LFO2 rate | 0.01f … 50 Hz |
-| 109 | `l2w` | LFO2 wave | tri / sine / saw up / saw down / square / S&H |
-| 110 | `l2k` | LFO2 retrig | free / key / phrase |
-| 111 | `l2f` | LFO2 fade | 0 … 10 s |
-| 112 | `l2t1` | LFO2 target 1 | Ziel 0–32 |
-| 113 | `l2a1` | LFO2 amount 1 | -127 … 127 |
-| 114 | `l2t2` | LFO2 target 2 | Ziel 0–32 |
-| 115 | `l2a2` | LFO2 amount 2 | -127 … 127 |
-| **Seite 11: LFO3** | | | |
-| 116 | `l3r` | LFO3 rate | 0.01f … 50 Hz |
-| 117 | `l3w` | LFO3 wave | tri / sine / saw up / saw down / square / S&H |
-| 118 | `l3t1` | LFO3 target 1 | Ziel 0–32 |
-| 119 | `l3a1` | LFO3 amount 1 | -127 … 127 |
+| **Seite 9: MORE** | | | |
+| 94 | `drvp` | Drive position | post / pre |
+| 95 | `tone` | Output stage | off / on |
+| 102 | `leak` | Leak | off / on |
+| 103 | `mgf` | MG rate | 0.1f … 30 Hz |
+| 104 | `pol` | EG polarity | down / up |
+| 105 | `trg` | Env 3 trigger | single / multi |
+| 106 | `dgld` | Delay changes | mute / glide |
 
 ## Installation
 

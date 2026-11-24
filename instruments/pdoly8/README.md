@@ -55,7 +55,7 @@ The combinations without 16' are reached with `oct1` / `oct2` 2–4: above the c
 
 ### Settings (raw values)
 
-In the help patch the settings are grouped in blocks: DCO settings (timbre, octave, PWM, Walsh loop, sync, ring), FM, Filter & DEG3, MG, DEG4, LFO2 & LFO3, Delay (with preset messages), DEG1 & DEG2, Portamento, Additional settings.
+In the help patch the settings are grouped in blocks: DCO settings (timbre, octave, PWM, Walsh loop, sync, ring), FM, Filter & DEG3, MG, Delay (with preset messages), DEG1 & DEG2, Portamento, Additional settings.
 
 | Message | Range | Default | Function |
 |---|---|---|---|
@@ -116,34 +116,16 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The echo goes to the left output in phase and to the right one inverted (measured: L = dry + echo, R = dry − echo, so a mono sum of both cancels it), band-limited to 7 kHz |
 | `dgld` | 0/1 | 1 | 1: delay changes glide (time like a tape, feedback and level smoothed), for CC and modulation; 0: every change mutes the echo for 40 ms, as on the original |
 
-### DEG4, LFO2, LFO3 (modulation)
-
-Not on the Poly-800. Like DEG3 and the MG they exist once for the instrument (the Poly-800 is paraphonic: every voice has its own DEG1/DEG2, but VCF, DEG3 and MG are shared). Each has two target slots: `…t1`/`…t2` = target (number or name, e.g. `d4t1 cut`), `…a1`/`…a2` = amount −127…127 (negative inverts).
-
-| Message | Range | Default | Function |
-|---|---|---|---|
-| `env4` | −1…127 | 0 | DEG4 morph as `env1`; −1 = own values |
-| `a4 d4 bp4 sl4 su4 r4` | 0–31 | 0 0 31 0 31 0 | DEG4 values; DEG4 runs 0…1 (its level, linear) |
-| `trg4` | 1/2 | 2 | DEG4 trigger: 1 single, 2 multi |
-| `d4t1 d4a1 d4t2 d4a2` | target, −127…127 | 0 | DEG4 targets and amounts |
-| `l2r` / `l3r` | 0.01–50 Hz | 2 | LFO rate |
-| `l2w` / `l3w` | 0–5 | 0 | wave: triangle, sine, saw up, saw down, square, sample & hold |
-| `l2k` / `l3k` | 0/1/2 | 0 | retrigger: free, every key, first key of a phrase |
-| `l2f` / `l3f` | 0–10 s | 0 | fade-in after a retrigger |
-| `l2t1 l2a1 l2t2 l2a2`, `l3t1 …` | target, −127…127 | 0 | LFO targets and amounts |
-
-Targets (range at amount 127): 0 `off`, 1 `pitch` (±24 semitones), 2 `pitch2` (DCO2 ±48), 3 `detn` (±50 cents), 4/5 `har1` `har2` (±127 steps), 6/7 `wsh1` `wsh2` (±127), 8/9 `wmx1` `wmx2` (±127), 10/11 `pw1` `pw2` (±47 %), 12/13 `fm1` `fm2` (±16 index), 14 `fmr` (×/÷ 4), 15 `ring` (±127), 16 `swe` (±72 semitones), 17/18 `lev1` `lev2` (±127), 19 `amp` (level × 0…2), 20 `pan` (balance), 21 `nois` (±15), 22 `cut` (±8 octaves), 23 `res` (±15), 24 `drv` (±127), 25 `mgr` (×/÷ 8), 26 `mgi` (±200 cents), 27/29 `l2r` `l3r` (LFO rate ×/÷ 8), 28/30 `l2d` `l3d` (LFO depth × 0…2), 31 `dtim` (×/÷ 2), 32 `dlev` (±15). `har`, `wsh`, `wmx`, `lev`, `detn` and `drv` follow per audio block (smoothed by `mrph`), all others per sample.
-
 ### Pots, CV and MIDI CC
 
 | Message | Function |
 |---|---|
-| `n <name> <0-127>` | sets a setting from a 0–127 value (pot, CV, CC), scaled to its range: switches and small ranges in equal zones, −127…127 settings with 0 at 64, `fmr`/`l2r`/`l3r`/`mgf` logarithmic |
+| `n <name> <0-127>` | sets a setting from a 0–127 value (pot, CV, CC), scaled to its range: switches and small ranges in equal zones, −127…127 settings with 0 at 64, `fmr`/`mgf` logarithmic |
 | `nget <name> <tag>` | outlet 3 gets `norm <tag> <0-127>`: the setting as a pot position (pickup) |
 | `syxin <byte>`, `syxread <file>`, `syxwrite <file>`, `syxbank <n> pdoly8 …`, `syxsend`, `syxch <1-16>` (the Poly-800's MIDI channel, header byte 2n; a dump received or read sets it), `syxtemplate <file>` (only the memory outside the programs) | Poly-800 II data dump in / out (as `tools/p8sysex.py`): outlet 3 gets `bank <n> pdoly8 …` per program, `syxbyte <b>` for [midiout], `syxstatus <text>` |
 | `random <kind> [seed]` | a new sound: pluck, bass, lead, brass, pad, strings, total (the MIDI channel stays) |
 | `ninfo <name>` | outlet 3 gets `info <name> <0-127> <value>`: pot position and the value with its unit (for the editor) |
-| `disp <name>` | outlet 3 gets `disp <label> <value>`: two symbols for a display, e.g. `Cutoff` `50.1`, `FM source` `other DCO`, `LFO2 target 1` `cut` |
+| `disp <name>` | outlet 3 gets `disp <label> <value>`: two symbols for a display, e.g. `Cutoff` `50.1`, `FM source` `other DCO` |
 | `oled <host> <port>` | sends the changed setting (as `disp`) and `oledtext` as OSC `/display-strings-and-numbers` to O2O (an OLED), from a thread of its own: no network call in the audio thread (Linux, macOS) |
 | `oledtext <line 1> <line 2>` | two lines for the OLED, e.g. the program |
 
@@ -151,7 +133,7 @@ Targets (range at amount 127): 0 `off`, 1 `pitch` (±24 semitones), 2 `pitch2` (
 
 ### MIDI CC: the controller layer (`p8cc.pd`)
 
-The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` (help and Bela: channel 1, 0 = all channels) turns MIDI CC into `n <name> <value>` for the object. Every instrument gets its own MIDI channel and the same CC pages, so the controller (Launchkey) keeps one setup: page k = row k in the editor. The pages are 20–119 without 32, 38, 64–69, 84, 88, 96–101 (bank / data LSB, pedals, portamento control, high-res velocity, NRPN / RPN): 10 full pages and one of 4. The generic part is `tools/ctlayer.py` (for every instrument), the rows of pdoly8~ are `CC_ROWS` in `tools/gen_bela.py`.
+The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` (help and Bela: channel 1, 0 = all channels) turns MIDI CC into `n <name> <value>` for the object. Every instrument gets its own MIDI channel and the same CC pages, so the controller (Launchkey) keeps one setup: page k = row k in the editor. The pages are 20–119 without 32, 38, 64–69, 84, 88, 96–101 (bank / data LSB, pedals, portamento control, high-res velocity, NRPN / RPN); pdoly8~ uses pages 1–9. The generic part is `tools/ctlayer.py` (for every instrument), the rows of pdoly8~ are `CC_ROWS` in `tools/gen_bela.py`.
 
 - **Feedback:** the object reports every change on outlet 3 (`info <name> <0-127> <text>`, also its own). The layer sends changes that did not come from the encoder itself (presets, program change, editor, messages) back to the controller as CC on the same channel and number (`[ctlout]`), so a controller that takes incoming CC knows the new value.
 - **Pickup:** after such a change an encoder acts only when it reaches the value (within 3) or crosses it, so nothing jumps with a controller that ignores the feedback. `pickup 0` turns it off.
@@ -159,23 +141,21 @@ The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` 
 
 | Page | CC | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 PLAY | 20-27 | `har1` | `har2` | `env1` | `env2` | `intv` | `detn` | `lev1` | `lev2` |
-| 2 FILTER | 28-31 33-36 | `cut` | `res` | `egi` | `env3` | `kbd` | `vcut` | `drv` | `nois` |
-| 3 OSC | 37 39-45 | `oct1` | `oct2` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
-| 4 WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
-| 5 SYNC-FM | 54-61 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
-| 6 MG-FMSOURCE-DEG3 | 62-63 70-75 | `mgr` | `mgi` | `mgd` | `mgv` | `fms` | `fmig` | `pol` | `trg` |
-| 7 DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
-| 8 PERFORM | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
-| 9 DEG4-DRIVE | 94-95 102-107 | `env4` | `trg4` | `d4t1` | `d4a1` | `d4t2` | `d4a2` | `drvp` | `tone` |
-| 10 LFO2 | 108-115 | `l2r` | `l2w` | `l2k` | `l2f` | `l2t1` | `l2a1` | `l2t2` | `l2a2` |
-| 11 LFO3 | 116-119 | `l3r` | `l3w` | `l3t1` | `l3a1` | | | | |
+| 1 PERFORM | 20-27 | `cut` | `res` | `atk` | `rel` | `mgi` | `dlev` | `egi` | `vol` |
+| 2 PLAY | 28-31 33-36 | `har1` | `har2` | `env1` | `env2` | `intv` | `detn` | `lev1` | `lev2` |
+| 3 FILTER-MG | 37 39-45 | `env3` | `kbd` | `vcut` | `drv` | `nois` | `mgr` | `mgd` | `mgv` |
+| 4 OSC | 46-53 | `oct1` | `oct2` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
+| 5 WALSH-RING | 54-61 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
+| 6 SYNC-FM | 62-63 70-75 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
+| 7 FMSOURCE-DELAY-EQ | 76-83 | `fms` | `fmig` | `dtim` | `dfb` | `dmf` | `dmi` | `treb` | `bass` |
+| 8 PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
+| 9 MORE | 94-95 102-107 | `drvp` | `tone` | `leak` | `mgf` | `pol` | `trg` | `dgld` |  |
 
-Not by CC (editor or message only): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `mgf`, `ch1` and the DEG stages `a1` … `r4`.
+Not by CC (editor or message only): `ch1` (at the top of the editor) and the DEG stages `a1` … `r3`.
 
 ### Editor (`p8edit.pd`)
 
-`[p8edit <bus>]` shows all 115 settings in rows of 8: rows 1–11 are the CC pages of the controller layer (left 1–8, right 9–11), then more and the own DEG stages (a1 … r4). Each cell: name and CC number, label, slider and number box 0–127 (`n <name> <value>`, as from a pot) and the real value with its unit (from `ninfo <name>`). It sends to `[s <bus>]` and reads outlet 3 of the object from `[s <bus>-out]`, where the object reports every change (controller, presets, messages). In `[pdoly8.i~]` the editor is the object's own window (click it). Above the rows (how it works: the help patch, section Editor): factory presets (0–63), the MIDI channel (`ch1`, 0 = omni; notes and the controller layer follow it, presets and defaults keep it), the user bank (`p8user-bank.txt` next to the editor: `user N` recalls, `store to N` only chooses the slot, `save patch` stores and writes the file, `load bank`, `factory init` fills the bank with the factory programs), random sounds (`random pluck|bass|lead|brass|pad|strings|total`, as in tx81z~), the delay presets (flanger, chorus small / big, slapback, long delay, off) and the Poly-800 II sysex: `send bank` sends the user bank to the synth ([midiout], port and the synth's MIDI channel selectable), `write .syx` saves it as a dump file, a data dump from the synth or `read .syx` replaces the user bank. The memory outside the programs (sequencer, chord memory) comes from the factory dump, loaded at start (`syxtemplate`), or from the last dump received or read. `store to N` saves the bank file at once. Only the Poly-800 II has sysex dumps (an original Poly-800 needs the MDK kit, not tested). Generated by `tools/gen_editor.py` from the RANGE table in `pdoly8~.c` and the CC map, so editor, controller and help always agree.
+`[p8edit <bus>]` shows all 89 settings in rows of 8: rows 1–9 are the CC pages of the controller layer (left 1–8, right 9), then the own DEG stages (a1 … r3); the MIDI channel is at the top. Each cell: name and CC number, label, slider and number box 0–127 (`n <name> <value>`, as from a pot) and the real value with its unit (from `ninfo <name>`). It sends to `[s <bus>]` and reads outlet 3 of the object from `[s <bus>-out]`, where the object reports every change (controller, presets, messages). In `[pdoly8.i~]` the editor is the object's own window (click it). Above the rows (how it works: the help patch, section Editor): factory presets (0–63), the MIDI channel (`ch1`, 0 = omni; notes and the controller layer follow it, presets and defaults keep it), the user bank (`p8user-bank.txt` next to the editor: `user N` recalls, `store to N` only chooses the slot, `save patch` stores and writes the file, `load bank`, `factory init` fills the bank with the factory programs), random sounds (`random pluck|bass|lead|brass|pad|strings|total`, as in tx81z~), the delay presets (flanger, chorus small / big, slapback, long delay, off) and the Poly-800 II sysex: `send bank` sends the user bank to the synth ([midiout], port and the synth's MIDI channel selectable), `write .syx` saves it as a dump file, a data dump from the synth or `read .syx` replaces the user bank. The memory outside the programs (sequencer, chord memory) comes from the factory dump, loaded at start (`syxtemplate`), or from the last dump received or read. `store to N` saves the bank file at once. Only the Poly-800 II has sysex dumps (an original Poly-800 needs the MDK kit, not tested). Generated by `tools/gen_editor.py` from the RANGE table in `pdoly8~.c` and the CC map, so editor, controller and help always agree.
 
 ### Other messages
 

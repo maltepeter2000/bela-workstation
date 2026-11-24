@@ -20,7 +20,7 @@ Nur MIDI-Steuerung: Noten, Pitch Bend, Program Change für die Factory-Presets, 
 
 ## OLED
 
-Über O2O wie im tx81z-Projekt: OSC `/display-strings-and-numbers <Zeile 1> \n <Zeile 2>` an 127.0.0.1:7562, höchstens alle 40 ms. Zeile 1 ist der Name der Einstellung, Zeile 2 der Wert mit Einheit, Schalterstellung oder Ziel, z. B. `Cutoff` / `50.1`, `FM source` / `other DCO`, `LFO2 target 1` / `cut`. Beim Presetwechsel: `Program` / `25`.
+Über O2O wie im tx81z-Projekt: OSC `/display-strings-and-numbers <Zeile 1> \n <Zeile 2>` an 127.0.0.1:7562, höchstens alle 40 ms. Zeile 1 ist der Name der Einstellung, Zeile 2 der Wert mit Einheit, Schalterstellung oder Ziel, z. B. `Cutoff` / `50.1`, `FM source` / `other DCO`. Beim Presetwechsel: `Program` / `25`.
 
 Gesendet wird von `pdoly8~` selbst aus einem eigenen Thread (`oled 127.0.0.1 7562`, `oledtext <zeile1> <zeile2>`). Der Audio-Thread kopiert nur den Text; Netzwerk-Aufrufe und Konsolen-Ausgaben im Audio-Thread erzwingen auf dem Bela einen Xenomai-Moduswechsel und können Audio-Blöcke kosten, also Klicks beim Drehen. Der Patch selbst enthält deshalb kein `[netsend]` und kein `[print]` mehr.
 
@@ -40,9 +40,7 @@ Rückmeldung: Änderungen von woanders (Preset, Program Change, Editor) gehen al
 | **6** SYNC-FM | 62-63 70-75 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
 | **7** FMSOURCE-DELAY-EQ | 76-83 | `fms` | `fmig` | `dtim` | `dfb` | `dmf` | `dmi` | `treb` | `bass` |
 | **8** PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
-| **9** DEG4-DRIVE | 94-95 102-107 | `env4` | `trg4` | `d4t1` | `d4a1` | `d4t2` | `d4a2` | `drvp` | `tone` |
-| **10** LFO2 | 108-115 | `l2r` | `l2w` | `l2k` | `l2f` | `l2t1` | `l2a1` | `l2t2` | `l2a2` |
-| **11** LFO3 | 116-119 | `l3r` | `l3w` | `l3t1` | `l3a1` |  |  |  |  |
+| **9** MORE | 94-95 102-107 | `drvp` | `tone` | `leak` | `mgf` | `pol` | `trg` | `dgld` |  |
 
 Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `mgf`, `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4`.
 
@@ -120,29 +118,14 @@ Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `m
 | 91 | `bnd` | Bend range | 0 … 12 st |
 | 92 | `sprd` | Stereo spread | 0 … 127 |
 | 93 | `mrph` | Smoothing | 0 … 100 ms |
-| **Seite 9: DEG4-DRIVE** | | | |
-| 94 | `env4` | Env 4 morph | 0 … 127 |
-| 95 | `trg4` | Env 4 trigger | single / multi |
-| 102 | `d4t1` | Env4 target 1 | Ziel 0–32 |
-| 103 | `d4a1` | Env4 amount 1 | -127 … 127 |
-| 104 | `d4t2` | Env4 target 2 | Ziel 0–32 |
-| 105 | `d4a2` | Env4 amount 2 | -127 … 127 |
-| 106 | `drvp` | Drive position | post / pre |
-| 107 | `tone` | Output stage | off / on |
-| **Seite 10: LFO2** | | | |
-| 108 | `l2r` | LFO2 rate | 0.01f … 50 Hz |
-| 109 | `l2w` | LFO2 wave | tri / sine / saw up / saw down / square / S&H |
-| 110 | `l2k` | LFO2 retrig | free / key / phrase |
-| 111 | `l2f` | LFO2 fade | 0 … 10 s |
-| 112 | `l2t1` | LFO2 target 1 | Ziel 0–32 |
-| 113 | `l2a1` | LFO2 amount 1 | -127 … 127 |
-| 114 | `l2t2` | LFO2 target 2 | Ziel 0–32 |
-| 115 | `l2a2` | LFO2 amount 2 | -127 … 127 |
-| **Seite 11: LFO3** | | | |
-| 116 | `l3r` | LFO3 rate | 0.01f … 50 Hz |
-| 117 | `l3w` | LFO3 wave | tri / sine / saw up / saw down / square / S&H |
-| 118 | `l3t1` | LFO3 target 1 | Ziel 0–32 |
-| 119 | `l3a1` | LFO3 amount 1 | -127 … 127 |
+| **Seite 9: MORE** | | | |
+| 94 | `drvp` | Drive position | post / pre |
+| 95 | `tone` | Output stage | off / on |
+| 102 | `leak` | Leak | off / on |
+| 103 | `mgf` | MG rate | 0.1f … 30 Hz |
+| 104 | `pol` | EG polarity | down / up |
+| 105 | `trg` | Env 3 trigger | single / multi |
+| 106 | `dgld` | Delay changes | mute / glide |
 
 ## Audio
 

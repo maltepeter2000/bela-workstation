@@ -49,19 +49,16 @@ def stages(g):
     return [f"{s}{g}" for s in ("a", "d", "bp", "sl", "su", "r")] + [None, None]
 
 
-# rows 1-11 = the CC pages of the Launchkey (CC_ROWS in gen_bela.py), then rows without CC
+# rows 1-9 = the CC pages of the Launchkey (CC_ROWS in gen_bela.py), then rows without CC;
+# the MIDI channel (ch1) is at the top of the editor, not in a row
 ROWS = [(f"PAGE {k + 1}  {t}", list(ns)) for k, (t, ns) in enumerate(GB.CC_ROWS)]
-ROWS[10] = (ROWS[10][0], ROWS[10][1] + ["l3k", "l3f", "l3t2", "l3a2"])   # page 11 has 4 CCs: the rest by mouse
 LEFT = ROWS[:8]
 RIGHT = ROWS[8:] + [
-         ("MORE", ["leak", "mgf", "ch1", "pol", "trg", "dgld", None, None]),
          ("DEG1 stages (sets env1 to own)", stages(1)),
          ("DEG2 stages (sets env2 to own)", stages(2)),
-         ("DEG3 stages (sets env3 to own)", stages(3)),
-         ("DEG4 stages (sets env4 to own)", stages(4))]
-assert len(RIGHT) == 8
+         ("DEG3 stages (sets env3 to own)", stages(3))]
 ALL = [n for _, ns in LEFT + RIGHT for n in ns if n]
-assert len(ALL) == len(set(ALL)) and set(ALL) == set(RANGE), set(RANGE) ^ set(ALL)
+assert len(ALL) == len(set(ALL)) and set(ALL) == set(RANGE) - {"ch1"}, (set(RANGE) - {"ch1"}) ^ set(ALL)
 
 CW, ROWH, TOP, X0 = 80, 88, 172, 10
 BAND_Y = 44                                      # presets / delay / sysex band

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generates bela/pepper/ : the Bela Pepper patch for pdoly8~.
 
-  10 pages of 8 pots (PAGES below). Button 1/2: page down/up, LED 1-10 shows the page.
+  8 pages of 8 pots (PAGES below). Button 1/2: page down/up, LED 1-8 shows the page.
   Button 3/4: factory preset down/up. Pickup: after a page or preset change a pot only
   takes over once it passes the current value.
   CV-Lock: hold button 4 and turn a pot: that input stays on its parameter (for CV) on
@@ -12,8 +12,8 @@
 
 Send/receive names
   p8-in       messages to pdoly8~          p8-out      outlet 3 of pdoly8~
-  p8-preset   load factory preset N        p8-setpage  go to page N (0-9)
-  p8-page     the page changed (0-9)       p8-pagev    [value] with the page
+  p8-preset   load factory preset N        p8-setpage  go to page N (0-7)
+  p8-page     the page changed (0-7)       p8-pagev    [value] with the page
   p8-refresh  pots re-read their targets   p8-tgt-N    pickup target of pot N
   p8-b4       button 4 down (1) / up (0)   p8-b4used   a pot was locked during the hold
   p8-tick     pot clock (10 ms)
@@ -36,9 +36,7 @@ PAGES = [
     ("WALSH",      ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "lev1", "lev2"]),
     ("SYNC-RING",  ["sync", "swp2", "swe", "swm", "ring", "rmf", "lev1", "lev2"]),
     ("FM",         ["fm1", "fm2", "fmr", "fmhz", "fms", "fmig", "lev1", "lev2"]),
-    ("MG-DEG4",    ["mgr", "mgi", "mgd", "mgv", "env4", "trg4", "d4t1", "d4a1"]),
-    ("LFO2",       ["l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2"]),
-    ("LFO3",       ["l3r", "l3w", "l3k", "l3f", "l3t1", "l3a1", "l3t2", "l3a2"]),
+    ("MG-MORE",    ["mgr", "mgi", "mgd", "mgv", "drvp", "tone", "leak", "dgld"]),
     ("FX-PERFORM", ["dtim", "dfb", "dmf", "dmi", "dlev", "port", "mono", "vamp"]),
 ]
 # MIDI CC -> parameter: the controller layer (tools/ctlayer.py), one MIDI channel for
@@ -57,11 +55,9 @@ CC_ROWS = [
     ("SYNC-FM",          ["sync", "swp2", "swe", "swm", "fm1", "fm2", "fmr", "fmhz"]),
     ("FMSOURCE-DELAY-EQ", ["fms", "fmig", "dtim", "dfb", "dmf", "dmi", "treb", "bass"]),
     ("PLAY MODE",        ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
-    ("DEG4-DRIVE",       ["env4", "trg4", "d4t1", "d4a1", "d4t2", "d4a2", "drvp", "tone"]),
-    ("LFO2",             ["l2r", "l2w", "l2k", "l2f", "l2t1", "l2a1", "l2t2", "l2a2"]),
-    ("LFO3",             ["l3r", "l3w", "l3t1", "l3a1"]),
+    ("MORE",             ["drvp", "tone", "leak", "mgf", "pol", "trg", "dgld"]),
 ]
-# not on the pages (editor and messages only): pol, trg (DEG3 polarity / trigger), dgld
+# not on the pages (editor and messages only): ch1 (the MIDI channel, at the top of the editor)
 CC_OF = ctlayer.cc_map(CC_ROWS)                  # name -> CC
 CCS = {cc: nm for nm, cc in CC_OF.items()}       # CC -> name
 BUTTONS = [26, 25, 24, 23]                       # Pepper buttons 1-4, pressed = 0
@@ -195,9 +191,9 @@ def sec_init():
 
 def sec_pages():
     p = P("pages", 900, 360)
-    p.note("PAGES: p8-setpage N -> page N (0-9): the pots read their parameters, LED N+1 lights, the console names the page",
+    p.note(f"PAGES: p8-setpage N -> page N (0-{len(PAGES) - 1}): the pots read their parameters, LED N+1 lights, the console names the page",
            10, 6)
-    r = p.add("r p8-setpage", 10, 40); w = p.add("mod 10", 10, 65); t = p.add("t f f f", 10, 90)
+    r = p.add("r p8-setpage", 10, 40); w = p.add(f"mod {len(PAGES)}", 10, 65); t = p.add("t f f f", 10, 90)
     v = p.add("v p8-pagev", 200, 120); sp = p.add("s p8-page", 100, 120)
     p.con(r, 0, w, 0); p.con(w, 0, t, 0); p.con(t, 2, v, 0); p.con(t, 1, sp, 0)
     tg = p.add("text get p8-map", 10, 150); f8 = p.add("list split 8", 10, 175)
@@ -214,7 +210,7 @@ def sec_buttons():
     p = P("buttons", 900, 380)
     p.note("BUTTONS (pressed = 0): 1 page down / 2 page up / 3 preset down / 4 preset up on release,"
            " unless a pot was locked while it was held (CV-Lock)", 10, 6)
-    for k, (pin, var, d, dst) in enumerate([(BUTTONS[0], "p8-pagev", 9, "p8-setpage"), (BUTTONS[1], "p8-pagev", 1, "p8-setpage"),
+    for k, (pin, var, d, dst) in enumerate([(BUTTONS[0], "p8-pagev", len(PAGES) - 1, "p8-setpage"), (BUTTONS[1], "p8-pagev", 1, "p8-setpage"),
                                             (BUTTONS[2], "p8-prog", 63, "p8-preset")]):
         x = 10 + k * 200
         rb = p.add(f"r bela_digitalIn{pin}", x, 40); ch = p.add("change 1", x, 65); se = p.add("sel 0", x, 90)
@@ -296,7 +292,7 @@ def sec_out():
 def main_patch():
     p = P(None, 700, 470)
     lines = ["pdoly8~ on the Bela Pepper",
-             "Button 1 / 2: page down / up (LED 1-10). Button 3 / 4: factory preset down / up.",
+             f"Button 1 / 2: page down / up (LED 1-{len(PAGES)}). Button 3 / 4: factory preset down / up.",
              "Pots 1-8: the parameters of the page (pickup: a pot takes over once it passes the current value).",
              "CV-Lock: hold button 4 and turn a pot - that input stays on its parameter on every page (for CV).",
              "  Again to unlock. The console names pages, presets, locks and modulation targets.",
