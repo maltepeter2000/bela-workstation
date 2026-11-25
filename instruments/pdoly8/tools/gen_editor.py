@@ -114,6 +114,7 @@ def top_band(c):
     c.add(f"#X text {X0} {y + 44} MIDI ch;")
     c.add(f"#X floatatom {X0 + 52} {y + 44} 3 0 16 0 - {D}0-midichv {D}0-midich;")
     c.add(f"#X text {X0 + 82} {y + 44} 0=omni;")
+    bng(c, X0 + 200, y + 44, "init", "init sound")
     bng(c, X0 + 368, y + 44, "finit", "factory init")
     c.add(f"#X text {X0} {y + 68} delay;")
     for k, (msg, label) in enumerate(DELAYS):
@@ -218,6 +219,10 @@ def logic():
     rcn = c.add(f"#X obj 1160 {yb + 30} route channel;"); c.conn(ro4, 0, rcn, 0)
     mcv = c.add(f"#X msg 1160 {yb + 60} set {D}1;"); c.conn(rcn, 0, mcv, 0)
     scv = c.add(f"#X obj 1160 {yb + 90} s {D}0-midichv;"); c.conn(mcv, 0, scv, 0)
+    # init sound (defaults: the MIDI channel stays)
+    rin = c.add(f"#X obj 1260 {yb} r {D}0-init;")
+    min_ = c.add(f"#X msg 1260 {yb + 30} defaults;"); c.conn(rin, 0, min_, 0)
+    sin_ = c.add(f"#X obj 1260 {yb + 60} s {D}1;"); c.conn(min_, 0, sin_, 0)
     # random sounds
     for k, cat in enumerate(RANDOM):
         rr_ = c.add(f"#X obj {700 + 100 * k} {yb + 200} r {D}0-rnd-{cat};")
