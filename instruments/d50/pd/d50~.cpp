@@ -53,6 +53,7 @@
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #endif
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -67,6 +68,7 @@ extern "C" {
 }
 
 #include "d50_core.h"
+#include "../../../common/gfx/lkgfx_pd.h"
 
 namespace {
 
@@ -110,6 +112,7 @@ struct t_d50 {
     int last_preset;           // the factory patch and the user slot played or stored last:
     int last_user;             // presetstep / userstep count from there, save stores there
     int store_to;              // savearm .. save: the user slot chosen, -1 none
+    lkg_pd_t* gfx;             // Launchkey pictures (common/gfx), see gfx_draw
 };
 
 // ---- data files -------------------------------------------------------------
@@ -236,6 +239,109 @@ std::string slot_label(int slot) {
 
 // One line for a display (the Launchkey's popup, an OLED): which patch plays,
 // what was turned, what was stored. Same form in every instrument.
+// ---- Launchkey pictures (custom firmware branch display-gfx) ------------------
+// kind 1 the TVA envelope, 2 the TVF envelope (of the selected partial), 3 the pitch envelope
+// (of its tone), 4 the structure, 5 the filter curve, 6 the synth wave. "lkgfx 0" = text.
+
+int gfx_kind(const char* n) {
+    auto step = [n](const char* p) {   // <p>t1..t5, <p>l0..l3, <p>sustain, <p>end
+        const size_t m = std::strlen(p);
+        if (std::strncmp(n, p, m)) return false;
+        const char* r = n + m;
+        return ((r[0] == 't' || r[0] == 'l') && r[1] >= '0' && r[1] <= '5' && !r[2])
+               || !std::strcmp(r, "sustain") || !std::strcmp(r, "end");
+    };
+    if (step("tva") || !std::strcmp(n, "att") || !std::strcmp(n, "rel")) return 1;
+    if (step("tvf")) return 2;
+    if (step("penv")) return 3;
+    if (!std::strcmp(n, "structure") || !std::strcmp(n, "mute")) return 4;
+    if (!std::strcmp(n, "cutoff") || !std::strcmp(n, "reso") || !std::strcmp(n, "cut") || !std::strcmp(n, "res")) return 5;
+    if (!std::strcmp(n, "wave") || !std::strcmp(n, "pw")) return 6;
+    return 0;
+}
+
+float ctl(const d50::Synth& y, const char* name) {
+    const d50::Control* c = d50::find_control(name);
+    return c ? static_cast<float>(y.get_control(*c)) : 0.0f;
+}
+
+// TVA / TVF: 0 -> L1 (T1) -> L2 (T2) -> L3 (T3) -> sustain (T4, held) -> end (T5)
+void gfx_tv(const d50::Synth& y, lkg_t* g, const std::string& p) {
+    auto c = [&](const char* k) { return ctl(y, (p + k).c_str()); };
+    auto w = [](float t) { return 2.0f + 30.0f * std::pow(t / 100.0f, 1.5f); };
+    const float lvl[5] = {c("l1") / 100.0f, c("l2") / 100.0f, c("l3") / 100.0f, c("sustain") / 100.0f, c("end") > 0 ? 1.0f : 0.0f};
+    const float wd[5] = {w(c("t1")), w(c("t2")), w(c("t3")), w(c("t4")), w(c("t5"))};
+    lkg_env(g, 5, 0.0f, lvl, wd, 3, 16.0f, nullptr);
+}
+
+void gfx_draw(void* owner, lkg_t* g, int kind) {
+    const d50::Synth& y = *static_cast<t_d50*>(owner)->synth;
+    switch (kind) {
+    case 1: gfx_tv(y, g, "tva"); break;
+    case 2: gfx_tv(y, g, "tvf"); break;
+    case 3: {   // pitch: L0 -> L1 (T1) -> L2 (T2) -> sustain (T3, held) -> end (T4); -50..50, 0 dotted
+        auto w = [](float t) { return 2.0f + 30.0f * std::pow(t / 50.0f, 1.5f); };
+        auto l = [&](const char* k) { return (ctl(y, k) + 50.0f) / 100.0f; };
+        const float lvl[4] = {l("penvl1"), l("penvl2"), l("penvsustain"), l("penvend")};
+        const float wd[4] = {w(ctl(y, "penvt1")), w(ctl(y, "penvt2")), w(ctl(y, "penvt3")), w(ctl(y, "penvt4"))};
+        lkg_env(g, 4, l("penvl0"), lvl, wd, 2, 16.0f, nullptr);
+        lkg_hdots(g, 0, LKG_W - 1, static_cast<int>(lroundf(lkg_ly(0.5f))), 3);
+        break;
+    }
+    case 4: {   // the two partials of the tone (S synth, P PCM), ring modulated with "-R"
+        static const char* const kS[7] = {"S+S", "S+S-R", "P+S", "P+S-R", "S+P-R", "P+P", "P+P-R"};
+        const int st = std::clamp(static_cast<int>(ctl(y, "structure")), 1, 7) - 1;
+        const int mute = static_cast<int>(ctl(y, "mute"));   // 3 = both on
+        const char* sname = kS[st];
+        const bool ring = std::strstr(sname, "-R") != nullptr;
+        const char a[2] = {sname[0], 0}, b[2] = {sname[2], 0};
+        const int y1 = 13, y2 = 31, bx = 10, bw = 22, bh = 13;
+        auto box = [&](int yy, bool on) {   // a partial switched off: dotted
+            if (on) { lkg_rect(g, bx, yy, bw, bh); return; }
+            lkg_hdots(g, bx, bx + bw - 1, yy, 2); lkg_hdots(g, bx, bx + bw - 1, yy + bh - 1, 2);
+            lkg_vdots(g, bx, yy, yy + bh - 1, 2); lkg_vdots(g, bx + bw - 1, yy, yy + bh - 1, 2);
+        };
+        box(y1, mute & 1); lkg_text(g, bx + 5, y1 + 3, a); lkg_text(g, bx + 11, y1 + 3, "1");
+        box(y2, mute & 2); lkg_text(g, bx + 5, y2 + 3, b); lkg_text(g, bx + 11, y2 + 3, "2");
+        const int mx = 76, my = 28;
+        if (ring) {
+            lkg_rect(g, 46, 20, 15, 15); lkg_text(g, 51, 24, "R");
+            lkg_line(g, bx + bw, y1 + bh / 2, 45, 24); lkg_line(g, bx + bw, y2 + bh / 2, 45, 31);
+            lkg_line(g, 61, 27, mx, my);
+        } else {
+            lkg_line(g, bx + bw, y1 + bh / 2, mx, my); lkg_line(g, bx + bw, y2 + bh / 2, mx, my);
+        }
+        lkg_text(g, mx + 2, my - 3, "+");
+        lkg_line(g, mx + 10, my, LKG_W - 1, my);
+        break;
+    }
+    case 5: lkg_filter(g, ctl(y, "cutoff") / 100.0f, ctl(y, "reso") / 30.0f, LKG_LP12, 0.0f); break;
+    case 6: {   // the synth partial's wave: square (width pw) or saw, two periods
+        const bool saw = ctl(y, "wave") > 0;
+        const float pw = 0.5f - 0.45f * ctl(y, "pw") / 100.0f;
+        float v[LKG_W];
+        for (int i = 0; i < LKG_W; ++i) {
+            const float ph = static_cast<float>(i % 64) / 64.0f;
+            v[i] = saw ? 1.0f - 2.0f * ph : ph < pw ? 1.0f : -1.0f;
+        }
+        lkg_plot(g, v, LKG_W, -1.1f, 1.1f);
+        break;
+    }
+    default: break;
+    }
+}
+
+// a picture for the control just turned; false: the text line as before
+bool gfx_show(t_d50* x, const d50::Control& c, const std::string& value) {
+    const int kind = gfx_kind(c.name);
+    std::string title = c.label;
+    if (c.kind == 'P' && kind != 0) {   // the partial edited: U1 U2 L1 L2
+        static const char* const kPart[4] = {"U1", "U2", "L1", "L2"};
+        title = std::string(kPart[std::clamp(static_cast<int>(ctl(*x->synth, "part")), 0, 3)]) + " " + title;
+    }
+    return lkg_pd_show(x->gfx, kind, title.c_str(), value.c_str()) != 0;
+}
+
 void out_display(t_d50* x, const std::string& title, const std::string& value) {
     t_atom a[2];
     SETSYMBOL(&a[0], gensym(title.c_str()));
@@ -540,9 +646,13 @@ void d50_command(t_d50* x, t_symbol* s, int argc, t_atom* argv) {
     else if (is("governor")) y.set_governor(f != 0);
     else if (is("stop")) y.all_notes_off();
     else if (is("reset")) y.silence();
+    else if (is("lkgfx")) { lkg_pd_on(x->gfx, n != 0); return; }
     else { pd_error(x, "d50~: no method for '%s'", c); return; }
     report(x);
-    if (touched) out_display(x, touched->label, y.control_text(*touched, y.get_control(*touched)));
+    if (touched) {
+        const std::string v = y.control_text(*touched, y.get_control(*touched));
+        if (!gfx_show(x, *touched, v)) out_display(x, touched->label, v);
+    }
     if (stored) out_display(x, "Stored", "User " + slot_label(y.patch()) + " " + d50::user_name(y.patch()));
 }
 
@@ -677,6 +787,8 @@ void* d50_new(t_symbol*, int argc, t_atom* argv) {
     outlet_new(&x->obj, &s_signal);
     outlet_new(&x->obj, &s_signal);
     x->info = outlet_new(&x->obj, nullptr);
+    x->gfx = new lkg_pd_t();
+    lkg_pd_init(x->gfx, x->info, gfx_draw, x);
 
     if (argc > 0 && argv[0].a_type == A_FLOAT)
         x->synth->select_patch(static_cast<int>(atom_getfloat(argv)));
@@ -685,6 +797,8 @@ void* d50_new(t_symbol*, int argc, t_atom* argv) {
 }
 
 void d50_free(t_d50* x) {
+    lkg_pd_free(x->gfx);
+    delete x->gfx;
     delete x->synth;
     delete x->midi;
     delete x->shown;
