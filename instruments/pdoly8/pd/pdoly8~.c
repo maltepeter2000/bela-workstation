@@ -88,6 +88,12 @@ typedef struct _pdoly8 {
     char     gfx_title[96];
     t_clock *gfx_clk;
     double   gfx_last;             /* logical time of the last picture sent */
+    /* the picture's SysEx messages go out a few at a time (GFX_PER_MS a millisecond): a whole
+     * picture at once (26 messages, 1.1 KB) did not reach the Launchkey from Pd on macOS, and on
+     * Bela every MIDI byte is a system call in the audio thread */
+    unsigned char gfx_q[P8GFX_PAGES * 4 + 2][48];
+    int      gfx_qlen[P8GFX_PAGES * 4 + 2], gfx_qn, gfx_qi;
+    t_clock *gfx_qclk;
     double   tick_t;               /* MIDI clock: logical time of the last tick, the mean tick in ms */
     float    tick_ms, bpm;         /* bpm 0 = no tempo yet */
     unsigned rnd;                  /* random voices */
@@ -813,18 +819,32 @@ static int gfx_kind_of(t_symbol *s)
     return 0;
 }
 
+#define GFX_PER_MS 2
 static void gfx_send(void *ctx, const unsigned char *m, int len)
 {
     t_pdoly8 *x = (t_pdoly8 *)ctx;
-    t_atom a[64];
-    if (len > 64) return;
-    for (int i = 0; i < len; i++) SETFLOAT(a + i, m[i]);
-    outlet_anything(x->x_dump, gensym("lkgfx"), len, a);
+    const int cap = (int)(sizeof x->gfx_qlen / sizeof x->gfx_qlen[0]);
+    if (len > 48 || x->gfx_qn >= cap) return;
+    memcpy(x->gfx_q[x->gfx_qn], m, (size_t)len);
+    x->gfx_qlen[x->gfx_qn++] = len;
+}
+
+static void gfx_qtick(t_pdoly8 *x)
+{
+    for (int k = 0; k < GFX_PER_MS && x->gfx_qi < x->gfx_qn; k++, x->gfx_qi++) {
+        t_atom a[48];
+        const int len = x->gfx_qlen[x->gfx_qi];
+        for (int i = 0; i < len; i++) SETFLOAT(a + i, x->gfx_q[x->gfx_qi][i]);
+        outlet_anything(x->x_dump, gensym("lkgfx"), len, a);
+    }
+    if (x->gfx_qi < x->gfx_qn) clock_delay(x->gfx_qclk, 1.0);
+    else x->gfx_qn = x->gfx_qi = 0;
 }
 
 static void gfx_tick(t_pdoly8 *x)
 {
     p8_engine_t *e = &x->e;
+    if (x->gfx_qn) { clock_delay(x->gfx_clk, 10.0); return; }   /* the last picture is still going out */
     p8gfx_clear(&x->gfx, x->gfx_title);
     if (x->gfx_kind >= 1 && x->gfx_kind <= 3) {
         p8gfx_env(&x->gfx, e->deg[x->gfx_kind - 1]);
@@ -842,6 +862,7 @@ static void gfx_tick(t_pdoly8 *x)
     const int all = clock_gettimesince(x->gfx_last) > 3000.0;
     p8gfx_flush(&x->gfx, all, gfx_send, x);
     x->gfx_last = clock_getlogicaltime();
+    gfx_qtick(x);
 }
 
 static void pdoly8_lkgfx(t_pdoly8 *x, t_floatarg f) { x->gfx_on = f != 0; }
@@ -1430,6 +1451,7 @@ static void *pdoly8_new(void)
     }
     x->rep_clk = clock_new(x, (t_method)rep_tick);
     x->gfx_clk = clock_new(x, (t_method)gfx_tick);
+    x->gfx_qclk = clock_new(x, (t_method)gfx_qtick);
     x->gfx_on = 1;
     x->gfx_last = -1e9;
     x->canvas = canvas_getcurrent();
@@ -1450,6 +1472,7 @@ static void pdoly8_free(t_pdoly8 *x)
 {
     clock_free(x->rep_clk);
     clock_free(x->gfx_clk);
+    clock_free(x->gfx_qclk);
 #ifdef P8_OLED
     if (x->o_on) { x->o_quit = 1; pthread_join(x->o_th, 0); close(x->o_sock); x->o_on = 0; }
 #endif
