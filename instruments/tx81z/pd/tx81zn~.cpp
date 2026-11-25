@@ -37,6 +37,8 @@
 #include "txshared.h"
 #include "txfm.h"
 #include "txbank.h"
+#include "../../../common/gfx/lkgfx_pd.h"
+#include "txgfx.h"
 
 #ifndef _WIN32
 #include <dirent.h>
@@ -66,6 +68,7 @@ struct t_txn
 	int last_preset;                  // ROM preset 0-127 (A01-D32) played last
 	int last_user;                    // user slot 0-63 played or stored last
 	int store_to;                     // savearm .. save: the user slot chosen, -1 none
+	lkg_pd_t *gfx;                    // Launchkey pictures (common/gfx), see gfx_draw
 	bool ready;
 	float gain;
 	int vol;                          // fm vol 0-127 (page 1): 100 = 0 dB, square law; not in a voice
@@ -432,6 +435,39 @@ static void txn_bank(t_txn *x, t_symbol *b, t_floatarg n)
 // ---------------------------------------------------------------------------
 // parameters (as tx81z~)
 
+// ---------------------------------------------------------------------------
+// Launchkey pictures (custom firmware branch display-gfx): the algorithm (alg, fb, algo,
+// fdbk), an operator's envelope (ar d1r d1l d2r rr) or its wave (osw). "lkgfx 0" = text.
+// kind 1 the algorithm, 2..5 the envelope of OP1..OP4, 6..9 the wave of OP1..OP4.
+
+static void gfx_draw(void *owner, lkg_t *g, int kind)
+{
+	t_txn *x = (t_txn *)owner;
+	txgfx_draw(*x->eng, g, kind);
+}
+
+// the picture of a VCED / ACED parameter (group, number); 0 = none
+static int gfx_kind_of(char group, int num)
+{
+	if (group == 'V' && (num == 52 || num == 53)) return 1;
+	for (int op = 0; op < 4; op++) {
+		if (group == 'V' && num >= OPBLOCK[op] * 13 && num <= OPBLOCK[op] * 13 + 4) return 2 + op;
+		if (group == 'A' && num == OPBLOCK[op] * 5 + 3) return 6 + op;
+	}
+	return 0;
+}
+
+// a picture for the parameter just turned (title "OP<n> label value"); false: the text line
+static bool gfx_show(t_txn *x, int kind, const char *label, const char *value)
+{
+	char t[48];
+	if (kind >= 2) std::snprintf(t, sizeof t, "OP%d %s", (kind - 2) % 4 + 1, label);
+	else std::snprintf(t, sizeof t, "%s", label);
+	return lkg_pd_show(x->gfx, kind, t, value) != 0;
+}
+
+static void txn_lkgfx(t_txn *x, t_floatarg f) { lkg_pd_on(x->gfx, f != 0); }
+
 static void txn_n(t_txn *x, t_symbol *name, t_floatarg c)
 {
 	if (name == gensym("none")) return;
@@ -443,7 +479,7 @@ static void txn_n(t_txn *x, t_symbol *name, t_floatarg c)
 	v = v < p->lo ? p->lo : v > p->hi ? p->hi : v;
 	char buf[32];
 	value_text(p, v, buf, sizeof buf);
-	out_display(x, p->label, buf);
+	if (!gfx_show(x, gfx_kind_of(p->group, p->num), p->label, buf)) out_display(x, p->label, buf);
 }
 
 static void txn_ninfo(t_txn *x, t_symbol *name)
@@ -464,8 +500,21 @@ static void txn_fm(t_txn *x, t_symbol *name, t_floatarg v)
 		[x](char g, int n, int val) { if (g == 'G') x->vol = val; else x->eng->set_param(g, n, val, false); });
 	clock_delay(x->rep_clock, 0);
 	char text[32];
-	if (fm_value(x, i, text, sizeof text) >= 0) out_display(x, txfm::MACROS[i].label, text);
-	else out_display(x, txfm::MACROS[i].label, "-");
+	const txfm::t_macro &m = txfm::MACROS[i];
+	const bool known = fm_value(x, i, text, sizeof text) >= 0;
+	int kind = 0;
+	if (m.kind == txfm::PARAM) kind = gfx_kind_of(m.group, m.num);
+	else if (m.kind == txfm::ROLE && known) {   // the role's first operator
+		const txfm::t_roles r = txfm::roles(x->eng->get_param('V', 52));
+		if (r.n[m.role] > 0) {
+			const int blk = r.op[m.role][0];
+			int op = 0;
+			while (op < 3 && OPBLOCK[op] != blk) op++;
+			if (m.group == 'V' && m.num <= 4) kind = 2 + op;
+			else if (m.group == 'A' && m.num == 3) kind = 6 + op;
+		}
+	}
+	if (!gfx_show(x, kind, m.label, known ? text : "-")) out_display(x, m.label, known ? text : "-");
 }
 
 static void report_channel(t_txn *x);
@@ -802,6 +851,8 @@ static void *txn_new(t_symbol *, int argc, t_atom *argv)
 	outlet_new(&x->x_obj, &s_signal);
 	outlet_new(&x->x_obj, &s_signal);
 	x->out_msg = outlet_new(&x->x_obj, 0);
+	x->gfx = new lkg_pd_t();
+	lkg_pd_init(x->gfx, x->out_msg, gfx_draw, x);
 	x->rep_clock = clock_new(x, (t_method)rep_tick);
 	x->stat_clock = clock_new(x, (t_method)stat_tick);
 	x->ch_clock = clock_new(x, (t_method)report_channel);
@@ -814,6 +865,8 @@ static void *txn_new(t_symbol *, int argc, t_atom *argv)
 
 static void txn_free(t_txn *x)
 {
+	lkg_pd_free(x->gfx);
+	delete x->gfx;
 	clock_free(x->rep_clock);
 	clock_free(x->stat_clock);
 	clock_free(x->ch_clock);
@@ -845,6 +898,7 @@ void tx81zn_tilde_setup(void)
 	class_addmethod(txn_class, (t_method)txn_bend, gensym("bend"), A_GIMME, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_bank, gensym("bank"), A_SYMBOL, A_FLOAT, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_n, gensym("n"), A_SYMBOL, A_FLOAT, A_NULL);
+	class_addmethod(txn_class, (t_method)txn_lkgfx, gensym("lkgfx"), A_FLOAT, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_ninfo, gensym("ninfo"), A_SYMBOL, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_vced, gensym("vced"), A_FLOAT, A_FLOAT, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_aced, gensym("aced"), A_FLOAT, A_FLOAT, A_NULL);
