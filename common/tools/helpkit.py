@@ -17,7 +17,7 @@ PAD_LAYOUT = ("top row 36 factory +, 37 user +, 38 init (press twice within a se
               "39-43 own, bottom row 44 factory -, 45 user -, 46 save, 47-51 own")
 PAD_COLOURS = ("factory blue, user and save green (the user bank), init orange (flashing while "
                "the second press is awaited), save flashing while it asks and white for a moment when "
-               "stored, own pads purple, free pads off")
+               "stored, own pads purple, free pads dark")
 PAD_STORE = ("Storing asks first: save once shows Store to? and the user slot played or stored last "
              "(savearm), user + / - choose the slot (saveslot 1 / -1, nothing is recalled), save again "
              "stores there and writes the user bank (save). Any other pad or 10 s cancel (savecancel). "

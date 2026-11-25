@@ -57,7 +57,7 @@ The same in every instrument, by what the pad does:
 | init | orange, flashing after the first press while the second is awaited |
 | save | flashing while it asks, white for a moment when stored |
 | the instrument's own | purple |
-| free | off |
+| free | dark (velocity 16 = black; velocity 0 would give the pad back to the Launchkey's own LED) |
 
 `[<x>pads]` sends them itself with `[noteout]` on its channel: at load, on `leds`, on a
 channel change and when the Launchkey asks (CC 3 = 127 on the pad channel). The palette and

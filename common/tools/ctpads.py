@@ -34,7 +34,7 @@ Pad colours, the same in every instrument (by the pad's message, see color()):
 
     factory +/-  blue        user +/- and save  green (the user bank)
     init  orange (flashing while armed)     save flashing while it asks, white when stored
-    own pads     purple      free pads  off
+    own pads     purple      free pads  dark (velocity 16: black, not the Launchkey's own LED)
 
 The abstraction sends them with [noteout] on the pad channel (the firmware's pad LED protocol:
 note = pad, velocity = colour + 32 * mode, 0 = the Launchkey's own LED; launchkey/README.md) at
@@ -62,6 +62,9 @@ OWN = list(range(39, 44)) + list(range(47, 52))
 # Launchkey pad LED palette (launchkey_firmware cfw/drum_pads.c): colour index, + 32 = flashing,
 # + 64 = pulsing, 16 + n = colour n dimmed.
 OFF, WHITE, RED, ORANGE, YELLOW, GREEN, CYAN, BLUE, PURPLE = range(9)
+# a free pad is dark: colour 0 (black) dimmed = 16. Velocity 0 would hand the pad back to the
+# Launchkey's own LED, which lights it.
+DARK = 16
 FLASH, PULSE = 32, 64
 COLORS = {"presetstep": BLUE, "userstep": GREEN, "init": ORANGE, "save": GREEN}
 STORE_TIMEOUT_MS = 10000
@@ -107,7 +110,7 @@ def write(path, title, table):
     allb = p.add("t b", 400, ly)
     p.con(chs, 0, allb, 0); p.con(rc, 1, allb, 0)
     full = {n: table.get(n) for n in TOP + BOTTOM}
-    allm = p.msg(", ".join(f"{n} {color(a) if a is not None else OFF}" for n, a in full.items()), 400, ly + 30)
+    allm = p.msg(", ".join(f"{n} {color(a) if a is not None else DARK}" for n, a in full.items()), 400, ly + 30)
     p.con(allb, 0, allm, 0)
     sl = p.add("s $0-led", 400, ly + 90); p.con(allm, 0, sl, 0)
     # the Launchkey asks for the colours: CC 3 = 127 on the pad channel when pad mode Drum is selected
