@@ -79,6 +79,263 @@ static void writeWav(const char *path, const std::vector<float> &l, const std::v
     fclose(f);
 }
 
+
+// Switch every modulation of an instrument off.
+static void neutral(eps::Instrument &in) {
+    for (auto &kv : in.waveSamples) {
+        eps::WaveSample &w = kv.second;
+        w.pitchEnvAmount = w.lfoPitchAmount = w.pitchModAmount = w.randomModAmount = 0;
+        w.lfoDepth = w.lfoDepthModAmount = w.lfoRateModAmount = 0;
+        w.ampModAmount = w.panModAmount = 0;
+        w.filterModAmount[0] = w.filterModAmount[1] = 0;
+        w.filterEnvAmount[1] = 0;
+        w.volumeModCrossfadeCurve = 0;
+    }
+}
+
+// The chip voice that sounds (the first not stopped one), -1 if none.
+static int sounding(const eps::Sampler &s) {
+    for (int v = 0; v < otis::ES5505::kVoices; ++v)
+        if (!s.chipForDebug().stopped(v)) return v;
+    return -1;
+}
+
+static void run(eps::Sampler &s, int frames) {
+    float l[64], r[64];
+    for (int i = 0; i < frames; i += 64) s.process(l, r, 64);
+}
+
+// Each feature of the OS side on its own, read back from the chip registers.
+static int s_vol(const eps::Sampler &s) { int v = sounding(s); return v < 0 ? 0 : int(s.chipForDebug().voice(v).lvol); }
+static void modulation_tests(const eps::Instrument &base) {
+    eps::Sampler::Settings set;
+    set.sampleRate = SR;
+    std::string err;
+    auto fc = [](const eps::Sampler &s, int v) { return double(s.chipForDebug().voice(v).freqcount); };
+
+    // pitch envelope: amount 96 eighths = +12 semitones, levels all 127, times 0
+    {
+        eps::Instrument in = base;
+        eps::Sampler a(set), b(set);
+        a.load(in, err);
+        a.noteOn(50, 100);
+        run(a, 512);
+        eps::WaveSample &w = in.waveSamples[1];
+        w.pitchEnvAmount = 96;
+        for (int i = 0; i < 5; ++i) w.pitchEnv.softLevel[i] = w.pitchEnv.hardLevel[i] = 127;
+        for (int i = 1; i <= 6; ++i) w.pitchEnv.time[i] = 0;
+        b.load(in, err);
+        b.noteOn(50, 100);
+        run(b, 512);
+        const double ratio = fc(b, sounding(b)) / fc(a, sounding(a));
+        printf("  pitch envelope +96/8: ratio %.3f (2.000)\n", ratio);
+        CHECK(std::fabs(ratio - 2.0) < 0.01);
+    }
+    // LFO: sine, depth 127, +1 semitone; delay fades it in; wheel on LFO depth
+    {
+        eps::Instrument in = base;
+        eps::WaveSample &w = in.waveSamples[1];
+        w.lfoWaveform = 2;
+        w.lfoSpeed = 40;           // 6.25 Hz
+        w.lfoDepth = 127;
+        w.lfoPitchAmount = 8;
+        w.lfoDelay = 0;
+        w.lfoMode = 1;
+        eps::Sampler s(set);
+        s.load(in, err);
+        s.noteOn(50, 100);
+        double lo = 1e9, hi = 0;
+        for (int i = 0; i < 200; ++i) {
+            run(s, 64);
+            const double f = fc(s, sounding(s));
+            lo = std::min(lo, f);
+            hi = std::max(hi, f);
+        }
+        const double cents = 1200 * std::log2(hi / lo);
+        printf("  LFO sine +-1 semitone: swing %.0f cent (200)\n", cents);
+        CHECK(std::fabs(cents - 200) < 10);
+
+        w.lfoDelay = 60;           // 3 s fade in: hardly moves in the first 0.1 s
+        eps::Sampler d(set);
+        d.load(in, err);
+        d.noteOn(50, 100);
+        lo = 1e9; hi = 0;
+        for (int i = 0; i < 70; ++i) {
+            run(d, 64);
+            const double f = fc(d, sounding(d));
+            lo = std::min(lo, f);
+            hi = std::max(hi, f);
+        }
+        printf("  LFO delay 3 s: first 0.1 s swing %.0f cent\n", 1200 * std::log2(hi / lo));
+        CHECK(1200 * std::log2(hi / lo) < 30);
+
+        w.lfoDelay = 0;
+        w.lfoDepth = 0;
+        w.lfoDepthModSource = eps::kSrcWheel;
+        w.lfoDepthModAmount = 127;
+        eps::Sampler m(set);
+        m.load(in, err);
+        m.noteOn(50, 100);
+        lo = 1e9; hi = 0;
+        for (int i = 0; i < 200; ++i) { run(m, 64); const double f = fc(m, sounding(m)); lo = std::min(lo, f); hi = std::max(hi, f); }
+        const double still = 1200 * std::log2(hi / lo);
+        m.setModWheel(1.f);
+        lo = 1e9; hi = 0;
+        for (int i = 0; i < 200; ++i) { run(m, 64); const double f = fc(m, sounding(m)); lo = std::min(lo, f); hi = std::max(hi, f); }
+        printf("  wheel -> LFO depth: %.0f cent without, %.0f cent with the wheel\n", still, 1200 * std::log2(hi / lo));
+        CHECK(still < 5);
+        CHECK(1200 * std::log2(hi / lo) > 180);
+    }
+    // pitch modulation by velocity: +1 semitone at full velocity
+    {
+        eps::Instrument in = base;
+        in.waveSamples[1].pitchModSource = eps::kSrcVel;
+        in.waveSamples[1].pitchModAmount = 8;
+        eps::Sampler a(set), b(set);
+        a.load(in, err);
+        b.load(in, err);
+        a.noteOn(50, 127);
+        b.noteOn(50, 1);
+        run(a, 256);
+        run(b, 256);
+        const double cents = 1200 * std::log2(fc(a, sounding(a)) / fc(b, sounding(b)));
+        printf("  pitch mod VEL +8: %.0f cent between velocity 127 and 1 (~99)\n", cents);
+        CHECK(std::fabs(cents - 99) < 6);
+    }
+    // filter 1 by pressure, filter 2 by the filter envelope
+    {
+        eps::Instrument in = base;
+        eps::WaveSample &w = in.waveSamples[1];
+        w.filterCutoff[0] = 0;
+        w.filterEnvAmount[0] = 0;
+        w.filterKeyAmount[0] = 0;
+        w.filterModSource[0] = eps::kSrcPress;
+        w.filterModAmount[0] = 127;
+        eps::Sampler s(set);
+        s.load(in, err);
+        s.noteOn(50, 100);
+        run(s, 256);
+        const int v = sounding(s);
+        const uint32_t closed = s.chipForDebug().voice(v).k1;
+        s.setPressure(1.f);
+        run(s, 256);
+        const uint32_t open = s.chipForDebug().voice(v).k1;
+        s.setPressure(0.f);
+        s.setPolyPressure(50, 1.f);
+        run(s, 256);
+        const uint32_t poly = s.chipForDebug().voice(v).k1;
+        printf("  filter 1 by pressure: K1 %u -> %u (poly pressure %u)\n", closed, open, poly);
+        CHECK(open > 8 * (closed + 16));
+        CHECK(poly == open);
+    }
+    // amp by velocity, crossfade by key, pan by wheel
+    {
+        eps::Instrument in = base;
+        in.waveSamples[1].ampModSource = eps::kSrcVel;
+        in.waveSamples[1].ampModAmount = 127;
+        eps::Sampler a(set), b(set);
+        a.load(in, err);
+        b.load(in, err);
+        a.noteOn(50, 127);
+        b.noteOn(50, 32);
+        run(a, 256);
+        run(b, 256);
+        const int la = s_vol(a), lb = s_vol(b);
+        printf("  amp mod VEL 127: volume code %d at velocity 127, %d at 32\n", la, lb);
+        CHECK(la - lb >= 25);       // 4 bits per 6 dB step: about -12 dB
+
+        eps::Instrument x = base;
+        eps::WaveSample &w = x.waveSamples[1];   // keys 21..59
+        w.volumeModCrossfadeCurve = 1;
+        w.ampModSource = eps::kSrcKbd;
+        w.crossfade[0] = 0; w.crossfade[1] = 0; w.crossfade[2] = 20; w.crossfade[3] = 50;
+        eps::Sampler lo(set), hi(set);
+        lo.load(x, err);
+        hi.load(x, err);
+        lo.noteOn(24, 100);        // key 22: KBD (22-60)/48 -> x = 13: full
+        hi.noteOn(60, 100);        // key 58: x = 61: beyond D -> silent
+        run(lo, 256);
+        run(hi, 256);
+        printf("  crossfade by KBD: volume %d low, %d high\n", s_vol(lo), s_vol(hi));
+        CHECK(s_vol(lo) > 150 && s_vol(hi) == 0);
+
+        eps::Instrument p = base;
+        p.waveSamples[1].panModSource = eps::kSrcWheel;
+        p.waveSamples[1].panModAmount = 127;
+        p.waveSamples[1].panSigned = 0;
+        eps::Sampler ps(set);
+        ps.load(p, err);
+        ps.noteOn(50, 100);
+        run(ps, 256);
+        const int v = sounding(ps);
+        const int l0 = int(ps.chipForDebug().voice(v).lvol), r0 = int(ps.chipForDebug().voice(v).rvol);
+        ps.setModWheel(1.f);
+        run(ps, 256);
+        const int l1 = int(ps.chipForDebug().voice(v).lvol), r1 = int(ps.chipForDebug().voice(v).rvol);
+        printf("  pan by wheel: L/R %d/%d -> %d/%d\n", l0, r0, l1, r1);
+        CHECK(l0 == r0 && r1 > l1 + 40);
+    }
+    // glide: layer A mono, glide time 30 (0.44 s)
+    {
+        eps::Instrument in = base;
+        in.layers[0].glideMode = 1;
+        in.layers[0].glideTime = 30;
+        eps::Sampler s(set);
+        s.load(in, err);
+        s.noteOn(38, 100);         // key 36
+        run(s, 4096);
+        const double from = fc(s, sounding(s));
+        s.noteOn(50, 100);         // key 48: an octave up
+        run(s, 2048);
+        CHECK(s.activeVoiceCount() == 1);
+        const double mid = fc(s, sounding(s));
+        run(s, int(SR));
+        const double to = fc(s, sounding(s));
+        printf("  glide: %.0f -> %.0f (after 46 ms) -> %.0f\n", from, mid, to);
+        CHECK(std::fabs(to / from - 2.0) < 0.01);
+        CHECK(mid > from * 1.01 && mid < to * 0.99);
+    }
+    // noise on the pitch
+    {
+        eps::Instrument in = base;
+        in.waveSamples[1].randomModAmount = 8;
+        in.waveSamples[1].randomFreq = 20;
+        eps::Sampler s(set);
+        s.load(in, err);
+        s.noteOn(50, 100);
+        double lo = 1e9, hi = 0;
+        for (int i = 0; i < 400; ++i) { run(s, 64); const double f = fc(s, sounding(s)); lo = std::min(lo, f); hi = std::max(hi, f); }
+        printf("  noise on pitch: swing %.0f cent\n", 1200 * std::log2(hi / lo));
+        CHECK(1200 * std::log2(hi / lo) > 50);
+    }
+    // wave mod types 1 (sample start), 3 (loop start), 4 (loop end) on WS1
+    // (loop 200..1000, end 1099), wheel = 1, range 256 << 0
+    {
+        for (int type : {1, 3, 4}) {
+            eps::Instrument in = base;
+            eps::WaveSample &w = in.waveSamples[1];
+            w.waveModRaw[0] = eps::kSrcWheel;
+            w.waveModRaw[1] = 127;
+            w.waveModRaw[2] = type;
+            w.waveModRaw[3] = 0;   // 256 samples
+            eps::Sampler s(set);
+            s.load(in, err);
+            s.setModWheel(1.f);
+            s.noteOn(50, 100);
+            const int v = sounding(s);
+            const otis::Voice &cv = s.chipForDebug().voice(v);
+            const double acc0 = double(cv.accum) / 2048.0;
+            run(s, 64);
+            const uint32_t st = cv.start >> 11, en = cv.end >> 11;
+            // WS1 is the first sample in memory: base address 0
+            printf("  wave mod type %d: start %u end %u, first position %.1f\n", type, st, en, acc0);
+            if (type == 1) CHECK(acc0 >= 190 && acc0 < 200);          // start moved up to the loop
+            if (type == 3) CHECK(st == 200 + 256 && en == 1000);
+            if (type == 4) CHECK(st == 200 && en == 1099);            // clamped to the sample end
+        }
+    }
+}
+
 int main(int argc, char **argv) {
     std::string dir = argc > 1 ? argv[1] : ".";
     eps::Disk disk;
@@ -86,6 +343,11 @@ int main(int argc, char **argv) {
     if (!disk.open(dir + "/test.efe", err)) { fprintf(stderr, "%s\n", err.c_str()); return 1; }
     eps::Instrument inst;
     if (!disk.loadInstrument(*disk.instruments()[0], inst, err)) { fprintf(stderr, "%s\n", err.c_str()); return 1; }
+    // The fixture sets LFO, pitch envelope and modulation values (checked by
+    // test_loader). For the pitch and level tests below they are switched off;
+    // modulation_tests() turns them on one by one.
+        neutral(inst);
+    modulation_tests(inst);
 
     eps::Sampler::Settings set;
     set.sampleRate = SR;

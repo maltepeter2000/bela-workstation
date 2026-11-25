@@ -22,17 +22,24 @@ your instruments into a folder `eps/` beside your patch.
   `es5506.cpp` (linear interpolation, the 4-pole filter in its four arrangements, 8-bit log
   volume, forward / backward / bidirectional loops, 20.9 addresses, 2/1024 pitch steps) and a
   rebuilt operating system on top: voice allocation (20 voices, up to 32), layers and patch
-  select, loop modes 0–4 (4: loop until release), amp and filter envelopes (soft / hard levels
-  by velocity), cutoff with key tracking, pan, transwave and loop-position modulation (mod
-  wheel), bend, sustain.
+  select, loop modes 0–4 (4: loop until release), three envelopes (pitch, filter, amp; soft /
+  hard levels by velocity), the LFO (7 waves, speed, depth, delay, reset / humanize, depth and
+  rate modulation), noise, modulation of pitch, both filters, amp and pan from the 16 sources
+  (LFO, ENV1–3, NOISE, VEL, PR+VL, VEL2, KBD, KBD2, WHEEL, PEDAL, XCTRL, PRESS, WHL+PR,
+  PITCH), crossfades, layer glide (mono), all 7 wave modulation types (loop position, sample
+  start, both, loop start, loop end, loop start-X, transwave), bend, pressure (channel and
+  poly), pedal, sustain.
 - **Loads in the background**: a file is read and the instrument built in a thread of its own;
   the scheduler swaps it in when it is ready, so the audio goes on.
 
-Not yet there: the instrument's LFOs, the pitch envelope, most modulation routings, glide,
-crossfades, the ES5510 effects. The OS side (envelope and volume curves, cutoff scale) is a first
-approximation, to be measured against the original (register traces from an EPS-16 PLUS
-emulator). Values checked on a real EPS-16 PLUS display (CLASSIC PAD): fine tune in 1/128
-semitone, wave mod source / amount / type / range.
+Not yet there: pitch tables (format unknown, no instrument with one yet) and the ES5510
+effects. Measured against the original only in parts: envelope and volume curves, LFO speeds,
+the cutoff scale, the order of the mod sources and the glide modes (every mode is mono with
+glide) are first approximations, to be checked on the EPS display or with register traces.
+Values checked on a real EPS-16 PLUS display (CLASSIC PAD): fine tune in 1/128 semitone, wave
+mod source / amount / type / range; the mod source WHEEL (10). The filter cutoff is the corner
+frequency for the high-pass too (filter modes 0 and 1): MOOG FUNK opens its high-pass with a
+filter 2 envelope of −127.
 
 ## Controls
 

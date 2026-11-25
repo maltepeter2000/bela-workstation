@@ -43,9 +43,55 @@ uint8_t gainToCode(float g) {
 float clampf(float x, float lo, float hi) { return x < lo ? lo : (x > hi ? hi : x); }
 int clampi(int x, int lo, int hi) { return x < lo ? lo : (x > hi ? hi : x); }
 
+// CALIBRATE: LFO speed 0..99 -> Hz (table of ConvertWithMoss: slow below 20,
+// then 0.25 Hz steps up to about 21 Hz).
+float lfoHz(int speed) {
+    static const float kSlow[20] = {0.05f, 0.05f, 0.06f, 0.06f, 0.06f, 0.07f, 0.07f, 0.08f, 0.08f, 0.09f,
+                                    0.10f, 0.11f, 0.13f, 0.14f, 0.17f, 0.20f, 0.25f, 0.33f, 0.50f, 1.0f};
+    speed = clampi(speed, 0, 99);
+    return speed < 20 ? kSlow[speed] : 1.f + float(speed - 19) * 0.25f;
+}
+
+// The 7 LFO waves at phase 0..1: triangle, sine/triangle, sine, positive
+// triangle, positive sine, rising sawtooth, positive square.
+float lfoWave(int wave, float ph) {
+    const float tri = ph < 0.25f ? 4.f * ph : (ph < 0.75f ? 2.f - 4.f * ph : 4.f * ph - 4.f);
+    const float sn = std::sin(2.f * float(M_PI) * ph);
+    switch (wave) {
+        case 1: return 0.5f * (tri + sn);
+        case 2: return sn;
+        case 3: return 0.5f * (tri + 1.f);
+        case 4: return 0.5f * (sn + 1.f);
+        case 5: return 2.f * ph - 1.f;
+        case 6: return ph < 0.5f ? 1.f : 0.f;
+        default: return tri;
+    }
+}
+
+// CALIBRATE: the noise source's rate (wavesample "random freq" 0..99).
+float noiseHz(int freq) { return 1.f + 0.5f * float(clampi(freq, 0, 99)); }
+
+// Crossfade window over a source value 0..127: in from A to B, full to C, out to D.
+float crossfade(float x, const int *abcd) {
+    const float A = float(abcd[0] & 0x7f), B = float(abcd[1] & 0x7f), C = float(abcd[2] & 0x7f),
+                D = float(abcd[3] & 0x7f);
+    if (x < A) return 0.f;
+    if (x < B) return B > A ? (x - A) / (B - A) : 1.f;
+    if (x <= C) return 1.f;
+    if (x <= D) return D > C ? (D - x) / (D - C) : 0.f;
+    return 0.f;
+}
+
 } // namespace
 
 float envelopeSeconds(int v) { return kEnvSeconds[v < 0 ? 0 : (v > 99 ? 99 : v)]; }
+
+const char *modSourceName(int src) {
+    static const char *const kNames[kSrcCount] = {"LFO", "ENV1", "ENV2", "ENV3", "NOISE", "VEL", "PR+VL",
+                                                  "VEL2", "KBD", "KBD2", "WHEEL", "PEDAL", "XCTRL",
+                                                  "PRESS", "WHL+PR", "PITCH"};
+    return src >= 0 && src < kSrcCount ? kNames[src] : "?";
+}
 
 // ---------------------------------------------------------------- envelope
 
@@ -147,6 +193,20 @@ int Sampler::allocate() {
     return best;
 }
 
+// K2 in the modes with a high-pass (0, 1). The chip's high-pass is
+// y[n] = x[n] - x[n-1] + (K/8192 + 1/2) * y[n-1], a pole at p = 1/2 + K/8192:
+// K = (exp(-2 pi f / fs) - 1/2) * 8192. The cutoff value is the corner frequency
+// as for the low-pass (MOOG FUNK: cutoff 150 with the filter 2 envelope at
+// -127 opens the bass at the key, thins it on release). Highest corner about
+// fs * ln 2 / 2 pi (4.9 kHz at 44.1 kHz).
+uint16_t Sampler::cutoffToKHighpass(float c01) const {
+    const float f = 20.f * std::pow(0.45f * s_.sampleRate / 20.f, clampf(c01, 0.f, 1.f));
+    const float p = std::exp(-2.f * float(M_PI) * f / s_.sampleRate);
+    int k12 = int((p - 0.5f) * 8192.f);
+    k12 = clampi(k12, 0, 4095);
+    return uint16_t(k12 << 4);
+}
+
 uint16_t Sampler::cutoffToK(float c01) const {
     // CALIBRATE: cutoff 0..1 -> 20 Hz .. 0.45 * fs, exponential; K is the
     // one-pole coefficient in 12 bits (shifted into the 16-bit register).
@@ -158,12 +218,33 @@ uint16_t Sampler::cutoffToK(float c01) const {
     return uint16_t(k12 << 4);
 }
 
-void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held) {
+void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held, int layer) {
     const WaveSample *owner = inst_.pcmOwner(ws);
     if (!owner || owner->pcm.empty()) return;
+    const int key = note + inst_.transpose + off_.transpose;
+
+    // Layer glide: the layer plays one note at a time; a new note takes over
+    // from the one before and glides from its pitch. CALIBRATE: the EPS glide
+    // modes (legato only, always, ...) are not told apart yet, every mode but
+    // 0 is mono with glide.
+    float glideFrom = 0.f, glideSec = 0.f;
+    if (layer >= 0 && layer < int(inst_.layers.size()) && inst_.layers[size_t(layer)].glideMode != 0) {
+        const Layer &l = inst_.layers[size_t(layer)];
+        for (int u = 0; u < s_.maxVoices; ++u) {
+            Slot &o = slots_[u];
+            if (!o.active || o.layer != layer) continue;
+            glideFrom = float(o.key - key) + o.glide;
+            chip_.writeReg(u, otis::CR, otis::kStop0);
+            o.active = false;
+        }
+        glideSec = envelopeSeconds(l.glideTime);
+        if (glideSec <= 0.f) glideFrom = 0.f;
+    }
+
     int v = allocate();
     if (v < 0) return;
     Slot &sl = slots_[v];
+    sl = Slot();
 
     const uint32_t baseRaw = wsBase_[owner->index];
     const bool bank1 = baseRaw & 0x80000000u;
@@ -177,6 +258,42 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
     if (mode >= 2 && (lEnd <= lStart || lEnd > sEnd)) mode = 0;   // invalid loop -> one-shot
     auto a29 = [&](uint32_t p) { return (base + p) << 9; };
 
+    // The voice's own values first: the mod sources below read them.
+    sl.active = true;
+    sl.held = held;
+    sl.note = note;
+    sl.key = key;
+    sl.layer = layer;
+    sl.vel = clampf(float(velocity) / 127.f, 0.f, 1.f);
+    sl.age = ++clock_;
+    sl.ws = &ws;
+
+    // Envelopes: velocity interpolates between soft and hard levels.
+    auto setupEnv = [&](Env &e, const Envelope &src, bool amp) {
+        e = Env();
+        for (int i = 0; i < 5; ++i)
+            e.level[i] = (src.softLevel[i] + (src.hardLevel[i] - src.softLevel[i]) * sl.vel) / 127.f;
+        for (int i = 1; i <= 4; ++i) {
+            const int o = !amp ? 0 : (i == 1 ? off_.attack : off_.decay);
+            e.time[i] = envelopeSeconds(src.time[i] + o);
+        }
+        e.releasePanel[0] = src.time[5];
+        e.releasePanel[1] = src.time[6];
+        e.release = envelopeSeconds(src.time[5]) + envelopeSeconds(src.time[6]);
+        e.start(s_.sampleRate);
+    };
+    setupEnv(sl.amp, ws.ampEnv, true);
+    setupEnv(sl.filt, ws.filterEnv, false);
+    setupEnv(sl.pit, ws.pitchEnv, false);
+
+    // LFO: mode 1 restarts with every key, 0 runs on (a phase of its own per
+    // voice), 2 humanizes the speed. Noise starts somewhere.
+    sl.lfoPhase = ws.lfoMode == 1 ? 0.f : float(nextRandom() & 0xffff) / 65536.f;
+    sl.lfoRateMul = ws.lfoMode == 2 ? 0.85f + 0.3f * float(nextRandom() & 0xffff) / 65536.f : 1.f;
+    sl.noise = float(int32_t(nextRandom())) / 2147483648.f;
+    sl.glide = glideFrom;
+    sl.glideRate = glideSec > 0.f ? std::fabs(glideFrom) / glideSec : 0.f;
+
     uint16_t ctrl = uint16_t(((ws.filterMode & 3) << 10) | (bank1 ? otis::kBank : 0));
     uint32_t st, en, acc;
     switch (mode) {
@@ -189,87 +306,60 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
     }
 
     // Pitch: sample rate relative to the chip rate, plus key offset.
-    const int key = note + inst_.transpose + off_.transpose;
     const double semis = double(key - ws.rootNote + s_.pitchOffset) + double(ws.fineTune) / 128.0;
-    const double ratio = double(owner->sampleRate) / s_.sampleRate * std::pow(2.0, semis / 12.0);
-    // FC has 10 fractional bits but bit 0 is ignored by the chip: round to
-    // the nearest even value (resolution 2/1024, i.e. up to ~3 cent at low
-    // playback ratios, as on the original hardware).
-    sl.baseRatio = ratio;
-    long fc = std::lround(ratio * 512.0) * 2;
-    if (fc < 2) fc = 2;
-    if (fc > 0xfffe) fc = 0xfffe;
+    sl.baseRatio = double(owner->sampleRate) / s_.sampleRate * std::pow(2.0, semis / 12.0);
 
-    chip_.writeReg(v, otis::CR, uint16_t(ctrl | otis::kStop0));   // stop while programming
-    chip_.setAddresses(v, st, en, acc);
-    chip_.setFrequency(v, uint16_t(fc));
-    chip_.writeReg(v, otis::LVOL, 0);
-    chip_.writeReg(v, otis::RVOL, 0);
-
-    // Filter: static cutoff + key tracking; envelope applied in updateControl.
+    // Filter: static cutoff + key tracking; envelopes and modulation in updateControl.
     sl.cutoff = clampi(ws.filterCutoff[0] + ws.filterKeyAmount[0] * (key - 60) / 64, 0, 150);
     sl.cutoff2 = clampi(ws.filterCutoff[1] + ws.filterKeyAmount[1] * (key - 60) / 64, 0, 150);
     sl.filterEnvAmount = ws.filterEnvAmount[0];
-    chip_.writeReg(v, otis::K1, cutoffToK(float(clampi(sl.cutoff + off_.cutoff, 0, 150)) / 150.f));
-    // K2: second cutoff. In the highpass modes (0, 1) a larger K moves the
-    // highpass corner down, so 150 = "open" for both filter types. MOOG FUNK
-    // (mode 0, cutoff2 150) confirms that 150 must not thin out the sound.
-    chip_.writeReg(v, otis::K2, cutoffToK(float(clampi(sl.cutoff2 + off_.cutoff2, 0, 150)) / 150.f));
-
-    // Amp: velocity interpolates between soft and hard levels.
-    const float vel = clampf(float(velocity) / 127.f, 0.f, 1.f);
-    auto setupEnv = [&](Env &e, const Envelope &src, bool amp) {
-        e = Env();
-        for (int i = 0; i < 5; ++i)
-            e.level[i] = (src.softLevel[i] + (src.hardLevel[i] - src.softLevel[i]) * vel) / 127.f;
-        for (int i = 1; i <= 4; ++i) {
-            const int o = !amp ? 0 : (i == 1 ? off_.attack : off_.decay);
-            e.time[i] = envelopeSeconds(src.time[i] + o);
-        }
-        e.releasePanel[0] = src.time[5];
-        e.releasePanel[1] = src.time[6];
-        e.release = envelopeSeconds(src.time[5]) + envelopeSeconds(src.time[6]);
-        e.start(s_.sampleRate);
-    };
-    setupEnv(sl.amp, ws.ampEnv, true);
-    setupEnv(sl.filt, ws.filterEnv, false);
 
     // Pan: EPS uses 8 positions, EPS-16 PLUS / ASR a signed value.
-    float pan = 0.f;
     if (inst_.instrumentId == kIdEps) {
-        if (ws.panEps >= 1 && ws.panEps <= 8) pan = (float(ws.panEps - 1) / 7.f) * 2.f - 1.f;
+        if (ws.panEps >= 1 && ws.panEps <= 8) sl.pan = (float(ws.panEps - 1) / 7.f) * 2.f - 1.f;
     } else {
-        pan = clampf(float(ws.panSigned) / 127.f, -1.f, 1.f);
+        sl.pan = clampf(float(ws.panSigned) / 127.f, -1.f, 1.f);
     }
-    sl.panL = std::cos((pan + 1.f) * float(M_PI) / 4.f);
-    sl.panR = std::sin((pan + 1.f) * float(M_PI) / 4.f);
     sl.ampBase = wsVolumeGain(ws.volume) * s_.masterGain;
-    sl.sustained = false;
+    // CALIBRATE: the byte before the pitch envelope amount switches the amp
+    // modulation to a crossfade (1, seen in DECAY BASS with KBD and 0/0/64/127).
+    sl.xfade = ws.volumeModCrossfadeCurve == 1;
 
     sl.base = base;
+    sl.sampleStart = sStart;
     sl.loopStart = lStart;
     sl.loopEnd = lEnd;
     sl.sampleEnd = sEnd;
-    sl.shift = 0;
     sl.waveModType = -1;
-    if ((mode == 2 || mode == 3 || mode == 4) && ws.waveModAmount() != 0 &&
-        (ws.waveModType() == 0 || ws.waveModType() == 6)) {
-        sl.waveModType = ws.waveModType();
-        sl.waveModSource = ws.waveModSource() & 15;
-        sl.waveModDepth = float(ws.waveModAmount()) / 127.f;
-        sl.waveModRange = ws.waveModRangeSamples();
+    if (ws.waveModAmount() != 0 && ws.waveModType() >= 0 && ws.waveModType() <= 6) {
+        const int t = ws.waveModType();
+        const bool needsLoop = t != 1;
+        if (!needsLoop || mode == 2 || mode == 3 || mode == 4) {
+            sl.waveModType = t;
+            sl.waveModSource = ws.waveModSource() & 15;
+            sl.waveModDepth = float(ws.waveModAmount()) / 127.f;
+            sl.waveModRange = ws.waveModRangeSamples();
+        }
+    }
+    // Sample start (types 1 and 2): the note starts later in the sample, set once.
+    if ((sl.waveModType == 1 || sl.waveModType == 2) && mode != 1) {
+        const float m = clampf(waveModValue(sl), 0.f, 1.f);
+        const uint32_t limit = (mode >= 2 ? lStart : sEnd) > sStart + 2 ? (mode >= 2 ? lStart : sEnd) - 2 : sStart;
+        uint32_t s2 = sStart + uint32_t(std::lround(double(m) * sl.waveModRange));
+        if (s2 > limit) s2 = limit;
+        acc = a29(s2);
+        if (mode == 0) st = acc;
     }
 
-    sl.active = true;
-    sl.held = held;
-    sl.note = note;
-    sl.age = ++clock_;
-    sl.ws = &ws;
     sl.loopUntilRelease = mode == 4;
     sl.releaseEnd29 = a29(sEnd);
 
-    updateControl(v, 0.f);
-    chip_.writeReg(v, otis::CR, ctrl);   // go
+    chip_.writeReg(v, otis::CR, uint16_t(ctrl | otis::kStop0));   // stop while programming
+    chip_.setAddresses(v, st, en, acc);
+    chip_.writeReg(v, otis::LVOL, 0);
+    chip_.writeReg(v, otis::RVOL, 0);
+    updateControl(v, 0.f);                // filters, pitch, levels
+    chip_.writeReg(v, otis::CR, ctrl);    // go
 }
 
 void Sampler::noteOn(int note, int velocity) {
@@ -286,7 +376,7 @@ void Sampler::noteOn(int note, int velocity) {
         int wsIndex = l.waveSampleForNote(key);
         auto it = inst_.waveSamples.find(wsIndex);
         if (wsIndex == 0 || it == inst_.waveSamples.end()) continue;
-        startVoice(it->second, note, velocity, true);
+        startVoice(it->second, note, velocity, true, int(i));
     }
 }
 
@@ -309,7 +399,7 @@ void Sampler::noteOff(int note) {
         if (wsIndex == 0 || it == inst_.waveSamples.end()) continue;
         // Not held: the voice runs its envelope up to sustain and ends with
         // the sample (or is stolen). CALIBRATE: release behaviour on the EPS.
-        startVoice(it->second, note, 64, false);
+        startVoice(it->second, note, 64, false, int(i));
     }
 }
 
@@ -355,88 +445,199 @@ void Sampler::allNotesOff() {
     }
 }
 
+// The 16 modulation sources for one voice. Unipolar ones are 0..1, bipolar
+// ones (LFO, noise, KBD, pitch wheel) -1..1. CALIBRATE: VEL2, PR+VL, KBD and
+// KBD2 scaling are guesses.
+float Sampler::source(const Slot &sl, int src) const {
+    switch (src) {
+        case kSrcLfo:   return sl.lfoOut;
+        case kSrcEnv1:  return sl.pit.value;
+        case kSrcEnv2:  return sl.filt.value;
+        case kSrcEnv3:  return sl.amp.value;
+        case kSrcNoise: return sl.noise;
+        case kSrcVel:   return sl.vel;
+        case kSrcPrVl:  return clampf(sl.vel + pressureOf(sl), 0.f, 1.f);
+        case kSrcVel2:  return sl.vel * sl.vel;
+        case kSrcKbd:   return clampf(float(sl.key - 60) / 48.f, -1.f, 1.f);
+        case kSrcKbd2:  return clampf(float(sl.key - 21) / 87.f, 0.f, 1.f);
+        case kSrcPress: return pressureOf(sl);
+        case kSrcWhlPr: return clampf(mod_[kSrcWheel] + pressureOf(sl), 0.f, 1.f);
+        default:        return (src >= 0 && src < kSrcCount) ? mod_[src] : 0.f;
+    }
+}
+
+static bool isBipolar(int src) { return src == kSrcLfo || src == kSrcNoise || src == kSrcKbd || src == kSrcPitch; }
+
+float Sampler::pressureOf(const Slot &sl) const {
+    const float p = sl.note >= 0 && sl.note < 128 ? polyPressure_[sl.note] : 0.f;
+    return p > mod_[kSrcPress] ? p : mod_[kSrcPress];
+}
+
+float Sampler::waveModValue(const Slot &sl) const {
+    // The wave offset of eps~ (0..127) adds to the source, as if the wheel were turned up.
+    const float s = source(sl, sl.waveModSource) + float(off_.wave) / 127.f;
+    return clampf(clampf(s, -1.f, 1.f) * sl.waveModDepth, -1.f, 1.f);
+}
+
+uint32_t Sampler::nextRandom() {
+    rng_ ^= rng_ << 13;
+    rng_ ^= rng_ >> 17;
+    rng_ ^= rng_ << 5;
+    return rng_;
+}
+
 void Sampler::updateControl(int v, float dt) {
     Slot &sl = slots_[v];
     if (!sl.active) return;
     if (dt > 0.f && chip_.stopped(v)) { sl.active = false; return; }
-    float a = sl.amp.tick(dt, s_.sampleRate);
-    float f = sl.filt.tick(dt, s_.sampleRate);
+    const WaveSample &ws = *sl.ws;
+    const float a = sl.amp.tick(dt, s_.sampleRate);
+    const float f = sl.filt.tick(dt, s_.sampleRate);
+    const float p = sl.pit.tick(dt, s_.sampleRate);
     if (sl.amp.done()) {
         chip_.writeReg(v, otis::CR, otis::kStop0);
         sl.active = false;
         return;
     }
+
+    // LFO: speed (and its modulation), depth (and its modulation), delay = fade in.
+    if (dt > 0.f) {
+        const float rateMod = ws.lfoRateModSource == kSrcLfo ? 0.f
+                              : float(ws.lfoRateModAmount) / 127.f * source(sl, ws.lfoRateModSource);
+        const float hz = lfoHz(ws.lfoSpeed) * sl.lfoRateMul * std::exp2(2.f * rateMod);
+        sl.lfoPhase += hz * dt;
+        sl.lfoPhase -= std::floor(sl.lfoPhase);
+        sl.lfoElapsed += dt;
+        sl.noiseTimer += dt;
+        if (sl.noiseTimer >= 1.f / noiseHz(ws.randomFreq)) {
+            sl.noiseTimer = 0.f;
+            sl.noise = float(int32_t(nextRandom())) / 2147483648.f;
+        }
+    }
+    float depth = float(ws.lfoDepth);
+    if (ws.lfoDepthModSource != kSrcLfo) depth += float(ws.lfoDepthModAmount) * source(sl, ws.lfoDepthModSource);
+    depth = clampf(depth / 127.f, -1.f, 1.f);
+    const float delay = envelopeSeconds(ws.lfoDelay);
+    const float fade = delay > 0.f ? clampf(sl.lfoElapsed / delay, 0.f, 1.f) : 1.f;
+    sl.lfoOut = lfoWave(ws.lfoWaveform, sl.lfoPhase) * depth * fade;
+
+    // Levels: amp envelope, then the amp modulation or the crossfade.
     float g = sl.ampBase * envLevelGain(a);
-    chip_.writeReg(v, otis::LVOL, uint16_t(gainToCode(g * sl.panL) << 8));
-    chip_.writeReg(v, otis::RVOL, uint16_t(gainToCode(g * sl.panR) << 8));
-    // Filters: cutoff (+ offset) and the filter envelope (+ offset), every tick, so
-    // the offsets reach notes that are sounding.
+    const float am = source(sl, ws.ampModSource);
+    if (sl.xfade) {
+        const float x = (isBipolar(ws.ampModSource) ? (am + 1.f) * 0.5f : am) * 127.f;
+        g *= crossfade(x, ws.crossfade);
+    } else if (ws.ampModAmount) {
+        const float amt = float(int8_t(ws.ampModAmount)) / 127.f;
+        if (isBipolar(ws.ampModSource)) g *= clampf(1.f + 0.5f * amt * am, 0.f, 2.f);
+        else g *= amt >= 0.f ? 1.f - amt + amt * am : 1.f + amt * am;
+    }
+    float pan = sl.pan;
+    if (ws.panModAmount) pan += float(int8_t(ws.panModAmount)) / 127.f * source(sl, ws.panModSource);
+    pan = clampf(pan, -1.f, 1.f);
+    const float pl = std::cos((pan + 1.f) * float(M_PI) / 4.f), pr = std::sin((pan + 1.f) * float(M_PI) / 4.f);
+    chip_.writeReg(v, otis::LVOL, uint16_t(gainToCode(g * pl) << 8));
+    chip_.writeReg(v, otis::RVOL, uint16_t(gainToCode(g * pr) << 8));
+
+    // Filters: cutoff (+ offset), envelope (+ offset) and modulation, both filters,
+    // every tick, so the offsets reach notes that are sounding. Amount 127 of a
+    // modulation sweeps the whole cutoff range (as ConvertWithMoss reads it).
     const int envAmt = clampi(sl.filterEnvAmount + off_.filterEnv, -127, 127);
-    const float c = float(sl.cutoff + off_.cutoff) + float(envAmt) * f;
+    float c = float(sl.cutoff + off_.cutoff) + float(envAmt) * f;
+    c += float(ws.filterModAmount[0]) / 127.f * 150.f * source(sl, ws.filterModSource[0]);
+    float c2 = float(sl.cutoff2 + off_.cutoff2) + float(ws.filterEnvAmount[1]) * f;
+    c2 += float(ws.filterModAmount[1]) / 127.f * 150.f * source(sl, ws.filterModSource[1]);
     chip_.writeReg(v, otis::K1, cutoffToK(clampf(c, 0.f, 150.f) / 150.f));
-    chip_.writeReg(v, otis::K2, cutoffToK(float(clampi(sl.cutoff2 + off_.cutoff2, 0, 150)) / 150.f));
-    // Pitch: bend, master tune and vibrato on top of the note's ratio.
+    const bool k2Highpass = (ws.filterMode & 2) == 0;
+    chip_.writeReg(v, otis::K2, k2Highpass ? cutoffToKHighpass(clampf(c2, 0.f, 150.f) / 150.f)
+                                           : cutoffToK(clampf(c2, 0.f, 150.f) / 150.f));
+
+    // Pitch: the instrument's pitch envelope, LFO, modulation and noise (all in
+    // 1/8 semitone), glide, then bend, master tune and the vibrato of eps~.
+    if (sl.glide != 0.f && dt > 0.f) {
+        const float step = sl.glideRate * dt;
+        sl.glide = std::fabs(sl.glide) <= step ? 0.f : sl.glide - (sl.glide > 0.f ? step : -step);
+    }
+    float eighths = float(ws.pitchEnvAmount) * p + float(ws.lfoPitchAmount) * sl.lfoOut;
+    if (ws.pitchModAmount) eighths += float(ws.pitchModAmount) * source(sl, ws.pitchModSource);
+    if (ws.randomModAmount) eighths += float(ws.randomModAmount) * sl.noise;
     const float vib = vibDepth_ * std::sin(vibPhase_);
-    const double semis = double(bend_) * bendRange_ + off_.tune / 100.0 + double(vib);
+    const double semis = double(eighths) / 8.0 + double(sl.glide) + double(bend_) * bendRange_ +
+                         off_.tune / 100.0 + double(vib);
+    // FC has 10 fractional bits but bit 0 is ignored by the chip: round to the
+    // nearest even value (2/1024 steps, as on the original hardware).
     long fc = std::lround(sl.baseRatio * std::pow(2.0, semis / 12.0) * 512.0) * 2;
     chip_.writeReg(v, otis::FC, uint16_t(fc < 2 ? 2 : (fc > 0xfffe ? 0xfffe : fc)));
     updateWaveMod(v);
 }
 
 void Sampler::setModSource(int source, float value) {
-    if (source >= 0 && source < 16) mod_[source] = clampf(value, 0.f, 1.f);
+    if (source >= 0 && source < kSrcCount) mod_[source] = clampf(value, source == kSrcPitch ? -1.f : 0.f, 1.f);
 }
 
-// Wave modulation: moves the loop window through the sample.
-//   Type 6 (Transwave): window jumps in steps of the loop length, i.e. through
-//     the single-cycle waves of a transwave set (e.g. 128 x 400 samples).
-//   Type 0 (Loop Position): window moves continuously.
-// The playback position is moved by the same amount so the phase inside the
-// wave is kept (no jump back to the loop start).
+void Sampler::setPolyPressure(int note, float value) {
+    if (note >= 0 && note < 128) polyPressure_[note] = clampf(value, 0.f, 1.f);
+}
+
+// Wave modulation moves the sample or loop points by the mod source:
+//   0 loop position        the loop window moves, continuously
+//   1 sample start         the note starts later (set at note on)
+//   2 start + loop pos     both
+//   3 loop start           the loop start moves, the end stays
+//   4 loop end             the loop end moves, the start stays
+//   5 loop start-X         as 3 (CALIBRATE: the X variant is not told apart)
+//   6 transwave            the window jumps in steps of the loop length
+// RANGE limits how far. Where the window moves as a whole, the playback position
+// moves with it so the phase inside the wave is kept.
 void Sampler::updateWaveMod(int v) {
     Slot &sl = slots_[v];
-    if (sl.waveModType < 0) return;
+    const int type = sl.waveModType;
+    if (type < 0 || type == 1) return;
     const int64_t loopLen = int64_t(sl.loopEnd) - sl.loopStart;
-    // How far the window can move: limited by the sample end and by the
-    // wave mod RANGE parameter (CLASSIC PAD: 32K of its 51200 samples).
+    if (loopLen <= 0) return;
+    const float m = waveModValue(sl);
+    const otis::Voice &cv = chip_.voice(v);
+    auto write = [&](uint32_t st, uint32_t en) {
+        chip_.writeReg(v, otis::STRT_H, uint16_t(st >> 16));
+        chip_.writeReg(v, otis::STRT_L, uint16_t(st));
+        chip_.writeReg(v, otis::END_H, uint16_t(en >> 16));
+        chip_.writeReg(v, otis::END_L, uint16_t(en));
+    };
+
+    if (type == 3 || type == 4 || type == 5) {
+        // One loop point moves (both directions), within the sample and keeping
+        // at least 2 samples of loop.
+        int64_t st = sl.loopStart, en = sl.loopEnd;
+        const int64_t d = int64_t(std::lround(double(m) * sl.waveModRange));
+        if (type == 4) en = std::min<int64_t>(std::max<int64_t>(en + d, st + 2), sl.sampleEnd);
+        else st = std::max<int64_t>(std::min<int64_t>(st + d, en - 2), sl.sampleStart);
+        if (st - sl.loopStart == sl.startShift && en - sl.loopEnd == sl.endShift) return;
+        sl.startShift = st - sl.loopStart;
+        sl.endShift = en - sl.loopEnd;
+        write(uint32_t(sl.base + st) << 9, uint32_t(sl.base + en) << 9);
+        return;
+    }
+
+    // 0, 2, 6: the window moves as a whole, forward from where it is stored.
     int64_t room = int64_t(sl.sampleEnd) - sl.loopEnd;
     if (room > int64_t(sl.waveModRange)) room = int64_t(sl.waveModRange);
-    if (loopLen <= 0 || room <= 0) return;
-    // The wave offset (0..127) adds to the mod source, as if the wheel were turned up.
-    const float src = clampf(mod_[sl.waveModSource] + float(off_.wave) / 127.f, 0.f, 1.f);
-    float m = clampf(src * sl.waveModDepth, -1.f, 1.f);
-    if (m < 0.f) m = 0.f;   // CALIBRATE: negative amounts
+    if (room <= 0) return;
+    const float mp = m < 0.f ? 0.f : m;   // CALIBRATE: negative amounts
     int64_t target;
-    if (sl.waveModType == 6) {
-        const int64_t steps = room / loopLen;
-        target = int64_t(std::lround(double(m) * double(steps))) * loopLen;
-    } else {
-        target = int64_t(std::lround(double(m) * double(room)));
-    }
+    if (type == 6) target = int64_t(std::lround(double(mp) * double(room / loopLen))) * loopLen;
+    else target = int64_t(std::lround(double(mp) * double(room)));
     if (target == sl.shift) return;
     const int64_t delta = target - sl.shift;
     sl.shift = target;
     const uint32_t st = (sl.base + sl.loopStart + uint32_t(target)) << 9;
     const uint32_t en = (sl.base + sl.loopEnd + uint32_t(target)) << 9;
-    // Current position, chip-internal (11 fractional bits) -> register format.
-    const otis::Voice &cv = chip_.voice(v);
     const int64_t oldSt29 = int64_t(sl.base + sl.loopStart + uint32_t(target - delta)) << 9;
     int64_t acc29 = int64_t(cv.accum >> 2);
-    if (acc29 < oldSt29) {
-        // Still before the loop (attack part): only move the window.
-        chip_.writeReg(v, otis::STRT_H, uint16_t(st >> 16));
-        chip_.writeReg(v, otis::STRT_L, uint16_t(st));
-        chip_.writeReg(v, otis::END_H, uint16_t(en >> 16));
-        chip_.writeReg(v, otis::END_L, uint16_t(en));
-        return;
-    }
+    write(st, en);
+    if (acc29 < oldSt29) return;          // still before the loop (attack part)
     acc29 += delta << 9;
     if (acc29 < int64_t(st)) acc29 = st;
-    if (acc29 > int64_t(en)) acc29 = st;   // was still in the attack part: restart window
-    chip_.writeReg(v, otis::STRT_H, uint16_t(st >> 16));
-    chip_.writeReg(v, otis::STRT_L, uint16_t(st));
-    chip_.writeReg(v, otis::END_H, uint16_t(en >> 16));
-    chip_.writeReg(v, otis::END_L, uint16_t(en));
+    if (acc29 > int64_t(en)) acc29 = st;
     chip_.writeReg(v, otis::ACC_H, uint16_t(uint32_t(acc29) >> 16));
     chip_.writeReg(v, otis::ACC_L, uint16_t(uint32_t(acc29)));
 }

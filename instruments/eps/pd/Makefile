@@ -86,7 +86,7 @@ test: $(ENGINE) $(wildcard engine/*.h) $(wildcard $(TESTDIR)/*.cpp)
 # demo_real (render a demo of an instrument file), read_all_files (check an image's FAT).
 tools: $(ENGINE)
 	mkdir -p ../build
-	$(CXX) -std=c++17 -O2 -o ../build/eps_dump $(TESTDIR)/eps_dump.cpp engine/eps_loader.cpp
+	$(CXX) -std=c++17 -O2 -o ../build/eps_dump $(TESTDIR)/eps_dump.cpp $(ENGINE)
 	$(CXX) -std=c++17 -O2 -o ../build/demo_real $(TESTDIR)/demo_real.cpp $(ENGINE)
 	$(CXX) -std=c++17 -O2 -o ../build/read_all_files $(TESTDIR)/read_all_files.cpp engine/eps_loader.cpp
 

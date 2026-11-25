@@ -62,6 +62,9 @@ EDITOR = [
 INLETS = [
     "1 float: note number, velocity 100.",
     "1 list: note, velocity and, if you like, the MIDI channel.",
+    "  MIDI in eps.i~: notes, bend, pressure (channel and poly),",
+    "  program change, CC 1 wheel, 2 XCTRL, 4 pedal, 7 volume,",
+    "  64 sustain.",
     "1 anything: a message, see Messages.",
 ]
 
@@ -107,8 +110,10 @@ MESSAGES = [
     "  Presets.",
     "users: list the used user slots.",
     "bend f: pitch wheel, -1 to 1, times bend.",
-    "mod f: modulation wheel, 0 to 1: the wave modulation of",
-    "  wavesamples with source wheel (transwave).",
+    "mod f: modulation wheel, 0 to 1 (EPS source WHEEL).",
+    "pressure f: channel pressure, 0 to 1 (PRESS).",
+    "polypressure note f: pressure of one key (PRESS).",
+    "pedal f, xctrl f: the sources PEDAL and XCTRL, 0 to 1.",
     "sustain 0/1: hold pedal.",
     "channel n: MIDI receive channel, 0 is all.",
     "txchannel n: channel of the controller feedback, 1 to 16.",
@@ -145,11 +150,17 @@ ABOUT = [
     "ES5505 voice chip of the EPS-16 PLUS, taken from MAME: interpolation, the 4-pole filter "
     "in its four arrangements, the 8-bit logarithmic volume, forward, backward and "
     "bidirectional loops, the 2/1024 pitch steps.",
-    "What the EPS operating system does (envelopes, voice allocation, the filter and volume "
-    "curves) is rebuilt and still measured against the original: levels, envelope times and "
-    "the cutoff scale are first approximations. Not yet there: the instrument's LFOs, the "
-    "pitch envelope, most modulation routings, glide, crossfades and the effects of the "
-    "ES5510. The controls of eps~ are offsets over the instrument, 0 plays it as stored.",
+    "What the EPS operating system does is rebuilt on top: voice allocation, layers and patch "
+    "select, the three envelopes (pitch, filter, amp), the LFO with its seven waves, delay, "
+    "reset and humanize, the noise source, the modulation of pitch, both filters, amp and pan "
+    "from the 16 sources (LFO, ENV1-3, NOISE, VEL, PR+VL, VEL2, KBD, KBD2, WHEEL, PEDAL, XCTRL, "
+    "PRESS, WHL+PR, PITCH), crossfades, layer glide and all seven wave modulation types "
+    "(loop position, sample start, both, loop start, loop end, loop start-X, transwave).",
+    "Measured against the original only in parts: levels, envelope times, LFO speeds, the "
+    "cutoff scale and the order of the mod sources (WHEEL is confirmed) are first "
+    "approximations. The glide modes are not told apart (every mode is mono with glide). Not "
+    "there: pitch tables and the effects of the ES5510. The controls of eps~ are offsets over "
+    "the instrument, 0 plays it as stored.",
     "The output runs at Pd's sample rate, not at the 29.76 kHz of the EPS-16 PLUS. Up to 32 "
     "voices, 20 by default.",
 ]

@@ -7,15 +7,17 @@
 // first approximation of the OS and still needs calibration against the
 // original (register traces from the mardlib emulator).
 //
-// Status of the OS-side behaviour:
-//   done (provisional): layers/patches, key- and velocity-mapping, key-up
-//     layers, loop modes 0-4, pitch from root/fine/transpose, amp envelope
-//     (soft/hard levels by velocity), static filter cutoff + filter envelope,
-//     pan, wavesample volume, wave modulation types Loop Position and
-//     Transwave from any mod source value set by the host
-//   wave mod fields confirmed on the hardware display (CLASSIC PAD)
-//   missing: LFO, pitch envelope, mod routing for pitch/filter/amp, glide,
-//     crossfades, pitch tables, other wave mod types, effects (ES5510)
+// Status of the OS-side behaviour (values marked CALIBRATE in the .cpp are
+// first approximations):
+//   layers/patches, key- and velocity-mapping, key-up layers, loop modes 0-4,
+//   pitch from root/fine/transpose, three envelopes (pitch, filter, amp; soft/
+//   hard levels by velocity), the LFO (7 waves, speed, depth, delay, reset /
+//   humanize, depth and rate modulation), the noise source, modulation of
+//   pitch, both filters, amp and pan from the 16 sources, crossfades, layer
+//   glide (mono), all 7 wave modulation types, pan, wavesample volume
+//   missing: pitch tables (format unknown), effects (ES5510)
+
+
 
 #pragma once
 
@@ -26,6 +28,17 @@
 #include <vector>
 
 namespace eps {
+
+// The modulation sources (the values stored in the files). The order is
+// inferred from real instruments and ConvertWithMoss; WHEEL (10) is confirmed
+// on the hardware display, the others still need confirming.
+enum ModSource {
+    kSrcLfo = 0, kSrcEnv1 = 1, kSrcEnv2 = 2, kSrcEnv3 = 3, kSrcNoise = 4,
+    kSrcVel = 5, kSrcPrVl = 6, kSrcVel2 = 7, kSrcKbd = 8, kSrcKbd2 = 9,
+    kSrcWheel = 10, kSrcPedal = 11, kSrcXctrl = 12, kSrcPress = 13,
+    kSrcWhlPr = 14, kSrcPitch = 15, kSrcCount = 16
+};
+const char *modSourceName(int src);
 
 class Sampler {
 public:
@@ -65,12 +78,16 @@ public:
     void noteOff(int note);
     void allNotesOff();
     void setPatch(int patch) { patch_ = patch & 3; }   // patch-select 0..3
-    // Mod source values 0..1 by EPS source number (10 = mod wheel, assumed).
+    // Controllers as mod sources, 0..1 (wheel, pedal, xctrl, channel pressure).
     void setModSource(int source, float value);
-    void setModWheel(float value) { setModSource(10, value); }
+    void setModWheel(float value) { setModSource(kSrcWheel, value); }
+    void setPedal(float value) { setModSource(kSrcPedal, value); }
+    void setXctrl(float value) { setModSource(kSrcXctrl, value); }
+    void setPressure(float value) { setModSource(kSrcPress, value); }
+    void setPolyPressure(int note, float value);
     void setOffsets(const Offsets &o) { off_ = o; }
     const Offsets &offsets() const { return off_; }
-    void setBend(float v) { bend_ = v < -1.f ? -1.f : (v > 1.f ? 1.f : v); }   // -1..1
+    void setBend(float v) { bend_ = v < -1.f ? -1.f : (v > 1.f ? 1.f : v); mod_[kSrcPitch] = bend_; }
     void setBendRange(int semis) { bendRange_ = semis < 0 ? 0 : (semis > 24 ? 24 : semis); }
     void setVibrato(float depth01, float rateHz) { vibDepth_ = depth01; vibRate_ = rateHz; }
     void setSustain(bool on);
@@ -104,6 +121,16 @@ private:
     struct Slot {
         bool active = false;
         int note = -1;
+        int key = 60;              // note + transposition: the key the instrument sees
+        int layer = -1;
+        float vel = 0.f;           // 0..1
+        // LFO and noise
+        float lfoPhase = 0.f, lfoElapsed = 0.f, lfoRateMul = 1.f, lfoOut = 0.f;
+        float noise = 0.f, noiseTimer = 0.f;
+        // glide: semitones still to go, falling to 0
+        float glide = 0.f, glideRate = 0.f;
+        float pan = 0.f;           // -1..1 before modulation
+        bool xfade = false;
         uint32_t age = 0;
         bool held = false;
         bool sustained = false;    // key up while the pedal is down
@@ -114,22 +141,28 @@ private:
         bool loopUntilRelease = false;
         float ampBase = 1.f, panL = 1.f, panR = 1.f;
         int cutoff = 127, filterEnvAmount = 0;
-        Env amp, filt;
+        Env amp, filt, pit;
         // Wave modulation state (addresses in samples, relative to the
         // owner's base word address).
-        uint32_t base = 0, loopStart = 0, loopEnd = 0, sampleEnd = 0;
+        uint32_t base = 0, sampleStart = 0, loopStart = 0, loopEnd = 0, sampleEnd = 0;
         int waveModType = -1;      // -1 = none
         int waveModSource = 0;
         float waveModDepth = 0.f;  // amount / 127
         uint32_t waveModRange = 0; // samples
-        int64_t shift = 0;         // current loop shift in samples
+        int64_t shift = 0;         // current loop shift in samples (types 0, 2, 6)
+        int64_t startShift = 0, endShift = 0;   // types 3, 5 / 4
     };
 
-    void startVoice(const WaveSample &ws, int note, int velocity, bool held);
+    void startVoice(const WaveSample &ws, int note, int velocity, bool held, int layer);
+    float pressureOf(const Slot &sl) const;
+    float waveModValue(const Slot &sl) const;
+    uint32_t nextRandom();
     int allocate();
     void updateControl(int v, float dt);
     void updateWaveMod(int v);
+    float source(const Slot &sl, int src) const;
     uint16_t cutoffToK(float cutoff01) const;
+    uint16_t cutoffToKHighpass(float cutoff01) const;
 
     Settings s_;
     otis::ES5505 chip_;
@@ -141,7 +174,9 @@ private:
     uint32_t clock_ = 0;
     Slot slots_[otis::ES5505::kVoices];
     int counter_ = 0;
-    float mod_[16] = {};
+    float mod_[kSrcCount] = {};
+    float polyPressure_[128] = {};
+    uint32_t rng_ = 0x2545f491u;
     Offsets off_;
     float bend_ = 0.f, vibDepth_ = 0.f, vibRate_ = 5.5f, vibPhase_ = 0.f, volume_ = 1.f;
     int bendRange_ = 2;

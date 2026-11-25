@@ -10,7 +10,8 @@
 //             any:   a message, see below
 //   inlet 2   float: velocity for the next note, 0..127 (default 100)
 //   inlet 3   float or list: raw MIDI bytes, as [midiin] gives them: notes,
-//             bend, program change, CC 1 (wheel) 7 (volume) 64 (sustain)
+//             bend, program change, channel and poly pressure, CC 1 (wheel),
+//             2 (XCTRL), 4 (pedal), 7 (volume), 64 (sustain)
 //             any:   a message (the same set as inlet 1)
 //   outlet 1  signal, left
 //   outlet 2  signal, right
@@ -35,7 +36,8 @@
 //   userwrite [file], userread [file], users, init, reload
 // Controls (tools/eps_params.py): <name> <value>, <name>, n <name> <0-127>,
 //   ninfo <name>, cycle <name> [n], dump
-// Playing: bend f (-1..1), mod f (wheel 0..1), sustain 0/1, stop, reset,
+// Playing: bend f (-1..1), mod f (wheel 0..1), pressure f, polypressure note f,
+//   pedal f, xctrl f (all 0..1, the EPS mod sources), sustain 0/1, stop, reset,
 //   channel n (0 = all), txchannel n, thru 0/1, status
 //
 // Loading runs in a thread of its own; the finished instrument is swapped in on
@@ -394,6 +396,7 @@ struct t_eps {
     LibEntry* entry;                     // what plays (or loads)
     std::string* name;
     float wheel, bend;
+    float ctl[3];                        // pressure, pedal, xctrl
     bool sustain;
     bool pending;                        // a request waits for the loader to be free
     LibEntry* pending_entry;
@@ -452,6 +455,9 @@ void apply(t_eps* x) {
     if (s->voices() != v[kC_voices]) s->setVoices(v[kC_voices]);
     s->setPatch(v[kC_patch]);
     s->setModWheel(x->wheel);
+    s->setPressure(x->ctl[0]);
+    s->setPedal(x->ctl[1]);
+    s->setXctrl(x->ctl[2]);
     s->setBend(x->bend);
     s->setSustain(x->sustain);
 }
@@ -754,6 +760,17 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         x->wheel = f;
         if (x->sampler) x->sampler->setModWheel(f);
         return;
+    } else if (is("pressure") || is("pedal") || is("xctrl")) {
+        if (x->sampler) {
+            if (is("pressure")) x->sampler->setPressure(f);
+            else if (is("pedal")) x->sampler->setPedal(f);
+            else x->sampler->setXctrl(f);
+        }
+        x->ctl[is("pressure") ? 0 : (is("pedal") ? 1 : 2)] = f;
+        return;
+    } else if (is("polypressure")) {
+        if (argc >= 2 && x->sampler) x->sampler->setPolyPressure(n, atom_getfloat(argv + 1));
+        return;
     } else if (is("sustain")) {
         x->sustain = f != 0;
         if (x->sampler) x->sampler->setSustain(x->sustain);
@@ -822,6 +839,14 @@ void midi_message(t_eps* x, int status, int d1, int d2) {
                     x->wheel = d2 / 127.0f;
                     if (s) s->setModWheel(x->wheel);
                     return;
+                case 2:
+                    x->ctl[2] = d2 / 127.0f;
+                    if (s) s->setXctrl(x->ctl[2]);
+                    return;
+                case 4:
+                    x->ctl[1] = d2 / 127.0f;
+                    if (s) s->setPedal(x->ctl[1]);
+                    return;
                 case 7:
                     x->value[kC_volume] = std::clamp(d2, 0, 127);
                     apply(x);
@@ -842,6 +867,13 @@ void midi_message(t_eps* x, int status, int d1, int d2) {
             if (x->source == kUser && d1 < kUserSlots && g_user[d1].used) select_user(x, d1);
             else select_library(x, d1);
             report(x);
+            return;
+        case 0xA0:
+            if (s) s->setPolyPressure(d1, d2 / 127.0f);
+            return;
+        case 0xD0:
+            x->ctl[0] = d1 / 127.0f;
+            if (s) s->setPressure(x->ctl[0]);
             return;
         case 0xE0:
             x->bend = ((d2 << 7 | d1) - 8192) / 8192.0f;
@@ -927,6 +959,7 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->store_to = -1;
     x->wheel = 0;
     x->bend = 0;
+    x->ctl[0] = x->ctl[1] = x->ctl[2] = 0;
     x->sustain = false;
     set_defaults(x, false);
     for (int& v : x->shown) v = INT32_MIN;

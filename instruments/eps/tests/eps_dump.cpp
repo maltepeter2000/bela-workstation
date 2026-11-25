@@ -4,6 +4,7 @@
 //   eps_dump <image> <path|name> [outdir] dump one instrument; with outdir,
 //                                         write one WAV per wavesample
 #include "../pd/engine/eps_loader.h"
+#include "../pd/engine/eps_sampler.h"
 
 #include <cstdio>
 #include <cstring>
@@ -45,8 +46,10 @@ static void dumpInstrument(const Instrument &in, const char *outdir) {
            in.patches[0], in.patches[1], in.patches[2], in.patches[3], in.keyDownLayers, in.keyUpLayers);
 
     for (const Layer &l : in.layers) {
-        printf("  Layer %d \"%s\" vel %d..%d stereoLink %d glide %d/%d\n", l.index, l.name.c_str(),
-               l.velocityLow, l.velocityHigh, l.stereoLink, l.glideMode, l.glideTime);
+        printf("  Layer %d \"%s\" vel %d..%d stereoLink %d glide mode %d time %d pitch table %d delay %d "
+               "delay-by-vel %d restrike %d legato %d\n", l.index, l.name.c_str(),
+               l.velocityLow, l.velocityHigh, l.stereoLink, l.glideMode, l.glideTime, l.pitchTable,
+               l.delayTime, l.delayModByVelocity, l.restrikeDecay, l.legatoLayer);
         // Compress the 88-key map into ranges.
         int start = 0;
         for (int k = 1; k <= 88; ++k) {
@@ -80,6 +83,18 @@ static void dumpInstrument(const Instrument &in, const char *outdir) {
                    ws.waveModRaw[0], ws.waveModRaw[1], ws.waveModRaw[2], ws.waveModRaw[3], ws.waveModRaw[4]);
         printf("    lfo wave %d speed %d depth %d delay %d mode %d -> pitch %d\n", ws.lfoWaveform,
                ws.lfoSpeed, ws.lfoDepth, ws.lfoDelay, ws.lfoMode, ws.lfoPitchAmount);
+        auto S = [](int s) { return eps::modSourceName(s); };
+        printf("    mod: pitch env amt %d, lfo->pitch %d, pitch %s %d, random %d freq %d, "
+               "filter1 %s %d, filter2 %s %d, amp %s %d, pan %s %d\n",
+               ws.pitchEnvAmount, ws.lfoPitchAmount, S(ws.pitchModSource), ws.pitchModAmount,
+               ws.randomModAmount, ws.randomFreq, S(ws.filterModSource[0]), ws.filterModAmount[0],
+               S(ws.filterModSource[1]), ws.filterModAmount[1], S(ws.ampModSource), int(int8_t(ws.ampModAmount)),
+               S(ws.panModSource), int(int8_t(ws.panModAmount)));
+        printf("    lfo: rate mod %s %d, depth mod %s %d, boost %d, bus %d, "
+               "xfade %d %d %d %d curve %d\n",
+               S(ws.lfoRateModSource), ws.lfoRateModAmount, S(ws.lfoDepthModSource), ws.lfoDepthModAmount,
+               ws.boost, ws.outputBus, ws.crossfade[0], ws.crossfade[1], ws.crossfade[2], ws.crossfade[3],
+               ws.volumeModCrossfadeCurve);
         printEnv("pitch", ws.pitchEnv);
         printEnv("filter", ws.filterEnv);
         printEnv("amp", ws.ampEnv);
