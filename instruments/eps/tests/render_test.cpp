@@ -113,7 +113,9 @@ static void modulation_tests(const eps::Instrument &base) {
     std::string err;
     auto fc = [](const eps::Sampler &s, int v) { return double(s.chipForDebug().voice(v).freqcount); };
 
-    // pitch envelope: amount 96 eighths = +12 semitones, levels all 127, times 0
+    // pitch envelope: relative to its sustain level L4 (measured). L0 127, then
+    // a 49 s segment down to L1..L4 = 0: at the start amount 96 gives
+    // 96 * 127 / 128 eighths (+11.9 semitones).
     {
         eps::Instrument in = base;
         eps::Sampler a(set), b(set);
@@ -122,23 +124,25 @@ static void modulation_tests(const eps::Instrument &base) {
         run(a, 512);
         eps::WaveSample &w = in.waveSamples[1];
         w.pitchEnvAmount = 96;
-        for (int i = 0; i < 5; ++i) w.pitchEnv.softLevel[i] = w.pitchEnv.hardLevel[i] = 127;
-        for (int i = 1; i <= 6; ++i) w.pitchEnv.time[i] = 0;
+        for (int i = 0; i < 5; ++i) w.pitchEnv.softLevel[i] = w.pitchEnv.hardLevel[i] = i == 0 ? 127 : 0;
+        for (int i = 1; i <= 6; ++i) w.pitchEnv.time[i] = i == 1 ? 99 : 0;
         b.load(in, err);
         b.noteOn(50, 100);
         run(b, 512);
         const double ratio = fc(b, sounding(b)) / fc(a, sounding(a));
-        printf("  pitch envelope +96/8: ratio %.3f (2.000)\n", ratio);
-        CHECK(std::fabs(ratio - 2.0) < 0.01);
+        const double want = std::pow(2.0, 96.0 * 127.0 / 128.0 / 8.0 / 12.0);
+        printf("  pitch envelope +96, L0 127 over L4 0: ratio %.3f (%.3f)\n", ratio, want);
+        CHECK(std::fabs(ratio - want) < 0.01);
     }
-    // LFO: sine, depth 127, +1 semitone; delay fades it in; wheel on LFO depth
+    // LFO: sine, depth 127, pitch 16 (1/16 semitone each: +-1 semitone); delay
+    // fades it in; wheel on LFO depth
     {
         eps::Instrument in = base;
         eps::WaveSample &w = in.waveSamples[1];
         w.lfoWaveform = 2;
         w.lfoSpeed = 40;           // 6.25 Hz
         w.lfoDepth = 127;
-        w.lfoPitchAmount = 8;
+        w.lfoPitchAmount = 16;
         w.lfoDelay = 0;
         w.lfoMode = 1;
         eps::Sampler s(set);
@@ -155,7 +159,7 @@ static void modulation_tests(const eps::Instrument &base) {
         printf("  LFO sine +-1 semitone: swing %.0f cent (200)\n", cents);
         CHECK(std::fabs(cents - 200) < 10);
 
-        w.lfoDelay = 60;           // 3 s fade in: hardly moves in the first 0.1 s
+        w.lfoDelay = 60;           // 6.6 s fade in: hardly moves in the first 0.1 s
         eps::Sampler d(set);
         d.load(in, err);
         d.noteOn(50, 100);
@@ -273,7 +277,8 @@ static void modulation_tests(const eps::Instrument &base) {
         run(ps, 256);
         const int l1 = int(ps.chipForDebug().voice(v).lvol), r1 = int(ps.chipForDebug().voice(v).rvol);
         printf("  pan by wheel: L/R %d/%d -> %d/%d\n", l0, r0, l1, r1);
-        CHECK(l0 == r0 && r1 > l1 + 40);
+        // centre: right 0.6 dB lower; a positive pan value raises LVOL (measured)
+        CHECK(std::abs(l0 - r0) <= 2 && l1 > r1 + 40);
     }
     // glide: layer A mono, glide time 30 (0.44 s)
     {
@@ -298,15 +303,15 @@ static void modulation_tests(const eps::Instrument &base) {
     // noise on the pitch
     {
         eps::Instrument in = base;
-        in.waveSamples[1].randomModAmount = 8;
-        in.waveSamples[1].randomFreq = 20;
+        in.waveSamples[1].randomModAmount = 127;   // +-1 semitone
+        in.waveSamples[1].randomFreq = 99;         // new value 2.9 times a second
         eps::Sampler s(set);
         s.load(in, err);
         s.noteOn(50, 100);
         double lo = 1e9, hi = 0;
-        for (int i = 0; i < 400; ++i) { run(s, 64); const double f = fc(s, sounding(s)); lo = std::min(lo, f); hi = std::max(hi, f); }
-        printf("  noise on pitch: swing %.0f cent\n", 1200 * std::log2(hi / lo));
-        CHECK(1200 * std::log2(hi / lo) > 50);
+        for (int i = 0; i < 1400; ++i) { run(s, 64); const double f = fc(s, sounding(s)); lo = std::min(lo, f); hi = std::max(hi, f); }
+        printf("  random on pitch: swing %.0f cent in 2 s\n", 1200 * std::log2(hi / lo));
+        CHECK(1200 * std::log2(hi / lo) > 30 && 1200 * std::log2(hi / lo) <= 205);
     }
     // wave mod types 1 (sample start), 3 (loop start), 4 (loop end) on WS1
     // (loop 200..1000, end 1099), wheel = 1, range 256 << 0

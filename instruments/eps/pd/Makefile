@@ -60,6 +60,7 @@ bela-gem: $(SOURCES)
 # ---- generated files ---------------------------------------------------------
 #   make gen        parameter header, controller layer, pads, editor, help patch and eps.i~ (last)
 gen:
+	python3 ../tools/gen_eps_tables.py
 	python3 ../tools/eps_params.py
 	python3 ../tools/gen_epscc.py
 	python3 ../tools/gen_eps_editor.py

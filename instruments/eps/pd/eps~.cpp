@@ -84,7 +84,7 @@ t_class* eps_class = nullptr;
 t_class* eps_proxy_class = nullptr;
 
 const char kUserFile[] = "epsuser-bank.txt";
-constexpr float kOutputGain = 0.4f;
+constexpr float kOutputGain = 1.0f;   // a voice at full level is -12 dB (0xE0), as on the EPS
 constexpr int kUserSlots = 64;
 
 // ---- controls ----------------------------------------------------------------

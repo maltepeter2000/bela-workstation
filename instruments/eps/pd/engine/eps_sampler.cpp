@@ -4,6 +4,7 @@
 #pragma GCC diagnostic ignored "-Winline"
 #endif
 #include "eps_sampler.h"
+#include "eps_tables.h"
 
 #include <cmath>
 #include <cstring>
@@ -12,44 +13,35 @@ namespace eps {
 
 namespace {
 
-const float kEnvSeconds[100] = {
-    0, 0.01f, 0.02f, 0.03f, 0.04f, 0.05f, 0.06f, 0.07f, 0.08f, 0.09f, 0.10f, 0.11f, 0.11f, 0.12f,
-    0.13f, 0.14f, 0.15f, 0.16f, 0.17f, 0.19f, 0.20f, 0.22f, 0.23f, 0.25f, 0.27f, 0.29f, 0.31f, 0.33f,
-    0.35f, 0.38f, 0.41f, 0.44f, 0.47f, 0.50f, 0.54f, 0.58f, 0.62f, 0.66f, 0.71f, 0.76f, 0.82f, 0.88f,
-    0.94f, 1.0f, 1.0f, 1.1f, 1.2f, 1.3f, 1.4f, 1.5f, 1.6f, 1.7f, 1.8f, 2.0f, 2.1f, 2.3f, 2.4f, 2.6f,
-    2.8f, 3.0f, 3.2f, 3.5f, 3.7f, 4.0f, 4.3f, 4.6f, 4.9f, 5.3f, 5.7f, 6.1f, 6.5f, 7.0f, 7.5f, 8.1f,
-    8.6f, 9.3f, 9.9f, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 21, 22, 24, 26, 28, 30, 32, 34, 37,
-    39, 42, 45, 49};
-
-// CALIBRATE: envelope level 0..1 (stored 0..127) -> gain; assumed linear.
-float envLevelGain(float level01) { return level01 <= 0.f ? 0.f : (level01 > 1.f ? 1.f : level01); }
-
-// CALIBRATE: wavesample volume 0..127 -> gain; assumed linear.
-float wsVolumeGain(int v) { return v <= 0 ? 0.f : float(v > 127 ? 127 : v) / 127.f; }
-
-// Fast nearest ES5505 volume code: gain = (16 + m) * 2^(e - 20).
-uint8_t gainToCode(float g) {
-    if (g <= 1.f / float(1 << 20) * 16.f) return 0;
-    int e2;
-    float m = std::frexp(g, &e2);          // g = m * 2^e2, m in [0.5, 1)
-    int e = e2 + 15;                        // (16+mant)/32 == m  ->  e - 20 + 5 == e2
-    int mant = int(m * 32.f + 0.5f) - 16;
-    if (mant > 15) { mant = 0; ++e; }
-    if (e > 15) return 255;
-    if (e < 0) return 0;
-    return uint8_t(e << 4 | mant);
-}
+using namespace tables;
 
 float clampf(float x, float lo, float hi) { return x < lo ? lo : (x > hi ? hi : x); }
 int clampi(int x, int lo, int hi) { return x < lo ? lo : (x > hi ? hi : x); }
 
-// CALIBRATE: LFO speed 0..99 -> Hz (table of ConvertWithMoss: slow below 20,
-// then 0.25 Hz steps up to about 21 Hz).
+// Volume code (12 bit) of a level 0..127, fractional levels interpolated.
+float levelCode(float level) {
+    level = clampf(level, 0.f, 127.f);
+    const int i = int(level);
+    if (i >= 127) return float(kVolumeCode[127]);
+    const float f = level - float(i);
+    return float(kVolumeCode[i]) + f * float(kVolumeCode[i + 1] - kVolumeCode[i]);
+}
+
+// LFO speed 0..99 -> Hz, measured (periods of the original OS); 17..19 from
+// ConvertWithMoss, the slow ones between the measured points log-interpolated.
 float lfoHz(int speed) {
-    static const float kSlow[20] = {0.05f, 0.05f, 0.06f, 0.06f, 0.06f, 0.07f, 0.07f, 0.08f, 0.08f, 0.09f,
-                                    0.10f, 0.11f, 0.13f, 0.14f, 0.17f, 0.20f, 0.25f, 0.33f, 0.50f, 1.0f};
-    speed = clampi(speed, 0, 99);
-    return speed < 20 ? kSlow[speed] : 1.f + float(speed - 19) * 0.25f;
+    static const float kHz[100] = {
+        0.0528f, 0.0567f, 0.0607f, 0.0646f, 0.0687f, 0.0752f, 0.0820f, 0.0894f, 0.0975f, 0.1063f,
+        0.1159f, 0.1263f, 0.1375f, 0.1627f, 0.1925f, 0.2278f, 0.2705f, 0.33f, 0.50f, 1.0f,
+        1.236f, 1.486f, 1.736f, 1.985f, 2.234f, 2.481f, 2.728f, 2.975f, 3.222f, 3.472f,
+        3.722f, 3.971f, 4.221f, 4.466f, 4.711f, 4.955f, 5.200f, 5.449f, 5.698f, 5.947f,
+        6.196f, 6.448f, 6.700f, 6.953f, 7.205f, 7.436f, 7.667f, 7.899f, 8.130f, 8.380f,
+        8.630f, 8.880f, 9.130f, 9.375f, 9.620f, 9.865f, 10.11f, 10.36f, 10.61f, 10.86f,
+        11.11f, 11.35f, 11.59f, 11.82f, 12.06f, 12.31f, 12.57f, 12.82f, 13.07f, 13.33f,
+        13.58f, 13.84f, 14.10f, 14.35f, 14.59f, 14.84f, 15.08f, 15.33f, 15.58f, 15.83f,
+        16.08f, 16.32f, 16.56f, 16.80f, 17.04f, 17.29f, 17.53f, 17.78f, 18.02f, 18.28f,
+        18.54f, 18.79f, 19.05f, 19.50f, 19.94f, 20.39f, 20.83f, 24.24f, 27.65f, 31.06f};
+    return kHz[clampi(speed, 0, 99)];
 }
 
 // The 7 LFO waves at phase 0..1: triangle, sine/triangle, sine, positive
@@ -68,8 +60,19 @@ float lfoWave(int wave, float ph) {
     }
 }
 
-// CALIBRATE: the noise source's rate (wavesample "random freq" 0..99).
-float noiseHz(int freq) { return 1.f + 0.5f * float(clampi(freq, 0, 99)); }
+// Random pitch: a new value about 1.07 times a second at freq 50, 2.9 at 99
+// (measured); between and below exponential (CALIBRATE: only those two points).
+float noiseHz(int freq) { return 1.07f * std::exp2((float(clampi(freq, 0, 99)) - 50.f) / 34.4f); }
+
+// Velocity curves of the sources 5 (concave) and 7 (convex), measured at
+// 0, 32, 64, 96, 127.
+float velCurve(float v, const float *pts) {
+    v = clampf(v, 0.f, 1.f) * 4.f;
+    const int i = v >= 4.f ? 3 : int(v);
+    return pts[i] + (v - float(i)) * (pts[i + 1] - pts[i]);
+}
+const float kVel2[5] = {0.f, 0.48f, 0.68f, 0.84f, 1.f};
+const float kVel3[5] = {0.f, 0.155f, 0.32f, 0.52f, 1.f};
 
 // Crossfade window over a source value 0..127: in from A to B, full to C, out to D.
 float crossfade(float x, const int *abcd) {
@@ -84,47 +87,75 @@ float crossfade(float x, const int *abcd) {
 
 } // namespace
 
-float envelopeSeconds(int v) { return kEnvSeconds[v < 0 ? 0 : (v > 99 ? 99 : v)]; }
+float envelopeSeconds(int v) { return kEnvMs[v < 0 ? 0 : (v > 99 ? 99 : v)] * 0.001f; }
 
 const char *modSourceName(int src) {
-    static const char *const kNames[kSrcCount] = {"LFO", "ENV1", "ENV2", "ENV3", "NOISE", "VEL", "PR+VL",
-                                                  "VEL2", "KBD", "KBD2", "WHEEL", "PEDAL", "XCTRL",
+    static const char *const kNames[kSrcCount] = {"LFO", "ENV1", "ENV2", "ENV3", "VEL", "VEL2", "PR+VL",
+                                                  "VEL3", "KBD", "KBD2", "WHEEL", "PEDAL", "XCTRL",
                                                   "PRESS", "WHL+PR", "PITCH"};
     return src >= 0 && src < kSrcCount ? kNames[src] : "?";
 }
 
 // ---------------------------------------------------------------- envelope
 
-void Sampler::Env::start(float) {
-    stage = 1;
-    value = level[0];
-    target = level[1];
+// Every segment takes its time, whatever the distance. The amp envelope moves
+// in the volume code domain: falling linearly (linear in dB), rising in two
+// halves, the first up to kAttackKneeCode below the target, the second the
+// rest (measured on the original OS).
+void Sampler::Env::enter(int st, float targetLevel, float seconds) {
+    stage = st;
+    from = value;
+    linFrom = lin;
+    linTo = clampf(targetLevel, 0.f, 127.f);
+    to = code ? (linTo <= 0.f ? float(kVolumeCode[0]) : levelCode(linTo)) : linTo;
+    dur = seconds;
+    t = 0.f;
+    silent = false;
 }
 
-void Sampler::Env::release_(float) {
+void Sampler::Env::start() {
+    lin = level[0];
+    value = code ? levelCode(level[0]) : level[0];
+    enter(1, level[1], time[1]);
+}
+
+void Sampler::Env::release_(bool key) {
     if (stage >= 6) return;
-    stage = 6;
-    releaseLevel = value;
+    if (key && mode == 1) return;   // FINITE: the key release is ignored (measured)
+    // First stage: the level moves by L5 within T5 (L5 0 = it holds), then T6 to
+    // silence. The amp envelope moves by L5 / 127 of the whole code range
+    // (measured), the others by L5 levels.
+    enter(6, lin + relLevel, relSec[0]);
+    if (code) {
+        const float range = float(kVolumeCode[127] - kVolumeCode[0]);
+        to = clampf(from + relLevel / 127.f * range, float(kVolumeCode[0]), float(kVolumeCode[127]));
+    }
 }
 
-float Sampler::Env::tick(float dt, float) {
-    if (stage >= 1 && stage <= 4) {
-        float t = time[stage];
-        float from = stage == 1 ? level[0] : level[stage - 1];
-        if (t <= 0.f) { value = level[stage]; ++stage; }
-        else {
-            value += (level[stage] - from) * dt / t;
-            bool reached = (level[stage] >= from) ? value >= level[stage] : value <= level[stage];
-            if (reached) { value = level[stage]; ++stage; }
-        }
-    } else if (stage == 6) {
-        if (release <= 0.f) { value = 0.f; stage = 7; }
-        else {
-            value -= releaseLevel * dt / release;
-            if (value <= 0.f) { value = 0.f; stage = 7; }
-        }
+void Sampler::Env::tick(float dt) {
+    if (stage < 1 || stage == 5 || stage >= 8) return;
+    t += dt;
+    const float f = dur <= 0.f ? 1.f : clampf(t / dur, 0.f, 1.f);
+    lin = linFrom + (linTo - linFrom) * f;
+    if (code && to > from && to - float(kAttackKneeCode) > from) {
+        const float knee = to - float(kAttackKneeCode);
+        value = f < 0.5f ? from + (knee - from) * f * 2.f : knee + (to - knee) * (f - 0.5f) * 2.f;
+    } else {
+        value = from + (to - from) * f;
     }
-    return value;
+    if (f < 1.f) return;
+    if (code && linTo <= 0.f) silent = true;
+    if (stage >= 1 && stage < 4) { enter(stage + 1, level[stage + 1], time[stage + 1]); return; }
+    if (stage == 4) {
+        // Mode 1 (finite) releases by itself after time 4 (measured); CALIBRATE:
+        // mode 2 assumed to repeat while the key is held.
+        if (mode == 1) release_(false);
+        else if (mode == 2) enter(1, level[1], time[1]);
+        else stage = 5;
+        return;
+    }
+    if (stage == 6) { enter(7, 0.f, relSec[1]); return; }
+    if (stage == 7) { stage = 8; silent = code; }
 }
 
 // ---------------------------------------------------------------- sampler
@@ -133,6 +164,7 @@ Sampler::Sampler(const Settings &s) : s_(s) {
     if (s_.maxVoices < 1) s_.maxVoices = 1;
     if (s_.maxVoices > otis::ES5505::kVoices) s_.maxVoices = otis::ES5505::kVoices;
     chip_.writeReg(0, otis::ACT, uint16_t(s_.maxVoices - 1));
+    buildFilterTables();
 }
 
 bool Sampler::load(const Instrument &inst, std::string &err) {
@@ -193,29 +225,31 @@ int Sampler::allocate() {
     return best;
 }
 
-// K2 in the modes with a high-pass (0, 1). The chip's high-pass is
-// y[n] = x[n] - x[n-1] + (K/8192 + 1/2) * y[n-1], a pole at p = 1/2 + K/8192:
-// K = (exp(-2 pi f / fs) - 1/2) * 8192. The cutoff value is the corner frequency
-// as for the low-pass (MOOG FUNK: cutoff 150 with the filter 2 envelope at
-// -127 opens the bass at the key, thins it on release). Highest corner about
-// fs * ln 2 / 2 pi (4.9 kHz at 44.1 kHz).
-uint16_t Sampler::cutoffToKHighpass(float c01) const {
-    const float f = 20.f * std::pow(0.45f * s_.sampleRate / 20.f, clampf(c01, 0.f, 1.f));
-    const float p = std::exp(-2.f * float(M_PI) * f / s_.sampleRate);
-    int k12 = int((p - 0.5f) * 8192.f);
-    k12 = clampi(k12, 0, 4095);
-    return uint16_t(k12 << 4);
+// Cutoff 0..150 -> K, from the tables measured at the chip rate of the EPS
+// (29.76 kHz), converted to the host rate so the corner frequencies stay:
+// low-pass pole 1 - K/4096, high-pass pole 1/2 + K/8192, each raised to the
+// power chip rate / host rate. Built per quarter cutoff unit.
+void Sampler::buildFilterTables() {
+    const double ratio = double(kChipRate) / double(s_.sampleRate);
+    for (int i = 0; i <= 600; ++i) {
+        const float c = float(i) * 0.25f;
+        const int j = c >= 150.f ? 149 : int(c);
+        const float f = c - float(j);
+        const double lp = double(kLowpassK[j]) + f * double(kLowpassK[j + 1] - kLowpassK[j]);
+        const double hp = double(kHighpassK[j]) + f * double(kHighpassK[j + 1] - kHighpassK[j]);
+        const double lpPole = std::pow(1.0 - lp / 4096.0, ratio);
+        const double hpPole = std::pow(0.5 + hp / 8192.0, ratio);
+        lpK_[i] = uint16_t(clampi(int(std::lround((1.0 - lpPole) * 4096.0)), 0, 4095) << 4);
+        hpK_[i] = uint16_t(clampi(int(std::lround((hpPole - 0.5) * 8192.0)), 0, 4095) << 4);
+    }
 }
 
-uint16_t Sampler::cutoffToK(float c01) const {
-    // CALIBRATE: cutoff 0..1 -> 20 Hz .. 0.45 * fs, exponential; K is the
-    // one-pole coefficient in 12 bits (shifted into the 16-bit register).
-    float f = 20.f * std::pow(0.45f * s_.sampleRate / 20.f, clampf(c01, 0.f, 1.f));
-    float k = 1.f - std::exp(-2.f * float(M_PI) * f / s_.sampleRate);
-    int k12 = int(k * 4096.f);
-    if (k12 > 4095) k12 = 4095;
-    if (k12 < 0) k12 = 0;
-    return uint16_t(k12 << 4);
+uint16_t Sampler::cutoffToK(float c) const {
+    return lpK_[clampi(int(std::lround(clampf(c, 0.f, 150.f) * 4.f)), 0, 600)];
+}
+
+uint16_t Sampler::cutoffToKHighpass(float c) const {
+    return hpK_[clampi(int(std::lround(clampf(c, 0.f, 150.f) * 4.f)), 0, 600)];
 }
 
 void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held, int layer) {
@@ -269,18 +303,33 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
     sl.ws = &ws;
 
     // Envelopes: velocity interpolates between soft and hard levels.
+    // CALIBRATE: the OS interpolates differently (seen in the emulator: hard
+    // levels below velocity 72); linear here until that is understood.
     auto setupEnv = [&](Env &e, const Envelope &src, bool amp) {
         e = Env();
+        e.code = amp;
         for (int i = 0; i < 5; ++i)
-            e.level[i] = (src.softLevel[i] + (src.hardLevel[i] - src.softLevel[i]) * sl.vel) / 127.f;
+            e.level[i] = float(src.softLevel[i]) + float(src.hardLevel[i] - src.softLevel[i]) * sl.vel;
+        // Times in panel steps: attack time velocity shortens time 1 by
+        // velocity * amount / 128, keyboard time scaling all times by
+        // (key - root) * amount / 64 (both measured on time 1; CALIBRATE: the
+        // other times assumed to scale alike).
+        const float kb = float(src.kbTimeScaling) * float(key - ws.rootNote) / 64.f;
+        auto steps = [&](int panel, float extra) {
+            return envelopeSeconds(int(std::lround(clampf(float(panel) - kb - extra, 0.f, 99.f))));
+        };
         for (int i = 1; i <= 4; ++i) {
             const int o = !amp ? 0 : (i == 1 ? off_.attack : off_.decay);
-            e.time[i] = envelopeSeconds(src.time[i] + o);
+            const float velShort = i == 1 ? float(src.time1VelSens) * float(velocity) / 128.f : 0.f;
+            e.time[i] = steps(src.time[i] + o, velShort);
         }
-        e.releasePanel[0] = src.time[5];
-        e.releasePanel[1] = src.time[6];
-        e.release = envelopeSeconds(src.time[5]) + envelopeSeconds(src.time[6]);
-        e.start(s_.sampleRate);
+        e.releasePanel[0] = src.time[5] - int(std::lround(kb));
+        e.releasePanel[1] = src.time[6] - int(std::lround(kb));
+        e.relSec[0] = envelopeSeconds(e.releasePanel[0]);
+        e.relSec[1] = envelopeSeconds(e.releasePanel[1]);
+        e.relLevel = float(src.level5);
+        e.mode = src.mode;
+        e.start();
     };
     setupEnv(sl.amp, ws.ampEnv, true);
     setupEnv(sl.filt, ws.filterEnv, false);
@@ -310,17 +359,19 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
     sl.baseRatio = double(owner->sampleRate) / s_.sampleRate * std::pow(2.0, semis / 12.0);
 
     // Filter: static cutoff + key tracking; envelopes and modulation in updateControl.
-    sl.cutoff = clampi(ws.filterCutoff[0] + ws.filterKeyAmount[0] * (key - 60) / 64, 0, 150);
-    sl.cutoff2 = clampi(ws.filterCutoff[1] + ws.filterKeyAmount[1] * (key - 60) / 64, 0, 150);
+    // Key tracking: (key - root) * amount / 64 cutoff units (measured).
+    sl.cutoff = clampi(ws.filterCutoff[0] + ws.filterKeyAmount[0] * (key - ws.rootNote) / 64, 0, 150);
+    sl.cutoff2 = clampi(ws.filterCutoff[1] + ws.filterKeyAmount[1] * (key - ws.rootNote) / 64, 0, 150);
     sl.filterEnvAmount = ws.filterEnvAmount[0];
 
-    // Pan: EPS uses 8 positions, EPS-16 PLUS / ASR a signed value.
+    // Pan: EPS uses 8 positions, EPS-16 PLUS / ASR a signed value (-128..127).
     if (inst_.instrumentId == kIdEps) {
-        if (ws.panEps >= 1 && ws.panEps <= 8) sl.pan = (float(ws.panEps - 1) / 7.f) * 2.f - 1.f;
+        if (ws.panEps >= 1 && ws.panEps <= 8) sl.pan = (float(ws.panEps - 1) / 7.f) * 255.f - 128.f;
     } else {
-        sl.pan = clampf(float(ws.panSigned) / 127.f, -1.f, 1.f);
+        sl.pan = float(ws.panSigned);
     }
-    sl.ampBase = wsVolumeGain(ws.volume) * s_.masterGain;
+    // Volume: the level table, relative to full level; BOOST +12 dB.
+    sl.volCode = levelCode(float(ws.volume)) - float(kVolumeCode[127]) + (ws.boost ? float(kBoostCode) : 0.f);
     // CALIBRATE: the byte before the pitch envelope amount switches the amp
     // modulation to a crossfade (1, seen in DECAY BASS with KBD and 0/0/64/127).
     sl.xfade = ws.volumeModCrossfadeCurve == 1;
@@ -408,10 +459,11 @@ void Sampler::releaseSlot(int v) {
     sl.held = false;
     sl.sustained = false;
     // The release offset also reaches notes that are already sounding.
-    sl.amp.release = envelopeSeconds(sl.amp.releasePanel[0] + off_.release) +
-                     envelopeSeconds(sl.amp.releasePanel[1] + off_.release);
-    sl.amp.release_(s_.sampleRate);
-    sl.filt.release_(s_.sampleRate);
+    sl.amp.relSec[0] = envelopeSeconds(sl.amp.releasePanel[0] + off_.release);
+    sl.amp.relSec[1] = envelopeSeconds(sl.amp.releasePanel[1] + off_.release);
+    sl.amp.release_(true);
+    sl.filt.release_(true);
+    sl.pit.release_(true);
     if (sl.loopUntilRelease) {
         // Leave the loop and play on to the sample end.
         const otis::Voice &cv = chip_.voice(v);
@@ -446,27 +498,28 @@ void Sampler::allNotesOff() {
 }
 
 // The 16 modulation sources for one voice. Unipolar ones are 0..1, bipolar
-// ones (LFO, noise, KBD, pitch wheel) -1..1. CALIBRATE: VEL2, PR+VL, KBD and
-// KBD2 scaling are guesses.
+// ones (LFO, pitch wheel) -1..1. Measured: 4 and 6 linear velocity (6 with
+// pressure added, CALIBRATE), 5 and 7 velocity curves, 8 and 9 key / 127,
+// 14 half of wheel plus pressure. CALIBRATE: 12, 13, 15.
 float Sampler::source(const Slot &sl, int src) const {
     switch (src) {
         case kSrcLfo:   return sl.lfoOut;
-        case kSrcEnv1:  return sl.pit.value;
-        case kSrcEnv2:  return sl.filt.value;
-        case kSrcEnv3:  return sl.amp.value;
-        case kSrcNoise: return sl.noise;
+        case kSrcEnv1:  return sl.pit.lin / 127.f;
+        case kSrcEnv2:  return sl.filt.lin / 127.f;
+        case kSrcEnv3:  return sl.amp.lin / 127.f;
         case kSrcVel:   return sl.vel;
+        case kSrcVel2:  return velCurve(sl.vel, kVel2);
         case kSrcPrVl:  return clampf(sl.vel + pressureOf(sl), 0.f, 1.f);
-        case kSrcVel2:  return sl.vel * sl.vel;
-        case kSrcKbd:   return clampf(float(sl.key - 60) / 48.f, -1.f, 1.f);
-        case kSrcKbd2:  return clampf(float(sl.key - 21) / 87.f, 0.f, 1.f);
+        case kSrcVel3:  return velCurve(sl.vel, kVel3);
+        case kSrcKbd:
+        case kSrcKbd2:  return clampf(float(sl.key) / 127.f, 0.f, 1.f);
         case kSrcPress: return pressureOf(sl);
-        case kSrcWhlPr: return clampf(mod_[kSrcWheel] + pressureOf(sl), 0.f, 1.f);
+        case kSrcWhlPr: return clampf(0.5f * (mod_[kSrcWheel] + pressureOf(sl)), 0.f, 1.f);
         default:        return (src >= 0 && src < kSrcCount) ? mod_[src] : 0.f;
     }
 }
 
-static bool isBipolar(int src) { return src == kSrcLfo || src == kSrcNoise || src == kSrcKbd || src == kSrcPitch; }
+static bool isBipolar(int src) { return src == kSrcLfo || src == kSrcPitch; }
 
 float Sampler::pressureOf(const Slot &sl) const {
     const float p = sl.note >= 0 && sl.note < 128 ? polyPressure_[sl.note] : 0.f;
@@ -491,9 +544,9 @@ void Sampler::updateControl(int v, float dt) {
     if (!sl.active) return;
     if (dt > 0.f && chip_.stopped(v)) { sl.active = false; return; }
     const WaveSample &ws = *sl.ws;
-    const float a = sl.amp.tick(dt, s_.sampleRate);
-    const float f = sl.filt.tick(dt, s_.sampleRate);
-    const float p = sl.pit.tick(dt, s_.sampleRate);
+    sl.amp.tick(dt);
+    sl.filt.tick(dt);
+    sl.pit.tick(dt);
     if (sl.amp.done()) {
         chip_.writeReg(v, otis::CR, otis::kStop0);
         sl.active = false;
@@ -517,40 +570,49 @@ void Sampler::updateControl(int v, float dt) {
     float depth = float(ws.lfoDepth);
     if (ws.lfoDepthModSource != kSrcLfo) depth += float(ws.lfoDepthModAmount) * source(sl, ws.lfoDepthModSource);
     depth = clampf(depth / 127.f, -1.f, 1.f);
-    const float delay = envelopeSeconds(ws.lfoDelay);
-    const float fade = delay > 0.f ? clampf(sl.lfoElapsed / delay, 0.f, 1.f) : 1.f;
+    // Delay: a linear fade-in over twice the envelope time (measured).
+    const float delay = 2.f * envelopeSeconds(ws.lfoDelay);
+    const float fade = ws.lfoDelay > 0 ? clampf(sl.lfoElapsed / delay, 0.f, 1.f) : 1.f;
     sl.lfoOut = lfoWave(ws.lfoWaveform, sl.lfoPhase) * depth * fade;
 
-    // Levels: amp envelope, then the amp modulation or the crossfade.
-    float g = sl.ampBase * envLevelGain(a);
+    // Levels, in the 12-bit volume code domain of the chip (0x100 = 6 dB): the
+    // amp envelope, the wavesample volume and boost, the pan law, then the amp
+    // modulation or the crossfade and the master level, all as code offsets.
+    // CALIBRATE: amp modulation and crossfade amounts are not measured yet.
+    float gmul = 1.f;
     const float am = source(sl, ws.ampModSource);
     if (sl.xfade) {
         const float x = (isBipolar(ws.ampModSource) ? (am + 1.f) * 0.5f : am) * 127.f;
-        g *= crossfade(x, ws.crossfade);
+        gmul = crossfade(x, ws.crossfade);
     } else if (ws.ampModAmount) {
         const float amt = float(int8_t(ws.ampModAmount)) / 127.f;
-        if (isBipolar(ws.ampModSource)) g *= clampf(1.f + 0.5f * amt * am, 0.f, 2.f);
-        else g *= amt >= 0.f ? 1.f - amt + amt * am : 1.f + amt * am;
+        if (isBipolar(ws.ampModSource)) gmul = clampf(1.f + 0.5f * amt * am, 0.f, 2.f);
+        else gmul = amt >= 0.f ? 1.f - amt + amt * am : 1.f + amt * am;
     }
     float pan = sl.pan;
-    if (ws.panModAmount) pan += float(int8_t(ws.panModAmount)) / 127.f * source(sl, ws.panModSource);
-    pan = clampf(pan, -1.f, 1.f);
-    const float pl = std::cos((pan + 1.f) * float(M_PI) / 4.f), pr = std::sin((pan + 1.f) * float(M_PI) / 4.f);
-    chip_.writeReg(v, otis::LVOL, uint16_t(gainToCode(g * pl) << 8));
-    chip_.writeReg(v, otis::RVOL, uint16_t(gainToCode(g * pr) << 8));
+    if (ws.panModAmount) pan += float(int8_t(ws.panModAmount)) * source(sl, ws.panModSource);
+    const int pi = clampi(int(std::lround(pan)), -128, 127) + 128;
+    const float master = s_.masterGain;
+    const bool mute = sl.amp.silent || gmul <= 0.f || master <= 0.f;
+    const float base = sl.amp.value + sl.volCode + 256.f * std::log2(mute ? 1.f : gmul * master);
+    auto volReg = [&](float code) -> uint16_t {
+        if (mute) return 0;
+        return uint16_t(clampi(int(code), 0, 0xfff) << 4);
+    };
+    chip_.writeReg(v, otis::LVOL, volReg(base + float(kPanLeft[pi])));
+    chip_.writeReg(v, otis::RVOL, volReg(base + float(kPanRight[pi])));
 
-    // Filters: cutoff (+ offset), envelope (+ offset) and modulation, both filters,
-    // every tick, so the offsets reach notes that are sounding. Amount 127 of a
-    // modulation sweeps the whole cutoff range (as ConvertWithMoss reads it).
+    // Filters, in cutoff units: cutoff + key tracking (set at note on), the
+    // envelope (level * amount / 128) and the modulation (amount * source),
+    // all measured; plus the offsets of eps~, every tick.
     const int envAmt = clampi(sl.filterEnvAmount + off_.filterEnv, -127, 127);
-    float c = float(sl.cutoff + off_.cutoff) + float(envAmt) * f;
-    c += float(ws.filterModAmount[0]) / 127.f * 150.f * source(sl, ws.filterModSource[0]);
-    float c2 = float(sl.cutoff2 + off_.cutoff2) + float(ws.filterEnvAmount[1]) * f;
-    c2 += float(ws.filterModAmount[1]) / 127.f * 150.f * source(sl, ws.filterModSource[1]);
-    chip_.writeReg(v, otis::K1, cutoffToK(clampf(c, 0.f, 150.f) / 150.f));
+    float c = float(sl.cutoff + off_.cutoff) + float(envAmt) * sl.filt.lin / 128.f;
+    c += float(ws.filterModAmount[0]) * source(sl, ws.filterModSource[0]);
+    float c2 = float(sl.cutoff2 + off_.cutoff2) + float(ws.filterEnvAmount[1]) * sl.filt.lin / 128.f;
+    c2 += float(ws.filterModAmount[1]) * source(sl, ws.filterModSource[1]);
+    chip_.writeReg(v, otis::K1, cutoffToK(c));
     const bool k2Highpass = (ws.filterMode & 2) == 0;
-    chip_.writeReg(v, otis::K2, k2Highpass ? cutoffToKHighpass(clampf(c2, 0.f, 150.f) / 150.f)
-                                           : cutoffToK(clampf(c2, 0.f, 150.f) / 150.f));
+    chip_.writeReg(v, otis::K2, k2Highpass ? cutoffToKHighpass(c2) : cutoffToK(c2));
 
     // Pitch: the instrument's pitch envelope, LFO, modulation and noise (all in
     // 1/8 semitone), glide, then bend, master tune and the vibrato of eps~.
@@ -558,9 +620,13 @@ void Sampler::updateControl(int v, float dt) {
         const float step = sl.glideRate * dt;
         sl.glide = std::fabs(sl.glide) <= step ? 0.f : sl.glide - (sl.glide > 0.f ? step : -step);
     }
-    float eighths = float(ws.pitchEnvAmount) * p + float(ws.lfoPitchAmount) * sl.lfoOut;
+    // Measured: the pitch envelope works relative to its sustain level L4
+    // (1/8 semitone per amount and level / 128), the LFO in 1/16 semitones,
+    // the modulation in 1/8, the random amount in 1/128 semitone.
+    float eighths = float(ws.pitchEnvAmount) * (sl.pit.lin - sl.pit.level[4]) / 128.f +
+                    float(ws.lfoPitchAmount) * sl.lfoOut * 0.5f;
     if (ws.pitchModAmount) eighths += float(ws.pitchModAmount) * source(sl, ws.pitchModSource);
-    if (ws.randomModAmount) eighths += float(ws.randomModAmount) * sl.noise;
+    if (ws.randomModAmount) eighths += float(ws.randomModAmount) * sl.noise / 16.f;
     const float vib = vibDepth_ * std::sin(vibPhase_);
     const double semis = double(eighths) / 8.0 + double(sl.glide) + double(bend_) * bendRange_ +
                          off_.tune / 100.0 + double(vib);

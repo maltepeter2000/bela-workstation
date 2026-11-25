@@ -23,23 +23,32 @@ your instruments into a folder `eps/` beside your patch.
   volume, forward / backward / bidirectional loops, 20.9 addresses, 2/1024 pitch steps) and a
   rebuilt operating system on top: voice allocation (20 voices, up to 32), layers and patch
   select, loop modes 0–4 (4: loop until release), three envelopes (pitch, filter, amp; soft /
-  hard levels by velocity), the LFO (7 waves, speed, depth, delay, reset / humanize, depth and
-  rate modulation), noise, modulation of pitch, both filters, amp and pan from the 16 sources
-  (LFO, ENV1–3, NOISE, VEL, PR+VL, VEL2, KBD, KBD2, WHEEL, PEDAL, XCTRL, PRESS, WHL+PR,
-  PITCH), crossfades, layer glide (mono), all 7 wave modulation types (loop position, sample
+  hard levels by velocity, attack velocity, keyboard time scaling, two-stage release, finite
+  mode), the LFO (7 waves, speed, depth, delay, reset / humanize, depth and rate modulation),
+  random pitch, modulation of pitch, both filters, amp and pan from the 16 sources (LFO,
+  ENV1–3, VEL, VEL2, PR+VL, VEL3, KBD, KBD2, WHEEL, PEDAL, XCTRL, PRESS, WHL+PR, PITCH),
+  crossfades, layer glide (mono), all 7 wave modulation types (loop position, sample
   start, both, loop start, loop end, loop start-X, transwave), bend, pressure (channel and
   poly), pedal, sustain.
 - **Loads in the background**: a file is read and the instrument built in a thread of its own;
   the scheduler swaps it in when it is ready, so the audio goes on.
 
 Not yet there: pitch tables (format unknown, no instrument with one yet) and the ES5510
-effects. Measured against the original only in parts: envelope and volume curves, LFO speeds,
-the cutoff scale, the order of the mod sources and the glide modes (every mode is mono with
-glide) are first approximations, to be checked on the EPS display or with register traces.
-Values checked on a real EPS-16 PLUS display (CLASSIC PAD): fine tune in 1/128 semitone, wave
-mod source / amount / type / range; the mod source WHEEL (10). The filter cutoff is the corner
-frequency for the high-pass too (filter modes 0 and 1): MOOG FUNK opens its high-pass with a
-filter 2 envelope of −127.
+effects.
+
+**Calibrated against the original operating system** (OS 1.30, ROM 1.00F, running in an
+emulator; register traces of test instruments, see `tests/calibration/`): the cutoff scale of
+both filters (low-pass and high-pass), filter envelope, key tracking (relative to the root key)
+and modulation amounts, the volume / envelope level law, pan law and boost, envelope times and
+shapes (the amp envelope runs in the chip's volume code domain), attack velocity, keyboard
+time scaling, the two-stage release (T5 to L5, then T6), the finite mode, LFO speeds, depth and
+delay, pitch envelope (relative to its sustain level), pitch modulation and random amounts,
+the behaviour of the mod sources 0–11 (4 and 6 linear velocity, 5 and 7 velocity curves, 8
+and 9 the key, 10 wheel, 11 pedal). The display names of 4–9 and 12–15 still need confirming.
+Compared with the original on DECAY BASS and MOOG FUNK 1, pitch, filter and volume registers
+agree within a few percent. Still approximations: the soft / hard velocity levels (the
+emulator showed no velocity response there), amp and pan modulation amounts, crossfade curves,
+glide (every mode is mono with glide).
 
 ## Controls
 

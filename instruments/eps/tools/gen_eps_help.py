@@ -151,16 +151,19 @@ ABOUT = [
     "in its four arrangements, the 8-bit logarithmic volume, forward, backward and "
     "bidirectional loops, the 2/1024 pitch steps.",
     "What the EPS operating system does is rebuilt on top: voice allocation, layers and patch "
-    "select, the three envelopes (pitch, filter, amp), the LFO with its seven waves, delay, "
-    "reset and humanize, the noise source, the modulation of pitch, both filters, amp and pan "
-    "from the 16 sources (LFO, ENV1-3, NOISE, VEL, PR+VL, VEL2, KBD, KBD2, WHEEL, PEDAL, XCTRL, "
+    "select, the three envelopes (pitch, filter, amp) with the two-stage release, attack "
+    "velocity, keyboard time scaling and the finite mode, the LFO with its seven waves, delay, "
+    "reset and humanize, random pitch, the modulation of pitch, both filters, amp and pan from "
+    "the 16 sources (LFO, ENV1-3, three velocity curves, PR+VL, KBD, KBD2, WHEEL, PEDAL, XCTRL, "
     "PRESS, WHL+PR, PITCH), crossfades, layer glide and all seven wave modulation types "
     "(loop position, sample start, both, loop start, loop end, loop start-X, transwave).",
-    "Measured against the original only in parts: levels, envelope times, LFO speeds, the "
-    "cutoff scale and the order of the mod sources (WHEEL is confirmed) are first "
-    "approximations. The glide modes are not told apart (every mode is mono with glide). Not "
-    "there: pitch tables and the effects of the ES5510. The controls of eps~ are offsets over "
-    "the instrument, 0 plays it as stored.",
+    "Calibrated against the original operating system (OS 1.30 in an emulator, register "
+    "traces of test instruments): cutoff scale of both filters, volume and envelope level law, "
+    "pan law, boost, envelope times and shapes, release, LFO speeds and depth, the pitch, "
+    "filter and key amounts, the mod sources 0-11. Still approximations: the soft/hard "
+    "velocity levels, amp and pan modulation amounts, crossfade curves, glide (every mode is "
+    "mono with glide). Not there: pitch tables and the effects of the ES5510. The controls of "
+    "eps~ are offsets over the instrument, 0 plays it as stored.",
     "The output runs at Pd's sample rate, not at the 29.76 kHz of the EPS-16 PLUS. Up to 32 "
     "voices, 20 by default.",
 ]
