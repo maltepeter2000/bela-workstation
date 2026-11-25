@@ -156,6 +156,8 @@ def inst_sub(nm, obj, chn, layer, pads, trim, raw):
     eq = p.add(f"== {[i[0] for i in INST].index(nm) + 1}", 420, 320)
     p.con(rf, 0, eq, 0); p.con(eq, 0, sp, 1)
     sp2 = p.add(f"s rack-{nm}", 300, 350); p.con(sp, 0, sp2, 0)
+    spd = p.add("spigot", 450, 320); p.con(pa, 1, spd, 0); p.con(eq, 0, spd, 1)
+    p.con(spd, 0, sd, 0)                       # the pads' own display lines (own pads, init armed)
     return p
 
 
