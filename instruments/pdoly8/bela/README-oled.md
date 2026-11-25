@@ -37,7 +37,7 @@ Rückmeldung: Änderungen von woanders (Preset, Program Change, Editor) gehen al
 | **3** OSC | 37 39-45 | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `drft` | `nois` |
 | **4** WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wse` | `wsm` | `ring` | `rmf` |
 | **5** SYNC-XMOD | 54-61 | `sync` | `swp2` | `swe` | `swm` | `xmod` | `extfm` | `xme` | `xmm` |
-| **6** MG | 62-63 70-75 | `mgr` | `mgd` | `mgi` | `mgv` | `hmg` | – | – | – |
+| **6** MG | 62-63 70-75 | `mgr` | `mgd` | `mgi` | `mgv` | `hmg` | `mgw` | `mgk` | – |
 | **7** DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
 | **8** PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
 | **9** MORE | 94-95 102-107 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` |  |
@@ -84,7 +84,7 @@ Nicht per CC (nur Editor oder Message): `ch1` (oben im Editor) und die Einzelwer
 | 53 | `rmf` | Ring source | 0 … 14 |
 | **Seite 5: SYNC-XMOD** | | | |
 | 54 | `sync` | Sync | off / on |
-| 55 | `swp2` | DCO2 pitch | 0 … 72 st |
+| 55 | `swp2` | DCO2 pitch | 0 … 36 st |
 | 56 | `swe` | EG3>DCO2 | 0 … 72 st |
 | 57 | `swm` | MG>DCO2 | 0 … 24 st |
 | 58 | `xmod` | Cross mod | 0 … 127 |
@@ -97,6 +97,8 @@ Nicht per CC (nur Editor oder Message): `ch1` (oben im Editor) und die Einzelwer
 | 70 | `mgi` | Vibrato | 0 … 200 ct |
 | 71 | `mgv` | MG>cutoff | 0 … 15 |
 | 72 | `hmg` | MG>timbre | 0 … 127 |
+| 73 | `mgw` | MG wave | tri / sine / square / noise |
+| 74 | `mgk` | MG retrigger | off / on |
 | **Seite 7: DELAY-EQ** | | | |
 | 76 | `dtim` | Delay time | 0 … 99 |
 | 77 | `dfb` | Delay feedback | 0 … 15 |

@@ -312,6 +312,7 @@ void p8_init(p8_engine_t *e, float fs)
     e->vel_last = 1.0f;
     e->deg3.rs = 1.0f;
     e->drng = 0x9E3779B9u;
+    e->mg_rng = 0x2545F491u;
     p8_update(e);
     p8_settle(e);
 }
@@ -552,9 +553,24 @@ static void tg_pitch(p8_engine_t *e, int t)
     for (int f = 0; f < P8_FEET; f++) g->bit[f] = n - f - ex < 0 ? 0 : n - f - ex;
 }
 
+static float mg_rand(p8_engine_t *e);
+/* a key pressed: with MG retrigger the cycle starts again (and noise draws a new value) */
+void p8_mg_key(p8_engine_t *e)
+{
+    if (e->mg_retrig) { e->mg_ph = 0.0f; e->mg_sh = mg_rand(e); }
+}
+
 void p8_voice_on(p8_engine_t *e, int k, float note)
 {
+    p8_mg_key(e);
     p8_voice_glide(e, k, note, -1.0f);
+}
+
+/* MG noise: uniform -1..1, its own generator */
+static float mg_rand(p8_engine_t *e)
+{
+    e->mg_rng = e->mg_rng * 1664525u + 1013904223u;
+    return (float)(e->mg_rng >> 8) * (1.0f / 8388608.0f) - 1.0f;
 }
 
 /* drift random numbers, uniform -1..1 */
@@ -880,6 +896,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     const int mg_on = e->sm.mgc > 0.01f || e->sm.mgv > 1e-4f || e->mg_cents > 0.0f || e->mg_vcf > 0.0f || e->pwm_d[0] != 0.0f || e->pwm_d[1] != 0.0f
                     || e->sw_m > 0.0f || e->ws_m > 0.0f || e->h_m > 0.0f || e->xm_m != 0.0f;
     float mg_tri = 0.0f;
+    const float mg_k = 1.0f - expf(-inv_fs / 0.002f);
 
     for (unsigned i = 0; i < n; i++) {
         if (sm_run) {                                        /* per-sample smoothing (CC steps -> ramps) */
@@ -892,13 +909,23 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         }
         if (mg_on) {                                         /* MG: one triangle for the instrument */
             e->mg_ph += mg_hz * inv_fs;
-            if (e->mg_ph >= 1.0f) e->mg_ph -= 1.0f;
+            int wrap = 0;
+            if (e->mg_ph >= 1.0f) { e->mg_ph -= 1.0f; wrap = 1; }
             float fade = 1.0f;
             if (e->mg_delay > 0.0f) {
                 if (e->mg_t < e->mg_delay + 0.02f) e->mg_t += inv_fs;
                 fade = clampf((e->mg_t - e->mg_delay) / 0.01f, 0.0f, 1.0f);
             }
-            mg_tri = (4.0f * fabsf(e->mg_ph - 0.5f) - 1.0f) * fade;
+            float w;
+            switch (e->mg_wave) {
+            case 1: w = cosf(2.0f * P8_PI * e->mg_ph); break;               /* sine, in phase with the triangle */
+            case 2: w = e->mg_ph < 0.5f ? 1.0f : -1.0f; break;             /* square */
+            case 3: if (wrap) e->mg_sh = mg_rand(e); w = e->mg_sh; break;   /* noise: a new random value per cycle */
+            default: w = 4.0f * fabsf(e->mg_ph - 0.5f) - 1.0f; break;     /* triangle (Poly-800) */
+            }
+            if (e->mg_wave >= 2) { e->mg_sl += (w - e->mg_sl) * mg_k; w = e->mg_sl; }   /* 2 ms edges, no clicks */
+            else e->mg_sl = w;
+            mg_tri = w * fade;
             e->mg_val = mg_tri;
             e->mg_lp += (mg_tri - e->mg_lp) * (1.0f - expf(-2.0f * P8_PI * P8_MG_LP * inv_fs));
             const float mgc = e->sm.mgc;

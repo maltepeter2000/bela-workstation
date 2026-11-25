@@ -69,6 +69,10 @@ typedef struct {
     float   bend_semi;           /* current pitch bend in semitones */
     float   mg_hz, mg_cents;     /* MG rate; depth on the master clock (vibrato), cents */
     float   mg_ph;
+    int     mg_wave;             /* 0 triangle (the Poly-800), 1 sine, 2 square, 3 noise (random step per cycle) */
+    int     mg_retrig;           /* 1: every key restarts the MG cycle */
+    float   mg_sh, mg_sl;        /* noise: the value of this cycle; square / noise: slewed output */
+    uint32_t mg_rng;
     float   mg_vcf;              /* MG -> VCF cutoff, octaves (Poly-800 II: up to 10 2/3) */
     float   mg_delay;            /* MG delay after the first key of a phrase, seconds */
     float   mg_t;                /* time since the first key (MG delay), seconds */
@@ -184,6 +188,7 @@ void  p8_settle(p8_engine_t *e);             /* jump gain smoothing to the targe
 
 /* voice k (0..3): DCO1 on TG k, DCO2 on TG k+4 (DOUBLE) */
 void  p8_voice_on(p8_engine_t *e, int k, float note);
+void  p8_mg_key(p8_engine_t *e);         /* a key pressed: MG retrigger */
 void  p8_voice_glide(p8_engine_t *e, int k, float note, float from);   /* portamento from a note */
 void  p8_voice_off(p8_engine_t *e, int k);
 void  p8_voice_pitch(p8_engine_t *e, int k, float note, float from);   /* legato: no retrigger */

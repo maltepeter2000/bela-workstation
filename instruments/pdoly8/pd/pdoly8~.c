@@ -48,7 +48,7 @@ enum {
        X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
        X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO,
        X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, X_HMG, X_RMF, X_RETR, X_DRFT,
-       X_FMIG, X_DGLD, X_XMOD, X_EXTFM, X_XME, X_XMM, NEXT };
+       X_FMIG, X_DGLD, X_XMOD, X_EXTFM, X_XME, X_XMM, X_MGW, X_MGK, NEXT };
 static int is_legacy(int i)                     /* FM before 25 Nov 2026, dump only */
 { return i == X_FM || i == X_FM2 || i == X_FMR || i == X_FMHZ || i == X_FMIG || i == X_FMS; }
 static const char *EXT_NAME[NEXT] = {
@@ -58,11 +58,11 @@ static const char *EXT_NAME[NEXT] = {
     "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3", "r3", "mgd", "mgv", "mgr", "treb",
     "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono", "pwm1", "pwm2", "swe", "swm", "ring",
     "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp", "hmg", "rmf", "retr", "drft",
-    "fmig", "dgld", "xmod", "extfm", "xme", "xmm"};
+    "fmig", "dgld", "xmod", "extfm", "xme", "xmm", "mgw", "mgk"};
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 25, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
     31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0, 0, 0, 8, 0, 0, 30, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 64, 1, 0, 0, 0, 0};
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 64, 1, 0, 0, 0, 0, 0, 0};
 
 /* performance controls (see apply_perf) */
 static const char *PERF_NAME[3] = {"atk", "rel", "vol"};
@@ -204,7 +204,7 @@ static void apply_ext_(t_pdoly8 *x, int i, t_float v)
         x->ext[i] = v; p8_update(e); return;
     }
     case X_SYNC: v = v != 0; e->sync = v != 0; break;                     /* DCO2 restarts with DCO1 */
-    case X_SWP2: v = clampf_((float)v, 0.0f, 72.0f); e->swp2 = (float)v; break;   /* semitones */
+    case X_SWP2: v = clampf_((float)v, 0.0f, 36.0f); e->swp2 = (float)v; break;   /* semitones (0.28 per CC step) */
     case X_SWE:  v = clampf_((float)v, 0.0f, 72.0f); e->sw_e = (float)v; break;    /* DEG3 -> DCO2, semitones */
     case X_SWM:  v = clampf_((float)v, 0.0f, 24.0f); e->sw_m = (float)v; break;    /* MG -> DCO2, +-semitones */
     case X_PWM1: case X_PWM2:                    /* MG -> pulse width, +-127 = +-47 %, negative: the other way */
@@ -214,6 +214,8 @@ static void apply_ext_(t_pdoly8 *x, int i, t_float v)
         v = clampf_((float)v, 0.0f, 127.0f);
         float q = (float)v / 127.0f; if (i == X_XMOD) e->fm = 16.0f * q * q; else e->fm2 = 16.0f * q * q; break;
     }
+    case X_MGW: v = (t_float)(int)clampf_((float)v, 0.0f, 3.0f); e->mg_wave = (int)v; break;   /* tri sine square noise */
+    case X_MGK: v = v != 0; e->mg_retrig = v != 0; break;                    /* every key restarts the MG */
     case X_XME: case X_XMM: {                    /* DEG3 / MG -> cross mod, +-127 = index +-16 (quadratic) */
         v = clampf_((float)v, i == X_XME ? -127.0f : 0.0f, 127.0f);
         float q = (float)v / 127.0f, d = 16.0f * q * fabsf(q);
@@ -325,6 +327,7 @@ static void note_on(t_pdoly8 *x, t_float pitch)
     t_float from = pm == 1 ? (x->e.tg[pick].note > 0 ? x->e.tg[pick].note : -1) :
                    (pm == 2 && x->keys == 0) ? -1 : x->last;
     x->held[pick] = 1; x->key[pick] = pitch; x->age[pick] = ++x->clock; x->keys++;
+    p8_mg_key(&x->e);
     p8_voice_glide(&x->e, pick, (float)pitch, (float)from);
     x->last = pitch;
 }
@@ -353,7 +356,7 @@ static void mono_on(t_pdoly8 *x, t_float pitch)
     int pm = (int)x->ext[X_PMOD];
     t_float from = (pm == 2 && !legato && n == 1) ? -1 : x->last;
     if (legato) p8_voice_pitch(&x->e, 0, (float)pitch, (float)from);
-    else p8_voice_glide(&x->e, 0, (float)pitch, (float)from);
+    else { p8_mg_key(&x->e); p8_voice_glide(&x->e, 0, (float)pitch, (float)from); }
     x->held[0] = 1; x->key[0] = pitch; x->keys = 1;
     x->last = pitch;
 }
@@ -508,7 +511,7 @@ static const t_p8range RANGE[] = {
     {"wsm",'i',0,127,"MG>Walsh",""},
     {"wse",'b',-127,127,"EG3>Walsh",""},
     {"sync",'i',0,1,"Sync","off|on"},
-    {"swp2",'i',0,72,"DCO2 pitch","st"},
+    {"swp2",'i',0,36,"DCO2 pitch","st"},
     {"swe",'i',0,72,"EG3>DCO2","st"},
     {"swm",'i',0,24,"MG>DCO2","st"},
     {"ring",'i',0,127,"Ring mod",""},
@@ -522,6 +525,8 @@ static const t_p8range RANGE[] = {
     {"mgi",'r',0,200,"Vibrato","ct"},
     {"mgd",'i',0,15,"MG delay",""},
     {"mgv",'i',0,15,"MG>cutoff",""},
+    {"mgw",'i',0,3,"MG wave","tri|sine|square|noise"},
+    {"mgk",'i',0,1,"MG retrigger","off|on"},
     {"dtim",'i',0,99,"Delay time",""},
     {"dfb",'i',0,15,"Delay feedback",""},
     {"dmf",'i',0,31,"Delay mod rate",""},

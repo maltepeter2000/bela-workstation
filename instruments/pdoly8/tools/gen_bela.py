@@ -35,7 +35,7 @@ PAGES = [
     ("OSC",        ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "drft", "nois"]),
     ("WALSH-RING", ["wsh1", "wsh2", "wmx1", "wmx2", "wse", "wsm", "ring", "rmf"]),
     ("SYNC-XMOD",  ["sync", "swp2", "swe", "swm", "xmod", "extfm", "xme", "xmm"]),
-    ("MG",         ["mgr", "mgd", "mgi", "mgv", "hmg", "tone", "leak", "none"]),
+    ("MG",         ["mgr", "mgd", "mgi", "mgv", "hmg", "mgw", "mgk", "tone"]),
     ("MORE",       ["dgld", "treb", "bass", "pmod", "retr", "bnd", "sprd", "mrph"]),
     ("FX-PERFORM", ["dtim", "dfb", "dmf", "dmi", "dlev", "port", "mono", "vamp"]),
 ]
@@ -51,7 +51,7 @@ CC_ROWS = [
     ("OSC",         ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "drft", "nois"]),
     ("WALSH-RING",  ["wsh1", "wsh2", "wmx1", "wmx2", "wse", "wsm", "ring", "rmf"]),
     ("SYNC-XMOD",   ["sync", "swp2", "swe", "swm", "xmod", "extfm", "xme", "xmm"]),
-    ("MG",          ["mgr", "mgd", "mgi", "mgv", "hmg", None, None, None]),
+    ("MG",          ["mgr", "mgd", "mgi", "mgv", "hmg", "mgw", "mgk", None]),
     ("DELAY-EQ",    ["dtim", "dfb", "dmf", "dmi", "dlev", "dgld", "treb", "bass"]),
     ("PLAY MODE",   ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
     ("MORE",        ["atk", "rel", "vol", "tone", "leak", "pol", "trg"]),

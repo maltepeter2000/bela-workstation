@@ -35,7 +35,7 @@ BLOCKS = [
       [("pw1", 0, 127), ("pw2", 0, 127), ("pwm1", -127, 127), ("pwm2", -127, 127)],
       [("wsh1", 0, 127), ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127)],
       [("wsm", 0, 127), ("wse", -127, 127)],
-      [("sync", 0, 1), ("swp2", 0, 72), ("swe", 0, 72), ("swm", 0, 24)],
+      [("sync", 0, 1), ("swp2", 0, 36), ("swe", 0, 72), ("swm", 0, 24)],
       [("ring", 0, 127), ("rmf", 0, 14)]], [],
      ["Timbre, octave and the modulations of the tone generators. Beyond har and oct "
       "nothing here is on the Poly-800. All edges stay band-limited. In this order: "
@@ -65,7 +65,7 @@ BLOCKS = [
       "attack falling into the 16'. wsm and wse act where wmx is above 0.",
       "sync (0): 1: DCO2's counter restarts at every 16' period of DCO1, at the exact "
       "sub-sample time.",
-      "swp2 (0): DCO2 offset 0-72 semitones.",
+      "swp2 (0): DCO2 offset 0-36 semitones, continuous (0.28 per CC step). Whole intervals: intv.",
       "swe (0): DEG3 adds up to 0-72 semitones to DCO2.",
       "swm (0): the MG adds +-0-24 semitones to DCO2. Screaming sync: sync 1, lev1 "
       "low, lev2 high, swe 40-72, a falling DEG3 (d3, su3 0), res and drv up. The "
@@ -120,7 +120,7 @@ BLOCKS = [
       "vcut (0): velocity to the cutoff: at 127 a soft key is up to 5 octaves lower, "
       "full velocity plays the cut set (one VCF: the last key counts)."]),
     ("MG settings",
-     [[("mgr", 0, 15), ("mgd", 0, 15)], [("mgi", 0, 200), ("mgv", 0, 15)]], [],
+     [[("mgr", 0, 15), ("mgd", 0, 15)], [("mgi", 0, 200), ("mgv", 0, 15)], [("mgw", 0, 3), ("mgk", 0, 1)]], [],
      ["One triangle MG for the instrument, measured on a Poly-800 II. It also drives "
       "hmg, pwm1/2, wsm and swm (DCO settings).",
       "mgr (8): frequency in steps 0-15 as parameter 81 (0: 0.29 Hz / 3: 1.26 / 8: 5.2 "
@@ -129,7 +129,12 @@ BLOCKS = [
       "14.5 Hz low-pass makes fast vibrato shallower, as on the original.",
       "mgd (0): delay 0-15 (82: 0.47 s at 5, 1.55 s at 15) from the first key, then "
       "full depth.",
-      "mgv (0): MG to the VCF 0-15 (84: +-7.9 octaves at 15)."]),
+      "mgv (0): MG to the VCF 0-15 (84: +-7.9 octaves at 15).",
+      "mgw (0): MG wave: 0 triangle (the Poly-800), 1 sine, 2 square, 3 noise (a new "
+      "random value each cycle, sample and hold). Square and noise get 2 ms edges, so "
+      "nothing clicks. Not on the Poly-800.",
+      "mgk (0): 1: every key restarts the MG cycle (noise draws a new value), so every "
+      "note starts its vibrato or sweep the same way. 0: it runs freely, as on the original."]),
     ("Delay settings",
      [[("dtim", 0, 99), ("dfb", 0, 15)], [("dmf", 0, 31), ("dmi", 0, 31)], [("dlev", 0, 15), ("dgld", 0, 1)]],
      ["delay flanger", "delay chorus1", "delay chorus2", "delay slap",
