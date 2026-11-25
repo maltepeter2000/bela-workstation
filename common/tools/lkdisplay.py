@@ -77,11 +77,10 @@ def build():
     ex = p.add("expr if($f1 > 127 && $f2 > 0 && $f2 < $f3, 63, $f1)", 200, 470)
     p.con(stor, 0, ex, 0); p.con(tff, 1, ex, 1); p.con(last, 0, ex, 2)
     out = p.add("outlet", 200, 510); p.con(ex, 0, out, 0)
-    # lkgfx: the bytes of a picture's SysEx, one after the other (not throttled: the instrument
-    # sends at most every 50 ms and only the pieces that changed)
-    gs = p.add("list split 1", 450, 400); p.con(rd, 1, gs, 0)
-    p.con(gs, 0, out, 0)
-    p.con(gs, 1, gs, 0)
+    # lkgfx: a picture's SysEx bytes go through the same byte loop as the text (in order; not
+    # throttled: the instrument spreads them itself). A [list split 1] feeding itself would send
+    # them backwards: Pd outputs the right outlet (the rest) first.
+    p.con(rd, 1, t2, 0)
     return "\n".join(p.lines(top=True)) + "\n"
 
 

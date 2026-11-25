@@ -1878,7 +1878,6 @@
 #X msg 10 470 get \$1 1;
 #X obj 200 470 expr if(\$f1 > 127 && \$f2 > 0 && \$f2 < \$f3 \, 63 \, \$f1);
 #X obj 200 510 outlet;
-#X obj 450 400 list split 1;
 #X connect 1 0 2 0;
 #X connect 2 0 3 1;
 #X connect 2 0 4 0;
@@ -1930,9 +1929,7 @@
 #X connect 36 1 38 1;
 #X connect 31 0 38 2;
 #X connect 38 0 39 0;
-#X connect 2 1 40 0;
-#X connect 40 0 39 0;
-#X connect 40 1 40 0;
+#X connect 2 1 27 0;
 #X restore 572 1457 pd lkdisplay;
 #X obj 572 1487 midiout;
 #X connect 640 0 642 0;
