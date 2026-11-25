@@ -38,7 +38,7 @@ else
 endif
 
 EXTERNAL  = pd/pdoly8~.$(EXT)
-SRC = pd/pdoly8~.c pd/pdoly8_core.c pd/p8gfx.c
+SRC = pd/pdoly8~.c pd/pdoly8_core.c
 DEP = $(SRC) pd/pdoly8_core.h
 BELA_FLAGS = -O3 -march=armv7-a -mtune=cortex-a8 -mfloat-abi=hard -mfpu=neon -ffast-math
 

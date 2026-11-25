@@ -52,6 +52,7 @@ extern "C" {
 }
 
 #include "cz4_core.h"
+#include "../../../common/gfx/lkgfx_pd.h"
 
 namespace {
 
@@ -106,6 +107,8 @@ struct t_cz4 {
     int last_preset;           // the factory tone and the user slot the edit tone played or was
     int last_user;             // stored last: presetstep / userstep count from there, save stores there
     int store_to;              // savearm .. save: the user slot chosen, -1 none
+    lkg_pd_t* gfx;             // Launchkey pictures (common/gfx): 1 the envelope, 2 the wave
+    int gfx_step;              // the envelope step just turned (0..7), -1 none
 };
 
 // ---- data files -------------------------------------------------------------
@@ -212,6 +215,121 @@ void out_display(t_cz4* x, const std::string& title, const std::string& value) {
     SETSYMBOL(&a[0], gensym(title.c_str()));
     SETSYMBOL(&a[1], gensym(value.c_str()));
     outlet_anything(x->info, gensym("display"), 2, a);
+}
+
+// ---- Launchkey pictures (custom firmware branch display-gfx) ------------------
+// The selected envelope (line, env) when a rate, level, sus, end, the easy envelope or the
+// selection changed; the line's wave when wave, wave 2 or window changed. "lkgfx 0" = text.
+
+const char* const kEnvName[3] = {"DCO", "DCW", "DCA"};
+
+int gfx_kind(const cz4::Control& c, int* step) {
+    const char* n = c.name;
+    *step = -1;
+    if ((n[0] == 'r' || n[0] == 'l') && n[1] >= '1' && n[1] <= '8' && !n[2]) { *step = n[1] - '1'; return 1; }
+    if (c.kind == 'D' || !std::strcmp(n, "sus") || !std::strcmp(n, "end") || !std::strcmp(n, "env")
+        || !std::strcmp(n, "line")) return 1;
+    if (!std::strcmp(n, "wave") || !std::strcmp(n, "wave2") || !std::strcmp(n, "window")) return 2;
+    return 0;
+}
+
+int sel(const cz4::Synth& y, const char* name) {
+    const cz4::Control* c = cz4::find_control(name);
+    return c ? y.get_control(*c) : 0;
+}
+
+// The 8-step envelope: step k goes to its level at its rate (99 fastest), the end step to 0, the
+// sustain step holds. Widths: time grows with the distance and falls with the rate.
+void gfx_env(t_cz4* x, lkg_t* g) {
+    const cz4::Synth& y = *x->synth;
+    const uint8_t* b = y.tone();
+    const int line = sel(y, "line"), env = sel(y, "env");
+    const int end = std::clamp(cz_get(b, CZP_END, line, env), 1, 8), sus = cz_get(b, CZP_SUS, line, env);
+    float lvl[8], w[8], xs[9], prev = 0.0f;
+    for (int k = 0; k < end; ++k) {
+        const float r = static_cast<float>(cz_get(b, CZP_RATE1 + k, line, env)) / 99.0f;
+        lvl[k] = k == end - 1 ? 0.0f : static_cast<float>(cz_get(b, CZP_LEVEL1 + k, line, env)) / 99.0f;
+        const float slow = (1.0f - r) * (1.0f - r);
+        w[k] = 2.0f + 40.0f * slow * (0.25f + 0.75f * std::fabs(lvl[k] - prev));
+        prev = lvl[k];
+    }
+    const int hold = sus > 0 && sus < end ? sus - 1 : -1;
+    {   // stretched to the width: 8 steps at most, so the shape stays readable
+        float tot = hold >= 0 ? 14.0f : 0.0f;
+        for (int k = 0; k < end; ++k) tot += w[k];
+        const float k0 = (LKG_W - 1 - (hold >= 0 ? 14.0f : 0.0f)) / (tot - (hold >= 0 ? 14.0f : 0.0f));
+        if (k0 > 1.0f) for (int k = 0; k < end; ++k) w[k] *= k0;
+    }
+    lkg_env(g, end, 0.0f, lvl, w, hold, 14.0f, xs);
+    (void)xs;
+    // the steps: a tick under each step's end, the sustain point as a dotted line up
+    float xend[8];
+    {   // the end of each segment before a plateau: recompute with the same scale
+        float tot = hold >= 0 ? 14.0f : 0.0f;
+        for (int k = 0; k < end; ++k) tot += w[k];
+        const float sc = tot > LKG_W - 1 ? (LKG_W - 1) / tot : 1.0f;
+        float xx = 0.0f;
+        for (int k = 0; k < end; ++k) {
+            xx += w[k] * sc;
+            xend[k] = xx;
+            if (k == hold) xx += 14.0f * sc;
+        }
+    }
+    for (int k = 0; k < end; ++k) {
+        const int xe = static_cast<int>(lroundf(xend[k]));
+        lkg_px(g, xe, static_cast<int>(LKG_BOT) - 1);
+        lkg_px(g, xe, static_cast<int>(LKG_BOT) - 2);
+        if (k == x->gfx_step) lkg_fill(g, xe - 1, static_cast<int>(lroundf(lkg_ly(lvl[k]))) - 1, 3, 3);
+    }
+    if (hold >= 0) {
+        const int xh = static_cast<int>(lroundf(xend[hold]));
+        lkg_vdots(g, xh, static_cast<int>(LKG_TOP), static_cast<int>(LKG_BOT), 3);
+        lkg_text(g, xh + 2, static_cast<int>(LKG_TOP), "S");
+    }
+}
+
+// The line's wave at DCW 0 (dotted, the sine) and at the DCW envelope's peak; with wave 2 the
+// two waves one after the other, as the CZ plays them.
+void gfx_wave(t_cz4* x, lkg_t* g) {
+    const cz4::Synth& y = *x->synth;
+    const uint8_t* b = y.tone();
+    const int line = sel(y, "line");
+    const unsigned w1 = static_cast<unsigned>(cz_get(b, CZP_WAVE, line, 0));
+    const int w2p = cz_get(b, CZP_WAVE2, line, 0);
+    const unsigned w2 = w2p ? static_cast<unsigned>(w2p - 1) : w1;
+    const unsigned win = static_cast<unsigned>(cz_get(b, CZP_WINDOW, line, 0));
+    int peak = 0;
+    const int end = std::clamp(cz_get(b, CZP_END, line, CZ_ENV_DCW), 1, 8);
+    for (int k = 0; k < end - 1; ++k) peak = std::max(peak, cz_get(b, CZP_LEVEL1 + k, line, CZ_ENV_DCW));
+    const float dcw = static_cast<float>(peak) * 8.0f;   // as the engine: level * 8 phase units
+    float v0[LKG_W], v1[LKG_W];
+    for (int i = 0; i < LKG_W; ++i) {
+        const unsigned wv = i < LKG_W / 2 ? w1 : w2;
+        const uint32_t ph = static_cast<uint32_t>(static_cast<double>(i % (LKG_W / 2)) / (LKG_W / 2) * 4294967296.0);
+        v0[i] = cz_wave_clean(wv, win, ph, 0.0f);
+        v1[i] = cz_wave_clean(wv, win, ph, dcw);
+    }
+    lkg_plot_dots(g, v0, LKG_W, -1.0f, 1.0f, 3);
+    lkg_plot(g, v1, LKG_W, -1.0f, 1.0f);
+}
+
+void gfx_draw(void* owner, lkg_t* g, int kind) {
+    t_cz4* x = static_cast<t_cz4*>(owner);
+    if (kind == 1) gfx_env(x, g);
+    else if (kind == 2) gfx_wave(x, g);
+}
+
+// a picture for the control just changed; false: the text line as before
+bool gfx_show(t_cz4* x, const cz4::Control& c, const std::string& value) {
+    int step;
+    const int kind = gfx_kind(c, &step);
+    if (!kind) return false;
+    const cz4::Synth& y = *x->synth;
+    x->gfx_step = step;
+    const std::string where = kind == 1
+        ? std::string(kEnvName[std::clamp(sel(y, "env"), 0, 2)]) + std::to_string(sel(y, "line") + 1) + " "
+        : "L" + std::to_string(sel(y, "line") + 1) + " ";
+    return lkg_pd_show(x->gfx, kind, (where + c.label).c_str(), value.c_str()) != 0;
 }
 
 void out_source(t_cz4* x, int t) {
@@ -603,9 +721,13 @@ void cz4_command(t_cz4* x, t_symbol* s, int argc, t_atom* argv) {
     else if (is("sustain")) y.set_sustain(f != 0);
     else if (is("stop")) y.all_notes_off();
     else if (is("reset")) y.silence();
+    else if (is("lkgfx")) { lkg_pd_on(x->gfx, n != 0); return; }
     else { pd_error(x, "cz4~: no method for '%s'", c); return; }
     report(x);
-    if (touched) out_display(x, touched->label, y.control_text(*touched, y.get_control(*touched)));
+    if (touched) {
+        const std::string v = y.control_text(*touched, y.get_control(*touched));
+        if (!gfx_show(x, *touched, v)) out_display(x, touched->label, v);
+    }
     if (stored) {
         const int et = y.edit_tone();
         out_display(x, "Stored", "User " + slot_label(y.patch(et)) + " " + y.name(et));
@@ -748,6 +870,9 @@ void* cz4_new(t_symbol*, int argc, t_atom* argv) {
     outlet_new(&x->obj, &s_signal);
     outlet_new(&x->obj, &s_signal);
     x->info = outlet_new(&x->obj, nullptr);
+    x->gfx = new lkg_pd_t();
+    lkg_pd_init(x->gfx, x->info, gfx_draw, x);
+    x->gfx_step = -1;
 
     if (argc > 0 && argv[0].a_type == A_FLOAT) x->synth->select_patch(static_cast<int>(atom_getfloat(argv)));
     report(x, true);
@@ -756,6 +881,8 @@ void* cz4_new(t_symbol*, int argc, t_atom* argv) {
 
 void cz4_free(t_cz4* x) {
     clock_free(x->timeout);
+    lkg_pd_free(x->gfx);
+    delete x->gfx;
     delete x->synth;
     delete x->midi;
     delete x->shown;
