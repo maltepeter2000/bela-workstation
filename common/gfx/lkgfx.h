@@ -197,8 +197,8 @@ static inline void lkg_filter(lkg_t *g, float fc, float res, int type, float hp)
         const float den = sqrtf((1.0f - w2) * (1.0f - w2) + w2 / (q * q));
         float m;
         switch (type) {
-        case LKG_LP24: {                                     /* 2 poles plain, 2 with the peak */
-            const float plain = 1.0f / (1.0f + w2);
+        case LKG_LP24: {                                     /* 2 poles plain (Butterworth), 2 with the peak */
+            const float plain = 1.0f / sqrtf(1.0f + w2 * w2);
             m = plain / den;
             break;
         }

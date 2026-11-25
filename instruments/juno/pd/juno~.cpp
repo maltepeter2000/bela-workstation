@@ -62,6 +62,7 @@
 #pragma GCC diagnostic ignored "-Wcast-function-type"
 #endif
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <cstring>
 #include <string>
@@ -76,6 +77,7 @@ extern "C" {
 }
 
 #include "juno_core.h"
+#include "../../../common/gfx/lkgfx_pd.h"
 
 namespace {
 
@@ -118,6 +120,7 @@ struct t_juno {
     int sysexout;              // send SysEx for every change, as a Juno-106 does
     int thru;                  // pass incoming MIDI on to outlet 3
     int store_to;              // savearm .. save: the user slot chosen, -1 none
+    lkg_pd_t* gfx;             // Launchkey pictures (common/gfx): 1 ADSR, 2 filter, 3 the DCO wave
 };
 
 // ---- data files -------------------------------------------------------------
@@ -214,6 +217,62 @@ void out_info(t_juno* x, int i) {
 
 // One line for a display (the OLED on Bela, later the Launchkey): what was
 // turned, which patch plays, what was stored.
+// ---- Launchkey pictures (custom firmware branch display-gfx) ------------------
+// The ADSR (attack, decay, sustain, release), the filter curve (cutoff, res, hpf) and the DCO
+// wave (pulse, saw, sub, pwm, pwmmode, noise) instead of the text line. "lkgfx 0" = text.
+
+int gfx_kind(const char* n) {
+    for (const char* k : {"attack", "decay", "sustain", "release"}) if (!std::strcmp(n, k)) return 1;
+    for (const char* k : {"cutoff", "res", "hpf"}) if (!std::strcmp(n, k)) return 2;
+    for (const char* k : {"pulse", "saw", "sub", "pwm", "pwmmode", "noise"}) if (!std::strcmp(n, k)) return 3;
+    return 0;
+}
+
+float ctl(const juno::Synth& y, const char* name) {
+    const juno::Control* c = juno::find_control(name);
+    return c ? static_cast<float>(y.get_control(*c)) : 0.0f;
+}
+
+void gfx_draw(void* owner, lkg_t* g, int kind) {
+    const juno::Synth& y = *static_cast<t_juno*>(owner)->synth;
+    if (kind == 1) {
+        // times grow steeply along the slider (1 ms .. 3 s, 2 ms .. 12 s): width 2 + 40 x^1.7
+        auto w = [](float v) { return 2.0f + 40.0f * std::pow(v / 127.0f, 1.7f); };
+        const float sus = ctl(y, "sustain") / 127.0f;
+        const float lvl[3] = {1.0f, sus, 0.0f};
+        const float wd[3] = {w(ctl(y, "attack")), w(ctl(y, "decay")), w(ctl(y, "release"))};
+        lkg_env(g, 3, 0.0f, lvl, wd, 1, 24.0f, nullptr);
+    } else if (kind == 2) {
+        // 24 dB low pass; the HPF positions 2 and 3 cut the bass (0 and 1: none drawn)
+        static const float kHp[4] = {0.0f, 0.0f, 0.14f, 0.24f};
+        const int hpf = std::clamp(static_cast<int>(ctl(y, "hpf")), 0, 3);
+        lkg_filter(g, ctl(y, "cutoff") / 127.0f, ctl(y, "res") / 127.0f, LKG_LP24, kHp[hpf]);
+    } else if (kind == 3) {
+        // the DCO's mixer: saw, pulse (width by pwm in MAN mode), sub square an octave down,
+        // noise; two periods of the DCO across the width
+        const bool saw = ctl(y, "saw") > 0, pulse = ctl(y, "pulse") > 0;
+        const float sub = ctl(y, "sub") / 127.0f, noise = ctl(y, "noise") / 127.0f;
+        const float pw = ctl(y, "pwmmode") > 0 ? 0.5f - 0.45f * ctl(y, "pwm") / 127.0f : 0.5f;
+        float v[LKG_W], lo = 0.0f, hi = 0.0f;
+        unsigned rnd = 12345u;
+        for (int i = 0; i < LKG_W; ++i) {
+            const float ph = static_cast<float>(i % 64) / 64.0f, ph2 = static_cast<float>(i) / 128.0f;
+            float s = 0.0f;
+            if (saw) s += 1.0f - 2.0f * ph;
+            if (pulse) s += ph < pw ? 1.0f : -1.0f;
+            s += sub * (ph2 < 0.5f ? 1.0f : -1.0f);
+            rnd = rnd * 1103515245u + 12345u;
+            s += noise * 0.6f * (static_cast<float>(rnd >> 16 & 0x7fff) / 16384.0f - 1.0f);
+            v[i] = s;
+            lo = std::min(lo, s);
+            hi = std::max(hi, s);
+        }
+        const float m = std::max(std::max(-lo, hi), 1.0f);
+        lkg_plot(g, v, LKG_W, -m, m);
+        lkg_hdots(g, 0, LKG_W - 1, static_cast<int>(lroundf(lkg_ly(0.5f))), 4);
+    }
+}
+
 void out_display(t_juno* x, const std::string& title, const std::string& value) {
     t_atom a[2];
     SETSYMBOL(&a[0], gensym(title.c_str()));
@@ -441,10 +500,14 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
     else if (is("sustain")) y.set_sustain(f != 0);
     else if (is("stop")) y.all_notes_off();
     else if (is("reset")) y.silence();
+    else if (is("lkgfx")) { lkg_pd_on(x->gfx, n != 0); return; }
     else { pd_error(x, "juno~: no method for '%s'", c); return; }
     report(x, false, echo);
-    if (touched)
-        out_display(x, touched->label, y.control_text(*touched, y.get_control(*touched)));
+    if (touched) {
+        const std::string v = y.control_text(*touched, y.get_control(*touched));
+        if (!lkg_pd_show(x->gfx, gfx_kind(touched->name), touched->label, v.c_str()))
+            out_display(x, touched->label, v);
+    }
     if (stored) out_display(x, "Stored", std::string("User ") + juno::user_name(y.patch()));
 }
 
@@ -592,6 +655,8 @@ void* juno_new(t_symbol*, int argc, t_atom* argv) {
     outlet_new(&x->obj, &s_signal);
     outlet_new(&x->obj, &s_signal);
     x->info = outlet_new(&x->obj, nullptr);
+    x->gfx = new lkg_pd_t();
+    lkg_pd_init(x->gfx, x->info, gfx_draw, x);
 
     if (argc > 0 && argv[0].a_type == A_FLOAT)
         x->synth->select_patch(static_cast<int>(atom_getfloat(argv)));
@@ -600,6 +665,8 @@ void* juno_new(t_symbol*, int argc, t_atom* argv) {
 }
 
 void juno_free(t_juno* x) {
+    lkg_pd_free(x->gfx);
+    delete x->gfx;
     delete x->synth;
     delete x->midi;
     delete x->shown;
