@@ -1469,7 +1469,7 @@
 #N canvas 0 50 760 560 lkdisplay 0;
 #X text 10 6 lkdisplay: display <title> <value> -> SysEx F0 7D 4C 4B 01 title 00 value F7 for [midiout]: the Launchkey custom firmware shows the two lines in its popup., f 100;
 #X obj 10 50 inlet;
-#X obj 10 75 route display;
+#X obj 10 75 route display lkgfx;
 #X obj 420 75 list;
 #X obj 420 100 t b b;
 #X msg 520 125 1;
@@ -1507,6 +1507,7 @@
 #X msg 10 470 get \$1 1;
 #X obj 200 470 expr if(\$f1 > 127 && \$f2 > 0 && \$f2 < \$f3 \, 63 \, \$f1);
 #X obj 200 510 outlet;
+#X obj 450 400 list split 1;
 #X connect 1 0 2 0;
 #X connect 2 0 3 1;
 #X connect 2 0 4 0;
@@ -1558,6 +1559,9 @@
 #X connect 36 1 38 1;
 #X connect 31 0 38 2;
 #X connect 38 0 39 0;
+#X connect 2 1 40 0;
+#X connect 40 0 39 0;
+#X connect 40 1 40 0;
 #X restore 572 1791 pd lkdisplay;
 #X obj 572 1821 midiout;
 #X connect 432 0 434 0;

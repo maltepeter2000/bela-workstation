@@ -18,6 +18,7 @@
 #endif
 #include "m_pd.h"
 #include "pdoly8_core.h"
+#include "p8gfx.h"
 #include <stdio.h>
 #include <string.h>
 #include <math.h>
@@ -82,6 +83,11 @@ typedef struct _pdoly8 {
     t_float  stack[16]; int nstack; /* mono: keys held, last on top */
     int      restoring;
     int      inited;               /* ch1 is set up once, then kept by defaults and presets */
+    p8gfx_t  gfx;                  /* Launchkey picture (lkgfx) */
+    int      gfx_on, gfx_kind;     /* kind: 1..3 DEG1..3, 4..5 timbre of DCO1..2, 0 none */
+    char     gfx_title[96];
+    t_clock *gfx_clk;
+    double   gfx_last;             /* logical time of the last picture sent */
     double   tick_t;               /* MIDI clock: logical time of the last tick, the mean tick in ms */
     float    tick_ms, bpm;         /* bpm 0 = no tempo yet */
     unsigned rnd;                  /* random voices */
@@ -789,10 +795,69 @@ static void pdoly8_disp(t_pdoly8 *x, t_symbol *name)
 
 /* display <label> <value> on outlet 3 after a setting was changed by a message or n (the
  * Launchkey display through [lkdisplay], as juno~, d50~ and cz4~ do) */
+/* ---- Launchkey picture: the DEG shape (env1-3 and the stages a1 ... r3) or the timbre's wave
+ * (har1, har2) instead of the text line, with custom firmware branch display-gfx; lkgfx 0 = text */
+static int gfx_kind_of(t_symbol *s)
+{
+    const char *n = s->s_name;
+    if (!strcmp(n, "env1")) return 1;
+    if (!strcmp(n, "env2")) return 2;
+    if (!strcmp(n, "env3")) return 3;
+    if (!strcmp(n, "har1")) return 4;
+    if (!strcmp(n, "har2")) return 5;
+    static const char *ST[6] = {"a", "d", "bp", "sl", "su", "r"};
+    for (int k = 0; k < 6; k++) {
+        size_t m = strlen(ST[k]);
+        if (!strncmp(n, ST[k], m) && n[m] >= '1' && n[m] <= '3' && !n[m + 1]) return n[m] - '0';
+    }
+    return 0;
+}
+
+static void gfx_send(void *ctx, const unsigned char *m, int len)
+{
+    t_pdoly8 *x = (t_pdoly8 *)ctx;
+    t_atom a[64];
+    if (len > 64) return;
+    for (int i = 0; i < len; i++) SETFLOAT(a + i, m[i]);
+    outlet_anything(x->x_dump, gensym("lkgfx"), len, a);
+}
+
+static void gfx_tick(t_pdoly8 *x)
+{
+    p8_engine_t *e = &x->e;
+    p8gfx_clear(&x->gfx, x->gfx_title);
+    if (x->gfx_kind >= 1 && x->gfx_kind <= 3) {
+        p8gfx_env(&x->gfx, e->deg[x->gfx_kind - 1]);
+    } else if (x->gfx_kind >= 4) {
+        static const float SQ[P8_FEET]  = {1.0f, 1.057f, 1.083f, 1.098f};
+        static const float SAW[P8_FEET] = {2.47f, 2.47f * 0.523f, 2.47f * 0.268f, 2.47f * 0.135f};
+        const int g = x->gfx_kind - 4;
+        float gain[P8_FEET], net, w[P8_FEET];
+        p8_path_gains(e->path, (float)x->ctl[g ? C_HAR2 : C_HAR1], e->hsnap, e->pfade, gain, &net);
+        const float wv = net >= 0.0f ? net : e->wav[g];
+        for (int f = 0; f < P8_FEET; f++) w[f] = (SQ[f] + wv * (SAW[f] - SQ[f])) * gain[f];
+        p8gfx_wave(&x->gfx, w);
+    }
+    /* everything again after a pause (the Launchkey may have been switched off) */
+    const int all = clock_gettimesince(x->gfx_last) > 3000.0;
+    p8gfx_flush(&x->gfx, all, gfx_send, x);
+    x->gfx_last = clock_getlogicaltime();
+}
+
+static void pdoly8_lkgfx(t_pdoly8 *x, t_floatarg f) { x->gfx_on = f != 0; }
+
 static void out_display(t_pdoly8 *x, t_symbol *name)
 {
     const char *l; char buf[64];
     if (!disp_text(x, name, &l, buf, sizeof buf)) return;
+    const int kind = x->gfx_on ? gfx_kind_of(name) : 0;
+    if (kind) {                                   /* a picture, at most every 50 ms */
+        snprintf(x->gfx_title, sizeof x->gfx_title, "%s %s", l, buf);
+        x->gfx_kind = kind;
+        const double since = clock_gettimesince(x->gfx_last);
+        clock_delay(x->gfx_clk, since >= 50.0 ? 0.0 : 50.0 - since);
+        return;
+    }
     t_atom a[2]; SETSYMBOL(a, gensym(l)); SETSYMBOL(a + 1, gensym(buf));
     outlet_anything(x->x_dump, gensym("display"), 2, a);
 }
@@ -1364,6 +1429,9 @@ static void *pdoly8_new(void)
         x->rep_v[i] = find_value(x, gensym(RANGE[i].name)); x->rep_last[i] = -1e30f;   /* first tick: all (no NaN: -ffast-math on the Bela) */
     }
     x->rep_clk = clock_new(x, (t_method)rep_tick);
+    x->gfx_clk = clock_new(x, (t_method)gfx_tick);
+    x->gfx_on = 1;
+    x->gfx_last = -1e9;
     x->canvas = canvas_getcurrent();
     x->syx_ch = 1;
     x->rnd = (unsigned)time(NULL) * 2654435761u | 1;
@@ -1381,6 +1449,7 @@ static void *pdoly8_new(void)
 static void pdoly8_free(t_pdoly8 *x)
 {
     clock_free(x->rep_clk);
+    clock_free(x->gfx_clk);
 #ifdef P8_OLED
     if (x->o_on) { x->o_quit = 1; pthread_join(x->o_th, 0); close(x->o_sock); x->o_on = 0; }
 #endif
@@ -1404,6 +1473,7 @@ void pdoly8_tilde_setup(void)
     class_addanything(pdoly8_class, (t_method)pdoly8_anything);
     class_addmethod(pdoly8_class, (t_method)pdoly8_note, gensym("note"), A_FLOAT, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_bpm, gensym("bpm"), A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_lkgfx, gensym("lkgfx"), A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_midiclock, gensym("midiclock"), 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_ctl, gensym("ctl"), A_FLOAT, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_voice, gensym("voice"), A_FLOAT, A_FLOAT, 0);

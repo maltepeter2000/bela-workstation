@@ -6,7 +6,9 @@ in its popup when this SysEx arrives on its MIDI port:
 
     F0 7D 4C 4B 01 <title> 00 <value> F7     (7D = non-commercial ID, "LK", 01 = popup)
 
-Inlet: display <title> <value> (what every instrument says on its last outlet; everything else is ignored).
+Inlet: display <title> <value> (what every instrument says on its last outlet), lkgfx <bytes>: a
+complete SysEx message of a picture (pdoly8~, firmware branch display-gfx), passed on as it is;
+everything else is ignored.
 Outlet: the bytes, one float each, for [midiout]. Characters outside ASCII become '?'.
 At most one message per THROTTLE ms: the first at once, then the newest one at the end of the
 interval. A display needs no more, and on Bela every MIDI byte is a system call in the audio
@@ -30,7 +32,7 @@ def build():
     p.note("lkdisplay: display <title> <value> -> SysEx F0 7D 4C 4B 01 title 00 value F7 for [midiout]: "
            "the Launchkey custom firmware shows the two lines in its popup.", 10, 6)
     inl = p.add("inlet", 10, 50)
-    rd = p.add("route display", 10, 75); p.con(inl, 0, rd, 0)
+    rd = p.add("route display lkgfx", 10, 75); p.con(inl, 0, rd, 0)
     # throttle: keep the newest line; send it now when the gate is open, else when it opens
     keep = p.add("list", 420, 75); p.con(rd, 0, keep, 1)          # newest line (cold)
     tb = p.add("t b b", 420, 100); p.con(rd, 0, tb, 0)
@@ -75,6 +77,11 @@ def build():
     ex = p.add("expr if($f1 > 127 && $f2 > 0 && $f2 < $f3, 63, $f1)", 200, 470)
     p.con(stor, 0, ex, 0); p.con(tff, 1, ex, 1); p.con(last, 0, ex, 2)
     out = p.add("outlet", 200, 510); p.con(ex, 0, out, 0)
+    # lkgfx: the bytes of a picture's SysEx, one after the other (not throttled: the instrument
+    # sends at most every 50 ms and only the pieces that changed)
+    gs = p.add("list split 1", 450, 400); p.con(rd, 1, gs, 0)
+    p.con(gs, 0, out, 0)
+    p.con(gs, 1, gs, 0)
     return "\n".join(p.lines(top=True)) + "\n"
 
 
