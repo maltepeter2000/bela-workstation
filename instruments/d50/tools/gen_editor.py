@@ -55,7 +55,7 @@ def cc_text(ns):
     ccs = [CC[n] for n in ns if n in CC]
     if not ccs:
         return "no CC (mouse only)"
-    return f"CC {min(ccs)}-{max(ccs)}" if max(ccs) - min(ccs) + 1 == len(ccs) else "CC " + " ".join(map(str, ccs))
+    return "CC " + " ".join(map(str, ccs))        # every CC, never a range (see the pd-help-layout skill)
 
 
 class Canvas:

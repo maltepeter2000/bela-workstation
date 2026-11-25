@@ -42,7 +42,7 @@
 #X symbolatom 730 94 36 0 0 0 - \$0-syxst -;
 #X text 1060 94 Poly-800 MIDI channel;
 #X floatatom 1220 94 2 1 16 0 - \$0-sxchv \$0-syxch;
-#X obj 6 172 cnv 15 640 82 empty empty PAGE\ 1\ \ PLAY\ \ CC\ 20-27 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 172 cnv 15 640 82 empty empty PAGE\ 1\ \ PLAY\ \ CC\ 20\ 21\ 22\ 23\ 24\ 25\ 26\ 27 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 190 har1 20;
 #X text 10 202 Timbre 1;
 #X obj 10 220 hsl 70 12 0 127 0 0 \$0-e-har1 \$0-v-har1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -165,7 +165,7 @@
 #X obj 570 396 hsl 70 12 0 127 0 0 \$0-e-nois \$0-v-nois empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 412 3 0 127 0 - \$0-v-nois \$0-e-nois;
 #X symbolatom 596 412 7 0 0 0 - \$0-t-nois -;
-#X obj 6 436 cnv 15 640 82 empty empty PAGE\ 4\ \ WALSH-RING\ \ CC\ 46-53 4 8 0 10 #efefe4 #1e3791 0;
+#X obj 6 436 cnv 15 640 82 empty empty PAGE\ 4\ \ WALSH-RING\ \ CC\ 46\ 47\ 48\ 49\ 50\ 51\ 52\ 53 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 454 wsh1 46;
 #X text 10 466 Walsh pos 1;
 #X obj 10 484 hsl 70 12 0 127 0 0 \$0-e-wsh1 \$0-v-wsh1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -206,7 +206,7 @@
 #X obj 570 484 hsl 70 12 0 127 0 0 \$0-e-rmf \$0-v-rmf empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 500 3 0 127 0 - \$0-v-rmf \$0-e-rmf;
 #X symbolatom 596 500 7 0 0 0 - \$0-t-rmf -;
-#X obj 6 524 cnv 15 640 82 empty empty PAGE\ 5\ \ SYNC-XMOD\ \ CC\ 54-61 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 524 cnv 15 640 82 empty empty PAGE\ 5\ \ SYNC-XMOD\ \ CC\ 54\ 55\ 56\ 57\ 58\ 59\ 60\ 61 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 542 sync 54;
 #X text 10 554 Sync;
 #X obj 10 572 hsl 70 12 0 127 0 0 \$0-e-sync \$0-v-sync empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -283,7 +283,7 @@
 #X obj 490 660 hsl 70 12 0 127 0 0 \$0-e-mgk \$0-v-mgk empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 490 676 3 0 127 0 - \$0-v-mgk \$0-e-mgk;
 #X symbolatom 516 676 7 0 0 0 - \$0-t-mgk -;
-#X obj 6 700 cnv 15 640 82 empty empty PAGE\ 7\ \ DELAY-EQ\ \ CC\ 76-83 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 700 cnv 15 640 82 empty empty PAGE\ 7\ \ DELAY-EQ\ \ CC\ 76\ 77\ 78\ 79\ 80\ 81\ 82\ 83 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 718 dtim 76;
 #X text 10 730 Delay time;
 #X obj 10 748 hsl 70 12 0 127 0 0 \$0-e-dtim \$0-v-dtim empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;

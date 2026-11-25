@@ -25,7 +25,7 @@
 #X obj 394 94 bng 17 250 50 0 \$0-rnd-brass empty brass 21 9 0 10 #fcfcfc #000000 #000000;
 #X obj 494 94 bng 17 250 50 0 \$0-rnd-pad empty pad 21 9 0 10 #fcfcfc #000000 #000000;
 #X obj 594 94 bng 17 250 50 0 \$0-rnd-strings empty strings 21 9 0 10 #fcfcfc #000000 #000000;
-#X obj 6 124 cnv 15 672 74 empty empty PERFORM\ \ CC\ 20-27 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 124 cnv 15 672 74 empty empty PERFORM\ \ CC\ 20\ 21\ 22\ 23\ 24\ 25\ 26\ 27 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 142 mod A;
 #X obj 10 160 hsl 74 12 0 127 0 0 \$0-e-moda \$0-v-moda empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 10 176 3 0 127 0 - \$0-v-moda \$0-e-moda;
@@ -58,7 +58,7 @@
 #X obj 598 160 hsl 74 12 0 127 0 0 \$0-e-vol \$0-v-vol empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 598 176 3 0 127 0 - \$0-v-vol \$0-e-vol;
 #X symbolatom 624 176 8 0 0 0 - \$0-t-vol -;
-#X obj 6 204 cnv 15 672 74 empty empty SYN\ 1\ \ CC\ 28-31\ 33-36 4 8 0 10 #efefe4 #1e3791 0;
+#X obj 6 204 cnv 15 672 74 empty empty SYN\ 1\ \ CC\ 28\ 29\ 30\ 31\ 33\ 34\ 35\ 36 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 222 algorithm;
 #X obj 10 240 hsl 74 12 0 127 0 0 \$0-e-algo \$0-v-algo empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 10 256 3 0 127 0 - \$0-v-algo \$0-e-algo;
@@ -83,7 +83,7 @@
 #X obj 430 240 hsl 74 12 0 127 0 0 \$0-e-lvlc \$0-v-lvlc empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 430 256 3 0 127 0 - \$0-v-lvlc \$0-e-lvlc;
 #X symbolatom 456 256 8 0 0 0 - \$0-t-lvlc -;
-#X obj 6 284 cnv 15 672 74 empty empty SYN\ 2\ \ CC\ 37\ 39-45 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 284 cnv 15 672 74 empty empty SYN\ 2\ \ CC\ 37\ 39\ 40\ 41\ 42\ 43\ 44\ 45 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 302 wave C;
 #X obj 10 320 hsl 74 12 0 127 0 0 \$0-e-wavc \$0-v-wavc empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 10 336 3 0 127 0 - \$0-v-wavc \$0-e-wavc;
@@ -108,7 +108,7 @@
 #X obj 430 320 hsl 74 12 0 127 0 0 \$0-e-finb \$0-v-finb empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 430 336 3 0 127 0 - \$0-v-finb \$0-e-finb;
 #X symbolatom 456 336 8 0 0 0 - \$0-t-finb -;
-#X obj 6 364 cnv 15 672 74 empty empty ENV\ C\ \ CC\ 46-53 4 8 0 10 #efefe4 #1e3791 0;
+#X obj 6 364 cnv 15 672 74 empty empty ENV\ C\ \ CC\ 46\ 47\ 48\ 49\ 50\ 51\ 52\ 53 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 382 decay;
 #X obj 10 400 hsl 74 12 0 127 0 0 \$0-e-decc \$0-v-decc empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 10 416 3 0 127 0 - \$0-v-decc \$0-e-decc;
@@ -133,7 +133,7 @@
 #X obj 430 400 hsl 74 12 0 127 0 0 \$0-e-rscc \$0-v-rscc empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 430 416 3 0 127 0 - \$0-v-rscc \$0-e-rscc;
 #X symbolatom 456 416 8 0 0 0 - \$0-t-rscc -;
-#X obj 6 444 cnv 15 672 74 empty empty ENV\ A\ \ CC\ 54-61 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 444 cnv 15 672 74 empty empty ENV\ A\ \ CC\ 54\ 55\ 56\ 57\ 58\ 59\ 60\ 61 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 462 attack;
 #X obj 10 480 hsl 74 12 0 127 0 0 \$0-e-atka \$0-v-atka empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 10 496 3 0 127 0 - \$0-v-atka \$0-e-atka;
@@ -166,7 +166,7 @@
 #X obj 598 480 hsl 74 12 0 127 0 0 \$0-e-rsca \$0-v-rsca empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 598 496 3 0 127 0 - \$0-v-rsca \$0-e-rsca;
 #X symbolatom 624 496 8 0 0 0 - \$0-t-rsca -;
-#X obj 6 524 cnv 15 672 74 empty empty ENV\ B\ \ CC\ 62-63\ 70-75 4 8 0 10 #efefe4 #1e3791 0;
+#X obj 6 524 cnv 15 672 74 empty empty ENV\ B\ \ CC\ 62\ 63\ 70\ 71\ 72\ 73\ 74\ 75 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 542 attack;
 #X obj 10 560 hsl 74 12 0 127 0 0 \$0-e-atkb \$0-v-atkb empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 10 576 3 0 127 0 - \$0-v-atkb \$0-e-atkb;
@@ -199,7 +199,7 @@
 #X obj 598 560 hsl 74 12 0 127 0 0 \$0-e-rscb \$0-v-rscb empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 598 576 3 0 127 0 - \$0-v-rscb \$0-e-rscb;
 #X symbolatom 624 576 8 0 0 0 - \$0-t-rscb -;
-#X obj 6 604 cnv 15 672 74 empty empty LFO\ \ CC\ 76-83 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 604 cnv 15 672 74 empty empty LFO\ \ CC\ 76\ 77\ 78\ 79\ 80\ 81\ 82\ 83 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 622 speed;
 #X obj 10 640 hsl 74 12 0 127 0 0 \$0-e-lspd \$0-v-lspd empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 10 656 3 0 127 0 - \$0-v-lspd \$0-e-lspd;
@@ -228,7 +228,7 @@
 #X obj 514 640 hsl 74 12 0 127 0 0 \$0-e-lsyn \$0-v-lsyn empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 514 656 3 0 127 0 - \$0-v-lsyn \$0-e-lsyn;
 #X symbolatom 540 656 8 0 0 0 - \$0-t-lsyn -;
-#X obj 6 684 cnv 15 672 74 empty empty VOICE\ \ CC\ 85-87\ 89-93 4 8 0 10 #efefe4 #1e3791 0;
+#X obj 6 684 cnv 15 672 74 empty empty VOICE\ \ CC\ 85\ 86\ 87\ 89\ 90\ 91\ 92\ 93 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 702 poly/mono;
 #X obj 10 720 hsl 74 12 0 127 0 0 \$0-e-poly \$0-v-poly empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 10 736 3 0 127 0 - \$0-v-poly \$0-e-poly;
@@ -1331,7 +1331,7 @@
 #X obj 676 44 cnv 15 640 100 empty empty TX81Z\ LCD 4 8 0 10 #f4ece4 #1e3791 0;
 #X symbolatom 680 64 20 0 0 0 - \$0-txedit-lcd0 -;
 #X symbolatom 680 86 20 0 0 0 - \$0-txedit-lcd1 -;
-#X obj 6 154 cnv 15 640 82 empty empty PAGE\ 1\ \ VOICE\ \ CC\ 20-27 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 154 cnv 15 640 82 empty empty PAGE\ 1\ \ VOICE\ \ CC\ 20\ 21\ 22\ 23\ 24\ 25\ 26\ 27 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 172 alg 20;
 #X text 10 184 Algorithm;
 #X obj 10 202 hsl 70 12 0 127 0 0 \$0-txedit-e-alg \$0-txedit-v-alg empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -1454,7 +1454,7 @@
 #X obj 570 378 hsl 70 12 0 127 0 0 \$0-txedit-e-rr2 \$0-txedit-v-rr2 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 394 3 0 127 0 - \$0-txedit-v-rr2 \$0-txedit-e-rr2;
 #X symbolatom 596 394 7 0 0 0 - \$0-txedit-t-rr2 -;
-#X obj 6 418 cnv 15 640 82 empty empty PAGE\ 4\ \ OP3\ \ CC\ 46-53 4 8 0 10 #efefe4 #1e3791 0;
+#X obj 6 418 cnv 15 640 82 empty empty PAGE\ 4\ \ OP3\ \ CC\ 46\ 47\ 48\ 49\ 50\ 51\ 52\ 53 4 8 0 10 #efefe4 #1e3791 0;
 #X text 10 436 crs3 46;
 #X text 10 448 Freq coarse;
 #X obj 10 466 hsl 70 12 0 127 0 0 \$0-txedit-e-crs3 \$0-txedit-v-crs3 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -1495,7 +1495,7 @@
 #X obj 570 466 hsl 70 12 0 127 0 0 \$0-txedit-e-rr3 \$0-txedit-v-rr3 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 482 3 0 127 0 - \$0-txedit-v-rr3 \$0-txedit-e-rr3;
 #X symbolatom 596 482 7 0 0 0 - \$0-txedit-t-rr3 -;
-#X obj 6 506 cnv 15 640 82 empty empty PAGE\ 5\ \ OP4\ \ CC\ 54-61 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 506 cnv 15 640 82 empty empty PAGE\ 5\ \ OP4\ \ CC\ 54\ 55\ 56\ 57\ 58\ 59\ 60\ 61 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 524 crs4 54;
 #X text 10 536 Freq coarse;
 #X obj 10 554 hsl 70 12 0 127 0 0 \$0-txedit-e-crs4 \$0-txedit-v-crs4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -1577,7 +1577,7 @@
 #X obj 570 642 hsl 70 12 0 127 0 0 \$0-txedit-e-kvs4 \$0-txedit-v-kvs4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 570 658 3 0 127 0 - \$0-txedit-v-kvs4 \$0-txedit-e-kvs4;
 #X symbolatom 596 658 7 0 0 0 - \$0-txedit-t-kvs4 -;
-#X obj 6 682 cnv 15 640 82 empty empty PAGE\ 7\ \ LFO\ \ CC\ 76-83 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 6 682 cnv 15 640 82 empty empty PAGE\ 7\ \ LFO\ \ CC\ 76\ 77\ 78\ 79\ 80\ 81\ 82\ 83 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 10 700 lfw 76;
 #X text 10 712 LFO wave;
 #X obj 10 730 hsl 70 12 0 127 0 0 \$0-txedit-e-lfw \$0-txedit-v-lfw empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -1700,7 +1700,7 @@
 #X obj 1240 290 hsl 70 12 0 127 0 0 \$0-txedit-e-ame4 \$0-txedit-v-ame4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 306 3 0 127 0 - \$0-txedit-v-ame4 \$0-txedit-e-ame4;
 #X symbolatom 1266 306 7 0 0 0 - \$0-txedit-t-ame4 -;
-#X obj 676 330 cnv 15 640 82 empty empty PAGE\ 10\ \ EG\ SHIFT\ /\ BIAS\ \ CC\ 108-115 4 8 0 10 #fafaf2 #1e3791 0;
+#X obj 676 330 cnv 15 640 82 empty empty PAGE\ 10\ \ EG\ SHIFT\ /\ BIAS\ \ CC\ 108\ 109\ 110\ 111\ 112\ 113\ 114\ 115 4 8 0 10 #fafaf2 #1e3791 0;
 #X text 680 348 sh1 108;
 #X text 680 360 EG shift;
 #X obj 680 378 hsl 70 12 0 127 0 0 \$0-txedit-e-sh1 \$0-txedit-v-sh1 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
@@ -1741,7 +1741,7 @@
 #X obj 1240 378 hsl 70 12 0 127 0 0 \$0-txedit-e-ebs4 \$0-txedit-v-ebs4 empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;
 #X floatatom 1240 394 3 0 127 0 - \$0-txedit-v-ebs4 \$0-txedit-e-ebs4;
 #X symbolatom 1266 394 7 0 0 0 - \$0-txedit-t-ebs4 -;
-#X obj 676 418 cnv 15 640 82 empty empty PAGE\ 11\ \ CONTROLLERS\ \ CC\ 116-119 4 8 0 10 #efefe4 #1e3791 0;
+#X obj 676 418 cnv 15 640 82 empty empty PAGE\ 11\ \ CONTROLLERS\ \ CC\ 116\ 117\ 118\ 119 4 8 0 10 #efefe4 #1e3791 0;
 #X text 680 436 pbr 116;
 #X text 680 448 Bend range;
 #X obj 680 466 hsl 70 12 0 127 0 0 \$0-txedit-e-pbr \$0-txedit-v-pbr empty -2 -8 0 10 #fcfcfc #000000 #000000 0 1;

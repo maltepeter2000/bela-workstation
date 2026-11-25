@@ -59,7 +59,7 @@ def macros():
 
 MACROS, PAGES = macros()
 import ctlayer                                   # noqa: E402
-CCTEXT = [ctlayer.page_text(k) for k in range(len(PAGES))]
+CCTEXT = [" ".join(map(str, ctlayer.PAGES[k])) for k in range(len(PAGES))]   # every CC, never a range
 assert len(MACROS) == len({m[0] for m in MACROS})
 assert all(sum(1 for m in MACROS if m[2] == k) <= 8 for k in range(len(PAGES)))
 
