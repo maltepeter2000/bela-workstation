@@ -30,6 +30,7 @@
 #define P8_DDL_LP   7000.0f       /* band limit of the delay path, 2 poles (provisional) */
 #define P8_DDL_T0   4.24f         /* delay time at 0, ms: 4 ms in the manual, 6 % longer measured */
 #define P8_DDL_FB15 0.70f         /* loop gain at feedback 15 (measured: -3.1 dB per echo) */
+#define P8_DDL_SYNC_MIN 50.0f    /* sync acts from here on: shorter times are flanger and chorus */
 #define P8_DDL_GATE 0.004f        /* echo gate threshold (about -48 dB re full scale) */
 #define P8_DDL_MF0   0.05f        /* delay mod rate at 0, Hz (measured: 11 -> 0.26 Hz, 21 -> 1.15 Hz; half the manual's 0.1-10 Hz) */
 #define P8_NORM_REF 2.1203f       /* sqrt(sum w^2) of the square net, all feet */
@@ -256,6 +257,7 @@ void p8_set_ddl(p8_engine_t *e, float time, float fb, float mf, float mi, float 
     e->ddl_time = clampf(time, 0.0f, 99.0f); e->ddl_fb = clampf(fb, 0.0f, 15.0f);
     e->ddl_mf = clampf(mf, 0.0f, 31.0f); e->ddl_mi = clampf(mi, 0.0f, 31.0f); e->ddl_lev = clampf(lev, 0.0f, 15.0f);
     e->ddl_ms = P8_DDL_T0 * exp2f(8.0f * e->ddl_time / 99.0f);      /* measured: 70 -> 216 ms, 99 -> 1.08 s */
+    if (e->ddl_sync_ms > 0.0f && e->ddl_ms >= P8_DDL_SYNC_MIN) e->ddl_ms = e->ddl_sync_ms;   /* MIDI sync: echoes only */
     /* mod depth: the time swings 1:5 at 31 (manual, measured); below that the
      * swing falls by about 10 dB per 10 steps (measured at 21 and 11); 0 = none */
     e->ddl_g = (exp2f((e->ddl_mi - 31.0f) * 0.33219f) - 0.000794f) * (1.0f / 0.999206f);

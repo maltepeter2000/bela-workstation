@@ -136,7 +136,7 @@ BLOCKS = [
       "mgk (0): 1: every key restarts the MG cycle (noise draws a new value), so every "
       "note starts its vibrato or sweep the same way. 0: it runs freely, as on the original."]),
     ("Delay settings",
-     [[("dtim", 0, 99), ("dfb", 0, 15)], [("dmf", 0, 31), ("dmi", 0, 31)], [("dlev", 0, 15), ("dgld", 0, 1)]],
+     [[("dtim", 0, 99), ("dfb", 0, 15)], [("dmf", 0, 31), ("dmi", 0, 31)], [("dlev", 0, 15), ("dgld", 0, 1)], [("dsyn", 0, 12)]],
      ["delay flanger", "delay chorus1", "delay chorus2", "delay slap",
       "delay long", "delay off"],
      ["The digital delay of the Poly-800 II (71-75), measured: the echo is in phase on "
@@ -148,6 +148,11 @@ BLOCKS = [
       "dmi (0): mod depth 0-31 (31: the time swings 1:5, about 10 dB less per 10 steps "
       "below).",
       "dlev (0): echo level 0-15, 0 = off.",
+      "dsyn (0): MIDI sync of the delay time: 0 off, 1-12 = 1/32 1/16T 1/16 1/8T 1/16. 1/8 "
+      "1/4T 1/8. 1/4 1/2T 1/4. 1/2 of the tempo from MIDI clock (midiclock, from "
+      "[midirealtimein], in pdoly8.i~ already wired) or bpm <x>. Only for echoes: where dtim "
+      "gives 50 ms or more, so flanger and chorus keep their time. Longer than 1.08 s: "
+      "halved until it fits. Without a tempo the time of dtim stays.",
       "dgld (1): 1: changes glide (time like a tape, feedback and level smoothed), for MIDI CC and modulation, 0: every change mutes the echo for 40 ms, as on the original.",
       "Presets: flanger (4 ms, slow sweep, feedback), chorus1 (fast, shallow), chorus2 "
       "(slow, wider), slap (120 ms), long (0.5 s with repeats), off."]),

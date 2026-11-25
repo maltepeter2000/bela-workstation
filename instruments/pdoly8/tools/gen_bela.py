@@ -54,7 +54,7 @@ CC_ROWS = [
     ("MG",          ["mgr", "mgd", "mgi", "mgv", "hmg", "mgw", "mgk", None]),
     ("DELAY-EQ",    ["dtim", "dfb", "dmf", "dmi", "dlev", "dgld", "treb", "bass"]),
     ("PLAY MODE",   ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
-    ("MORE",        ["atk", "rel", "vol", "tone", "leak", "pol", "trg"]),
+    ("MORE",        ["atk", "rel", "vol", "tone", "leak", "pol", "trg", "dsyn"]),
 ]
 # not on the pages (editor and messages only): ch1 (the MIDI channel, at the top of the editor)
 CC_OF = ctlayer.cc_map(CC_ROWS)                  # name -> CC

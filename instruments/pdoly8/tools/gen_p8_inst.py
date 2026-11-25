@@ -26,4 +26,4 @@ if __name__ == "__main__":
                   pads=os.path.join(PD, "p8pads.pd"), nav=os.path.join(PD, "p8nav.pd"),
                   lkdisplay=os.path.join(PD, "lkdisplay.pd"),
                   banks=[], editor_bank="p8user-bank.txt",
-                  midi=("notein",), channel_msg="ch1")
+                  midi=("notein",), channel_msg="ch1", clock=True)

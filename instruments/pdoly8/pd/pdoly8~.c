@@ -48,7 +48,7 @@ enum {
        X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
        X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO,
        X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, X_HMG, X_RMF, X_RETR, X_DRFT,
-       X_FMIG, X_DGLD, X_XMOD, X_EXTFM, X_XME, X_XMM, X_MGW, X_MGK, NEXT };
+       X_FMIG, X_DGLD, X_XMOD, X_EXTFM, X_XME, X_XMM, X_MGW, X_MGK, X_DSYN, NEXT };
 static int is_legacy(int i)                     /* FM before 25 Nov 2026, dump only */
 { return i == X_FM || i == X_FM2 || i == X_FMR || i == X_FMHZ || i == X_FMIG || i == X_FMS; }
 static const char *EXT_NAME[NEXT] = {
@@ -58,11 +58,11 @@ static const char *EXT_NAME[NEXT] = {
     "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3", "r3", "mgd", "mgv", "mgr", "treb",
     "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono", "pwm1", "pwm2", "swe", "swm", "ring",
     "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp", "hmg", "rmf", "retr", "drft",
-    "fmig", "dgld", "xmod", "extfm", "xme", "xmm", "mgw", "mgk"};
+    "fmig", "dgld", "xmod", "extfm", "xme", "xmm", "mgw", "mgk", "dsyn"};
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 25, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
     31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0, 0, 0, 8, 0, 0, 30, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 64, 1, 0, 0, 0, 0, 0, 0};
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 64, 1, 0, 0, 0, 0, 0, 0, 0};
 
 /* performance controls (see apply_perf) */
 static const char *PERF_NAME[3] = {"atk", "rel", "vol"};
@@ -82,6 +82,8 @@ typedef struct _pdoly8 {
     t_float  stack[16]; int nstack; /* mono: keys held, last on top */
     int      restoring;
     int      inited;               /* ch1 is set up once, then kept by defaults and presets */
+    double   tick_t;               /* MIDI clock: logical time of the last tick, the mean tick in ms */
+    float    tick_ms, bpm;         /* bpm 0 = no tempo yet */
     unsigned rnd;                  /* random voices */
     float   *buf; int bufn;
     t_clock *rep_clk;              /* reports changed settings as "info" on outlet 3 */
@@ -148,6 +150,44 @@ static void update_levels(t_pdoly8 *x)
 }
 
 static void rep_kick(t_pdoly8 *x);
+
+/* Delay sync: the delay time from the tempo (MIDI clock or bpm), in note values of a quarter.
+ * Only for echoes: below 50 ms (flanger, chorus) the time set stays, see p8_set_ddl. Longer
+ * than the delay's 1.08 s: halved until it fits. */
+static const float SYNC_BEATS[] = {0, 0.125f, 1.0f / 6, 0.25f, 1.0f / 3, 0.375f, 0.5f, 2.0f / 3, 0.75f, 1, 4.0f / 3, 1.5f, 2};
+#define NSYNC ((int)(sizeof SYNC_BEATS / sizeof SYNC_BEATS[0]))
+static void sync_update(t_pdoly8 *x)
+{
+    p8_engine_t *e = &x->e;
+    const int k = (int)x->ext[X_DSYN];
+    float ms = 0.0f;
+    if (k > 0 && k < NSYNC && x->bpm > 0.0f) {
+        ms = 60000.0f / x->bpm * SYNC_BEATS[k];
+        while (ms > 1080.0f) ms *= 0.5f;
+    }
+    e->ddl_sync_ms = ms;
+    p8_set_ddl(e, (float)x->ext[X_DTIM], (float)x->ext[X_DFB], (float)x->ext[X_DMF], (float)x->ext[X_DMI], (float)x->ext[X_DLEV]);
+}
+
+/* bpm <x>: the tempo directly (0 = none) */
+static void pdoly8_bpm(t_pdoly8 *x, t_floatarg f)
+{
+    x->bpm = f > 0 ? clampf_((float)f, 20.0f, 400.0f) : 0.0f;
+    sync_update(x);
+}
+
+/* midiclock: one MIDI clock tick (0xF8, 24 per quarter), from [midirealtimein]. The mean tick
+ * interval gives the tempo; the delay follows only changes above 0.3 %, so clock jitter does
+ * not move it. A pause of more than 0.5 s starts the measurement again. */
+static void pdoly8_midiclock(t_pdoly8 *x)
+{
+    const double dt = clock_gettimesince(x->tick_t);
+    x->tick_t = clock_getlogicaltime();
+    if (dt > 500.0 || dt <= 0.0) { x->tick_ms = 0; return; }
+    x->tick_ms = x->tick_ms > 0 ? x->tick_ms + 0.08f * ((float)dt - x->tick_ms) : (float)dt;
+    const float bpm = 60000.0f / (x->tick_ms * 24.0f);
+    if (x->bpm <= 0.0f || fabsf(bpm - x->bpm) > 0.003f * x->bpm) { x->bpm = bpm; sync_update(x); }
+}
 
 static void apply_ctl_(t_pdoly8 *x, int i, t_float v);
 static void apply_ctl(t_pdoly8 *x, int i, t_float v) { apply_ctl_(x, i, v); rep_kick(x); }
@@ -291,6 +331,8 @@ static void apply_ext_(t_pdoly8 *x, int i, t_float v)
     case X_TREB: case X_BASS:                    /* EQ steps -6..6 (+-10 dB) */
         v = (t_float)(int)lroundf(clampf_((float)v, -6.0f, 6.0f)); x->ext[i] = v;
         p8_set_eq(e, (float)x->ext[X_TREB], (float)x->ext[X_BASS]); return;
+    case X_DSYN:                                 /* delay time from the tempo, 0 off */
+        v = (t_float)(int)clampf_((float)v, 0.0f, (float)(NSYNC - 1)); x->ext[i] = v; sync_update(x); return;
     case X_DTIM: case X_DFB: case X_DMF: case X_DMI: case X_DLEV: {   /* digital delay, Poly-800 II units */
         static const float MX[5] = {99, 15, 31, 31, 15};
         v = clampf_((float)v, 0.0f, MX[i - X_DTIM]); x->ext[i] = v;
@@ -521,6 +563,7 @@ static const t_p8range RANGE[] = {
     {"xme",'b',-127,127,"EG3>Xmod",""},
     {"xmm",'i',0,127,"MG>Xmod",""},
     {"dgld",'i',0,1,"Delay changes","mute|glide"},
+    {"dsyn",'i',0,12,"Delay sync","off|1/32|1/16T|1/16|1/8T|1/16.|1/8|1/4T|1/8.|1/4|1/2T|1/4.|1/2"},
     {"mgr",'i',0,15,"MG rate",""},
     {"mgi",'r',0,200,"Vibrato","ct"},
     {"mgd",'i',0,15,"MG delay",""},
@@ -1360,6 +1403,8 @@ void pdoly8_tilde_setup(void)
     class_addlist(pdoly8_class, (t_method)pdoly8_list);
     class_addanything(pdoly8_class, (t_method)pdoly8_anything);
     class_addmethod(pdoly8_class, (t_method)pdoly8_note, gensym("note"), A_FLOAT, A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_bpm, gensym("bpm"), A_FLOAT, 0);
+    class_addmethod(pdoly8_class, (t_method)pdoly8_midiclock, gensym("midiclock"), 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_ctl, gensym("ctl"), A_FLOAT, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_voice, gensym("voice"), A_FLOAT, A_FLOAT, 0);
     class_addmethod(pdoly8_class, (t_method)pdoly8_dump, gensym("dump"), A_GIMME, 0);

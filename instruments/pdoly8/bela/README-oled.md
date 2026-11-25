@@ -40,7 +40,7 @@ Rückmeldung: Änderungen von woanders (Preset, Program Change, Editor) gehen al
 | **6** MG | 62-63 70-75 | `mgr` | `mgd` | `mgi` | `mgv` | `hmg` | `mgw` | `mgk` | – |
 | **7** DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
 | **8** PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
-| **9** MORE | 94-95 102-107 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` |  |
+| **9** MORE | 94-95 102-107 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` | `dsyn` |
 
 Nicht per CC (nur Editor oder Message): `ch1` (oben im Editor) und die Einzelwerte der Hüllkurven `a1`…`r3`; `mgf` (MG-Rate in Hz) nur als Message.
 
@@ -125,6 +125,7 @@ Nicht per CC (nur Editor oder Message): `ch1` (oben im Editor) und die Einzelwer
 | 104 | `leak` | Leak | off / on |
 | 105 | `pol` | EG polarity | down / up |
 | 106 | `trg` | Env 3 trigger | single / multi |
+| 107 | `dsyn` | Delay sync | off / 1/32 / 1/16T / 1/16 / 1/8T / 1/16. / 1/8 / 1/4T / 1/8. / 1/4 / 1/2T / 1/4. / 1/2 |
 
 ## Audio
 

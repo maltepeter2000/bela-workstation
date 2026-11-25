@@ -111,6 +111,7 @@ typedef struct {
      * noise per sample, the others per block */
     struct { float cut, res, fm[2], ring, nois, det, eg, swp, mgc, mgv, drv, dfb, dlev,
              swe, swm, pwm[2], hm, wsm, wse, tr, bs; } sm;
+    float   ddl_sync_ms;         /* tempo-synced delay time, 0 = none; used only where the time set is an echo (>= P8_DDL_SYNC_MIN) */
     int     ddl_glide;           /* 1: delay time changes glide instead of muting for 40 ms (original) */
     int     drv_pre;             /* 0: after the VCF, 1: before it */
     float   e3n;                 /* DEG3 level 0..1 (last sample) */

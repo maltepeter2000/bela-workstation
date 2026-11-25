@@ -129,7 +129,7 @@ def bank_rewrite(lines, f):
 
 def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkdisplay=None,
           midi=("raw", 2), pads_channel_rule=True, more_edits=(), save=True, store_writes=False,
-          editor_bank=None, channel_msg="channel"):
+          editor_bank=None, channel_msg="channel", clock=False):
     """obj: 'juno.i~', ext: the external with its arguments ('juno~'), short: bus name,
     edit / cc / pads / nav / lkdisplay: paths of the generated abstractions,
     edit_title: the title of the bare editor ('juno~ editor'), more_edits: [(path, name)] more
@@ -262,6 +262,12 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
             con(ni, k, pk, k)
         con(bi, 0, bx, 0); con(bx, 0, bm, 0)
         midi_src = [(pk, 0, 0), (bm, 0, 0)]
+        if clock:                                # MIDI clock ticks (0xF8) -> midiclock (delay sync)
+            rt = add(f"#X obj {X + 320} {my - 35} midirealtimein;")
+            st = add(f"#X obj {X + 320} {my - 10} sel 248;")
+            mc = add(f"#X msg {X + 320} {my + 15} midiclock;")
+            con(rt, 0, st, 0); con(st, 0, mc, 0)
+            midi_src.append((mc, 0, 0))
         my += 15
 
     # ---- the external and the outlets (left)

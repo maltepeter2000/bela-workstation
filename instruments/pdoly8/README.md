@@ -116,6 +116,7 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `dmf` `dmi` | 0–31 | 0 | delay modulation rate (73, measured: 0.05 … 5 Hz, 11 → 0.26 Hz, 21 → 1.15 Hz) and depth (74: the delay time swings 1:5 at 31, as in the manual; the swing falls about 10 dB per 10 steps below that, measured) |
 | `dlev` | 0–15 | 0 | delay effect level (75); 0 = off, 15 = as loud as the direct sound. The echo goes to the left output in phase and to the right one inverted (measured: L = dry + echo, R = dry − echo, so a mono sum of both cancels it), band-limited to 7 kHz |
 | `dgld` | 0/1 | 1 | 1: delay changes glide (time like a tape, feedback and level smoothed), for CC and modulation; 0: every change mutes the echo for 40 ms, as on the original |
+| `dsyn` | 0–12 | 0 | MIDI sync of the delay time: off, 1/32 1/16T 1/16 1/8T 1/16. 1/8 1/4T 1/8. 1/4 1/2T 1/4. 1/2, from MIDI clock (`midiclock`) or `bpm <x>`; only where `dtim` is 50 ms or more (echoes, not flanger or chorus); above 1.08 s halved |
 
 ### Pots, CV and MIDI CC
 
@@ -150,7 +151,7 @@ The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` 
 | 6 MG | 62-63 70-75 | `mgr` | `mgd` | `mgi` | `mgv` | `hmg` | `mgw` | `mgk` | – |
 | 7 DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
 | 8 PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
-| 9 MORE | 94-95 102-107 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` |   |
+| 9 MORE | 94-95 102-107 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` | `dsyn` |
 
 Not by CC (editor or message only): `ch1` (at the top of the editor) and the DEG stages `a1` … `r3`.
 
@@ -170,7 +171,9 @@ Not by CC (editor or message only): `ch1` (at the top of the editor) and the DEG
 | `panic` | all voices off |
 | `get <name>` | outlet 3 answers `value <name> <v>` |
 | `voice i p` / `voiceoff i` | play a voice directly |
-| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + the 60 settings |
+| `midiclock` | one MIDI clock tick (0xF8, from `[midirealtimein]` → `[sel 248]`): the tempo for `dsyn` (`pdoly8.i~` has it wired) |
+| `bpm <x>` | the tempo for `dsyn` directly, 0 = none |
+| `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + all settings |
 | `dump pdoly8 …` | restore such a line; lines of other voices are ignored |
 | `print` | voices, values and sample rate to the Pd window |
 | `delay <name>` | delay presets: `flanger` (4 ms, slow sweep, feedback), `chorus1` (fast, shallow), `chorus2` (slow, wider), `slap` (120 ms), `long` (0.5 s with repeats), `off` |
