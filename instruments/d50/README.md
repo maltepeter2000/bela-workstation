@@ -109,6 +109,12 @@ The same targets in every instrument of bela-workstation (`Makefile` here, the w
 - Portamento glides each voice from its own last note, as the engine models
   the hardware; it is heard once the voices have played.
 
+## Launchkey pictures
+
+With the Launchkey custom firmware branch `display-gfx`, turning a TVA, TVF or pitch envelope setting, the structure, the filter or the synth wave shows a picture on the
+Launchkey display instead of the text line. `lkgfx 0` switches the pictures off, `lkgfx 1` on (default).
+All pictures of all instruments: [common/gfx/README.md](../../common/gfx/README.md).
+
 ## Layout
 
 ```

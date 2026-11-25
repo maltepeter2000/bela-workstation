@@ -162,6 +162,12 @@ same bus for every single parameter.
 - Battery RAM is written on `save` and when the patch is closed. Quitting Pd
   directly does not always close all patches – press `save` first.
 
+## Launchkey pictures
+
+With the Launchkey custom firmware branch `display-gfx`, turning the algorithm, an operator's envelope or wave (tx81zn~) shows a picture on the
+Launchkey display instead of the text line. `lkgfx 0` switches the pictures off, `lkgfx 1` on (default).
+All pictures of all instruments: [common/gfx/README.md](../../common/gfx/README.md).
+
 ## Structure
 
 | File | Contents |

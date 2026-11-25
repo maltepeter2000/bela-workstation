@@ -173,7 +173,7 @@ Not by CC (editor or message only): `ch1` (at the top of the editor) and the DEG
 | `voice i p` / `voiceoff i` | play a voice directly |
 | `midiclock` | one MIDI clock tick (0xF8, from `[midirealtimein]` → `[sel 248]`): the tempo for `dsyn` (`pdoly8.i~` has it wired) |
 | `bpm <x>` | the tempo for `dsyn` directly, 0 = none |
-| `lkgfx 0/1` | 1 (default): turning `env1`–`env3`, a DEG stage (`a1` … `r3`) or `har1`/`har2` shows a picture on the Launchkey display instead of the text line: the DEG shape or the wave of the timbre, with the value as a line of text above it. Outlet 3 sends it as `lkgfx <bytes>` (complete SysEx messages, only the 32-column pieces that changed, at most every 50 ms); `[lkdisplay]` passes them to `[midiout]`. Needs the Launchkey custom firmware branch `display-gfx` (128 × 48 picture, `cfw/lk_gfx.h`). 0: the text line as before |
+| `lkgfx 0/1` | 1 (default): turning `env1`–`env3`, a DEG stage (`a1` … `r3`), `har1`/`har2`, `cut`/`res` or an MG setting (`mgr`, `mgd`, `mgw`, `mgk`) shows a picture on the Launchkey display instead of the text line: the DEG shape, the wave of the timbre, the filter curve or the MG over time (all instruments: `common/gfx/README.md`), with the value as a line of text above it. Outlet 3 sends it as `lkgfx <bytes>` (complete SysEx messages, only the 32-column pieces that changed, at most every 50 ms); `[lkdisplay]` passes them to `[midiout]`. Needs the Launchkey custom firmware branch `display-gfx` (128 × 48 picture, `cfw/lk_gfx.h`). 0: the text line as before |
 | `dump` | outlet 3 sends `dump pdoly8` + the 8 controls + all settings |
 | `dump pdoly8 …` | restore such a line; lines of other voices are ignored |
 | `print` | voices, values and sample rate to the Pd window |

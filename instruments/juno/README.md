@@ -131,6 +131,12 @@ make gen             # parameter header, controller layer, pads, editor, help
 
 The same targets in every instrument of bela-workstation (`Makefile` here, the work in `pd/`).
 
+## Launchkey pictures
+
+With the Launchkey custom firmware branch `display-gfx`, turning the ADSR, the filter (`cutoff`, `res`, `hpf`) or the DCO mixer (`pulse`, `saw`, `sub`, `pwm`, `noise`) shows a picture on the
+Launchkey display instead of the text line. `lkgfx 0` switches the pictures off, `lkgfx 1` on (default).
+All pictures of all instruments: [common/gfx/README.md](../../common/gfx/README.md).
+
 ## Layout
 
 ```
