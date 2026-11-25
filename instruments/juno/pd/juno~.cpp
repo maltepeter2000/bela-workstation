@@ -117,6 +117,7 @@ struct t_juno {
     int txchannel;             // send, 1..16
     int sysexout;              // send SysEx for every change, as a Juno-106 does
     int thru;                  // pass incoming MIDI on to outlet 3
+    int store_to;              // savearm .. save: the user slot chosen, -1 none
 };
 
 // ---- data files -------------------------------------------------------------
@@ -347,9 +348,25 @@ void juno_command(t_juno* x, t_symbol* s, int argc, t_atom* argv) {
     } else if (is("presetstep") || is("userstep")) {
         y.step(is("presetstep") ? juno::Synth::kFactory : juno::Synth::kUser, argc > 0 ? n : 1);
         x->shown->source = -2;
+    } else if (is("savearm")) {
+        // the pads' store with a question: show the slot, saveslot moves it, save stores there
+        x->store_to = y.last_user();
+        out_display(x, "Store to?", std::string("User ") + juno::user_name(x->store_to));
+        echo = false;
+    } else if (is("saveslot")) {
+        if (x->store_to >= 0) {
+            x->store_to = ((x->store_to + (argc > 0 ? n : 1)) % juno::kUserSlots + juno::kUserSlots) % juno::kUserSlots;
+            out_display(x, "Store to?", std::string("User ") + juno::user_name(x->store_to));
+        }
+        echo = false;
+    } else if (is("savecancel")) {
+        if (x->store_to >= 0) out_display(x, "Store", "cancelled");
+        x->store_to = -1;
+        echo = false;
     } else if (is("save")) {
-        // store into the user slot selected or stored last, and write the bank
-        stored = y.store(-1);
+        // store into the slot chosen (savearm), else the one selected or stored last, and write the bank
+        stored = y.store(x->store_to);
+        x->store_to = -1;
         if (!g_data_dir.empty()) {
             std::string err;
             const std::string path = g_data_dir + "/" + kUserFile;
@@ -560,6 +577,7 @@ void* juno_new(t_symbol*, int argc, t_atom* argv) {
     x->txchannel = 1;
     x->sysexout = 0;
     x->thru = 1;
+    x->store_to = -1;
     x->midi = new Midi();
     x->shown = new Shown();
     x->shown->value.assign(static_cast<size_t>(juno::control_count()), INT32_MIN);

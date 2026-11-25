@@ -112,6 +112,7 @@ public:
     // Copies the playing patch into a slot of the user bank (in memory; see
     // write_user). slot < 0: the user slot selected or stored last (0 at first).
     bool store(int slot);
+    int last_user() const;                 // the user slot recalled or stored last
 
     // One Juno-106 message in: a patch (30, 31) replaces the playing patch, a
     // parameter (32) changes one byte of it. False if it was something else.

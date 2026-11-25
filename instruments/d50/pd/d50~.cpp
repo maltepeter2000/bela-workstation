@@ -109,6 +109,7 @@ struct t_d50 {
     int txchannel;             // send, 1..16
     int last_preset;           // the factory patch and the user slot played or stored last:
     int last_user;             // presetstep / userstep count from there, save stores there
+    int store_to;              // savearm .. save: the user slot chosen, -1 none
 };
 
 // ---- data files -------------------------------------------------------------
@@ -458,10 +459,23 @@ void d50_command(t_d50* x, t_symbol* s, int argc, t_atom* argv) {
             y.select_user(((x->last_user + by) % d50::kUserSlots + d50::kUserSlots) % d50::kUserSlots);
         }
         x->shown->source = -2;
+    } else if (is("savearm")) {
+        // the pads' store with a question: show the slot, saveslot moves it, save stores there
+        x->store_to = x->last_user;
+        out_display(x, "Store to?", "User " + slot_label(x->store_to) + " " + d50::user_name(x->store_to));
+    } else if (is("saveslot")) {
+        if (x->store_to >= 0) {
+            x->store_to = ((x->store_to + (argc > 0 ? n : 1)) % d50::kUserSlots + d50::kUserSlots) % d50::kUserSlots;
+            out_display(x, "Store to?", "User " + slot_label(x->store_to) + " " + d50::user_name(x->store_to));
+        }
+    } else if (is("savecancel")) {
+        if (x->store_to >= 0) out_display(x, "Store", "cancelled");
+        x->store_to = -1;
     } else if (is("save")) {
-        // into the user slot played or stored last, and write the user bank
+        // into the slot chosen (savearm), else the user slot played or stored last, and write the user bank
         if (!need_bytes(x, "save")) return;
-        stored = y.store(x->last_user);
+        stored = y.store(x->store_to >= 0 ? x->store_to : x->last_user);
+        x->store_to = -1;
         if (stored && !g_data_dir.empty()) {
             std::string err;
             const std::string path = g_data_dir + "/" + kUserFile;
@@ -648,6 +662,7 @@ void* d50_new(t_symbol*, int argc, t_atom* argv) {
     x->channel = 0;
     x->txchannel = 1;
     x->last_preset = x->last_user = 0;
+    x->store_to = -1;
     x->midi = new Midi();
     x->shown = new Shown();
     x->shown->value.assign(static_cast<size_t>(d50::control_count()), INT32_MIN);

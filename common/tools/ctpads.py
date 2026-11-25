@@ -14,20 +14,26 @@ its own pads (OWN) with what only it has:
     bottom row  44 factory -   45 user -   46 save           47-51 own
 
 The messages are the same in every instrument: presetstep 1 / -1 (the factory patch after or
-before the one played last), userstep 1 / -1 (the same in the user bank), init (the init patch),
-save (the playing sound into the user slot played or stored last, and the user bank written).
-Each instrument answers with "display <title> <value>" for the Launchkey display.
+before the one played last), userstep 1 / -1 (the same in the user bank), init (the init patch).
+Storing asks first: save pressed once sends savearm (the instrument shows "Store to?" and the user
+slot played or stored last, the save pad flashes), user + / - then send saveslot 1 / -1 (the slot
+moves, nothing is recalled), save pressed again sends save (stored there, the user bank written,
+"Stored" on the display, the pad white for a moment). Any other pad, or 10 s without a press,
+sends savecancel. Each instrument answers with "display <title> <value>" for the Launchkey
+display; the pads add their own for what only they know: the own pads ("Random" "pluck") and
+init armed ("Init?" "press again"), at outlet 2.
 layout(own) checks the instrument's own pads and returns the whole table.
 
 write(path, title, table) makes the abstraction [<name> <channel>] (channel 0 or none
 = 10): [notein] inside, a pad pressed on that channel -> its message at the outlet (to the
-instrument). table: {note: "message"} or {note: ("twice", "message")} for a pad that has to be
-pressed twice within a second (for what drops the edits). Inlet: channel <n>, leds.
+instrument), outlet 2 display lines. table: {note: "message"} or {note: ("twice", "message")} for
+a pad that has to be pressed twice within a second (for what drops the edits). Inlet: channel <n>,
+leds.
 
 Pad colours, the same in every instrument (by the pad's message, see color()):
 
-    factory +/-  blue        user +/-  green       init  orange (flashing while armed)
-    save         red (white for a moment when pressed)
+    factory +/-  blue        user +/- and save  green (the user bank)
+    init  orange (flashing while armed)     save flashing while it asks, white when stored
     own pads     purple      free pads  off
 
 The abstraction sends them with [noteout] on the pad channel (the firmware's pad LED protocol:
@@ -57,7 +63,8 @@ OWN = list(range(39, 44)) + list(range(47, 52))
 # + 64 = pulsing, 16 + n = colour n dimmed.
 OFF, WHITE, RED, ORANGE, YELLOW, GREEN, CYAN, BLUE, PURPLE = range(9)
 FLASH, PULSE = 32, 64
-COLORS = {"presetstep": BLUE, "userstep": GREEN, "init": ORANGE, "save": RED}
+COLORS = {"presetstep": BLUE, "userstep": GREEN, "init": ORANGE, "save": GREEN}
+STORE_TIMEOUT_MS = 10000
 OWN_COLOR = PURPLE
 SAVE_ACK_MS = 600
 
@@ -124,33 +131,92 @@ def write(path, title, table):
     notes = sorted(table)
     sel = p.add("sel " + " ".join(map(str, notes)), 120, 300); p.con(sp, 0, sel, 0)
     out = p.add("outlet", 10, 490)
+    dout = p.add("outlet", 260, 490)            # display <title> <value> (own pads, init armed)
+
+    # ---- store with a question: save once arms (the instrument shows "Store to?" and the slot),
+    # user +/- choose the slot (saveslot), save again stores; anything else or 10 s cancel
+    save_nt = [nt for nt, a in table.items() if not isinstance(a, tuple) and a.split()[0] == "save"]
+    a1 = p.msg("1", 860, 90); a0 = p.msg("0", 900, 90)       # armed / not: into every [f] that asks
+
+    def armed(f):
+        p.con(a1, 0, f, 1); p.con(a0, 0, f, 1)
+    tmo = p.add(f"del {STORE_TIMEOUT_MS}", 960, 90)
+    stp = p.msg("stop", 960, 60); p.con(stp, 0, tmo, 0)
+    # cancel: only when armed
+    cb = p.add("t b", 860, 150)
+    cf = p.add("f", 860, 175); armed(cf)
+    p.con(cb, 0, cf, 0)
+    cs1 = p.add("sel 1", 860, 200); p.con(cf, 0, cs1, 0)
+    p.con(tmo, 0, cs1, 0)                       # the timeout cancels too
+    ct = p.add("t b b b", 860, 225); p.con(cs1, 0, ct, 0)
+    cm = p.msg("savecancel", 860, 260); p.con(ct, 0, cm, 0); p.con(cm, 0, out, 0)
+    p.con(ct, 1, a0, 0); p.con(ct, 2, stp, 0)
+    for nt in save_nt:
+        led = p.msg(f"{nt} {color(table[nt])}", 960, 260); p.con(ct, 2, led, 0); p.con(led, 0, sl, 0)
+
+    def cancel_first(src, outn):
+        """a pad that is not part of storing: cancel a pending store, then go on"""
+        t = p.add("t b b", src_x[0], 330); p.con(src, outn, t, 0)
+        p.con(t, 1, cb, 0)
+        return t
+
+    def display(trig, outn, title, value, x, y):
+        m = p.msg(f"display {title} {value}", x, y); p.con(trig, outn, m, 0); p.con(m, 0, dout, 0)
+
     for k, nt in enumerate(notes):
-        x = 120 + k * 70
+        x = 120 + k * 90
+        src_x = [x]
         act = table[nt]
-        if isinstance(act, tuple):              # twice within a second
-            _, msg = act
-            t = p.add("t b b", x, 330); p.con(sel, k, t, 0)
-            f = p.add("f", x, 360); add = p.add("+ 1", x + 40, 360)
+        msg = act[1] if isinstance(act, tuple) else act
+        word = msg.split()[0]
+        if isinstance(act, tuple):              # twice within a second (init)
+            t0 = cancel_first(sel, k)
+            t = p.add("t b b", x, 360); p.con(t0, 0, t, 0)
+            f = p.add("f", x, 390); add = p.add("+ 1", x + 40, 390)
             p.con(t, 1, f, 0); p.con(f, 0, add, 0); p.con(add, 0, f, 1)
-            ge = p.add("sel 2 1", x, 390); p.con(add, 0, ge, 0)
-            dl = p.add("del 1000", x + 40, 330); p.con(t, 0, dl, 0)
-            z = p.msg("0", x + 40, 420); p.con(dl, 0, z, 0); p.con(ge, 0, z, 0); p.con(z, 0, f, 1)
+            ge = p.add("sel 2 1", x, 420); p.con(add, 0, ge, 0)
+            dl = p.add("del 1000", x + 40, 360); p.con(t, 0, dl, 0)
+            z = p.msg("0", x + 40, 450); p.con(dl, 0, z, 0); p.con(ge, 0, z, 0); p.con(z, 0, f, 1)
             m = p.msg(msg, x, 450); p.con(ge, 0, m, 0)
+            display(ge, 1, msg.capitalize() + "?", "press\\ again", x + 20, 470)
             # LED: flashing while armed, steady again after the second press or the timeout
-            arm = p.msg(f"{nt} {color(act) + FLASH}", x + 20, 480); p.con(ge, 1, arm, 0)
+            armm = p.msg(f"{nt} {color(act) + FLASH}", x + 20, 480); p.con(ge, 1, armm, 0)
             dis = p.msg(f"{nt} {color(act)}", x + 20, 500); p.con(z, 0, dis, 0)
-            for b in (arm, dis):
+            for b in (armm, dis):
                 p.con(b, 0, sl, 0)
+            p.con(m, 0, out, 0)
+        elif word == "save":
+            q = p.add("f", x, 330); p.con(sel, k, q, 0); armed(q)
+            qs = p.add("sel 0 1", x, 360); p.con(q, 0, qs, 0)
+            # first press: arm, flash, start the timeout
+            ta = p.add("t b b b", x, 390); p.con(qs, 0, ta, 0)
+            ma = p.msg("savearm", x, 420); p.con(ta, 0, ma, 0); p.con(ma, 0, out, 0)
+            p.con(ta, 1, a1, 0); p.con(ta, 2, tmo, 0)
+            fl = p.msg(f"{nt} {color(act) + FLASH}", x + 20, 445); p.con(ta, 2, fl, 0); p.con(fl, 0, sl, 0)
+            # second press: store, white for a moment, then the colour again
+            tb = p.add("t b b b", x + 50, 390); p.con(qs, 1, tb, 0)
+            mb = p.msg(msg, x + 50, 420); p.con(tb, 0, mb, 0); p.con(mb, 0, out, 0)
+            p.con(tb, 1, a0, 0); p.con(tb, 1, stp, 0)
+            w = p.msg(f"{nt} {WHITE}", x + 20, 470); p.con(tb, 2, w, 0)
+            dd = p.add(f"del {SAVE_ACK_MS}", x + 50, 445); p.con(tb, 2, dd, 0)
+            bk = p.msg(f"{nt} {color(act)}", x + 20, 495); p.con(dd, 0, bk, 0)
+            for b in (w, bk):
+                p.con(b, 0, sl, 0)
+        elif word == "userstep" and save_nt:
+            # while a store is armed the user pads choose its slot instead of recalling
+            n = msg.split()[1] if len(msg.split()) > 1 else "1"
+            q = p.add("f", x, 330); p.con(sel, k, q, 0); armed(q)
+            qs = p.add("sel 0 1", x, 360); p.con(q, 0, qs, 0)
+            m = p.msg(msg, x, 390); p.con(qs, 0, m, 0); p.con(m, 0, out, 0)
+            ts_ = p.add("t b b", x + 50, 390); p.con(qs, 1, ts_, 0)
+            ms = p.msg(f"saveslot {n}", x + 50, 420); p.con(ts_, 0, ms, 0); p.con(ms, 0, out, 0)
+            p.con(ts_, 1, tmo, 0)                   # restart the timeout
         else:
-            m = p.msg(act, x, 330 + (k % 2) * 30); p.con(sel, k, m, 0)
-            if act.split()[0] == "save":        # white for a moment
-                ts = p.add("t b b", x + 20, 390); p.con(sel, k, ts, 0)
-                w = p.msg(f"{nt} {WHITE}", x + 20, 420); p.con(ts, 1, w, 0)
-                dd = p.add(f"del {SAVE_ACK_MS}", x + 20, 445); p.con(ts, 0, dd, 0)
-                bk = p.msg(f"{nt} {color(act)}", x + 20, 470); p.con(dd, 0, bk, 0)
-                for b in (w, bk):
-                    p.con(b, 0, sl, 0)
-        p.con(m, 0, out, 0)
+            t0 = cancel_first(sel, k)
+            m = p.msg(msg, x, 360 + (k % 2) * 30); p.con(t0, 0, m, 0); p.con(m, 0, out, 0)
+            if word not in ("presetstep", "userstep"):   # own pads: say what they do
+                rest = " ".join(msg.split()[1:]) or "-"
+                display(t0, 0, word.capitalize(), rest.replace(" ", "\\ "), x + 20, 420 + (k % 2) * 30)
     with open(path, "w") as fh:
         fh.write("\n".join(p.lines(top=True)) + "\n")
     return {nt: (a[1] + " (2x)" if isinstance(a, tuple) else a) for nt, a in table.items()}

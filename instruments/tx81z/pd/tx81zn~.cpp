@@ -65,6 +65,7 @@ struct t_txn
 	std::vector<uint8_t> *user;       // 64 voice records: the user bank (txuser-bank.syx)
 	int last_preset;                  // ROM preset 0-127 (A01-D32) played last
 	int last_user;                    // user slot 0-63 played or stored last
+	int store_to;                     // savearm .. save: the user slot chosen, -1 none
 	bool ready;
 	float gain;
 	int vol;                          // fm vol 0-127 (page 1): 100 = 0 dB, square law; not in a voice
@@ -584,7 +585,31 @@ static void txn_store(t_txn *x, t_symbol *, int argc, t_atom *argv)
 		out_display(x, "Stored", ("User " + txbank::slot_label(slot)).c_str());
 }
 
-static void txn_save(t_txn *x) { txn_store(x, nullptr, 0, nullptr); }
+static void txn_save(t_txn *x)
+{
+	t_atom a;                                         /* the slot chosen (savearm), else the last one */
+	SETFLOAT(&a, x->store_to >= 0 ? x->store_to : x->last_user);
+	x->store_to = -1;
+	txn_store(x, nullptr, 1, &a);
+}
+
+/* the pads' store with a question: savearm shows the slot, saveslot moves it, save stores there */
+static void show_store(t_txn *x)
+{
+	out_display(x, "Store to?", ("User " + txbank::slot_label(x->store_to)).c_str());
+}
+static void txn_savearm(t_txn *x) { x->store_to = x->last_user; show_store(x); }
+static void txn_saveslot(t_txn *x, t_floatarg f)
+{
+	if (x->store_to < 0) return;
+	x->store_to = wrap(x->store_to + (f != 0 ? int(f) : 1), txbank::SLOTS);
+	show_store(x);
+}
+static void txn_savecancel(t_txn *x)
+{
+	if (x->store_to >= 0) out_display(x, "Store", "cancelled");
+	x->store_to = -1;
+}
 
 static void txn_userread(t_txn *x, t_symbol *s, int argc, t_atom *argv)
 {
@@ -755,6 +780,7 @@ static void *txn_new(t_symbol *, int argc, t_atom *argv)
 	x->user = new std::vector<uint8_t>();
 	x->last_preset = 0;
 	x->last_user = 0;
+	x->store_to = -1;
 	x->dir = canvas_getdir(canvas_getcurrent());
 	txbank::clear(*x->user);
 	txbank::read(x, "tx81zn~", find_nocase(resolve(x, gensym(txbank::FILE_NAME))), *x->user, true);
@@ -838,6 +864,9 @@ void tx81zn_tilde_setup(void)
 	class_addmethod(txn_class, (t_method)txn_user, gensym("user"), A_FLOAT, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_store, gensym("store"), A_GIMME, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_save, gensym("save"), A_NULL);
+	class_addmethod(txn_class, (t_method)txn_savearm, gensym("savearm"), A_NULL);
+	class_addmethod(txn_class, (t_method)txn_saveslot, gensym("saveslot"), A_DEFFLOAT, A_NULL);
+	class_addmethod(txn_class, (t_method)txn_savecancel, gensym("savecancel"), A_NULL);
 	class_addmethod(txn_class, (t_method)txn_userread, gensym("userread"), A_GIMME, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_userwrite, gensym("userwrite"), A_GIMME, A_NULL);
 	class_addmethod(txn_class, (t_method)txn_tune, gensym("tune"), A_FLOAT, A_NULL);

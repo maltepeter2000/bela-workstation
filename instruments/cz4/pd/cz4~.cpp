@@ -105,6 +105,7 @@ struct t_cz4 {
     int model;                 // 1: CZ-1 (144 bytes), 101: CZ-101 family (128)
     int last_preset;           // the factory tone and the user slot the edit tone played or was
     int last_user;             // stored last: presetstep / userstep count from there, save stores there
+    int store_to;              // savearm .. save: the user slot chosen, -1 none
 };
 
 // ---- data files -------------------------------------------------------------
@@ -469,9 +470,23 @@ void cz4_command(t_cz4* x, t_symbol* s, int argc, t_atom* argv) {
             y.select_user(((x->last_user + by) % cz4::kUserSlots + cz4::kUserSlots) % cz4::kUserSlots);
         }
         force_source(x);
+    } else if (is("savearm")) {
+        // the pads' store with a question: show the slot, saveslot moves it, save stores there
+        x->store_to = x->last_user;
+        out_display(x, "Store to?", "User " + slot_label(x->store_to) + " " + cz4::user_name(x->store_to));
+    } else if (is("saveslot")) {
+        if (x->store_to >= 0) {
+            x->store_to = ((x->store_to + (argc > 0 ? n : 1)) % cz4::kUserSlots + cz4::kUserSlots) % cz4::kUserSlots;
+            out_display(x, "Store to?", "User " + slot_label(x->store_to) + " " + cz4::user_name(x->store_to));
+        }
+    } else if (is("savecancel")) {
+        if (x->store_to >= 0) out_display(x, "Store", "cancelled");
+        x->store_to = -1;
     } else if (is("save")) {
-        // the edit tone into the user slot played or stored last, and write the user bank
-        stored = y.store(x->last_user);
+        // the edit tone into the slot chosen (savearm), else the user slot played or stored last,
+        // and write the user bank
+        stored = y.store(x->store_to >= 0 ? x->store_to : x->last_user);
+        x->store_to = -1;
         if (stored) {
             force_source(x);
             if (!g_data_dir.empty()) {
@@ -718,6 +733,7 @@ void* cz4_new(t_symbol*, int argc, t_atom* argv) {
     x->txchannel = 1;
     x->model = 1;
     x->last_preset = x->last_user = 0;
+    x->store_to = -1;
     x->midi = new Midi();
     x->shown = new Shown();
     x->shown->value.assign(static_cast<size_t>(cz4::control_count()), INT_MIN);

@@ -485,6 +485,8 @@ bool Synth::poke(int address, int value) {
     return true;
 }
 
+int Synth::last_user() const { return impl_->lastUser; }
+
 bool Synth::store(int slot) {
     if (slot < 0) slot = impl_->lastUser;
     if (slot >= kUserSlots) return false;

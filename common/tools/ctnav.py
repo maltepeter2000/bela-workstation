@@ -65,8 +65,8 @@ def build(title, cfg):
     out = p.add("outlet", 10, 860)
     dout = p.add("outlet", 700, 860)
     p.con(pdm, 0, dout, 0)
-    r = p.add("route presetstep userstep init save", 10, 90); p.con(inl, 0, r, 0)
-    p.con(r, 4, out, 0)          # everything else (the instrument's own pads) goes through
+    r = p.add("route presetstep userstep init save savearm saveslot savecancel", 10, 90); p.con(inl, 0, r, 0)
+    p.con(r, 7, out, 0)          # everything else (the instrument's own pads) goes through
 
     # ---- display: value into the right inlet of [pack s s] first, then the title
     pk = p.add("pack s s", 700, 760)
@@ -155,8 +155,41 @@ def build(title, cfg):
     recall_done(ti, 1)
     im = p.msg(cfg["init_msg"], 520, 190); p.con(ti, 0, im, 0); p.con(im, 0, out, 0)
 
+    # ---- store with a question (the pads): savearm shows "Store to?" and the slot recalled last,
+    # saveslot <n> moves that slot, save then stores there, savecancel drops it
+    a1 = p.msg("1", 1150, 70); a0 = p.msg("0", 1190, 70)              # armed / not
+    # the target slot: [value $0-tsl]; shown as "Store to?" / "User NN"
+    shw = p.add("t f f", 1150, 300)
+    tset = p.add("value $0-tsl", 1250, 330); p.con(shw, 1, tset, 0)
+    tlab = p.add("expr int($f1 / 8) * 10 + $f1 % 8 + 11", 1150, 330); p.con(shw, 0, tlab, 0)
+    tmf = p.add("makefilename User\\ %d", 1150, 360); p.con(tlab, 0, tmf, 0)
+    tq = p.add("t b s", 1150, 390); p.con(tmf, 0, tq, 0)
+    p.con(tq, 1, pk, 1)
+    sq = p.msg("symbol Store\\ to?", 1150, 420); p.con(tq, 0, sq, 0); p.con(sq, 0, pk, 0)
+    # savearm: armed, the slot recalled last is the target
+    sa = p.add("t b b", 1150, 130); p.con(r, 4, sa, 0)
+    p.con(sa, 1, a1, 0)
+    ul = p.add("f", 1150, 160); p.con(uslot, 0, ul, 1); p.con(sa, 0, ul, 0); p.con(ul, 0, shw, 0)
+    # saveslot <n>: the target moves by n, wrapping
+    ssl = p.add("t b f", 1300, 130); p.con(r, 5, ssl, 0)
+    ex3 = p.add(f"expr (($f1 + $f2) % {S} + {S}) % {S}", 1300, 190); p.con(ssl, 1, ex3, 1)
+    tget = p.add("value $0-tsl", 1300, 160); p.con(ssl, 0, tget, 0); p.con(tget, 0, ex3, 0)
+    p.con(ex3, 0, shw, 0)
+    # savecancel: not armed any more, "Store" / "cancelled"
+    sc = p.add("t b b b", 1450, 130); p.con(r, 6, sc, 0)
+    p.con(sc, 2, a0, 0)
+    cv = p.msg("symbol cancelled", 1450, 160); p.con(sc, 1, cv, 0); p.con(cv, 0, pk, 1)
+    cs_ = p.msg("symbol Store", 1450, 190); p.con(sc, 0, cs_, 0); p.con(cs_, 0, pk, 0)
+    # save: when armed, the target first becomes the slot to store into
+    sv = p.add("t b b", 520, 230); p.con(r, 3, sv, 0)
+    sva = p.add("f", 600, 230); p.con(a1, 0, sva, 1); p.con(a0, 0, sva, 1)
+    p.con(sv, 1, sva, 0)
+    svs = p.add("sel 1", 600, 255); p.con(sva, 0, svs, 0)
+    svt = p.add("t b b", 600, 280); p.con(svs, 0, svt, 0)
+    tsv = p.add("value $0-tsl", 680, 305); p.con(svt, 1, tsv, 0); p.con(tsv, 0, uslot, 0)
+    p.con(svt, 0, a0, 0)
     # ---- save: read the file, open the gate, ask; the answer goes into the slot
-    ts = p.add("t b b b b", 520, 260); p.con(r, 3, ts, 0)
+    ts = p.add("t b b b b", 520, 260); p.con(sv, 0, ts, 0)
     p.con(ts, 3, rdu, 0)
     gate = p.add("spigot", 700, 330)
     g1 = p.msg("1", 800, 290); g0 = p.msg("0", 840, 290)

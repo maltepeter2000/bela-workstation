@@ -23,9 +23,20 @@ instruments adapt to it. The firmware lives in its own repository.
 | **bottom row** | factory − | user − | save | the instrument's own |
 
 The pads send the same messages to every instrument: `presetstep 1` / `presetstep -1`,
-`userstep 1` / `userstep -1`, `init`, `save`. The instrument answers with
-`display <title> <value>` (`Preset 12` + name, `User 11` + name, `Stored` + slot), which
-`lkdisplay` puts on the Launchkey.
+`userstep 1` / `userstep -1`, `init`. The instrument answers with
+`display <title> <value>` (`Preset 12` + name, `User 11` + name), which `lkdisplay` puts on
+the Launchkey.
+
+**Storing asks first:**
+1. `save` once: the display asks `Store to?` with the user slot played or stored last, the save
+   pad flashes (`savearm`).
+2. `user +` / `user −` choose the slot (`saveslot 1` / `-1`, nothing is recalled).
+3. `save` again stores there and writes the user bank: `Stored` and the slot on the display, the
+   pad white for a moment (`save`).
+
+Any other pad or 10 s without a press cancels (`savecancel`, `Store` / `cancelled`). The
+instrument's own pads show what they do (`Random` / `pluck`), init after its first press
+`Init?` / `press again`.
 
 | Instrument | Pads | Own pads |
 |---|---|---|
@@ -42,9 +53,9 @@ The same in every instrument, by what the pad does:
 | Pad | Colour |
 |---|---|
 | factory + / − | blue |
-| user + / − | green |
+| user + / − and save | green (the user bank) |
 | init | orange, flashing after the first press while the second is awaited |
-| save | red, white for a moment when pressed |
+| save | flashing while it asks, white for a moment when stored |
 | the instrument's own | purple |
 | free | off |
 

@@ -349,6 +349,8 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
         plk = add(as_subpatch(lkl, "lkdisplay", xp + 80, cy + 90))
         ml = add(f"#X obj {xp + 80} {cy + 120} midiout;")
         con(disp[0], disp[1], plk, 0); con(plk, 0, ml, 0)
+        if pdl:
+            con(ppd, 1, plk, 0)                  # the pads' own display lines (own pads, init armed)
 
     # ---- more editors on the same bus (right, below): click to open
     if more_edits:

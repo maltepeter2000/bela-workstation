@@ -15,8 +15,13 @@ launchkey(obj, cc, pads, own, nav=None, cc_channel=1) -> list of paragraphs (par
 
 PAD_LAYOUT = ("top row 36 factory +, 37 user +, 38 init (press twice within a second), "
               "39-43 own, bottom row 44 factory -, 45 user -, 46 save, 47-51 own")
-PAD_COLOURS = ("factory blue, user green, init orange (flashing while the second press is "
-               "awaited), save red (white for a moment when pressed), own pads purple, free pads off")
+PAD_COLOURS = ("factory blue, user and save green (the user bank), init orange (flashing while "
+               "the second press is awaited), save flashing while it asks and white for a moment when "
+               "stored, own pads purple, free pads off")
+PAD_STORE = ("Storing asks first: save once shows Store to? and the user slot played or stored last "
+             "(savearm), user + / - choose the slot (saveslot 1 / -1, nothing is recalled), save again "
+             "stores there and writes the user bank (save). Any other pad or 10 s cancel (savecancel). "
+             "Own pads and init after its first press show what they do on the display.")
 
 
 def launchkey(obj, cc, pads, own, nav=None, cc_channel=1):
@@ -29,6 +34,7 @@ def launchkey(obj, cc, pads, own, nav=None, cc_channel=1):
         f"the send channel (txchannel of {obj}), CC 3 asks for all values.",
         f"{pads} 10: the pads in Drum mode (notes 36-51 on channel 10, the Drums Channel): "
         f"{PAD_LAYOUT}. " + (f"Own pads of {obj}: {own}." if own else f"{obj} has no own pads yet."),
+        PAD_STORE,
         f"Pad colours, sent by {pads} itself with noteout on channel 10 (velocity = colour + 32 x "
         "mode): " + PAD_COLOURS + ". They go out at load, on leds, and when the Launchkey asks "
         "for them (CC 3 = 127 on channel 10, sent when Drum mode is selected).",
