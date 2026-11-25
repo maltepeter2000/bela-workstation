@@ -5,7 +5,7 @@
  *
  * Inlet   1  messages: notes ("note p v", the list "p v", or "p v ch" from
  *            [notein]), controls, settings, presets, see pdoly8~-help.pd
- * Inlet   2  signal: external modulator for FM (fms 2), about -1..1
+ * Inlet   2  signal: external FM of both DCOs (depth extfm), about -1..1
  * Outlets 1, 2  signal left, right
  *         3     events: "dump pdoly8 <values>" (for [skpreset]), "value <name> <v>"
  * Message conventions follow cz4~ and skandrums-pd (dump / params / defaults / get).
@@ -48,7 +48,9 @@ enum {
        X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
        X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO,
        X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, X_HMG, X_RMF, X_RETR, X_DRFT,
-       X_FMIG, X_DGLD, NEXT };
+       X_FMIG, X_DGLD, X_XMOD, X_EXTFM, NEXT };
+static int is_legacy(int i)                     /* FM before 25 Nov 2026, dump only */
+{ return i == X_FM || i == X_FM2 || i == X_FMR || i == X_FMHZ || i == X_FMIG || i == X_FMS; }
 static const char *EXT_NAME[NEXT] = {
     "oct1", "oct2", "nois", "sprd", "mrph", "bnd", "mgf", "mgi", "ch1", "tone", "pw1", "pw2",
     "sync", "swp2", "fm1", "fmr", "fms", "wsh1", "wsh2", "wmx1", "wmx2", "leak", "a1", "d1", "bp1",
@@ -56,11 +58,11 @@ static const char *EXT_NAME[NEXT] = {
     "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3", "r3", "mgd", "mgv", "mgr", "treb",
     "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono", "pwm1", "pwm2", "swe", "swm", "ring",
     "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp", "hmg", "rmf", "retr", "drft",
-    "fmig", "dgld"};
+    "fmig", "dgld", "xmod", "extfm"};
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 25, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
-    31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0, 0, 0, -1, 0, 0, 30, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 64, 1};
+    31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0, 0, 0, 8, 0, 0, 30, 0, 0, 0, 0, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 64, 1, 0, 0};
 
 /* performance controls (see apply_perf) */
 static const char *PERF_NAME[3] = {"atk", "rel", "vol"};
@@ -191,7 +193,7 @@ static void apply_ext_(t_pdoly8 *x, int i, t_float v)
     case X_SPRD: v = clampf_((float)v, 0.0f, 127.0f); e->spread = (float)v / 127.0f; x->ext[i] = v; p8_update(e); return;   /* stereo spread of the 4 voices */
     case X_MRPH: v = v < 0 ? 0 : v; p8_set_smooth(e, (float)v); break;
     case X_BND:  v = clampf_((float)v, 0.0f, 12.0f); e->bend_semi = (float)(x->bend * v); break;
-    case X_MGF:  v = clampf_((float)v, 0.05f, 30.0f); e->mg_hz = (float)v; break;
+    case X_MGF:  v = clampf_((float)v, 0.05f, 30.0f); e->mg_hz = (float)v; x->ext[X_MGR] = -1; break;   /* Hz: mgr shows -1 until set again */
     case X_MGI:  v = clampf_((float)v, 0.0f, 200.0f);   /* cents; measured 12.4 per step of 83, 186 at 15 */ e->mg_cents = (float)v; break;
     case X_CH1:  v = (t_float)(int)clampf_((float)v, 0.0f, 16.0f); break;     /* 0 = any channel */
     case X_TONE: v = v != 0; e->tone = v != 0; break;                     /* measured output response */
@@ -205,18 +207,17 @@ static void apply_ext_(t_pdoly8 *x, int i, t_float v)
     case X_SWP2: v = clampf_((float)v, 0.0f, 72.0f); e->swp2 = (float)v; break;   /* semitones */
     case X_SWE:  v = clampf_((float)v, 0.0f, 72.0f); e->sw_e = (float)v; break;    /* DEG3 -> DCO2, semitones */
     case X_SWM:  v = clampf_((float)v, 0.0f, 24.0f); e->sw_m = (float)v; break;    /* MG -> DCO2, +-semitones */
-    case X_PWM1: case X_PWM2:                    /* MG -> pulse width, 127 = +-47 % */
-        v = clampf_((float)v, 0.0f, 127.0f); e->pwm_d[i == X_PWM2] = 0.47f * (float)v / 127.0f; break;
+    case X_PWM1: case X_PWM2:                    /* MG -> pulse width, +-127 = +-47 %, negative: the other way */
+        v = clampf_((float)v, -127.0f, 127.0f); e->pwm_d[i == X_PWM2] = 0.47f * (float)v / 127.0f; break;
     case X_RING: v = clampf_((float)v, 0.0f, 127.0f); e->rmod = (float)v / 127.0f; break;
-    case X_FM: case X_FM2: {                     /* index 0..16, 1 at about 32 */
+    case X_XMOD: case X_EXTFM: {                 /* index 0..16 (1 at about 32): DCO2 -> DCO1 / input -> both */
         v = clampf_((float)v, 0.0f, 127.0f);
-        float q = (float)v / 127.0f; if (i == X_FM) e->fm = 16.0f * q * q; else e->fm2 = 16.0f * q * q; break;
+        float q = (float)v / 127.0f; if (i == X_XMOD) e->fm = 16.0f * q * q; else e->fm2 = 16.0f * q * q; break;
     }
-    case X_FMR:  v = clampf_((float)v, 0.125f, 16.0f); e->fm_ratio = (float)v; break;
-    case X_FMHZ: v = clampf_((float)v, -1000.0f, 1000.0f); e->fm_hz = (float)v; break;
+    /* FM before 25 Nov 2026 (sine, ratio, offset, source): kept in the dump only, so older
+     * lines still load; legacy_fm() turns them into xmod / extfm */
+    case X_FM: case X_FM2: case X_FMR: case X_FMHZ: case X_FMIG: case X_FMS: break;
     case X_DGLD: v = v != 0; e->ddl_glide = v != 0; break;   /* delay: 1 time changes glide (default), 0 mute 40 ms as the original */
-    case X_FMIG: v = clampf_((float)v, 0.0f, 127.0f); e->fm_ig = (float)v / 64.0f; break;   /* input gain, 64 = 1 */
-    case X_FMS:  v = (t_float)(int)clampf_((float)v, 0.0f, 2.0f); e->fm_src = (int)v; break;   /* sine, other DCO, input */
     case X_WSM:  v = clampf_((float)v, 0.0f, 127.0f); e->ws_m = (float)v; break;   /* MG -> Walsh position */
     case X_WSE:  v = clampf_((float)v, -127.0f, 127.0f); e->ws_e = (float)v; break;   /* DEG3 -> Walsh position */
     case X_VAMP: v = clampf_((float)v, 0.0f, 127.0f); e->vel_amp = (float)v / 127.0f; break;      /* 127: level = velocity */
@@ -453,6 +454,10 @@ static void pdoly8_anything(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
     t_float v = atom_getfloatarg(0, argc, argv);
     if (argv[0].a_type == A_SYMBOL) { pd_error(x, "pdoly8~: %s needs a number", s->s_name); return; }
     for (int i = 0; i < NCTL; i++) if (s == gensym(CTL_NAME[i])) { apply_ctl(x, i, v); out_display(x, s); return; }
+    if (s == gensym("fm1") || s == gensym("fm2") || s == gensym("fmr") || s == gensym("fmhz")
+        || s == gensym("fms") || s == gensym("fmig")) {
+        pd_error(x, "pdoly8~: '%s' is gone, FM is now xmod (DCO2 -> DCO1) and extfm (inlet 2)", s->s_name); return;
+    }
     for (int i = 0; i < NEXT; i++) if (s == gensym(EXT_NAME[i])) { apply_ext(x, i, v); out_display(x, s); return; }
     for (int i = 0; i < 3; i++) if (s == gensym(PERF_NAME[i])) { apply_perf(x, i, v); out_display(x, s); return; }
     pd_error(x, "pdoly8~: unknown message '%s'", s->s_name);
@@ -487,8 +492,8 @@ static const t_p8range RANGE[] = {
     {"oct2",'i',-1,4,"Octave 2","-1|0|+1|+2|+3|+4"},
     {"pw1",'i',0,127,"Pulse width 1",""},
     {"pw2",'i',0,127,"Pulse width 2",""},
-    {"pwm1",'i',0,127,"PWM 1",""},
-    {"pwm2",'i',0,127,"PWM 2",""},
+    {"pwm1",'b',-127,127,"PWM 1",""},
+    {"pwm2",'b',-127,127,"PWM 2",""},
     {"hmg",'i',0,127,"MG>timbre",""},
     {"drft",'i',0,127,"Drift",""},
     {"wsh1",'i',0,127,"Walsh pos 1",""},
@@ -503,12 +508,8 @@ static const t_p8range RANGE[] = {
     {"swm",'i',0,24,"MG>DCO2","st"},
     {"ring",'i',0,127,"Ring mod",""},
     {"rmf",'i',0,14,"Ring source",""},
-    {"fm1",'i',0,127,"FM depth 1",""},
-    {"fm2",'i',0,127,"FM depth 2",""},
-    {"fmr",'q',0.125f,16,"FM ratio","x"},
-    {"fmhz",'c',-1000,1000,"FM offset","Hz"},
-    {"fms",'i',0,2,"FM source","sine|other DCO|input"},
-    {"fmig",'i',0,127,"FM input gain",""},
+    {"xmod",'i',0,127,"Cross mod",""},
+    {"extfm",'i',0,127,"Ext FM",""},
     {"dgld",'i',0,1,"Delay changes","mute|glide"},
     {"mgr",'i',0,15,"MG rate",""},
     {"mgi",'r',0,200,"Vibrato","ct"},
@@ -527,7 +528,6 @@ static const t_p8range RANGE[] = {
     {"pol",'i',1,2,"EG polarity","down|up"},
     {"trg",'i',1,2,"Env 3 trigger","single|multi"},
     {"drvp",'i',0,1,"Drive position","post|pre"},
-    {"mgf",'l',0.1f,30,"MG rate","Hz"},
     {"bnd",'i',0,12,"Bend range","st"},
     {"mrph",'i',0,100,"Smoothing","ms"},
     {"tone",'i',0,1,"Output stage","off|on"},
@@ -597,16 +597,9 @@ static void perf_reset(t_pdoly8 *x)
     if (x->perf[1] != 0) apply_perf(x, 1, 0);
 }
 
-/* fmr from a pot / CC: harmonic ratios in steps, so 1 (and every other one) can be found again;
- * inharmonic FM: fmhz, or any ratio by message (fmr 1.41) */
-static const float FMR_Q[] = {0.125f, 0.25f, 1.0f / 3, 0.5f, 2.0f / 3, 0.75f, 1, 1.25f, 4.0f / 3, 1.5f, 2, 2.5f,
-                              3, 3.5f, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16};
-#define NFMR ((int)(sizeof FMR_Q / sizeof FMR_Q[0]))
-
 static float range_from127(const t_p8range *r, float c)
 {
     c = clampf_(c, 0.0f, 127.0f);
-    if (r->kind == 'q') return FMR_Q[(int)fminf(floorf(c * NFMR / 128.0f), NFMR - 1)];
     if (r->kind == 'l') return r->lo * powf(r->hi / r->lo, c / 127.0f);
     if (r->kind == 'f') return r->lo + (r->hi - r->lo) * c / 127.0f;
     if (r->kind == 'r') return r->lo + (r->hi - r->lo) * c / 127.0f;
@@ -620,12 +613,6 @@ static float range_from127(const t_p8range *r, float c)
 static float range_to127(const t_p8range *r, float v)
 {
     float c;
-    if (r->kind == 'q') {                                /* nearest step (in octaves), middle of its zone */
-        int b = 0;
-        for (int i = 1; i < NFMR; i++)
-            if (fabsf(log2f(fmaxf(v, 1e-3f) / FMR_Q[i])) < fabsf(log2f(fmaxf(v, 1e-3f) / FMR_Q[b]))) b = i;
-        return floorf((b + 0.5f) * 128.0f / NFMR);
-    }
     if (r->kind == 'l') c = 127.0f * logf(fmaxf(v, r->lo) / r->lo) / logf(r->hi / r->lo);
     else if (r->kind == 'f' || r->kind == 'r') c = 127.0f * (v - r->lo) / (r->hi - r->lo);
     else if (r->kind == 'b' || r->kind == 'c') c = 64.0f + v * 63.0f / r->hi;
@@ -852,6 +839,17 @@ static int src_index(int nvals, int j)
     return k < nvals ? k : -1;
 }
 
+/* a line from before xmod / extfm (25 Nov 2026): its FM as the nearest of the new two.
+ * fms 1 (the other DCO): fm1 becomes xmod (DCO2 -> DCO1); fms 2 (input): the larger depth
+ * becomes extfm; the sine (fms 0) has no counterpart and is dropped. */
+static void legacy_fm(float *v)
+{
+    float fms = v[NCTL + X_FMS], d1 = v[NCTL + X_FM], d2 = v[NCTL + X_FM2];
+    v[NCTL + X_XMOD] = fms == 1 ? d1 : 0;
+    v[NCTL + X_EXTFM] = fms == 2 ? (d1 > d2 ? d1 : d2) : 0;
+    for (int i = 0; i < NEXT; i++) if (is_legacy(i)) v[NCTL + i] = EXT_DEFAULT[i];
+}
+
 static void pdoly8_dump(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
 {
     (void)s;
@@ -866,16 +864,18 @@ static void pdoly8_dump(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
     if (argv[0].a_type != A_SYMBOL || argv[0].a_w.w_symbol != gensym("pdoly8")) return;
     /* settings first (mode decides the levels), then the controls */
     const int nvals = argc - 1;
-    x->restoring = 1;
-    for (int i = 0; i < NEXT; i++) {
-        const int k = src_index(nvals, NCTL + i);
-        if (k >= 0 && i != X_CH1) apply_ext(x, i, atom_getfloatarg(1 + k, argc, argv));
-    }
-    x->restoring = 0;
-    for (int i = 0; i < NCTL; i++) {
+    float v[NCTL + NEXT];
+    for (int i = 0; i < NCTL; i++) v[i] = x->ctl[i];
+    for (int i = 0; i < NEXT; i++) v[NCTL + i] = x->ext[i];
+    for (int i = 0; i < NCTL + NEXT; i++) {
         const int k = src_index(nvals, i);
-        if (k >= 0) apply_ctl(x, i, atom_getfloatarg(1 + k, argc, argv));
+        if (k >= 0) v[i] = atom_getfloatarg(1 + k, argc, argv);
     }
+    if (src_index(nvals, NCTL + X_XMOD) < 0) legacy_fm(v);
+    x->restoring = 1;
+    for (int i = 0; i < NEXT; i++) if (i != X_CH1) apply_ext(x, i, v[NCTL + i]);
+    x->restoring = 0;
+    for (int i = 0; i < NCTL; i++) apply_ctl(x, i, v[i]);
     perf_reset(x);
 }
 
@@ -1128,6 +1128,7 @@ static void pdoly8_syxbank(t_pdoly8 *x, t_symbol *s, int argc, t_atom *argv)
         const int k = src_index(argc - 2, i);
         if (k >= 0) v[i] = atom_getfloatarg(k + 2, argc, argv);
     }
+    if (src_index(argc - 2, NCTL + X_XMOD) < 0) legacy_fm(v);
     syx_from_line(x->syx_ram, n, v);
 }
 
@@ -1268,7 +1269,7 @@ static void pdoly8_random(t_pdoly8 *x, t_symbol *kind, t_floatarg seed)
         setv(x, "pwm1", ri(x, 0, 80)); setv(x, "pwm2", ri(x, 0, 80));
         if (chance(x, 30)) { setv(x, "sync", 1); setv(x, "swp2", ri(x, 0, 24)); setv(x, "swe", ri(x, 0, 48)); }
         if (chance(x, 30)) setv(x, "ring", ri(x, 20, 110));
-        if (chance(x, 30)) { setv(x, "fm1", ri(x, 10, 80)); setv(x, "fmr", PICK(0.5f, 1, 2, 3, 4, 1.5f)); }
+        if (chance(x, 30)) { setv(x, "xmod", ri(x, 10, 80)); }
         if (chance(x, 20)) { setv(x, "wmx1", ri(x, 20, 80)); setv(x, "wsh1", ri(x, 0, 127)); }
         setv(x, "mgr", ri(x, 0, 15)); setv(x, "mgi", rf(x, 0, 40)); setv(x, "mgv", ri(x, 0, 8));
         setv(x, "drv", ri(x, 0, 80)); setv(x, "nois", chance(x, 15) ? ri(x, 1, 8) : 0);
@@ -1285,7 +1286,7 @@ static void pdoly8_print(t_pdoly8 *x)
     for (int i = 0; i < NCTL; i++) n += snprintf(line + n, sizeof line - (size_t)n, "%s %g  ", CTL_NAME[i], x->ctl[i]);
     post("pdoly8~: %s", line);
     n = 0;
-    for (int i = 0; i < NEXT && n < (int)sizeof line - 32; i++) n += snprintf(line + n, sizeof line - (size_t)n, "%s %g  ", EXT_NAME[i], x->ext[i]);
+    for (int i = 0; i < NEXT && n < (int)sizeof line - 32; i++) if (!is_legacy(i)) n += snprintf(line + n, sizeof line - (size_t)n, "%s %g  ", EXT_NAME[i], x->ext[i]);
     post("pdoly8~: %s", line);
     for (int v = 0; v < P8_VOICES; v++)
         post("pdoly8~: voice %d note %g (code %d / %d) %s", v, x->e.tg[v].note, x->e.tg[v].code, x->e.tg[v + 4].code,
@@ -1315,7 +1316,7 @@ static void *pdoly8_new(void)
     p8_settle(&x->e);
     x->bufn = 3 * 64;
     x->buf = (float *)getbytes((size_t)x->bufn * sizeof(float));
-    inlet_new(&x->x_obj, &x->x_obj.ob_pd, &s_signal, &s_signal);   /* inlet 2: external FM signal (fms 2) */
+    inlet_new(&x->x_obj, &x->x_obj.ob_pd, &s_signal, &s_signal);   /* inlet 2: external FM signal (extfm) */
     outlet_new(&x->x_obj, &s_signal);
     outlet_new(&x->x_obj, &s_signal);
     x->x_dump = outlet_new(&x->x_obj, &s_anything);

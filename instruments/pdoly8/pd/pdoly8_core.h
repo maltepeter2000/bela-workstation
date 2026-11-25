@@ -89,13 +89,10 @@ typedef struct {
     float   pw[2], pw_t[2];      /* pulse width per DCO, 0.5 = square (current, target) */
     int     sync;                /* 1: DCO2 restarts at every 16' period of DCO1 (DOUBLE) */
     float   swp2;                /* DCO2 pitch offset 0..48 semitones, continuous (sync sweep) */
-    float   fm;                  /* linear FM index of DCO1, 0..16, through zero above 1 */
-    float   fm2;                 /* the same for DCO2 */
-    float   fm_ratio;            /* sine modulator: ratio to the DCO's own 16' frequency */
-    float   fm_hz;               /* sine modulator: fixed offset in Hz (inharmonic FM) */
-    int     fm_src;              /* 0 internal sine, 1 the other DCO of the voice, 2 external signal */
-    const float *fm_in;          /* external modulator for this block (fm_src 2), or 0 */
-    float   fm_ig;               /* gain of the external modulator */
+    float   fm;                  /* cross mod (xmod): linear FM index of DCO1 by DCO2, 0..16, through zero above 1 */
+    float   fm2;                 /* external FM (extfm): index of both DCOs by fm_in, 0..16 */
+    const float *fm_in;          /* external modulator for this block, or 0 */
+    float   Wm[2][P8_FEET];      /* foot shape per DCO without level (the cross mod modulator) */
     float   pwm_d[2];            /* MG -> pulse width, 0..0.47 */
     float   sw_e, sw_m;          /* DEG3 / MG -> DCO2 pitch, semitones */
     unsigned rm_mask;            /* ring modulator: product of these feet of DCO1 (0x8 = 16') */
@@ -107,8 +104,8 @@ typedef struct {
     /* smoothed copies of continuous settings (time: smooth_ms), so that 7-bit
      * MIDI CC steps become ramps: cutoff (octaves), resonance, FM, ring and
      * noise per sample, the others per block */
-    struct { float cut, res, fm[2], ring, nois, det, eg, swp, mgc, mgv, fmhz, fmr, drv, dfb, dlev,
-             swe, swm, pwm[2], hm, wsm, wse, fmig, tr, bs; } sm;
+    struct { float cut, res, fm[2], ring, nois, det, eg, swp, mgc, mgv, drv, dfb, dlev,
+             swe, swm, pwm[2], hm, wsm, wse, tr, bs; } sm;
     int     ddl_glide;           /* 1: delay time changes glide instead of muting for 40 ms (original) */
     int     drv_pre;             /* 0: after the VCF, 1: before it */
     float   e3n;                 /* DEG3 level 0..1 (last sample) */

@@ -5,7 +5,7 @@
 #X text 10 51 pdoly8~ smooths every continuous setting (mrph ms) \, the delay glides (dgld 1): no zipper or pops., f 97;
 #X text 10 66 OLED: the changed setting and its value \, the program on preset changes - sent by pdoly8~ from a, f 95;
 #X text 10 81   thread of its own (oled 127.0.0.1 7562) \, never from the audio thread: no network call \, no print., f 98;
-#X text 10 96 Audio in 1 = external FM source (fms 2 \, gain fmig)., f 51;
+#X text 10 96 Audio in 1 = external FM source (depth extfm)., f 46;
 #N canvas 0 50 700 260 init 0;
 #X text 10 6 INIT: open the Bela's own USB MIDI port (hw:0 = computer) \, connect to O2O \, preset 0, f 83;
 #X obj 10 40 loadbang;

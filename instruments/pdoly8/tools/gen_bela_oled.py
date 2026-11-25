@@ -118,7 +118,7 @@ def main_patch():
              "pdoly8~ smooths every continuous setting (mrph ms), the delay glides (dgld 1): no zipper or pops.",
              "OLED: the changed setting and its value, the program on preset changes - sent by pdoly8~ from a",
              "  thread of its own (oled 127.0.0.1 7562), never from the audio thread: no network call, no print.",
-             "Audio in 1 = external FM source (fms 2, gain fmig)."]
+             "Audio in 1 = external FM source (depth extfm)."]
     for k, l in enumerate(lines):
         p.note(l, 10, 6 + 15 * k)
     y = 110

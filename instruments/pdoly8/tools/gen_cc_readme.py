@@ -29,19 +29,19 @@ import ctlayer as CL                             # noqa: E402
 
 grid = "| Seite | CC | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 |\n|---|---|---|---|---|---|---|---|---|---|\n"
 for k, (t, ns) in enumerate(g.CC_ROWS):
-    cells = [f"`{n}`" for n in ns] + [""] * (8 - len(ns))
+    cells = [f"`{n}`" if n else "–" for n in ns] + [""] * (8 - len(ns))
     grid += f"| **{k + 1}** {t} | {CL.page_text(k)} | " + " | ".join(cells) + " |\n"
 full = "| CC | Parameter | Anzeige (OLED) | Bereich |\n|---|---|---|---|\n"
 for k, (t, ns) in enumerate(g.CC_ROWS):
     full += f"| **Seite {k + 1}: {t}** | | | |\n"
-    for n in ns:
+    for n in [n for n in ns if n]:
         full += f"| {g.CC_OF[n]} | `{n}` | {lab[n][2]} | {rng(n)} |\n"
 body = f"""Controller-Schicht `[p8cc 1]`: MIDI-Kanal 1 (Argument, 0 = alle Kanäle), dieselben CC-Seiten wie bei allen Instrumenten: Seite k am Launchkey = Reihe k im Editor. CC 20–119 ohne 32, 38, 64–69, 84, 88, 96–101 (Bank-/Data-LSB, Pedale, Portamento Control, High-Res Velocity, NRPN/RPN): 10 volle Seiten und eine mit 4 Plätzen.
 
 Rückmeldung: Änderungen von woanders (Preset, Program Change, Editor) gehen als CC auf demselben Kanal und derselben Nummer an den Controller zurück. Pickup: danach wirkt ein Encoder erst, wenn er den Wert erreicht oder überquert (`pickup 0` schaltet das ab). CC 3 vom Controller auf demselben Kanal fordert alle Werte an (die Launchkey-Firmware schickt ihn vor ihrem ersten CC auf einem neuen Kanal).
 
 {grid}
-Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `mgf`, `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4`.
+Nicht per CC (nur Editor oder Message): `ch1` (oben im Editor) und die Einzelwerte der Hüllkurven `a1`…`r3`; `mgf` (MG-Rate in Hz) nur als Message.
 
 {full}
 """

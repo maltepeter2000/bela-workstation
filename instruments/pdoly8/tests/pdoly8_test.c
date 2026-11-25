@@ -312,7 +312,7 @@ static void test_sync_fm(void)
     p8_voice_on(&e, 0, 57.0f); buf_render(&e, &a, 0.5f);
     p8_init(&e, FS);
     setup(&e, P8_DOUBLE, 127, 64, 0, 9, 64, 63);
-    e.fm = 0.0f; e.fm_ratio = 2.0f; e.swp2 = 0.0f; e.sync = 0;
+    e.fm = 0.0f; e.fm2 = 0.0f; e.swp2 = 0.0f; e.sync = 0;
     p8_voice_on(&e, 0, 57.0f); buf_render(&e, &b, 0.5f);
     float d = 0.0f;
     for (size_t i = 0; i < a.n; i++) { float x = fabsf(a.l[i] - b.l[i]); if (x > d) d = x; }
@@ -320,10 +320,10 @@ static void test_sync_fm(void)
     buf_free(&a); buf_free(&b);
 
     float worst = 0.0f;
-    for (int src = 0; src <= 1; src++) {
+    for (int src = 0; src <= 1; src++) {                 /* 0: cross mod alone, 1: with sync */
         p8_init(&e, FS);
         setup(&e, P8_DOUBLE, 64, 64, 127, 64, 64, 63);
-        e.fm = 4.0f; e.fm_ratio = 1.5f; e.fm_src = src; e.sync = 1; e.swp2 = 7.3f;
+        e.fm = src ? 4.0f : 16.0f; e.sync = src; e.swp2 = 7.3f;
         static const int ch[4] = {36, 43, 48, 52};
         for (int k = 0; k < 4; k++) p8_voice_on(&e, k, (float)ch[k]);
         buf_render(&e, &a, 2.0f);
@@ -374,7 +374,7 @@ static void test_walsh(void)
     p8_init(&e, FS);
     setup(&e, P8_DOUBLE, 64, 64, 127, 64, 64, 63);
     e.wmix[0] = 0.7f; e.wmix[1] = 1.0f; e.wpos[0] = 40.0f; e.wpos[1] = 90.0f;
-    e.pw_t[0] = 0.2f; e.fm = 3.0f; e.fm_ratio = 2.0f; e.sync = 1; e.swp2 = 5.0f; p8_update(&e);
+    e.pw_t[0] = 0.2f; e.fm = 3.0f; e.sync = 1; e.swp2 = 5.0f; p8_update(&e);
     static const int ch[4] = {36, 43, 48, 52};
     for (int k = 0; k < 4; k++) p8_voice_on(&e, k, (float)ch[k]);
     buf_render(&e, &b, 1.0f);
@@ -747,21 +747,21 @@ static void demo_sync_fm(void)
     for (float t = 0.0f; t < 8.0f; t += dt) { e.swp2 = 6.0f + 12.0f * (0.5f - 0.5f * cosf(t / 4.0f * 6.2831853f)); buf_render(&e, &b, dt); }
     all_off(&e); buf_render(&e, &b, 0.3f);
     e.sync = 0; e.swp2 = 0.0f;
-    /* 3: FM, sine ratio 1, index 0 -> 3 -> 0 on square 16' (WHOLE), bass */
-    setup(&e, P8_WHOLE, 0, 0, 0, 0, 127, 0);
-    e.fm_ratio = 1.0f; e.fm_src = 0;
+    /* 3: cross mod (Jupiter-8 style), DCO2 16' an octave down modulates DCO1, index 0 -> 3 -> 0 */
+    setup(&e, P8_DOUBLE, 0, 9, 0, 0, 127, 0);
     p8_voice_on(&e, 0, 40.0f);
     for (float t = 0.0f; t < 8.0f; t += dt) { e.fm = 1.5f - 1.5f * cosf(t / 8.0f * 6.2831853f); buf_render(&e, &b, dt); }
     p8_voice_off(&e, 0); buf_render(&e, &b, 0.3f);
-    /* 4: FM ratio 3.5 (bell-like, inharmonic) on saw 8'4', chord */
-    setup(&e, P8_WHOLE, 127, 100, 0, 0, 127, 0);
-    e.fm_ratio = 3.5f; e.fm = 0.0f;
+    /* 4: cross mod with sync, DCO2 swept by DEG-like decay, chord */
+    setup(&e, P8_DOUBLE, 127, 64, 127, 64, 127, 0);
+    e.sync = 1; p8_update(&e);
     chord(&e, am7, 4);
-    for (float t = 0.0f; t < 6.0f; t += dt) { e.fm = 2.0f * expf(-t * 0.8f); buf_render(&e, &b, dt); }
+    for (float t = 0.0f; t < 6.0f; t += dt) { e.fm = 2.0f * expf(-t * 0.8f); e.swp2 = 24.0f * expf(-t); buf_render(&e, &b, dt); }
     all_off(&e); buf_render(&e, &b, 0.3f);
+    e.sync = 0; e.swp2 = 0.0f;
     /* 5: DOUBLE, DCO2 modulates DCO1 (cross FM), intv 7, index sweep */
     setup(&e, P8_DOUBLE, 0, 0, 127, 9, 64, 63);
-    e.fm_src = 1; e.interval = 7; p8_retune(&e);
+    e.interval = 7; p8_retune(&e);
     p8_voice_on(&e, 0, 40.0f);
     for (float t = 0.0f; t < 8.0f; t += dt) { e.fm = 1.2f - 1.2f * cosf(t / 8.0f * 6.2831853f); buf_render(&e, &b, dt); }
     p8_voice_off(&e, 0); buf_render(&e, &b, 0.5f);
@@ -774,7 +774,7 @@ static void demo_sync_fm(void)
     for (int k = 0; k < 3; k++) {
         p8_init(&e, FS); e.tone = 0; e.spread = 0.0f;
         if (k == 0) { setup(&e, P8_DOUBLE, 127, 64, 127, 64, 0, 127); e.sync = 1; e.swp2 = 7.3f; }
-        else { setup(&e, P8_WHOLE, 0, 0, 0, 0, 127, 0); e.fm = idx[k]; e.fm_ratio = 1.0f; }
+        else { setup(&e, P8_DOUBLE, 0, 0, 0, 0, 127, 0); e.fm = idx[k]; }
         p8_update(&e); p8_voice_on(&e, 0, 57.0f); buf_render(&e, &b, 2.0f);
         wav_write(nm[k], &b); buf_free(&b);
     }

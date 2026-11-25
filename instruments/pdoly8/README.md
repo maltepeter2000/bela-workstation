@@ -21,7 +21,7 @@ All three use the same external (`pdoly8~`), the same factory presets and the sa
 | | Type | Function |
 |---|---|---|
 | Inlet 1 | messages | notes, controls, settings, presets |
-| Inlet 2 | signal | external FM modulator (`fms 2`), about −1…1 |
+| Inlet 2 | signal | external FM of both DCOs (depth `extfm`), about −1…1 |
 | Outlet 1 | signal | left |
 | Outlet 2 | signal | right |
 | Outlet 3 | messages | events: `dump pdoly8 <values>`, `value <name> <v>` |
@@ -64,9 +64,9 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `sprd` | 0–127 | 0 | stereo spread of the 4 voices, continuous |
 | `mrph` | ms | 25 | smoothing time of every continuous setting (timbre, levels, cutoff, resonance, FM, ring, drive, noise, DCO2 pitch, detune, vibrato, EG depth …): CC steps become ramps |
 | `bnd` | 0–12 | 2 | pitch bend range in semitones (original up to ±7) |
-| `mgf` | Hz | 5 | MG rate (also set by `mgr`) |
+| `mgf` | Hz | 5.22 | MG rate in Hz, message only (sets `mgr` to −1; `mgr` sets it) |
 | `mgi` | 0–200 cents | 0 | vibrato depth (triangle on the master clock, through a measured 14.5 Hz one-pole low-pass, so fast vibrato is shallower as on the original). Original 83: 12.4 cents per step, 186 at 15 |
-| `mgr` | 0–15, −1 | −1 | MG frequency in original steps (81, measured: 0 = 0.29 Hz, 3 = 1.26, 6 = 3.39, 8 = 5.22, 9 = 6.49, 12 = 11.1, 15 = 19.1 Hz); sets `mgf`; −1 = use `mgf` |
+| `mgr` | 0–15, −1 | 8 | MG frequency in original steps (81, measured: 0 = 0.29 Hz, 3 = 1.26, 6 = 3.39, 8 = 5.22, 9 = 6.49, 12 = 11.1, 15 = 19.1 Hz); sets `mgf`; −1 = a rate set with `mgf` |
 | `ch1` | 0–16 | 0 | MIDI channel for `p v ch` lists (0 = any) |
 | `pw1` / `pw2` | 0–127 | 64 | pulse width of DCO1 / DCO2: 3–97 %, 64 = square; acts on every foot (see PWM) |
 | `sync` | 0/1 | 0 | 1: DCO2 restarts at every 16' period of DCO1 (hard sync) |
@@ -74,14 +74,11 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `swe` | 0–72 | 0 | DEG3 adds up to this many semitones to DCO2 (sync sweep) |
 | `swm` | 0–24 | 0 | the MG adds ± this many semitones to DCO2 |
 | `hmg` | 0–127 | 0 | the MG moves `har1` and `har2` by ± this many steps (127 = the whole timbre path) |
-| `pwm1` / `pwm2` | 0–127 | 0 | MG → pulse width of DCO1 / DCO2, 127 = ±47 % |
+| `pwm1` / `pwm2` | −127…127 | 0 | MG → pulse width of DCO1 / DCO2, ±127 = ±47 %; negative moves the width the other way |
 | `ring` | 0–127 | 0 | DCO2 times a ±1 wave of DCO1 (XOR ring modulation of square waves) |
 | `rmf` | 0–14 | 0 | ring modulator: a step on DCO1's Walsh loop (0 = 16', 7 = 2', 10 = all four feet); steps towards 7 give wider sidebands |
-| `fm1` / `fm2` | 0–127 | 0 | linear FM index of DCO1 / DCO2, 0–16 (quadratic; index 1 at about 32, through zero above) |
-| `fmr` | 0.125–16 | 1 | ratio of the sine modulator to the DCO's own 16' frequency |
-| `fmhz` | −1000…1000 | 0 | fixed offset in Hz added to the sine modulator (inharmonic FM) |
-| `fmig` | 0–127 | 64 | gain of the signal at inlet 2 (`fms 2`), 64 = 1 |
-| `fms` | 0/1/2 | 0 | FM source (not an on/off switch): 0 internal sine, 1 the other DCO of the voice (cross FM), 2 the signal at inlet 2 |
+| `xmod` | 0–127 | 0 | cross mod as on the Jupiter-8: DCO2's wave (without its level or envelope) modulates DCO1's pitch, index 0–16 (quadratic; 1 at about 32, through zero above) |
+| `extfm` | 0–127 | 0 | the signal at inlet 2 modulates both DCOs, index 0–16 |
 | `wsh1` / `wsh2` | 0–127 | 0 | Walsh loop position of DCO1 / DCO2 (see Walsh morph) |
 | `wmx1` / `wmx2` | 0–127 | 0 | mix from the feet sum (0) to the Walsh loop (127) |
 | `wsm` | 0–127 | 0 | the MG moves the Walsh position ± this many steps (127 = the whole loop) |
@@ -120,7 +117,7 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 
 | Message | Function |
 |---|---|
-| `n <name> <0-127>` | sets a setting from a 0–127 value (pot, CV, CC), scaled to its range: switches and small ranges in equal zones, −127…127 settings with 0 at 64, `fmr`/`mgf` logarithmic |
+| `n <name> <0-127>` | sets a setting from a 0–127 value (pot, CV, CC), scaled to its range: switches and small ranges in equal zones, −127…127 settings with 0 at 64, `mgf` logarithmic |
 | `nget <name> <tag>` | outlet 3 gets `norm <tag> <0-127>`: the setting as a pot position (pickup) |
 | `syxin <byte>`, `syxread <file>`, `syxwrite <file>`, `syxbank <n> pdoly8 …`, `syxsend`, `syxch <1-16>` (the Poly-800's MIDI channel, header byte 2n; a dump received or read sets it), `syxtemplate <file>` (only the memory outside the programs) | Poly-800 II data dump in / out (as `tools/p8sysex.py`): outlet 3 gets `bank <n> pdoly8 …` per program, `syxbyte <b>` for [midiout], `syxstatus <text>` |
 | `random <kind> [seed]` | a new sound: pluck, bass, lead, brass, pad, strings, total (the MIDI channel stays) |
@@ -143,13 +140,13 @@ The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` 
 |---|---|---|---|---|---|---|---|---|---|
 | 1 PLAY | 20-27 | `har1` | `oct1` | `har2` | `oct2` | `env1` | `env2` | `lev1` | `lev2` |
 | 2 FILTER | 28-31 33-36 | `cut` | `res` | `egi` | `kbd` | `env3` | `vcut` | `drv` | `drvp` |
-| 3 OSC | 37 39-45 | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
-| 4 WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
-| 5 SYNC-FM | 54-61 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
-| 6 FMSOURCE-MG | 62-63 70-75 | `fms` | `fmig` | `mgr` | `mgf` | `mgi` | `mgd` | `mgv` | `nois` |
+| 3 OSC | 37 39-45 | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `drft` | `nois` |
+| 4 WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wse` | `ring` | `rmf` | – |
+| 5 SYNC-XMOD | 54-61 | `sync` | `swp2` | `swe` | `swm` | `xmod` | `extfm` | – | – |
+| 6 MG | 62-63 70-75 | `mgr` | `mgd` | `mgi` | `mgv` | `hmg` | `wsm` | – | – |
 | 7 DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
 | 8 PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
-| 9 MORE | 94-95 102-106 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` |   |
+| 9 MORE | 94-95 102-107 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` |   |
 
 Not by CC (editor or message only): `ch1` (at the top of the editor) and the DEG stages `a1` … `r3`.
 
@@ -185,8 +182,8 @@ Each foot becomes the AND of its square with a copy shifted by part of its perio
 - **Hard sync (`sync 1`):** DCO2's counter restarts at every 16' period of DCO1, at the exact sub-sample time, with a band-limited step. Sweep DCO2 with `swp2` (continuous, 0–48 semitones) or `intv`/`oct2`; `lev1 0` lets DCO2 be heard alone. Feet, nets and PWM of DCO2 all go through the sync.
 - **Sweeps (`swe`, `swm`):** DEG3 and the MG move DCO2's pitch (up to +72 and ±24 semitones on top of `swp2`, at most 96 in all). Screaming sync: `sync 1`, `lev1` low, `swe` 40–72 with a falling DEG3, `res` and `drv` up.
 - **Ring (`ring`):** DCO2 is multiplied by the ±1 square of DCO1's 16' (the XOR ring modulation of square waves); each edge of DCO1 flips DCO2 with a band-limited step. At 127 only sum and difference tones remain (measured: DCO2 at 98 Hz over a 65.4 Hz 16' → 163 Hz strongest, 98 Hz itself gone except where 3·f1 − f2 lands on it).
-- **Linear FM (`fm1`, `fm2`, `fmr`, `fmhz`, `fms`):** each DCO's counter rate is modulated by a sine at `fmr` times its own 16' frequency plus `fmhz` Hz, by the other DCO of the voice (cross FM in both directions), or by the signal at inlet 2. Counter speed is limited to 3 counts per sample (FM, sweeps), which keeps the edges per sample bounded; deep FM on high notes costs the most CPU. Above index 1 the counter runs backwards for a moment (through-zero FM), so integer ratios stay harmonic; the edges of every foot are found in both directions and stay band-limited.
-- Measured: sync (DCO2 at +7.3 semitones) and FM (ratio 1, index 1 and 3) keep every component below 16 kHz harmonic within −75 dB; deep through-zero FM with sync on 4 low voices peaks at 0.72. With `fm 0` and `sync 0` the output is sample-identical to before.
+- **Cross mod (`xmod`) and external FM (`extfm`):** linear FM of the counter rate. `xmod` takes DCO2 of the same voice as modulator (its foot wave, ±1, without level or envelope, so `lev2 0` gives pure cross mod; intv and detn set the ratio; with `sync 1` and a DCO2 sweep the Jupiter-8 sync-and-cross-mod sound); `extfm` takes the signal at inlet 2 for both DCOs. Counter speed is limited to 3 counts per sample (FM, sweeps), which keeps the edges per sample bounded; deep FM on high notes costs the most CPU. Above index 1 the counter runs backwards for a moment (through-zero FM); the edges of every foot are found in both directions and stay band-limited. Lines saved before 25 Nov 2026 load with their FM turned into these two (`fms 1` → `xmod`, `fms 2` → `extfm`; the sine modulator is gone).
+- Measured (before 25 Nov 2026, sine FM): sync (DCO2 at +7.3 semitones) and FM (ratio 1, index 1 and 3) keep every component below 16 kHz harmonic within −75 dB; deep through-zero FM with sync on 4 low voices peaks at 0.72. With `fm 0` and `sync 0` the output is sample-identical to before.
 
 ### Walsh morph (`wsh`, `wmx`)
 

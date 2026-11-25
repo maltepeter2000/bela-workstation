@@ -31,9 +31,9 @@ src = open(os.path.join(ROOT, "pd", "pdoly8~.c")).read()
 RANGE = {m[0]: m[4] for m in re.findall(r'\{"(\w+)",\'(\w)\',([^,]+),([^,]+),"([^"]*)","([^"]*)"\}', src)}
 
 CC = {nm: cc for cc, nm in GB.CCS.items()}
-SHORT = {"pw1": "PW 1", "pw2": "PW 2", "fmig": "FM in gain", "dgld": "Delay change",
+SHORT = {"pw1": "PW 1", "pw2": "PW 2", "dgld": "Delay change",
          "dfb": "Delay fback", "dmf": "Del mod rate", "dmi": "Del mod dpth", "drvp": "Drive pos",
-         "sprd": "Stereo sprd", "mgf": "MG rate Hz"}
+         "sprd": "Stereo sprd"}
 
 
 def short(nm):

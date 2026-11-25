@@ -11,23 +11,23 @@
 | Pots 1–8 | die Parameter der Seite. **Pickup:** nach Seiten- oder Presetwechsel übernimmt ein Pot erst, wenn er den aktuellen Wert überstreicht |
 | CV-Eingänge | ohne Kabel setzt der Pot den Wert; mit Kabel schwächt der Pot die CV ab |
 | **CV-Lock** | Taste 4 halten und einen Pot drehen: dieser Eingang bleibt auf seinem Parameter, auf allen Seiten, ohne Pickup (für CV). Dasselbe noch einmal löst ihn. Die Konsole meldet `locked pot N: n <name>` / `unlocked pot N`; das Preset springt dabei nicht weiter |
-| Audio In 1 | externe FM-Quelle: Seite FM, `fms` auf „Eingang“, Pot 6 = Pegel (`fmig`) |
+| Audio In 1 | externe FM-Quelle für beide DCOs: Seite SYNC-XMOD, Pot 6 = Tiefe (`extfm`) |
 | MIDI (USB) | Noten (4 Stimmen), Pitch Bend, Program Change 1–64 = Preset 0–63, CC siehe unten (dieselbe Tabelle wie `bela/oled/`, jeder Kanal) |
 
 ## Seiten
 
 | Seite | Pot 1 | Pot 2 | Pot 3 | Pot 4 | Pot 5 | Pot 6 | Pot 7 | Pot 8 |
 |---|---|---|---|---|---|---|---|---|
-| **1 PLAY** | `har1` | `har2` | `env1` | `env2` | `intv` | `detn` | `lev1` | `lev2` |
-| **2 FILTER** | `cut` | `res` | `egi` | `kbd` | `env3` | `vcut` | `drv` | `nois` |
-| **3 OSC** | `oct1` | `oct2` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
-| **4 WALSH** | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `lev1` | `lev2` |
-| **5 SYNC-RING** | `sync` | `swp2` | `swe` | `swm` | `ring` | `rmf` | `lev1` | `lev2` |
-| **6 FM** | `fm1` | `fm2` | `fmr` | `fmhz` | `fms` | `fmig` | `lev1` | `lev2` |
-| **7 MG-MORE** | `mgr` | `mgi` | `mgd` | `mgv` | `drvp` | `tone` | `leak` | `dgld` |
+| **1 PLAY** | `har1` | `oct1` | `har2` | `oct2` | `env1` | `env2` | `lev1` | `lev2` |
+| **2 FILTER** | `cut` | `res` | `egi` | `kbd` | `env3` | `vcut` | `drv` | `drvp` |
+| **3 OSC** | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `drft` | `nois` |
+| **4 WALSH-RING** | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wse` | `ring` | `rmf` | `lev2` |
+| **5 SYNC-XMOD** | `sync` | `swp2` | `swe` | `swm` | `xmod` | `extfm` | `lev1` | `lev2` |
+| **6 MG** | `mgr` | `mgd` | `mgi` | `mgv` | `hmg` | `wsm` | `tone` | `leak` |
+| **7 MORE** | `dgld` | `treb` | `bass` | `pmod` | `retr` | `bnd` | `sprd` | `mrph` |
 | **8 FX-PERFORM** | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `port` | `mono` | `vamp` |
 
-Schalter (`kbd`, `sync`, `fms`, `mono`, `tone`, `leak`, `dgld` …) werden über den Drehweg in gleich große Zonen geteilt; ±127-Parameter haben 0 in der Pot-Mitte.
+Schalter (`kbd`, `sync`, `mono`, `tone`, `leak`, `dgld` …) werden über den Drehweg in gleich große Zonen geteilt; ±127-Parameter haben 0 in der Pot-Mitte.
 
 ## MIDI-CC
 
@@ -39,15 +39,15 @@ Rückmeldung: Änderungen von woanders (Preset, Program Change, Editor) gehen al
 |---|---|---|---|---|---|---|---|---|---|
 | **1** PLAY | 20-27 | `har1` | `oct1` | `har2` | `oct2` | `env1` | `env2` | `lev1` | `lev2` |
 | **2** FILTER | 28-31 33-36 | `cut` | `res` | `egi` | `kbd` | `env3` | `vcut` | `drv` | `drvp` |
-| **3** OSC | 37 39-45 | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `hmg` | `drft` |
-| **4** WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wsm` | `wse` | `ring` | `rmf` |
-| **5** SYNC-FM | 54-61 | `sync` | `swp2` | `swe` | `swm` | `fm1` | `fm2` | `fmr` | `fmhz` |
-| **6** FMSOURCE-MG | 62-63 70-75 | `fms` | `fmig` | `mgr` | `mgf` | `mgi` | `mgd` | `mgv` | `nois` |
+| **3** OSC | 37 39-45 | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `drft` | `nois` |
+| **4** WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wse` | `ring` | `rmf` | – |
+| **5** SYNC-XMOD | 54-61 | `sync` | `swp2` | `swe` | `swm` | `xmod` | `extfm` | – | – |
+| **6** MG | 62-63 70-75 | `mgr` | `mgd` | `mgi` | `mgv` | `hmg` | `wsm` | – | – |
 | **7** DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
 | **8** PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
 | **9** MORE | 94-95 102-107 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` |  |
 
-Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `mgf`, `ch1` und die Einzelwerte der Hüllkurven `a1`…`r4`.
+Nicht per CC (nur Editor oder Message): `ch1` (oben im Editor) und die Einzelwerte der Hüllkurven `a1`…`r3`; `mgf` (MG-Rate in Hz) nur als Message.
 
 | CC | Parameter | Anzeige (OLED) | Bereich |
 |---|---|---|---|
@@ -74,37 +74,32 @@ Nicht per CC (nur Editor oder Message): `l3k`, `l3f`, `l3t2`, `l3a2`, `leak`, `m
 | 39 | `detn` | Detune | 0 … 127 |
 | 40 | `pw1` | Pulse width 1 | 0 … 127 |
 | 41 | `pw2` | Pulse width 2 | 0 … 127 |
-| 42 | `pwm1` | PWM 1 | 0 … 127 |
-| 43 | `pwm2` | PWM 2 | 0 … 127 |
-| 44 | `hmg` | MG>timbre | 0 … 127 |
-| 45 | `drft` | Drift | 0 … 127 |
+| 42 | `pwm1` | PWM 1 | -127 … 127 |
+| 43 | `pwm2` | PWM 2 | -127 … 127 |
+| 44 | `drft` | Drift | 0 … 127 |
+| 45 | `nois` | Noise | 0 … 15 |
 | **Seite 4: WALSH-RING** | | | |
 | 46 | `wsh1` | Walsh pos 1 | 0 … 127 |
 | 47 | `wsh2` | Walsh pos 2 | 0 … 127 |
 | 48 | `wmx1` | Walsh mix 1 | 0 … 127 |
 | 49 | `wmx2` | Walsh mix 2 | 0 … 127 |
-| 50 | `wsm` | MG>Walsh | 0 … 127 |
-| 51 | `wse` | EG3>Walsh | -127 … 127 |
-| 52 | `ring` | Ring mod | 0 … 127 |
-| 53 | `rmf` | Ring source | 0 … 14 |
-| **Seite 5: SYNC-FM** | | | |
+| 50 | `wse` | EG3>Walsh | -127 … 127 |
+| 51 | `ring` | Ring mod | 0 … 127 |
+| 52 | `rmf` | Ring source | 0 … 14 |
+| **Seite 5: SYNC-XMOD** | | | |
 | 54 | `sync` | Sync | off / on |
 | 55 | `swp2` | DCO2 pitch | 0 … 72 st |
 | 56 | `swe` | EG3>DCO2 | 0 … 72 st |
 | 57 | `swm` | MG>DCO2 | 0 … 24 st |
-| 58 | `fm1` | FM depth 1 | 0 … 127 |
-| 59 | `fm2` | FM depth 2 | 0 … 127 |
-| 60 | `fmr` | FM ratio | 0.125f … 16 x |
-| 61 | `fmhz` | FM offset | -1000 … 1000 Hz |
-| **Seite 6: FMSOURCE-MG** | | | |
-| 62 | `fms` | FM source | sine / other DCO / input |
-| 63 | `fmig` | FM input gain | 0 … 127 |
-| 70 | `mgr` | MG rate | 0 … 15 |
-| 71 | `mgf` | MG rate | 0.1f … 30 Hz |
-| 72 | `mgi` | Vibrato | 0 … 200 ct |
-| 73 | `mgd` | MG delay | 0 … 15 |
-| 74 | `mgv` | MG>cutoff | 0 … 15 |
-| 75 | `nois` | Noise | 0 … 15 |
+| 58 | `xmod` | Cross mod | 0 … 127 |
+| 59 | `extfm` | Ext FM | 0 … 127 |
+| **Seite 6: MG** | | | |
+| 62 | `mgr` | MG rate | 0 … 15 |
+| 63 | `mgd` | MG delay | 0 … 15 |
+| 70 | `mgi` | Vibrato | 0 … 200 ct |
+| 71 | `mgv` | MG>cutoff | 0 … 15 |
+| 72 | `hmg` | MG>timbre | 0 … 127 |
+| 73 | `wsm` | MG>Walsh | 0 … 127 |
 | **Seite 7: DELAY-EQ** | | | |
 | 76 | `dtim` | Delay time | 0 … 99 |
 | 77 | `dfb` | Delay feedback | 0 … 15 |

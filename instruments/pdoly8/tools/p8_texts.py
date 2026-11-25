@@ -32,7 +32,7 @@ BLOCKS = [
     ("DCO settings",
      [[("har1", 0, 127), ("har2", 0, 127), ("hmg", 0, 127)],
       [("oct1", -1, 4), ("oct2", -1, 4)],
-      [("pw1", 0, 127), ("pw2", 0, 127), ("pwm1", 0, 127), ("pwm2", 0, 127)],
+      [("pw1", 0, 127), ("pw2", 0, 127), ("pwm1", -127, 127), ("pwm2", -127, 127)],
       [("wsh1", 0, 127), ("wsh2", 0, 127), ("wmx1", 0, 127), ("wmx2", 0, 127)],
       [("wsm", 0, 127), ("wse", -127, 127)],
       [("sync", 0, 1), ("swp2", 0, 72), ("swe", 0, 72), ("swm", 0, 24)],
@@ -42,13 +42,13 @@ BLOCKS = [
       "timbre, octave, PWM, Walsh loop, sync, ring.",
       "har1, har2 (45): timbre of DCO1 / DCO2, the same as the controls above (see Timbre).",
       "hmg (0): the MG moves har1 and har2 by +-hmg steps, 127 = through the whole "
-      "timbre path (rate mgr / mgf, delay mgd).",
+      "timbre path (rate mgr, delay mgd).",
       "oct1, oct2 (0): -1 0 1 = LOW MID HIGH, 2-4: the feet one to three octaves "
       "higher (the combinations without 16').",
       "pw1, pw2 (64): pulse width 0-127 = 3-97 %, 64 = square. Every foot becomes the "
       "AND of itself and a copy shifted by part of its period (pulse staircases on the "
       "saw net).",
-      "pwm1, pwm2 (0): the MG moves the width, 127 = +-47 %.",
+      "pwm1, pwm2 (0): the MG moves the width, -127..127 = +-47 %. Negative turns the direction round: pwm1 60 with pwm2 -60 makes the two DCOs widen and narrow against each other.",
       "Walsh loop: the four feet are square waves of one counter, an octave apart. "
       "Multiplying them (XOR of the counter bits) gives 15 Walsh functions, square-like "
       "waves with 1 to 8 cycles per 16' period (sequency) and their energy near that "
@@ -76,24 +76,18 @@ BLOCKS = [
       "rmf (0): the modulator, a step 0-14 on the Walsh loop of DCO1: 0 its 16' "
       "(softest), 1 8', 3 4', 7 2', 10 all four feet, back down to 14 16'x8'. Steps "
       "towards 7 move the sidebands further apart: stronger, more metallic."]),
-    ("FM",
-     [[("fm1", 0, 127), ("fm2", 0, 127)],
-      [("fms", 0, 2), ("fmr", 0.125, 16), ("fmhz", -1000, 1000), ("fmig", 0, 127)]],
-     ["fms 0", "fms 1", "fms 2"],
+    ("Cross mod",
+     [[("xmod", 0, 127), ("extfm", 0, 127)]], [],
      ["Linear FM of the counter rate, through zero (the counter runs backwards) above "
       "index 1, every edge band-limited. Not on the Poly-800.",
-      "fm1, fm2 (0): depth on DCO1 / DCO2, 0-127 = index 0-16 (1 at about 32), 0 = off.",
-      "fms (0): chooses the modulator, it switches nothing on or off: 0 a sine per DCO "
-      "at fmr x its own 16' frequency plus fmhz, 1 the other DCO of the voice (cross "
-      "FM: DCO2 into DCO1 and DCO1 into DCO2), 2 the signal at the right inlet (about "
-      "-1..1: osc~, adc~, noise~ ...), here from the osc~ above.",
-      "fmr (1): 0.125-16, whole ratios stay harmonic, others (1.41, 3.5) give bells "
-      "and metal that follow the key. From a pot, CC or the editor in harmonic steps "
-      "(1/8 1/4 1/3 1/2 2/3 3/4 1 5/4 4/3 3/2 2 5/2 3 7/2 4-16), so 1 is always found again. "
-      "Inharmonic: fmhz, or any ratio as a message (fmr 1.41).",
-      "fmhz (0): -1000..1000 Hz added to the sine: a fixed, inharmonic offset with the "
-      "same beat on every key (fmr 0.125, fmhz 200: almost a fixed modulator).",
-      "fmig (64): gain of the signal at the right inlet (fms 2), 64 = 1, 127 = about 2."]),
+      "xmod (0): cross mod as on the Jupiter-8 (X-MOD): DCO2 of the same voice "
+      "modulates the pitch of DCO1, 0-127 = index 0-16 (1 at about 32). The modulator "
+      "is DCO2's wave without its level or envelope, so lev2 0 gives pure cross mod. "
+      "intv and detn set the ratio (intv 7: a fifth, detn: slow beating), with sync 1 "
+      "and a DCO2 sweep (swe, swm) the classic sync-and-cross-mod lead. Needs DCO2: "
+      "mode DOUBLE (every voice has both DCOs here).",
+      "extfm (0): the signal at the right inlet (about -1..1: osc~, adc~, a CV) "
+      "modulates both DCOs, 0-127 = index 0-16."]),
     ("Filter & DEG3 settings",
      [[("cut", 0, 99), ("res", 0, 15), ("kbd", 0, 2)],
       [("egi", 0, 15), ("pol", 1, 2), ("trg", 1, 2)],
@@ -123,12 +117,11 @@ BLOCKS = [
       "vcut (0): velocity to the cutoff: at 127 a soft key is up to 5 octaves lower, "
       "full velocity plays the cut set (one VCF: the last key counts)."]),
     ("MG settings",
-     [[("mgr", -1, 15), ("mgf", 0, 30)], [("mgi", 0, 200), ("mgd", 0, 15)], [("mgv", 0, 15)]], [],
+     [[("mgr", 0, 15), ("mgd", 0, 15)], [("mgi", 0, 200), ("mgv", 0, 15)]], [],
      ["One triangle MG for the instrument, measured on a Poly-800 II. It also drives "
       "hmg, pwm1/2, wsm and swm (DCO settings).",
-      "mgr (-1): frequency in steps 0-15 as parameter 81 (0: 0.29 Hz / 3: 1.26 / 8: 5.2 "
-      "/ 15: 19 Hz), sets mgf. -1 = use mgf.",
-      "mgf (5): the same in Hz.",
+      "mgr (8): frequency in steps 0-15 as parameter 81 (0: 0.29 Hz / 3: 1.26 / 8: 5.2 "
+      "/ 15: 19 Hz). Any frequency in Hz as a message: mgf 4.5 (mgr then shows -1).",
       "mgi (0): depth on the pitch in cents (83: 12.4 cents per step, 186 at 15), a "
       "14.5 Hz low-pass makes fast vibrato shallower, as on the original.",
       "mgd (0): delay 0-15 (82: 0.47 s at 5, 1.55 s at 15) from the first key, then "

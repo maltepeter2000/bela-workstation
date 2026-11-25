@@ -32,11 +32,11 @@ OUT = os.path.join(ROOT, "bela", "pepper")
 PAGES = [
     ("PLAY",       ["har1", "oct1", "har2", "oct2", "env1", "env2", "lev1", "lev2"]),
     ("FILTER",     ["cut", "res", "egi", "kbd", "env3", "vcut", "drv", "drvp"]),
-    ("OSC",        ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
-    ("WALSH",      ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "lev1", "lev2"]),
-    ("SYNC-RING",  ["sync", "swp2", "swe", "swm", "ring", "rmf", "lev1", "lev2"]),
-    ("FM",         ["fm1", "fm2", "fmr", "fmhz", "fms", "fmig", "lev1", "lev2"]),
-    ("MG-MORE",    ["mgr", "mgi", "mgd", "mgv", "nois", "tone", "leak", "dgld"]),
+    ("OSC",        ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "drft", "nois"]),
+    ("WALSH-RING", ["wsh1", "wsh2", "wmx1", "wmx2", "wse", "ring", "rmf", "lev2"]),
+    ("SYNC-XMOD",  ["sync", "swp2", "swe", "swm", "xmod", "extfm", "lev1", "lev2"]),
+    ("MG",         ["mgr", "mgd", "mgi", "mgv", "hmg", "wsm", "tone", "leak"]),
+    ("MORE",       ["dgld", "treb", "bass", "pmod", "retr", "bnd", "sprd", "mrph"]),
     ("FX-PERFORM", ["dtim", "dfb", "dmf", "dmi", "dlev", "port", "mono", "vamp"]),
 ]
 # MIDI CC -> parameter: the controller layer (tools/ctlayer.py), one MIDI channel for
@@ -48,10 +48,10 @@ CC_ROWS = [
     # pdoly8 keeps its own order (no shared PERFORM page): play, filter, oscillators, ...
     ("PLAY",        ["har1", "oct1", "har2", "oct2", "env1", "env2", "lev1", "lev2"]),
     ("FILTER",      ["cut", "res", "egi", "kbd", "env3", "vcut", "drv", "drvp"]),
-    ("OSC",         ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "hmg", "drft"]),
-    ("WALSH-RING",  ["wsh1", "wsh2", "wmx1", "wmx2", "wsm", "wse", "ring", "rmf"]),
-    ("SYNC-FM",     ["sync", "swp2", "swe", "swm", "fm1", "fm2", "fmr", "fmhz"]),
-    ("FMSOURCE-MG", ["fms", "fmig", "mgr", "mgf", "mgi", "mgd", "mgv", "nois"]),
+    ("OSC",         ["intv", "detn", "pw1", "pw2", "pwm1", "pwm2", "drft", "nois"]),
+    ("WALSH-RING",  ["wsh1", "wsh2", "wmx1", "wmx2", "wse", "ring", "rmf", None]),
+    ("SYNC-XMOD",   ["sync", "swp2", "swe", "swm", "xmod", "extfm", None, None]),
+    ("MG",          ["mgr", "mgd", "mgi", "mgv", "hmg", "wsm", None, None]),
     ("DELAY-EQ",    ["dtim", "dfb", "dmf", "dmi", "dlev", "dgld", "treb", "bass"]),
     ("PLAY MODE",   ["port", "pmod", "mono", "retr", "vamp", "bnd", "sprd", "mrph"]),
     ("MORE",        ["atk", "rel", "vol", "tone", "leak", "pol", "trg"]),
@@ -296,7 +296,7 @@ def main_patch():
              "CV-Lock: hold button 4 and turn a pot - that input stays on its parameter on every page (for CV).",
              "  Again to unlock. The console names pages, presets, locks and modulation targets.",
              "MIDI (USB): notes / pitch bend / program change = preset / CC: see the table in README.",
-             "Audio in 1 = external FM source (page FM: fms 2, pot 6 = input gain)."]
+             "Audio in 1 = external FM source (page SYNC-XMOD, pot 6 = depth extfm)."]
     for k, l in enumerate(lines):
         p.note(l, 10, 6 + 15 * k)
     y = 110
@@ -309,7 +309,7 @@ def main_patch():
         y += 25
     r = p.add("r p8-in", 10, y + 20)
     ai = p.add("adc~ 1", 150, y + 20)
-    p.note("audio in 1 -> FM input (fms 2, gain fmig)", 220, y + 20)
+    p.note("audio in 1 -> FM input of both DCOs (extfm)", 220, y + 20)
     o = p.add("pdoly8~", 10, y + 50)
     d = p.add("dac~ 1 2", 10, y + 85)
     so = p.add("s p8-out", 150, y + 85)

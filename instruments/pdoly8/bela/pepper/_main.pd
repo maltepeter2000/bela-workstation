@@ -5,7 +5,7 @@
 #X text 10 51 CV-Lock: hold button 4 and turn a pot - that input stays on its parameter on every page (for CV)., f 97;
 #X text 10 66   Again to unlock. The console names pages \, presets \, locks and modulation targets., f 82;
 #X text 10 81 MIDI (USB): notes / pitch bend / program change = preset / CC: see the table in README., f 87;
-#X text 10 96 Audio in 1 = external FM source (page FM: fms 2 \, pot 6 = input gain)., f 69;
+#X text 10 96 Audio in 1 = external FM source (page SYNC-XMOD \, pot 6 = depth extfm)., f 70;
 #N canvas 0 50 760 260 init 0;
 #X text 10 6 INIT: buttons as inputs \, LEDs as outputs \, then factory preset 0 and page 0, f 74;
 #X obj 10 40 loadbang;
@@ -30,7 +30,7 @@
 #N canvas 0 50 900 200 tables 0;
 #X text 10 6 TABLES: p8-map = 8 pot parameters + name per page (line = page) \; the CC table is in p8cc.pd, f 91;
 #X obj 10 40 text define -k p8-map;
-#A set har1 oct1 har2 oct2 env1 env2 lev1 lev2 PLAY \; cut res egi kbd env3 vcut drv drvp FILTER \; intv detn pw1 pw2 pwm1 pwm2 hmg drft OSC \; wsh1 wsh2 wmx1 wmx2 wsm wse lev1 lev2 WALSH \; sync swp2 swe swm ring rmf lev1 lev2 SYNC-RING \; fm1 fm2 fmr fmhz fms fmig lev1 lev2 FM \; mgr mgi mgd mgv nois tone leak dgld MG-MORE \; dtim dfb dmf dmi dlev port mono vamp FX-PERFORM \;;
+#A set har1 oct1 har2 oct2 env1 env2 lev1 lev2 PLAY \; cut res egi kbd env3 vcut drv drvp FILTER \; intv detn pw1 pw2 pwm1 pwm2 drft nois OSC \; wsh1 wsh2 wmx1 wmx2 wse ring rmf lev2 WALSH-RING \; sync swp2 swe swm xmod extfm lev1 lev2 SYNC-XMOD \; mgr mgd mgi mgv hmg wsm tone leak MG \; dgld treb bass pmod retr bnd sprd mrph MORE \; dtim dfb dmf dmi dlev port mono vamp FX-PERFORM \;;
 #X restore 10 135 pd tables;
 #X text 140 135 pages and CC tables, f 19;
 #N canvas 0 50 900 360 pages 0;
@@ -257,7 +257,7 @@
 #X text 140 285 pickup targets from pdoly8~, f 27;
 #X obj 10 330 r p8-in;
 #X obj 150 330 adc~ 1;
-#X text 220 330 audio in 1 -> FM input (fms 2 \, gain fmig), f 41;
+#X text 220 330 audio in 1 -> FM input of both DCOs (extfm), f 43;
 #X obj 10 360 pdoly8~;
 #X obj 10 395 dac~ 1 2;
 #X obj 150 395 s p8-out;

@@ -65,7 +65,7 @@ OBJECT = [
     "layer follows ch1. Several pdoly8.i~ do not get in each other's way, "
     "each has its own editor.",
     "pdoly8~ is the bare engine inside, for patches of your own: notes as "
-    "lists from notein, inlet 2 a signal for FM (fms 2), outlet 3 its "
+    "lists from notein, inlet 2 a signal for FM (extfm), outlet 3 its "
     "events. Open pdoly8.i~ to see the wiring.",
 ]
 

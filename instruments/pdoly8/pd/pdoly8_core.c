@@ -295,7 +295,6 @@ void p8_init(p8_engine_t *e, float fs)
     e->env[0] = e->env[1] = e->env[2] = 0.0f;
     e->trig3 = 2; e->vcf_c = 99.0f; e->kbd_note = 60.0f;
     e->ddl_ms = e->ddl_ms_s = 4.0f;
-    e->fm_ratio = 1.0f;
     e->pw[0] = e->pw[1] = e->pw_t[0] = e->pw_t[1] = 0.5f;
     e->pfade = 1;
     e->smooth_ms = 25.0f;
@@ -475,6 +474,8 @@ static void foot_targets(p8_engine_t *e, int g, float h, float dmix, float dlev)
     float lev = (g == 1 && e->mode != P8_DOUBLE) ? 0.0f : clampf(e->lev[g] + dlev, 0.0f, 1.0f);
     float w[P8_FEET], pw = 0.0f;
     for (int f = 0; f < P8_FEET; f++) { w[f] = (SQ[f] + wv * (SAW[f] - SQ[f])) * gain[f]; pw += w[f] * w[f]; }
+    { float sa = 0.0f; for (int f = 0; f < P8_FEET; f++) sa += w[f];
+      for (int f = 0; f < P8_FEET; f++) e->Wm[g][f] = sa > 1e-6f ? w[f] / sa : 0.0f; }
     /* loudness: the feet are orthogonal (Rademacher functions), so the
      * RMS is exactly sqrt(sum w^2) / 2; norm 1 holds it at the level of
      * the square net with all feet, which also bounds the peak there */
@@ -523,10 +524,10 @@ void p8_settle(p8_engine_t *e)
     e->sm.cut = vcf_cut_oct(e->vcf_c); e->sm.res = e->vcf_r;   /* key tracking follows within mrph */
     e->sm.fm[0] = e->fm; e->sm.fm[1] = e->fm2; e->sm.ring = e->rmod; e->sm.nois = e->noise_level;
     e->sm.det = e->detune_cents; e->sm.eg = e->egint; e->sm.swp = e->swp2; e->sm.mgc = e->mg_cents;
-    e->sm.mgv = e->mg_vcf; e->sm.fmhz = e->fm_hz; e->sm.fmr = log2f(e->fm_ratio > 0.0f ? e->fm_ratio : 1.0f);
+    e->sm.mgv = e->mg_vcf;
     e->sm.drv = e->drive; e->sm.dfb = e->ddl_fb; e->sm.dlev = e->ddl_lev;
     e->sm.swe = e->sw_e; e->sm.swm = e->sw_m; e->sm.pwm[0] = e->pwm_d[0]; e->sm.pwm[1] = e->pwm_d[1];
-    e->sm.hm = e->h_m; e->sm.wsm = e->ws_m; e->sm.wse = e->ws_e; e->sm.fmig = e->fm_ig;
+    e->sm.hm = e->h_m; e->sm.wsm = e->ws_m; e->sm.wse = e->ws_e;
     e->sm.tr = e->eq_tr; e->sm.bs = e->eq_bs; eq_coeffs(e);
     for (int t = 0; t < P8_TG; t++) { e->tg[t].pan_l = e->tg[t].pan_lt; e->tg[t].pan_r = e->tg[t].pan_rt; }
     e->ddl_ms_s = e->ddl_ms;
@@ -789,10 +790,10 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     {   p8_engine_t *q = e;
 #define P8_SMB(c, t) q->sm.c += kb * ((t) - q->sm.c)
         P8_SMB(det, q->detune_cents); P8_SMB(eg, q->egint); P8_SMB(swp, q->swp2); P8_SMB(mgc, q->mg_cents);
-        P8_SMB(mgv, q->mg_vcf); P8_SMB(fmhz, q->fm_hz); P8_SMB(fmr, log2f(fmaxf(q->fm_ratio, 0.01f))); P8_SMB(drv, q->drive);
+        P8_SMB(mgv, q->mg_vcf); P8_SMB(drv, q->drive);
         P8_SMB(dfb, q->ddl_fb); P8_SMB(dlev, q->ddl_lev);
         P8_SMB(swe, q->sw_e); P8_SMB(swm, q->sw_m); P8_SMB(pwm[0], q->pwm_d[0]); P8_SMB(pwm[1], q->pwm_d[1]);
-        P8_SMB(hm, q->h_m); P8_SMB(wsm, q->ws_m); P8_SMB(wse, q->ws_e); P8_SMB(fmig, q->fm_ig);
+        P8_SMB(hm, q->h_m); P8_SMB(wsm, q->ws_m); P8_SMB(wse, q->ws_e);
         if (fabsf(q->sm.tr - q->eq_tr) > 1e-4f || fabsf(q->sm.bs - q->eq_bs) > 1e-4f) {
             P8_SMB(tr, q->eq_tr); P8_SMB(bs, q->eq_bs); eq_coeffs(q);
         } else if (q->sm.tr != q->eq_tr || q->sm.bs != q->eq_bs) { q->sm.tr = q->eq_tr; q->sm.bs = q->eq_bs; eq_coeffs(q); }
@@ -838,7 +839,6 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     const int sync_on = e->sync && e->mode == P8_DOUBLE;
     float fm_i[2] = {clampf(e->sm.fm[0], 0.0f, 16.0f), clampf(e->sm.fm[1], 0.0f, 16.0f)};
     float ring = clampf(e->sm.ring, 0.0f, 1.0f);
-    float fmr = exp2f(e->sm.fmr);
     float drv = e->sm.drv, drv_g = e->drv_g, drv_c = e->drv_c;
     if (fabsf(drv - e->drive) > 1e-6f) {
         drv_g = 1.0f + 255.0f * drv * drv; drv_c = 0.5f / softclip(0.5f * drv_g);
@@ -877,7 +877,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
      * at full depth (measured: no fade-in, a 10 ms ramp avoids a click) */
     if (any && !e->mg_any) e->mg_t = 0.0f;
     e->mg_any = any;
-    const int mg_on = e->sm.mgc > 0.01f || e->sm.mgv > 1e-4f || e->mg_cents > 0.0f || e->mg_vcf > 0.0f || e->pwm_d[0] > 0.0f || e->pwm_d[1] > 0.0f
+    const int mg_on = e->sm.mgc > 0.01f || e->sm.mgv > 1e-4f || e->mg_cents > 0.0f || e->mg_vcf > 0.0f || e->pwm_d[0] != 0.0f || e->pwm_d[1] != 0.0f
                     || e->sw_m > 0.0f || e->ws_m > 0.0f || e->h_m > 0.0f;
     float mg_tri = 0.0f;
 
@@ -920,7 +920,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         }
         float wcur[2];                                       /* pulse width with MG (PWM) */
         for (int g = 0; g < 2; g++) {
-            wcur[g] = e->sm.pwm[g] > 1e-5f ? clampf(e->pw[g] + e->sm.pwm[g] * mg_tri, 0.03f, 0.97f) : e->pw[g];
+            wcur[g] = fabsf(e->sm.pwm[g]) > 1e-5f ? clampf(e->pw[g] + e->sm.pwm[g] * mg_tri, 0.03f, 0.97f) : e->pw[g];
         }
         if (sw_mod)                                          /* DCO2 sweep: DEG3, MG */
             swp = exp2f(clampf(e->sm.swp + e->sm.swe * e->e3n + e->sm.swm * mg_tri, -48.0f, 96.0f) / 12.0f);
@@ -957,23 +957,18 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
                 if (fabsf(g->glide) < 0.01f) g->glide = 0.0f;
             }
             int generic = pwm;
-            if (fm_i[slave] > 0.0f) {                        /* linear FM, through zero */
-                float m = 0.0f;
-                if (e->fm_src == 1) {                        /* the other DCO of the voice */
-                    const int o = slave ? 0 : 1;
-                    const p8_tg_t *s2 = &e->tg[k + 4 * o];
-                    float full = 0.0f;
-                    for (int f = 0; f < P8_FEET; f++) full += 0.5f * e->W[o][f];
-                    for (int S2 = 1; S2 < 16; S2++) full += fabsf(e->Wc[o][S2]);
-                    m = (full > 1e-6f && s2->amp > 0.0f) ? s2->v / (full * s2->amp) : 0.0f;
-                } else if (e->fm_src == 2) {                 /* external signal */
-                    m = e->fm_in ? clampf(e->fm_in[i] * e->sm.fmig, -2.0f, 2.0f) : 0.0f;
-                } else {                                     /* sine at fmr x the 16' frequency + fmhz */
-                    g->mph += fmr * inc / (float)(2u << g->bit[0]) + e->sm.fmhz * inv_fs;
-                    g->mph -= floorf(g->mph);
-                    m = sinf(2.0f * P8_PI * g->mph);
+            /* linear FM, through zero: cross mod (DCO2 -> DCO1, fm_i[0]) and the external
+             * signal (both DCOs, fm_i[1]) */
+            if ((!slave && fm_i[0] > 0.0f) || (fm_i[1] > 0.0f && e->fm_in)) {
+                float a = 0.0f;
+                if (!slave && fm_i[0] > 0.0f) {              /* DCO2 of the same voice: its foot shape, +-1, */
+                    const unsigned h2 = tg_bits(&e->tg[k + 4]);   /* without its level or envelope (Jupiter-8 X-MOD) */
+                    float m = 0.0f;
+                    for (int f = 0; f < P8_FEET; f++) m += e->Wm[1][f] * (((h2 >> (3 - f)) & 1u) ? 1.0f : -1.0f);
+                    a += fm_i[0] * m;
                 }
-                inc *= 1.0f + fm_i[slave] * m;
+                if (fm_i[1] > 0.0f && e->fm_in) a += fm_i[1] * clampf(e->fm_in[i], -2.0f, 2.0f);
+                inc *= 1.0f + a;
                 generic = 1;
             }
             /* keep the edges per sample bounded (sweeps, FM): at most 3 counts */
