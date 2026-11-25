@@ -801,6 +801,8 @@ static int gfx_kind_of(t_symbol *s)
     if (!strcmp(n, "env3")) return 3;
     if (!strcmp(n, "har1")) return 4;
     if (!strcmp(n, "har2")) return 5;
+    if (!strcmp(n, "cut") || !strcmp(n, "res")) return 6;
+    if (!strcmp(n, "mgr") || !strcmp(n, "mgd") || !strcmp(n, "mgw") || !strcmp(n, "mgk")) return 7;
     static const char *ST[6] = {"a", "d", "bp", "sl", "su", "r"};
     for (int k = 0; k < 6; k++) {
         size_t m = strlen(ST[k]);
@@ -820,7 +822,7 @@ static void gfx_draw(void *owner, lkg_t *g, int kind)
         const float lvl[4] = {1.0f, d[2] / 31.0f, d[4] / 31.0f, 0.0f};
         const float w[4] = {2.0f + d[0] * 1.6f, 2.0f + d[1] * 1.6f, 2.0f + d[3] * 1.6f, 2.0f + d[5] * 1.6f};
         lkg_env(g, 4, 0.0f, lvl, w, 2, 18.0f, 0);
-    } else if (kind >= 4) {
+    } else if (kind == 4 || kind == 5) {
         /* the wave of the feet (16' 8' 4' 2', each a square of the counter, 0 / 1), two periods
          * of the 16' across the width */
         static const float SQ[P8_FEET]  = {1.0f, 1.057f, 1.083f, 1.098f};
@@ -836,6 +838,36 @@ static void gfx_draw(void *owner, lkg_t *g, int kind)
             for (int f = 0; f < P8_FEET; f++) if ((int)floorf(t * (float)(1 << (f + 1))) & 1) v[i] += w[f];
         }
         lkg_plot(g, v, LKG_W, 0.0f, sum > 1e-6f ? sum : 1.0f);
+    } else if (kind == 6) {
+        /* the 24 dB low pass: cutoff 0..99, resonance 0..15 */
+        lkg_filter(g, *find_value(x, gensym("cut")) / 99.0f, *find_value(x, gensym("res")) / 15.0f, LKG_LP24, 0.0f);
+    } else if (kind == 7) {
+        /* the MG over time: more cycles with the rate, faded in over the delay */
+        const float rate = *find_value(x, gensym("mgr")), dly = *find_value(x, gensym("mgd"));
+        const int wave = (int)*find_value(x, gensym("mgw"));
+        const float cycles = 1.0f + rate * 0.6f, fade = dly / 15.0f * 0.6f;
+        float v[LKG_W], hold = 0.0f;
+        unsigned rnd = 777u;
+        int last = -1;
+        for (int i = 0; i < LKG_W; i++) {
+            const float t = (float)i / (float)(LKG_W - 1), ph = t * cycles - floorf(t * cycles);
+            float w;
+            switch (wave) {
+            case 1: w = sinf(6.2831853f * ph); break;
+            case 2: w = ph < 0.5f ? 1.0f : -1.0f; break;
+            case 3: {                                   /* noise: a new random value each cycle */
+                const int c = (int)floorf(t * cycles);
+                if (c != last) { rnd = rnd * 1103515245u + 12345u; hold = (float)(rnd >> 16 & 0x7fff) / 16384.0f - 1.0f; last = c; }
+                w = hold;
+                break;
+            }
+            default: w = ph < 0.25f ? 4.0f * ph : ph < 0.75f ? 2.0f - 4.0f * ph : 4.0f * ph - 4.0f; break;
+            }
+            v[i] = w * (fade > 0.0f && t < fade ? t / fade : 1.0f);
+        }
+        lkg_plot(g, v, LKG_W, -1.1f, 1.1f);
+        lkg_hdots(g, 0, LKG_W - 1, (int)lroundf(lkg_ly(0.5f)), 4);
+        if (fade > 0.0f) lkg_vdots(g, (int)lroundf(fade * (LKG_W - 1)), (int)LKG_TOP, (int)LKG_BOT, 3);
     }
 }
 
