@@ -48,7 +48,7 @@ enum {
        X_EGI, X_TRG, X_ENV3, X_A3, X_D3, X_BP3, X_SL3, X_SU3, X_R3, X_MGD,
        X_MGV, X_MGR, X_TREB, X_BASS, X_DTIM, X_DFB, X_DMF, X_DMI, X_DLEV, X_MONO,
        X_PWM1, X_PWM2, X_SWE, X_SWM, X_RING, X_FM2, X_FMHZ, X_WSM, X_WSE, X_DRV, X_VAMP, X_VCUT, X_DRVP, X_HMG, X_RMF, X_RETR, X_DRFT,
-       X_FMIG, X_DGLD, X_XMOD, X_EXTFM, NEXT };
+       X_FMIG, X_DGLD, X_XMOD, X_EXTFM, X_XME, X_XMM, NEXT };
 static int is_legacy(int i)                     /* FM before 25 Nov 2026, dump only */
 { return i == X_FM || i == X_FM2 || i == X_FMR || i == X_FMHZ || i == X_FMIG || i == X_FMS; }
 static const char *EXT_NAME[NEXT] = {
@@ -58,11 +58,11 @@ static const char *EXT_NAME[NEXT] = {
     "pol", "egi", "trg", "env3", "a3", "d3", "bp3", "sl3", "su3", "r3", "mgd", "mgv", "mgr", "treb",
     "bass", "dtim", "dfb", "dmf", "dmi", "dlev", "mono", "pwm1", "pwm2", "swe", "swm", "ring",
     "fm2", "fmhz", "wsm", "wse", "drv", "vamp", "vcut", "drvp", "hmg", "rmf", "retr", "drft",
-    "fmig", "dgld", "xmod", "extfm"};
+    "fmig", "dgld", "xmod", "extfm", "xme", "xmm"};
 static const float EXT_DEFAULT[NEXT] = {
     0, 0, 0, 0, 25, 2, 5, 0, 0, 1, 64, 64, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 31, 0, 31, 0, 0, 0,
     31, 0, 31, 0, 0, 0, 99, 0, 0, 2, 0, 2, 0, 0, 0, 31, 0, 31, 0, 0, 0, 8, 0, 0, 30, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 64, 1, 0, 0};
+    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 64, 1, 0, 0, 0, 0};
 
 /* performance controls (see apply_perf) */
 static const char *PERF_NAME[3] = {"atk", "rel", "vol"};
@@ -213,6 +213,11 @@ static void apply_ext_(t_pdoly8 *x, int i, t_float v)
     case X_XMOD: case X_EXTFM: {                 /* index 0..16 (1 at about 32): DCO2 -> DCO1 / input -> both */
         v = clampf_((float)v, 0.0f, 127.0f);
         float q = (float)v / 127.0f; if (i == X_XMOD) e->fm = 16.0f * q * q; else e->fm2 = 16.0f * q * q; break;
+    }
+    case X_XME: case X_XMM: {                    /* DEG3 / MG -> cross mod, +-127 = index +-16 (quadratic) */
+        v = clampf_((float)v, i == X_XME ? -127.0f : 0.0f, 127.0f);
+        float q = (float)v / 127.0f, d = 16.0f * q * fabsf(q);
+        if (i == X_XME) e->xm_e = d; else e->xm_m = d; break;
     }
     /* FM before 25 Nov 2026 (sine, ratio, offset, source): kept in the dump only, so older
      * lines still load; legacy_fm() turns them into xmod / extfm */
@@ -510,6 +515,8 @@ static const t_p8range RANGE[] = {
     {"rmf",'i',0,14,"Ring source",""},
     {"xmod",'i',0,127,"Cross mod",""},
     {"extfm",'i',0,127,"Ext FM",""},
+    {"xme",'b',-127,127,"EG3>Xmod",""},
+    {"xmm",'i',0,127,"MG>Xmod",""},
     {"dgld",'i',0,1,"Delay changes","mute|glide"},
     {"mgr",'i',0,15,"MG rate",""},
     {"mgi",'r',0,200,"Vibrato","ct"},

@@ -878,7 +878,7 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
     if (any && !e->mg_any) e->mg_t = 0.0f;
     e->mg_any = any;
     const int mg_on = e->sm.mgc > 0.01f || e->sm.mgv > 1e-4f || e->mg_cents > 0.0f || e->mg_vcf > 0.0f || e->pwm_d[0] != 0.0f || e->pwm_d[1] != 0.0f
-                    || e->sw_m > 0.0f || e->ws_m > 0.0f || e->h_m > 0.0f;
+                    || e->sw_m > 0.0f || e->ws_m > 0.0f || e->h_m > 0.0f || e->xm_m != 0.0f;
     float mg_tri = 0.0f;
 
     for (unsigned i = 0; i < n; i++) {
@@ -924,6 +924,8 @@ void p8_render(p8_engine_t *e, float *out_l, float *out_r, unsigned n)
         }
         if (sw_mod)                                          /* DCO2 sweep: DEG3, MG */
             swp = exp2f(clampf(e->sm.swp + e->sm.swe * e->e3n + e->sm.swm * mg_tri, -48.0f, 96.0f) / 12.0f);
+        if (e->xm_e != 0.0f || e->xm_m != 0.0f)              /* cross mod moved by DEG3 and the MG */
+            fm_i[0] = clampf(clampf(e->sm.fm[0], 0.0f, 16.0f) + e->xm_e * e->e3n + e->xm_m * mg_tri, 0.0f, 16.0f);
         float t16[P8_VOICES][P8_RMAX]; int n16[P8_VOICES] = {0, 0, 0, 0};
         float rs0[P8_VOICES] = {1.0f, 1.0f, 1.0f, 1.0f};    /* ring: 16' of DCO1 at the start of the sample */
         if (ring > 0.0f) for (int k = 0; k < P8_VOICES; k++)

@@ -77,7 +77,7 @@ BLOCKS = [
       "(softest), 1 8', 3 4', 7 2', 10 all four feet, back down to 14 16'x8'. Steps "
       "towards 7 move the sidebands further apart: stronger, more metallic."]),
     ("Cross mod",
-     [[("xmod", 0, 127), ("extfm", 0, 127)]], [],
+     [[("xmod", 0, 127), ("extfm", 0, 127)], [("xme", -127, 127), ("xmm", 0, 127)]], [],
      ["Linear FM of the counter rate, through zero (the counter runs backwards) above "
       "index 1, every edge band-limited. Not on the Poly-800.",
       "xmod (0): cross mod as on the Jupiter-8 (X-MOD): DCO2 of the same voice "
@@ -87,7 +87,10 @@ BLOCKS = [
       "and a DCO2 sweep (swe, swm) the classic sync-and-cross-mod lead. Needs DCO2: "
       "mode DOUBLE (every voice has both DCOs here).",
       "extfm (0): the signal at the right inlet (about -1..1: osc~, adc~, a CV) "
-      "modulates both DCOs, 0-127 = index 0-16."]),
+      "modulates both DCOs, 0-127 = index 0-16.",
+      "xme (0): DEG3 moves the cross mod index by up to +-16 (-127..127, quadratic): a "
+      "falling DEG3 with xme 80 gives a bright, clangy attack that settles.",
+      "xmm (0): the MG moves the cross mod index by +-0..16 (rate mgr, delay mgd)."]),
     ("Filter & DEG3 settings",
      [[("cut", 0, 99), ("res", 0, 15), ("kbd", 0, 2)],
       [("egi", 0, 15), ("pol", 1, 2), ("trg", 1, 2)],

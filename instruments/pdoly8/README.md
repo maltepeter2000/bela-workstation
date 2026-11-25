@@ -79,6 +79,8 @@ In the help patch the settings are grouped in blocks: DCO settings (timbre, octa
 | `rmf` | 0–14 | 0 | ring modulator: a step on DCO1's Walsh loop (0 = 16', 7 = 2', 10 = all four feet); steps towards 7 give wider sidebands |
 | `xmod` | 0–127 | 0 | cross mod as on the Jupiter-8: DCO2's wave (without its level or envelope) modulates DCO1's pitch, index 0–16 (quadratic; 1 at about 32, through zero above) |
 | `extfm` | 0–127 | 0 | the signal at inlet 2 modulates both DCOs, index 0–16 |
+| `xme` | −127…127 | 0 | DEG3 moves the cross mod index by up to ±16 (quadratic) |
+| `xmm` | 0–127 | 0 | the MG moves the cross mod index by ±0…16 |
 | `wsh1` / `wsh2` | 0–127 | 0 | Walsh loop position of DCO1 / DCO2 (see Walsh morph) |
 | `wmx1` / `wmx2` | 0–127 | 0 | mix from the feet sum (0) to the Walsh loop (127) |
 | `wsm` | 0–127 | 0 | the MG moves the Walsh position ± this many steps (127 = the whole loop) |
@@ -141,9 +143,9 @@ The concept for all instruments: `docs/controller-layer.md`. `[p8cc <channel>]` 
 | 1 PLAY | 20-27 | `har1` | `oct1` | `har2` | `oct2` | `env1` | `env2` | `lev1` | `lev2` |
 | 2 FILTER | 28-31 33-36 | `cut` | `res` | `egi` | `kbd` | `env3` | `vcut` | `drv` | `drvp` |
 | 3 OSC | 37 39-45 | `intv` | `detn` | `pw1` | `pw2` | `pwm1` | `pwm2` | `drft` | `nois` |
-| 4 WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wse` | `ring` | `rmf` | – |
-| 5 SYNC-XMOD | 54-61 | `sync` | `swp2` | `swe` | `swm` | `xmod` | `extfm` | – | – |
-| 6 MG | 62-63 70-75 | `mgr` | `mgd` | `mgi` | `mgv` | `hmg` | `wsm` | – | – |
+| 4 WALSH-RING | 46-53 | `wsh1` | `wsh2` | `wmx1` | `wmx2` | `wse` | `wsm` | `ring` | `rmf` |
+| 5 SYNC-XMOD | 54-61 | `sync` | `swp2` | `swe` | `swm` | `xmod` | `extfm` | `xme` | `xmm` |
+| 6 MG | 62-63 70-75 | `mgr` | `mgd` | `mgi` | `mgv` | `hmg` | – | – | – |
 | 7 DELAY-EQ | 76-83 | `dtim` | `dfb` | `dmf` | `dmi` | `dlev` | `dgld` | `treb` | `bass` |
 | 8 PLAY MODE | 85-87 89-93 | `port` | `pmod` | `mono` | `retr` | `vamp` | `bnd` | `sprd` | `mrph` |
 | 9 MORE | 94-95 102-107 | `atk` | `rel` | `vol` | `tone` | `leak` | `pol` | `trg` |   |

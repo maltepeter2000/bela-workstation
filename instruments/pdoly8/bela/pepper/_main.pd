@@ -30,7 +30,7 @@
 #N canvas 0 50 900 200 tables 0;
 #X text 10 6 TABLES: p8-map = 8 pot parameters + name per page (line = page) \; the CC table is in p8cc.pd, f 91;
 #X obj 10 40 text define -k p8-map;
-#A set har1 oct1 har2 oct2 env1 env2 lev1 lev2 PLAY \; cut res egi kbd env3 vcut drv drvp FILTER \; intv detn pw1 pw2 pwm1 pwm2 drft nois OSC \; wsh1 wsh2 wmx1 wmx2 wse ring rmf lev2 WALSH-RING \; sync swp2 swe swm xmod extfm lev1 lev2 SYNC-XMOD \; mgr mgd mgi mgv hmg wsm tone leak MG \; dgld treb bass pmod retr bnd sprd mrph MORE \; dtim dfb dmf dmi dlev port mono vamp FX-PERFORM \;;
+#A set har1 oct1 har2 oct2 env1 env2 lev1 lev2 PLAY \; cut res egi kbd env3 vcut drv drvp FILTER \; intv detn pw1 pw2 pwm1 pwm2 drft nois OSC \; wsh1 wsh2 wmx1 wmx2 wse wsm ring rmf WALSH-RING \; sync swp2 swe swm xmod extfm xme xmm SYNC-XMOD \; mgr mgd mgi mgv hmg tone leak none MG \; dgld treb bass pmod retr bnd sprd mrph MORE \; dtim dfb dmf dmi dlev port mono vamp FX-PERFORM \;;
 #X restore 10 135 pd tables;
 #X text 140 135 pages and CC tables, f 19;
 #N canvas 0 50 900 360 pages 0;

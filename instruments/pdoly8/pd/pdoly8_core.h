@@ -92,6 +92,7 @@ typedef struct {
     float   fm;                  /* cross mod (xmod): linear FM index of DCO1 by DCO2, 0..16, through zero above 1 */
     float   fm2;                 /* external FM (extfm): index of both DCOs by fm_in, 0..16 */
     const float *fm_in;          /* external modulator for this block, or 0 */
+    float   xm_e, xm_m;          /* DEG3 / MG -> cross mod index, +-16 / 0..16 */
     float   Wm[2][P8_FEET];      /* foot shape per DCO without level (the cross mod modulator) */
     float   pwm_d[2];            /* MG -> pulse width, 0..0.47 */
     float   sw_e, sw_m;          /* DEG3 / MG -> DCO2 pitch, semitones */
