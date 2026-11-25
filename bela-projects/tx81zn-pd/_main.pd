@@ -132,6 +132,7 @@
 #X obj 400 160 s tx-oled-note;
 #X connect 1 0 2 0;
 #X connect 3 0 4 0;
+#X connect 1 1 4 0;
 #X connect 4 0 5 0;
 #X connect 3 0 6 0;
 #X connect 6 0 7 0;

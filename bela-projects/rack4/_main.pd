@@ -22,6 +22,7 @@
 #X obj 420 290 r rack-focus;
 #X obj 420 320 == 1;
 #X obj 300 350 s rack-juno;
+#X obj 450 320 spigot;
 #X connect 1 0 3 0;
 #X connect 3 0 4 0;
 #X connect 5 0 4 2;
@@ -38,6 +39,9 @@
 #X connect 16 0 17 0;
 #X connect 17 0 15 1;
 #X connect 15 0 18 0;
+#X connect 13 1 19 0;
+#X connect 17 0 19 1;
+#X connect 19 0 12 0;
 #X restore 10 120 pd juno;
 #N canvas 0 50 760 400 d50 0;
 #X text 10 10 d50~ on channel 2: layer d50cc 2 \, pads d50pads 10 (when in focus) \, trim x1.0., f 77;
@@ -59,6 +63,7 @@
 #X obj 420 290 r rack-focus;
 #X obj 420 320 == 2;
 #X obj 300 350 s rack-d50;
+#X obj 450 320 spigot;
 #X connect 1 0 3 0;
 #X connect 3 0 4 0;
 #X connect 5 0 4 2;
@@ -75,6 +80,9 @@
 #X connect 16 0 17 0;
 #X connect 17 0 15 1;
 #X connect 15 0 18 0;
+#X connect 13 1 19 0;
+#X connect 17 0 19 1;
+#X connect 19 0 12 0;
 #X restore 120 120 pd d50;
 #N canvas 0 50 760 400 cz4 0;
 #X text 10 10 cz4~ on channel 3: layer cz4cc 3 \, pads cz4pads 10 (when in focus) \, trim x1.0., f 77;
@@ -96,6 +104,7 @@
 #X obj 420 290 r rack-focus;
 #X obj 420 320 == 3;
 #X obj 300 350 s rack-cz4;
+#X obj 450 320 spigot;
 #X connect 1 0 3 0;
 #X connect 3 0 4 0;
 #X connect 5 0 4 2;
@@ -112,6 +121,9 @@
 #X connect 16 0 17 0;
 #X connect 17 0 15 1;
 #X connect 15 0 18 0;
+#X connect 13 1 19 0;
+#X connect 17 0 19 1;
+#X connect 19 0 12 0;
 #X restore 230 120 pd cz4;
 #N canvas 0 50 760 400 p8 0;
 #X text 10 10 pdoly8~ on channel 4: layer p8cc 4 \, pads p8pads 10 (when in focus) \, trim x1.33., f 79;
@@ -140,6 +152,7 @@
 #X obj 420 290 r rack-focus;
 #X obj 420 320 == 4;
 #X obj 300 350 s rack-p8;
+#X obj 450 320 spigot;
 #X connect 1 0 3 0;
 #X connect 3 0 4 0;
 #X connect 5 0 4 0;
@@ -165,6 +178,9 @@
 #X connect 23 0 24 0;
 #X connect 24 0 22 1;
 #X connect 22 0 25 0;
+#X connect 20 1 26 0;
+#X connect 24 0 26 1;
+#X connect 26 0 19 0;
 #X restore 340 120 pd p8;
 #N canvas 0 50 900 420 midi 0;
 #X text 10 10 MIDI from Bela -> raw bytes for juno~ d50~ cz4~ (rack-raw) and note lists (rack-note). Channels of a second port (17-32) fold to 1-16. Notes on channel 10 belong to the pads., f 100;
