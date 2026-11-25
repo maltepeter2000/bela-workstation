@@ -873,6 +873,8 @@ static void out_display(t_pdoly8 *x, t_symbol *name)
     if (!disp_text(x, name, &l, buf, sizeof buf)) return;
     const int kind = x->gfx_on ? gfx_kind_of(name) : 0;
     if (kind) {                                   /* a picture, at most every 50 ms */
+        size_t n = strlen(buf);                   /* 127.0 -> 127 */
+        if (n > 2 && !strcmp(buf + n - 2, ".0")) buf[n - 2] = 0;
         snprintf(x->gfx_title, sizeof x->gfx_title, "%s %s", l, buf);
         x->gfx_kind = kind;
         const double since = clock_gettimesince(x->gfx_last);
