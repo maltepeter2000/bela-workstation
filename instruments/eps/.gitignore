@@ -1,0 +1,29 @@
+# Ensoniq data (instruments, disk images, OS) -- your own, never commit.
+eps/
+*.efe
+*.EFE
+*.img
+*.IMG
+*.ede
+*.EDE
+*.eda
+*.EDA
+*.gkh
+*.hda
+*.iso
+epsuser-bank.txt
+
+# Build products
+build/
+*.o
+*.pd_linux
+*.pd_darwin
+!bin/macos/*.pd_darwin
+*.dll
+*.d_fat
+*.l_*
+*.d_*
+*.m_*
+*.wav
+__pycache__/
+.DS_Store

@@ -15,6 +15,8 @@ instruments/          one folder per instrument, each with its own history
   tx81z/              tx81zn~  Yamaha TX81Z, native engine; tx81z~ firmware emulation for
                                comparison (from tx81z-pd, branch native-engine)
   cz4/                cz4~     Casio CZ-1 as a full instrument; cz1~ the oscillator (from CZ4)
+  eps/                eps~     Ensoniq EPS / EPS-16 PLUS / ASR-10 instruments from their own disk
+                               images on an ES5505 model (instruments not included)
   m1/                 m1~      Korg M1, planned (no code yet)
 effects/
   vrs23/              vrs23~   Dynacord VRS 23 echo / reverb, Pd vanilla

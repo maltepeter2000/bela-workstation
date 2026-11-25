@@ -1,0 +1,20 @@
+eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Silicon und Intel)
+
+1. Einen Ordner "eps~" anlegen, z. B. in ~/Documents/Pd/externals, und hineinkopieren:
+   eps~.pd_darwin, eps.i~.pd, eps.i~-help.pd, eps~-help.pd, epscc.pd, epspads.pd,
+   epsedit.pd, lkdisplay.pd.
+2. In Pd: Datei > Einstellungen > Pfad: diesen Ordner hinzufügen.
+3. Neuen Patch anlegen und speichern. Daneben einen Ordner "eps" anlegen und eigene
+   Ensoniq-Instrumente hineinlegen: .efe-Dateien oder ganze Disk-Images (.img, .ede, .eda,
+   .gkh; .hfe vorher nach .img wandeln).
+4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge). Klick auf das Objekt öffnet den Editor.
+   "library N" lädt Instrument N aus dem Ordner eps, Noten auf MIDI-Kanal 1.
+5. Regler: Offsets über dem geladenen Instrument (0 = wie gespeichert), Seite 1 wie bei den
+   anderen Instrumenten: cut, cut2 (Filter 2 statt Resonanz), att, rel, vib, (frei), wave
+   (Transwave-Position), volume. Seite 2: patch, transpose, tune, bend, dec, fenv, vibrate,
+   voices. Mod-Rad (CC 1): Wave-Modulation (Transwave).
+6. User-Bank: "store to N" wählt den Platz, "save patch" speichert Instrument und Regler und
+   schreibt epsuser-bank.txt neben den Patch (64 Plätze).
+7. Pads (Launchkey, Drum-Modus, Kanal 10): factory +/- = nächstes/voriges Instrument der
+   Bibliothek, user +/-, init (2x), save; Pad 4 / 12: Patch-Select + / -.
+8. Laden läuft im Hintergrund: der Klang wechselt, sobald das Instrument eingelesen ist.

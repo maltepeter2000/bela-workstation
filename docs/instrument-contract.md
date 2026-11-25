@@ -44,29 +44,31 @@ switching instruments:
 | d50~ | cut | res | att | rel | vib | chorus | balance | volume |
 | cz4~ | dcw | detune | attack | release | vibrato | chorus | balance | volume |
 | tx81zn~ (fm) | moda | fdbk | atkc | relc | lpmd | dtun | mix | vol |
+| eps~ | cut | cut2 (filter 2: no resonance on the EPS) | att | rel | vib | – (no effects yet) | wave (transwave position) | volume |
 
 Volume is not stored in a sound (100 or the instrument's default = unity). d50's cut, res,
 att, rel, vib and pdoly8's atk, rel are offsets over the sound (0 = as stored) and go back to
-0 when a sound is recalled; the others are the sound's own settings.
+0 when a sound is recalled; so are all controls of eps~ (offsets over the loaded Ensoniq
+instrument, kept with a user slot); the others are the sound's own settings.
 
 **On Bela**: control channel 10 for the pads, the Launchkey display for names and values,
 an OSC remote on UDP, CPU measured at block size 64 on the Bela Gem.
 
 ## State per instrument
 
-| | juno | d50 | pdoly8 | tx81z | cz4 |
-|---|---|---|---|---|---|
-| Object | `juno~` | `d50~` | `pdoly8~` | `tx81zn~` (native); `tx81z~` firmware | `cz4~`; `cz1~` oscillator |
-| `n` / `ninfo` / `info` | yes | yes | yes | yes, plus `fm` / `fminfo` for the FM view | yes |
-| Controller layer, receive + send channel | common | common | common | common (`txcc`, `txfmcc` with own selectors) | common |
-| User bank | `junouser-bank.syx`, 56, Juno-106 SysEx | `d50user-bank.syx`, 64, D-50 SysEx | `p8user-bank.txt`, 64 (text: more settings than a Poly-800 II program; Poly-800 II dumps in and out through the editor) | `txuser-bank.syx`, 64, two TX81Z voice bulk dumps | `cz4user-bank.syx`, CZ SysEx |
-| Pad messages | in the object | in the object | `p8nav.pd` (bank in Pd) | in the object (`tx81zn~`; `tx81z~` has user, userstep, store, init) | in the object |
-| `display` | object: patch, control, store | object: patch, control, store | object: control; `p8nav`: patch, store | object: patch, control, store | object: patch, control, store |
-| Pads | `junopads.pd` | `d50pads.pd` | `p8pads.pd` | `txpads.pd`, used in `bela/tx81zn-pd` | `cz4pads.pd` |
-| Bela project | `bela/juno` (Bela Gem) | – | `bela/pepper`, `bela/oled` (first Bela) | `bela/tx81zn-pd` (Bela Gem), `bela/tx81z-pd`, `bela/tx81z` (C++) | – |
-| Builds | `make`, `make mac-zig`, `make bela-gem`, `make gen` in every instrument (into `pd/`, `bin/macos`, `build/bela-gem`) | | | | |
-| CPU, Bela Gem | 21–27 %, 6 voices, block 64 | not measured | not measured | not measured | not measured |
-| Needs | – | `d50_pcm.bin` from own ROMs | – | `tx81z-v1.6.bin` | – |
+| | juno | d50 | pdoly8 | tx81z | cz4 | eps |
+|---|---|---|---|---|---|---|
+| Object | `juno~` | `d50~` | `pdoly8~` | `tx81zn~` (native); `tx81z~` firmware | `cz4~`; `cz1~` oscillator | `eps~` |
+| `n` / `ninfo` / `info` | yes | yes | yes | yes, plus `fm` / `fminfo` for the FM view | yes | yes |
+| Controller layer, receive + send channel | common | common | common | common (`txcc`, `txfmcc` with own selectors) | common | common |
+| User bank | `junouser-bank.syx`, 56, Juno-106 SysEx | `d50user-bank.syx`, 64, D-50 SysEx | `p8user-bank.txt`, 64 (text: more settings than a Poly-800 II program; Poly-800 II dumps in and out through the editor) | `txuser-bank.syx`, 64, two TX81Z voice bulk dumps | `cz4user-bank.syx`, CZ SysEx | `epsuser-bank.txt`, 64, text (file, instrument, controls); the instruments themselves are a library: `eps/` beside the patch |
+| Pad messages | in the object | in the object | `p8nav.pd` (bank in Pd) | in the object (`tx81zn~`; `tx81z~` has user, userstep, store, init) | in the object | in the object |
+| `display` | object: patch, control, store | object: patch, control, store | object: control; `p8nav`: patch, store | object: patch, control, store | object: patch, control, store | object: patch, control, store, loading |
+| Pads | `junopads.pd` | `d50pads.pd` | `p8pads.pd` | `txpads.pd`, used in `bela/tx81zn-pd` | `cz4pads.pd` | `epspads.pd` |
+| Bela project | `bela/juno` (Bela Gem) | – | `bela/pepper`, `bela/oled` (first Bela) | `bela/tx81zn-pd` (Bela Gem), `bela/tx81z-pd`, `bela/tx81z` (C++) | – | – |
+| Builds | `make`, `make mac-zig`, `make bela-gem`, `make gen` in every instrument (into `pd/`, `bin/macos`, `build/bela-gem`) | | | | | |
+| CPU, Bela Gem | 21–27 %, 6 voices, block 64 | not measured | not measured | not measured | not measured | not measured |
+| Needs | – | `d50_pcm.bin` from own ROMs | – | `tx81z-v1.6.bin` | – | your own Ensoniq instruments or disk images in `eps/` |
 
 ## Done
 

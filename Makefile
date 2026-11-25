@@ -5,7 +5,7 @@
 #   make dist       the branch pd (one folder for Pd's externals, git pull): mac-zig, bela-gem,
 #                   then common/tools/dist.py; make dist-push pushes it
 #   make all, make clean
-INSTRUMENTS = juno d50 cz4 pdoly8 tx81z
+INSTRUMENTS = juno d50 cz4 pdoly8 tx81z eps
 EFFECTS = sverb
 TARGETS = all mac-zig bela-gem gen clean
 $(TARGETS):

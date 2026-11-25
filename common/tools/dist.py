@@ -23,9 +23,9 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.normpath(os.path.join(HERE, "..", ".."))
 WT = os.path.join(REPO, "build", "pd-branch")
 BRANCH = "pd"
-INSTRUMENTS = ["juno", "d50", "cz4", "pdoly8", "tx81z"]
+INSTRUMENTS = ["juno", "d50", "cz4", "pdoly8", "tx81z", "eps"]
 EFFECTS = ["sverb"]                     # built effects: effects/<name>/bin/macos like the instruments
-SKIP = {"test", "LIESMICH.txt", "LIESMICH-juno.txt", "README.md", "cz4test.pd"}
+SKIP = {"test", "LIESMICH.txt", "LIESMICH-juno.txt", "LIESMICH-eps.txt", "README.md", "cz4test.pd"}
 SKIP_SUFFIX = ("user-bank.txt", "user-bank.syx", ".nvram")
 
 IGNORE = """# your own files beside the externals: git pull never touches them
@@ -33,6 +33,7 @@ IGNORE = """# your own files beside the externals: git pull never touches them
 *.nvram
 d50_pcm.bin
 tx81z-v1.6.bin
+eps/
 *.rom
 *.bin
 .DS_Store
