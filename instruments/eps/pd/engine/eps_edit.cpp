@@ -1,5 +1,6 @@
 #define EPS_EDIT_FIELDS
 #include "eps_edit.h"
+#include "eps_record.h"
 #include "eps_sampler.h"   // modSourceName
 
 #include <algorithm>
@@ -182,6 +183,11 @@ void Editor::setValue(Instrument &in, int id, int v) {
     int *f = editField(id, in, layerP(in), wsP(in), envP(in));
     if (!f) return;
     *f = !std::strcmp(p.kind, "s8") ? (v & 0xFF) : v;
+    // The key range of a wavesample is its keys in the layer's key map (what plays).
+    if (!std::strcmp(p.name, "w_keylo") || !std::strcmp(p.name, "w_keyhi")) {
+        const WaveSample &w = *wsP(in);
+        setKeyRange(in, layer, ws, w.keyLow, w.keyHigh);
+    }
 }
 
 int Editor::get127(Instrument &in, int id) const {

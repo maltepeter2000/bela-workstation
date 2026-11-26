@@ -37,8 +37,11 @@ OBJECT = [
     "Argument 1 is the MIDI channel (0 or none = 1), argument 2 the channel of the pads "
     "(0 or none = 10, the Drums Channel). Several eps.i~ do not get in each other's way, "
     "each has its own editor and plays its own instrument.",
+    "Inlet 2 of eps.i~ takes the audio to sample: connect adc~ (or any signal) to it and "
+    "record new wavesamples with the SAMPLE band of the editor, see Sampling.",
     "eps~ is the bare engine inside, for patches of your own: inlet 2 takes the velocity of "
-    "a note sent as a float, inlet 3 raw MIDI bytes from midiin, and the floats of outlet 3 "
+    "a note sent as a float, inlet 3 raw MIDI bytes from midiin, inlet 4 the audio to "
+    "sample, and the floats of outlet 3 "
     "(MIDI thru) go to midiout. eps~ alone takes the library beside the external, or the "
     "folder given with library. Open eps.i~ to see the wiring.",
 ]
@@ -71,6 +74,11 @@ EDITOR = [
     "ENV rows show (1 pitch, 2 filter, 3 amp). follow key (on by default): a played key "
     "selects its layer and wavesample, the rows jump to their values. zero crossings (on by "
     "default): sample and loop points move to the nearest rising zero crossing.",
+    "SAMPLE band: the wave recorder, see Sampling. rate with its arrows, threshold, pre "
+    "ms, into (new WS, replace WS, new layer, new instrument), level: the level display "
+    "(the bars and the star of the threshold), rec and stop, then the state and what it "
+    "says. root key, low key, high key: the next key you play sets it for the selected "
+    "wavesample.",
     "Sample and loop points have two cells each: the first sets the position coarsely, in "
     "steps of 1/127 of the sample, the second (fine) moves it by -64 to +63 samples from "
     "there. The box shows the sample number. Edits change the playing instrument at once "
@@ -80,6 +88,7 @@ EDITOR = [
 ]
 
 INLETS = [
+    "eps.i~ 2, eps~ 4 signal: the audio to sample.",
     "1 float: note number, velocity 100.",
     "1 list: note, velocity and, if you like, the MIDI channel.",
     "  MIDI in eps.i~: notes, bend, pressure (channel and poly),",
@@ -100,6 +109,10 @@ OUTLETS = [
     "3 folder text n, bsel k n kind name: the folder shown,",
     "  its size and the selected file (kind dir or inst).",
     "3 saved: an instrument was written.",
+    "3 recstate off / level / armed / recording / rootkey, recinfo",
+    "  text, recmeter text (level display), recset rate / thresh /",
+    "  pre / dest: the recorder. sampled ws layer: a recording is",
+    "  in the instrument.",
 ]
 
 MESSAGES = [
@@ -161,6 +174,22 @@ MESSAGES = [
     "sxcancel: stop a transfer. Outlet 3: sysex step percent,",
     "  fetched, sent.",
     "  All three write the offsets into the instrument first.",
+    "The wave recorder (see Sampling):",
+    "rec rate n (0-6: 44.6 29.8 22.3 17.9 14.9 12.8 11.2 kHz),",
+    "  rec ratestep 1 or -1.",
+    "rec thresh n: 0 (record at once) to 19 (-54 to 0 dB).",
+    "rec pre ms: pre-trigger, 0 to 127 ms (default 15).",
+    "rec dest n: 0 a new wavesample in the selected layer, 1",
+    "  replace the selected wavesample, 2 a new layer, 3 a new",
+    "  instrument.",
+    "rec level 0/1: the level display (recmeter) without",
+    "  recording.",
+    "rec start: record (from the threshold). rec stop: stop, then",
+    "  the next key is the root key. Stop again: cancel.",
+    "rec root n: the root key without playing it.",
+    "rec learn root / lo / hi: the next key played sets the root",
+    "  key / lowest / highest key of the selected wavesample.",
+    "rec status: report the recorder's settings.",
     "bend f: pitch wheel, -1 to 1, times bend.",
     "mod f: modulation wheel, 0 to 1 (EPS source WHEEL).",
     "pressure f: channel pressure, 0 to 1 (PRESS).",
@@ -200,6 +229,32 @@ PRESETS = [
     "bend range, patch select and vibrato rate are playing controls, the EPS has no place "
     "for them in an instrument: they stay. volume and voices belong to the instrument "
     "object.",
+]
+
+SAMPLING = [
+    "As on the EPS (SAMPLE, Musician's Manual section 5): the audio at inlet 2 of eps.i~ "
+    "(inlet 4 of eps~) becomes a wavesample of the instrument that plays. There is no "
+    "waveform display: set the points in the WS POINTS row afterwards, by ear.",
+    "Choose the rate (the seven of the EPS-16 PLUS, 44.6 to 11.2 kHz: lower rates hold "
+    "longer sounds, they are band-limited as by the EPS's input filter) and where the "
+    "recording goes: new WS (a new wavesample in the layer selected in the SELECT band), "
+    "replace WS (the selected wavesample: its keys and parameters stay, its loop too if it "
+    "fits), new layer (up to 8), new instrument (UNNAMED INST, as the EPS makes it). The "
+    "recording uses the free sample memory of the EPS-16 PLUS (1024K words with the "
+    "instrument): recinfo shows the seconds left.",
+    "level shows the input as bars, the star is the threshold. threshold 0 records at once "
+    "on rec, 1 to 19 (-54 to 0 dB in steps of 3) waits until the input crosses it, pre ms "
+    "keeps that much from before (10 to 20 ms are usually right). stop ends the recording "
+    "(full memory too), then the editor says PLAY ROOT KEY: the next key you play is the "
+    "key at which the recording plays back as recorded, it does not sound.",
+    "Key mapping as on the EPS: a new wavesample gets the keys between its root key and "
+    "the root keys of its neighbours in the layer, split at the midpoints (the whole "
+    "keyboard when it is the first). Change it with root key, low key and high key (the "
+    "next key played sets it for the selected wavesample) or the cells WS key low / high: "
+    "keys it gives up go to its neighbour.",
+    "The recording is in the instrument that plays, not yet on disk: save it with replace, "
+    "save copy or save as (a new instrument with save as or save copy). The file is the "
+    "EPS's own: the original operating system loads and plays what eps~ recorded.",
 ]
 
 ABOUT = [
@@ -282,6 +337,7 @@ def main():
                           "eps~", "epscc", "epspads", "39 patch select +, 47 patch select -")),
                       ("lines", "Inlet", INLETS), ("lines", "Outlets", OUTLETS),
                       ("text", "Library and saving", PRESETS),
+                      ("text", "Sampling", SAMPLING),
                       ("lines", "Messages", MESSAGES), ("text", "The instrument", ABOUT),
                       ("text", "Data files", DATA),
                       ("controls", CONTROLS_INTRO, rows, control_line),

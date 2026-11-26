@@ -13,6 +13,7 @@
 //             bend, program change, channel and poly pressure, CC 1 (wheel),
 //             2 (XCTRL), 4 (pedal), 7 (volume), 64 (sustain)
 //             any:   a message (the same set as inlet 1)
+//   inlet 4   signal: the audio to sample (the wave recorder, see rec below)
 //   outlet 1  signal, left
 //   outlet 2  signal, right
 //   outlet 3  messages: info <name> <0-127> <text> for every change, the
@@ -47,6 +48,13 @@
 // Names: 12 characters of A-Z 0-9 space * - + ('_' = space). Changes to an image
 // are journaled: <image>.undo keeps the old blocks (eps_fs_tool undo restores).
 //   init, reload
+// The wave recorder (SAMPLE on the EPS): the audio of inlet 4 becomes a wavesample.
+//   rec rate n (0-6: 44.6 .. 11.2 kHz), rec ratestep d, rec thresh n (0-19, 0 = at once),
+//   rec pre ms (0-127), rec dest n (0 new WS in the selected layer, 1 replace the selected
+//   WS, 2 new layer, 3 new instrument), rec level 0/1 (level display), rec start, rec stop
+//   (then the next key is the root key; stop again cancels), rec root n,
+//   rec learn root|lo|hi (the next key sets it for the selected WS), rec status.
+//   Outlet 3: recstate, recinfo, recmeter, recset ..., sampled <ws> <layer>.
 // Controls (tools/eps_params.py): <name> <value>, <name>, n <name> <0-127>,
 //   ninfo <name>, cycle <name> [n], dump
 // Playing: bend f (-1..1), mod f (wheel 0..1), pressure f, polypressure note f,
@@ -66,6 +74,7 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <functional>
 #include <memory>
 #include <mutex>
 #include <string>
@@ -84,6 +93,7 @@ extern "C" {
 #include "eps_edit.h"
 #include "eps_fs.h"
 #include "eps_sysex.h"
+#include "eps_record.h"
 
 namespace {
 
@@ -318,6 +328,9 @@ struct Loader {
     std::mutex m;                       // guards the request / result fields (short holds only)
     std::string path, label;
     int index = 0;
+    // Instead of a file: build the instrument here (the wave recorder).
+    std::function<bool(eps::Instrument&, std::string&)> make;
+    bool made = false;                  // the result came from make
     float sr = 44100.f;
     int voices = 20;
     std::atomic<int> state{0};          // 0 idle, 1 requested, 2 loading, 3 done
@@ -344,10 +357,12 @@ struct Loader {
             std::string p, err, nm;
             int k;
             eps::Sampler::Settings set;
+            std::function<bool(eps::Instrument&, std::string&)> job;
             {
                 std::lock_guard<std::mutex> g(m);
                 p = path;
                 k = index;
+                job.swap(make);
                 set.sampleRate = sr;
                 set.maxVoices = voices;
                 // Several layers per key add up (CLASSIC PAD: a chord of three
@@ -356,7 +371,14 @@ struct Loader {
             }
             std::unique_ptr<eps::Sampler> s;
             eps::Disk disk;
-            if (disk.open(p, err)) {
+            if (job) {
+                eps::Instrument inst;
+                if (job(inst, err)) {
+                    s.reset(new eps::Sampler(set));
+                    if (!s->load(inst, err)) s.reset();
+                    else nm = inst.name;
+                }
+            } else if (disk.open(p, err)) {
                 const auto list = disk.instruments();
                 if (k < 0 || k >= static_cast<int>(list.size())) {
                     err = list.empty() ? "no instrument in the file" : "no instrument " + std::to_string(k);
@@ -374,6 +396,7 @@ struct Loader {
                 result = std::move(s);
                 error = err;
                 name = nm;
+                made = static_cast<bool>(job);
             }
             state.store(3);
         }
@@ -396,7 +419,33 @@ struct Midi {
     bool in_sx = false;
 };
 
-enum Source { kNone = -1, kInit = 0, kLibrary = 1, kOpen = 3 };
+enum Source { kNone = -1, kInit = 0, kLibrary = 1, kOpen = 3, kSampled = 4 };
+
+// The wave recorder (as SAMPLE on the EPS): level display, threshold, pre-trigger,
+// recording at the host rate, then PLAY ROOT KEY; the loader thread converts the
+// recording to the EPS rate, puts it into the instrument and builds the new sampler.
+struct Recorder {
+    enum State { Off, Level, Armed, Recording, RootKey };
+    int state = Off;
+    int shownState = -1;          // what recstate said last
+    int rate = 0;                 // 0..6: eps::kRecordRateIndex, 44.6 .. 11.2 kHz
+    int thresh = 0;               // 0..19: the star of the level display, 0 = at once
+    int pre = 15;                 // pre-trigger in ms (0..127)
+    int dest = 0;                 // eps::RecordDest
+    int learn = 0;                // the next key sets 1 root, 2 low key, 3 high key
+    bool full = false;            // the memory is full (set in the audio thread)
+    std::vector<float> buf, ring; // recording and pre-trigger ring (host rate)
+    size_t len = 0, ringPos = 0, preN = 0;
+    float level = 0;              // threshold as amplitude
+    float peak = 0;               // since the last meter
+    float hold = 0;               // the meter's peak, falling
+    float recSr = 44100.f;        // host rate of the recording
+    bool waiting = false;         // a job waits for the loader
+    std::function<bool(eps::Instrument&, std::string&)> job;
+    // filled by the job (loader thread), read by eps_poll after it finished
+    struct Result { int layer = 0, ws = 0; };
+    std::shared_ptr<Result> result;
+};
 
 struct t_eps {
     t_object obj;
@@ -427,6 +476,8 @@ struct t_eps {
     bool pending;                        // a request waits for the loader to be free
     LibEntry* pending_entry;
     eps::Editor* editor;                 // selection and edits of the editor
+    Recorder* rec;
+    t_clock* recclock;                   // level display while sampling
 };
 
 void out_value(t_eps* x, const char* key, t_float v) {
@@ -546,6 +597,8 @@ void out_source(t_eps* x) {
         out_slot(x, "preset", x->index, nm);
     } else if (x->source == kOpen) {
         out_display(x, "File", nm);
+    } else if (x->source == kSampled) {
+        out_display(x, "Sampled", nm);
     } else if (x->source == kInit) {
         out_display(x, "Init", nm);
         outlet_anything(x->info, gensym("init"), 0, nullptr);
@@ -585,14 +638,19 @@ void eps_poll(t_eps* x) {
     if (L.state.load() == 3) {
         std::unique_ptr<eps::Sampler> s;
         std::string err, nm;
+        bool made = false;
         {
             std::lock_guard<std::mutex> g(L.m);
             s = std::move(L.result);
             err = L.error;
             nm = L.name;
+            made = L.made;
         }
         L.state.store(0);
-        if (!s) {
+        if (!s && made) {
+            pd_error(x, "eps~: sample: %s", err.c_str());
+            out_display(x, "Not sampled", err);
+        } else if (!s) {
             pd_error(x, "eps~: %s: %s", x->entry->file.c_str(), err.c_str());
             out_display(x, "Load failed", x->entry->name);
         } else {
@@ -607,6 +665,16 @@ void eps_poll(t_eps* x) {
             *x->name = spaces_to_underscore(nm);
             out_source(x);
             const eps::Instrument& in = x->sampler->instrument();
+            if (made && x->rec->result) {
+                // the new wavesample selected in the editor
+                x->editor->layer = x->rec->result->layer;
+                x->editor->ws = x->rec->result->ws;
+                x->editor->follow = false;
+                t_atom r[2];
+                SETFLOAT(&r[0], x->rec->result->ws);
+                SETFLOAT(&r[1], x->rec->result->layer + 1);
+                outlet_anything(x->info, gensym("sampled"), 2, r);
+            }
             t_atom a[3];
             SETSYMBOL(&a[0], gensym(in.modelName()));
             SETFLOAT(&a[1], static_cast<t_float>(in.layers.size()));
@@ -623,7 +691,17 @@ void eps_poll(t_eps* x) {
         request(x, *x->pending_entry);
         return;
     }
-    if (L.state.load() != 0 || x->pending) clock_delay(x->poll, 5);
+    if (x->rec->waiting && L.state.load() == 0) {
+        x->rec->waiting = false;
+        {
+            std::lock_guard<std::mutex> g(L.m);
+            L.make = std::move(x->rec->job);
+            L.sr = x->sr;
+            L.voices = x->value[kC_voices];
+        }
+        L.state.store(1);
+    }
+    if (L.state.load() != 0 || x->pending || x->rec->waiting) clock_delay(x->poll, 5);
 }
 
 void set_defaults(t_eps* x, bool keep_settings) {
@@ -787,6 +865,282 @@ std::string free_name(t_eps* x) {
         if (!used) return cand;
     }
     return base;
+}
+
+// ---- the wave recorder ---------------------------------------------------------------
+
+const char* const kDestNames[4] = {"new_WS", "replace_WS", "new_layer", "new_inst"};
+const char* const kRecStates[5] = {"off", "level", "armed", "recording", "rootkey"};
+
+int rec_rate_hz(const Recorder& R) { return eps::sampleRateOfIndex(eps::kRecordRateIndex[R.rate]); }
+
+std::string rate_text(int hz) {
+    char b[16];
+    std::snprintf(b, sizeof b, "%.1fkHz", hz / 1000.0);
+    return b;
+}
+
+// The threshold as amplitude: 0 = none, 1..19 = -54 .. 0 dB in 3 dB steps.
+float rec_level(int t) { return t <= 0 ? 0.f : std::pow(10.f, (-57.f + 3.f * t) / 20.f); }
+
+// Seconds of recording that fit into the memory left beside the instrument.
+double rec_free_seconds(t_eps* x) {
+    const Recorder& R = *x->rec;
+    const bool fresh = R.dest == int(eps::RecordDest::NewInstrument) || !x->sampler;
+    long words = fresh ? eps::kSampleMemoryWords : eps::freeWords(x->sampler->instrument());
+    if (!fresh && R.dest == int(eps::RecordDest::Replace)) {
+        auto it = x->sampler->instrument().waveSamples.find(x->editor->ws);
+        if (it != x->sampler->instrument().waveSamples.end()) words += long(it->second.pcm.size());
+    }
+    return std::max(0.0, double(words - 300) / rec_rate_hz(R));
+}
+
+void out_recset(t_eps* x) {
+    const Recorder& R = *x->rec;
+    t_atom a[3];
+    SETSYMBOL(&a[0], gensym("rate"));
+    SETFLOAT(&a[1], R.rate);
+    SETSYMBOL(&a[2], gensym(rate_text(rec_rate_hz(R)).c_str()));
+    outlet_anything(x->info, gensym("recset"), 3, a);
+    SETSYMBOL(&a[0], gensym("thresh"));
+    SETFLOAT(&a[1], R.thresh);
+    outlet_anything(x->info, gensym("recset"), 2, a);
+    SETSYMBOL(&a[0], gensym("pre"));
+    SETFLOAT(&a[1], R.pre);
+    outlet_anything(x->info, gensym("recset"), 2, a);
+    SETSYMBOL(&a[0], gensym("dest"));
+    SETFLOAT(&a[1], R.dest);
+    SETSYMBOL(&a[2], gensym(kDestNames[R.dest]));
+    outlet_anything(x->info, gensym("recset"), 3, a);
+}
+
+void out_recstate(t_eps* x, const std::string& info) {
+    Recorder& R = *x->rec;
+    t_atom a;
+    if (R.state != R.shownState) {
+        R.shownState = R.state;
+        SETSYMBOL(&a, gensym(kRecStates[R.state]));
+        outlet_anything(x->info, gensym("recstate"), 1, &a);
+    }
+    SETSYMBOL(&a, gensym(info.empty() ? "-" : info.c_str()));
+    outlet_anything(x->info, gensym("recinfo"), 1, &a);
+}
+
+// What the recorder would do, for the display: "44.6kHz_new_WS_free_23.5s".
+std::string rec_summary(t_eps* x) {
+    const Recorder& R = *x->rec;
+    char b[64];
+    std::snprintf(b, sizeof b, "%s_%s_free_%.1fs", rate_text(rec_rate_hz(R)).c_str(), kDestNames[R.dest],
+                  rec_free_seconds(x));
+    return b;
+}
+
+// The level display of the EPS: 20 columns, '|' up to the peak, '*' the threshold.
+void out_recmeter(t_eps* x) {
+    Recorder& R = *x->rec;
+    R.hold = std::max(R.peak, R.hold * 0.7f);
+    R.peak = 0;
+    const float db = R.hold > 0 ? 20.f * std::log10(R.hold) : -100.f;
+    std::string m(20, '.');
+    for (int c = 0; c < 20; ++c)
+        if (db >= -57.f + 3.f * c) m[size_t(c)] = '|';
+    if (R.thresh > 0) m[size_t(std::min(R.thresh, 19))] = '*';
+    else m[0] = '*';
+    t_atom a;
+    SETSYMBOL(&a, gensym(m.c_str()));
+    outlet_anything(x->info, gensym("recmeter"), 1, &a);
+}
+
+void rec_stop(t_eps* x);
+
+void eps_rec_tick(t_eps* x) {
+    Recorder& R = *x->rec;
+    if (R.state == Recorder::Off || R.state == Recorder::RootKey) return;
+    out_recmeter(x);
+    if (R.state == Recorder::Recording) {
+        char b[32];
+        std::snprintf(b, sizeof b, "rec_%.1fs%s", R.len / R.recSr, R.full ? "_full" : "");
+        out_recstate(x, b);
+        if (R.full) {
+            rec_stop(x);
+            return;
+        }
+    }
+    clock_delay(x->recclock, 50);
+}
+
+// Level display (the SAMPLE button): the meter runs, nothing is recorded.
+void rec_level_mode(t_eps* x, bool on) {
+    Recorder& R = *x->rec;
+    if (R.state == Recorder::Recording || R.state == Recorder::RootKey) return;
+    R.state = on ? Recorder::Level : Recorder::Off;
+    out_recstate(x, rec_summary(x));
+    if (on) {
+        out_display(x, "Sample", rate_text(rec_rate_hz(R)) + " " + kDestNames[R.dest]);
+        clock_delay(x->recclock, 50);
+    }
+}
+
+// ENTER: record now (threshold 0) or when the input crosses the threshold.
+void rec_start(t_eps* x) {
+    Recorder& R = *x->rec;
+    if (R.state == Recorder::Recording || R.state == Recorder::Armed) return;
+    if (R.dest == int(eps::RecordDest::Replace) &&
+        (!x->sampler || !x->sampler->instrument().waveSamples.count(x->editor->ws))) {
+        pd_error(x, "eps~: rec: no wavesample selected to replace");
+        return;
+    }
+    if (R.dest == int(eps::RecordDest::NewLayer) && x->sampler && x->sampler->instrument().layers.size() >= 8) {
+        pd_error(x, "eps~: rec: the instrument has 8 layers");
+        return;
+    }
+    R.recSr = x->sr;
+    const double secs = rec_free_seconds(x);
+    if (secs < 0.05) { pd_error(x, "eps~: rec: no sample memory left"); out_display(x, "Memory", "full"); return; }
+    R.buf.assign(size_t(secs * R.recSr), 0.f);
+    R.ring.assign(size_t(0.128 * R.recSr) + 1, 0.f);
+    R.preN = std::min(R.ring.size() - 1, size_t(R.pre * 0.001 * R.recSr));
+    R.ringPos = 0;
+    R.len = 0;
+    R.full = false;
+    R.level = rec_level(R.thresh);
+    R.state = R.thresh > 0 ? Recorder::Armed : Recorder::Recording;
+    out_recstate(x, R.state == Recorder::Armed ? "waiting_for_threshold" : "rec_0.0s");
+    out_display(x, R.state == Recorder::Armed ? "Armed" : "Recording", rate_text(rec_rate_hz(R)));
+    clock_delay(x->recclock, 50);
+}
+
+// CANCEL: stop the recording (then PLAY ROOT KEY), or leave the level display.
+void rec_stop(t_eps* x) {
+    Recorder& R = *x->rec;
+    if (R.state == Recorder::Recording) {
+        R.buf.resize(R.len);
+        R.ring.clear();
+        if (R.len < 16) {
+            R.state = Recorder::Off;
+            R.buf.clear();
+            out_recstate(x, "nothing_recorded");
+            return;
+        }
+        R.state = Recorder::RootKey;
+        char b[48];
+        std::snprintf(b, sizeof b, "%.2fs_PLAY_ROOT_KEY", R.len / R.recSr);
+        out_recstate(x, b);
+        out_display(x, "PLAY ROOT KEY", "");
+        return;
+    }
+    if (R.state == Recorder::RootKey) R.buf.clear();
+    R.state = Recorder::Off;
+    R.buf.clear();
+    R.ring.clear();
+    out_recstate(x, "cancelled");
+    out_display(x, "Sample", "cancelled");
+}
+
+// The root key: the recording goes into the instrument (in the loader thread).
+void rec_place(t_eps* x, int root) {
+    Recorder& R = *x->rec;
+    if (R.state != Recorder::RootKey) return;
+    R.state = Recorder::Off;
+    eps::RecordDest dest = static_cast<eps::RecordDest>(R.dest);
+    if (!x->sampler || x->sampler->instrument().layers.empty()) dest = eps::RecordDest::NewInstrument;
+    auto base = std::make_shared<eps::Instrument>();
+    if (dest != eps::RecordDest::NewInstrument) *base = x->sampler->instrument();
+    auto rec = std::make_shared<std::vector<float>>(std::move(R.buf));
+    R.buf.clear();
+    auto res = std::make_shared<Recorder::Result>();
+    R.result = res;
+    const int layer = x->editor->layer, ws = x->editor->ws, idx = eps::kRecordRateIndex[R.rate];
+    const double from = R.recSr, to = rec_rate_hz(R);
+    R.job = [base, rec, res, dest, layer, ws, idx, from, to, root](eps::Instrument& out, std::string& err) {
+        const std::vector<int16_t> pcm = eps::resampleRecording(*rec, from, to);
+        int layerOut = 0;
+        const int n = eps::placeRecording(*base, dest, layer, ws, pcm, idx, root, layerOut, err);
+        if (!n) return false;
+        std::vector<uint8_t> file;
+        if (!eps::buildInstrument(*base, file, err)) return false;
+        if (!eps::parseInstrument(file.data(), file.size(), base->name, out, err)) return false;
+        res->layer = layerOut;
+        res->ws = n;
+        return true;
+    };
+    if (dest == eps::RecordDest::NewInstrument) {
+        *x->entry = LibEntry();
+        x->source = kSampled;
+        x->index = -1;
+    }
+    R.waiting = true;
+    out_recstate(x, "placing");
+    clock_delay(x->poll, 5);
+}
+
+// A key played: the root key after a recording, or a key the editor waits for.
+bool rec_key(t_eps* x, int note) {
+    Recorder& R = *x->rec;
+    if (R.state == Recorder::RootKey) {
+        rec_place(x, note);
+        return true;
+    }
+    if (!R.learn || !x->sampler) return false;
+    eps::Instrument& in = x->sampler->editInstrument();
+    auto it = in.waveSamples.find(x->editor->ws);
+    const int what = R.learn;
+    R.learn = 0;
+    if (it == in.waveSamples.end()) return true;
+    eps::WaveSample& w = it->second;
+    if (what == 1) w.rootNote = note;
+    else eps::setKeyRange(in, x->editor->layer, x->editor->ws, what == 2 ? note : w.keyLow, what == 3 ? note : w.keyHigh);
+    out_sel(x);
+    out_edump(x, "w");
+    out_display(x, what == 1 ? "Root key" : (what == 2 ? "Key low" : "Key high"), std::to_string(note));
+    return true;
+}
+
+void rec_command(t_eps* x, int argc, t_atom* argv) {
+    Recorder& R = *x->rec;
+    if (argc < 1 || argv[0].a_type != A_SYMBOL) return;
+    const std::string w = atom_getsymbol(argv)->s_name;
+    const int n = argc > 1 ? static_cast<int>(atom_getfloat(argv + 1)) : 0;
+    const bool idle = R.state == Recorder::Off || R.state == Recorder::Level;
+    if (w == "rate" || w == "ratestep") {
+        if (!idle) return;
+        R.rate = w == "rate" ? std::clamp(n, 0, 6) : std::clamp(R.rate + (argc > 1 ? n : 1), 0, 6);
+    } else if (w == "thresh") {
+        R.thresh = std::clamp(n, 0, 19);
+        R.level = rec_level(R.thresh);
+    } else if (w == "pre") {
+        if (!idle) return;
+        R.pre = std::clamp(n, 0, 127);
+    } else if (w == "dest") {
+        if (!idle) return;
+        R.dest = std::clamp(n, 0, 3);
+    } else if (w == "level") {
+        rec_level_mode(x, argc < 2 || n != 0);
+        return;
+    } else if (w == "start") {
+        rec_start(x);
+        return;
+    } else if (w == "stop") {
+        rec_stop(x);
+        return;
+    } else if (w == "root") {
+        if (R.state == Recorder::RootKey && argc > 1) rec_place(x, std::clamp(n, 0, 127));
+        return;
+    } else if (w == "learn") {
+        const std::string k = argc > 1 && argv[1].a_type == A_SYMBOL ? atom_getsymbol(argv + 1)->s_name : "";
+        R.learn = k == "root" ? 1 : k == "lo" ? 2 : k == "hi" ? 3 : 0;
+        if (R.learn) out_display(x, "Play a key", k == "root" ? "root key" : (k == "lo" ? "low key" : "high key"));
+        return;
+    } else if (w == "status") {
+        R.shownState = -1;
+    } else {
+        pd_error(x, "eps~: rec: no method '%s'", w.c_str());
+        return;
+    }
+    out_recset(x);
+    if (idle) out_recstate(x, rec_summary(x));
+    if (w == "rate") out_display(x, "Sample rate", rate_text(rec_rate_hz(R)));
+    else if (w == "dest") out_display(x, "Sample into", kDestNames[R.dest]);
 }
 
 // ---- SysEx with a real EPS ---------------------------------------------------------
@@ -1032,6 +1386,9 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         x->sxpct = -1;
         clock_delay(x->sxclock, 20);
         return;
+    } else if (is("rec")) {
+        rec_command(x, argc, argv);
+        return;
     } else if (is("sxcancel")) {
         if (x->sysex) x->sysex->cancel();
         out_display(x, "SysEx", "cancelled");
@@ -1184,6 +1541,7 @@ void eps_note(t_eps* x, t_float note, t_float velocity) {
         outlet_float(x->info, n);
         outlet_float(x->info, v);
     }
+    if (velocity > 0 && rec_key(x, n)) return;
     if (!x->sampler) return;
     if (velocity > 0) x->sampler->noteOn(n, std::clamp(static_cast<int>(velocity), 1, 127));
     else x->sampler->noteOff(n);
@@ -1222,6 +1580,7 @@ void midi_message(t_eps* x, int status, int d1, int d2) {
     eps::Sampler* s = x->sampler;
     switch (status & 0xF0) {
         case 0x90:
+            if (d2 > 0 && rec_key(x, d1)) return;
             if (!s) return;
             if (d2 > 0) s->noteOn(d1, d2);
             else s->noteOff(d1);
@@ -1311,24 +1670,54 @@ void eps_proxy_list(t_eps_proxy* p, t_symbol*, int argc, t_atom* argv) {
 
 // ---- dsp ------------------------------------------------------------------------
 
+// The recorder's part of the audio: meter, threshold and pre-trigger, recording.
+// Before the sampler writes: the input may share its buffer with an output.
+void record_block(Recorder& R, const t_sample* in, int n) {
+    if (R.state < Recorder::Level || R.state > Recorder::Recording) return;
+    float pk = R.peak;
+    for (int i = 0; i < n; ++i) {
+        const float v = in[i];
+        const float a = std::fabs(v);
+        if (a > pk) pk = a;
+        if (R.state == Recorder::Armed) {
+            R.ring[R.ringPos] = v;
+            R.ringPos = (R.ringPos + 1) % R.ring.size();
+            if (a >= R.level) {
+                // start: the last pre-trigger samples first (this one included)
+                const size_t m = std::min(R.preN + 1, R.buf.size());
+                const size_t sz = R.ring.size();
+                for (size_t k = 0; k < m; ++k) R.buf[k] = R.ring[(R.ringPos + sz - m + k) % sz];
+                R.len = m;
+                R.state = Recorder::Recording;
+            }
+        } else if (R.state == Recorder::Recording) {
+            if (R.len < R.buf.size()) R.buf[R.len++] = v;
+            else R.full = true;
+        }
+    }
+    R.peak = pk;
+}
+
 t_int* eps_perform(t_int* w) {
     t_eps* x = reinterpret_cast<t_eps*>(w[1]);
-    t_sample* l = reinterpret_cast<t_sample*>(w[2]);
-    t_sample* r = reinterpret_cast<t_sample*>(w[3]);
-    const int n = static_cast<int>(w[4]);
+    t_sample* l = reinterpret_cast<t_sample*>(w[3]);
+    t_sample* r = reinterpret_cast<t_sample*>(w[4]);
+    const int n = static_cast<int>(w[5]);
+    record_block(*x->rec, reinterpret_cast<t_sample*>(w[2]), n);
     if (x->sampler) {
         x->sampler->process(l, r, n);
     } else {
         std::fill(l, l + n, 0.0f);
         std::fill(r, r + n, 0.0f);
     }
-    return w + 5;
+    return w + 6;
 }
 
 void eps_dsp(t_eps* x, t_signal** sp) {
     x->sr = sp[0]->s_sr;
     if (x->sampler) x->sampler->setSampleRate(x->sr);
-    dsp_add(eps_perform, 4, x, sp[0]->s_vec, sp[1]->s_vec, static_cast<t_int>(sp[0]->s_n));
+    // sp[0]: the audio to sample (inlet 4), sp[1], sp[2]: left, right
+    dsp_add(eps_perform, 5, x, sp[0]->s_vec, sp[1]->s_vec, sp[2]->s_vec, static_cast<t_int>(sp[0]->s_n));
 }
 
 // ---- lifetime -------------------------------------------------------------------
@@ -1346,6 +1735,7 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->name = new std::string();
     x->pending = false;
     x->editor = new eps::Editor();
+    x->rec = new Recorder();
     x->sr = sys_getsr() > 0 ? sys_getsr() : 44100.0f;
     x->channel = 0;
     x->txchannel = 1;
@@ -1363,6 +1753,7 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     for (int& v : x->shown) v = INT32_MIN;
     x->poll = clock_new(x, reinterpret_cast<t_method>(eps_poll));
     x->sxclock = clock_new(x, reinterpret_cast<t_method>(eps_sx_tick));
+    x->recclock = clock_new(x, reinterpret_cast<t_method>(eps_rec_tick));
     x->epsch = 1;
     x->sxpct = -1;
     x->sysex = new eps::SysexLink([x](const std::vector<uint8_t>& p) {
@@ -1373,6 +1764,7 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->proxy.pd = eps_proxy_class;
     x->proxy.owner = x;
     inlet_new(&x->obj, &x->proxy.pd, nullptr, nullptr);
+    inlet_new(&x->obj, &x->obj.ob_pd, &s_signal, &s_signal);
     outlet_new(&x->obj, &s_signal);
     outlet_new(&x->obj, &s_signal);
     x->info = outlet_new(&x->obj, nullptr);
@@ -1396,6 +1788,7 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
 void eps_free(t_eps* x) {
     clock_free(x->poll);
     clock_free(x->sxclock);
+    clock_free(x->recclock);
     delete x->sysex;
     x->loader->quit.store(true);
     if (x->loader->thread.joinable()) x->loader->thread.join();
@@ -1406,6 +1799,7 @@ void eps_free(t_eps* x) {
     delete x->pending_entry;
     delete x->name;
     delete x->editor;
+    delete x->rec;
     delete x->bfile;
     delete x->bdir;
 }

@@ -231,6 +231,24 @@ bool parseInstrument(const uint8_t *data, size_t size, const std::string &fallba
 // structs land in the file and everything else stays as it was.
 bool encodeInstrument(const Instrument &in, std::vector<uint8_t> &out, std::string &err);
 
+// ---- Building instrument files from the structs (the wave recorder) ----------
+// What the original OS creates when it samples into an empty instrument slot
+// (measured on OS 1.30: UNNAMED INST with layer UNNAMEDLAYER and wavesample
+// UNNAMED WS, 44.6 kHz). The new layer maps no key, the new wavesample has no
+// samples and no key range.
+void newInstrument(Instrument &in);
+Layer newLayer(int index);                     // 1-based
+WaveSample newWaveSample(int index);           // 1..127
+// The whole instrument file from the structs: header, effect, layers, wavesamples
+// with their samples (WaveSample::pcm of every wavesample that is not a copy) and
+// pitch tables. Blocks the instrument was loaded with start from their old bytes
+// (what eps~ does not know stays), new ones from zero. For new or resampled
+// wavesamples; parseInstrument() the result to play it.
+bool buildInstrument(const Instrument &in, std::vector<uint8_t> &out, std::string &err);
+// The EPS sample rates of a recording (Hz, index as stored): 625 kHz / index.
+constexpr int kRecordRateIndex[7] = {14, 21, 28, 35, 42, 49, 56};
+int sampleRateOfIndex(int index);
+
 // Helpers for checking results.
 // A WAV file (PCM 16 or 24 bit, the first channel) as 16-bit samples.
 bool readWav(const std::string &path, std::vector<int16_t> &pcm, int &rate, std::string &err);

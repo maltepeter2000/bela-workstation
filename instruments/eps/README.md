@@ -5,9 +5,11 @@ the ES5505 ("OTIS") voice chip of the EPS-16 PLUS. No Ensoniq data is part of th
 your instruments into a folder `eps/` beside your patch.
 
 ```
+[adc~ 1]
+|
 [eps.i~ 1]        library: eps/ beside the patch (disk images, EFE)
 |      |          saving: into the images (Ensoniq format) or as EFE
-[dac~   ]
+[dac~   ]         inlet 2: the audio to sample (SAMPLE band of the editor)
 ```
 
 ## What it does
@@ -90,6 +92,30 @@ until eps~ has its effects; own is `wave`, the transwave position. Pads 39 / 47:
 - **Safety**: before writing, eps~ checks the image (free count = FAT, directory sizes = file
   counts) and refuses otherwise. Every block it changes is copied to `<image>.undo` first;
   `build/eps_fs_tool undo <image>` restores the image and deletes the journal.
+
+## Sampling
+
+The wave recorder (`pd/engine/eps_record.*`, the SAMPLE band of the editor, `rec ...`
+messages) works as SAMPLE on the EPS-16 PLUS, without a waveform display:
+
+- **Rate**: the seven EPS rates, 625 kHz / 14, 21 … 56 (44.6, 29.8, 22.3, 17.9, 14.9, 12.8,
+  11.2 kHz). Recorded at Pd's rate, then converted (windowed sinc, cutoff 0.45 of the lower
+  rate, as the EPS's input filter follows the rate).
+- **Threshold** 0–19 (0 = at once, else −54 to 0 dB), **pre-trigger** 0–127 ms, a level display
+  (`recmeter`: bars, `*` = threshold), the free sample memory (1024K words with the instrument).
+- **Into**: a new wavesample in the selected layer, the selected wavesample (keys, parameters
+  and the loop if it fits stay), a new layer, a new instrument (UNNAMED INST).
+- **PLAY ROOT KEY** after stop: the next key is the root key. A new wavesample gets the keys
+  between the midpoints to its neighbours' root keys, as on the EPS; `rec learn root|lo|hi`
+  (root key / low key / high key in the editor) and the cells `w_keylo` / `w_keyhi` change the
+  key range in the layer's key map.
+
+The instrument file is then built anew from the structs (`buildInstrument`: header, effect,
+layers each followed by their wavesamples, pitch tables; known blocks keep their bytes, new ones
+start as the OS creates them: UNNAMED INST / UNNAMEDLAYER / UNNAMED WS, measured on OS 1.30).
+Checked with the original OS in the emulator: it loads an instrument recorded by eps~ (no
+effect block) and plays it at the right pitch, and CLASSIC PAD with a wavesample added. The
+recording is in memory until saved (`replace`, `saveas`, `save`).
 
 ## Build
 

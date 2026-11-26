@@ -130,7 +130,7 @@ def bank_rewrite(lines, f):
 
 def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkdisplay=None,
           midi=("raw", 2), pads_channel_rule=True, more_edits=(), save=True, store_writes=False,
-          editor_bank=None, channel_msg="channel", clock=False, dir_msgs=()):
+          editor_bank=None, channel_msg="channel", clock=False, dir_msgs=(), sig_in=None):
     """obj: 'juno.i~', ext: the external with its arguments ('juno~'), short: bus name,
     edit / cc / pads / nav / lkdisplay: paths of the generated abstractions,
     edit_title: the title of the bare editor ('juno~ editor'), more_edits: [(path, name)] more
@@ -142,7 +142,9 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     (pdoly8~): those become the file beside the patch (ufread as before when it is not there).
     channel_msg: the external's message for the receive channel ('ch1' for pdoly8~).
     dir_msgs: [(message, name)] sent at load as `message <folder of the patch>/<name>`, whether
-    it is there or not (eps~: `library <dir>/eps`, its folder of instruments)."""
+    it is there or not (eps~: `library <dir>/eps`, its folder of instruments).
+    sig_in: a signal inlet of the external (its index) that becomes inlet 2 of the object, an
+    [inlet~] (eps~: the audio to sample)."""
     bus = "\\$0-" + short
     extname = ext.split()[0]
     title_re = r"^(#X obj \d+ \d+ cnv 10 10 10 empty empty )" + re.escape(edit_title.replace(" ", "\\ ")) + "(?= )"
@@ -202,6 +204,7 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     Y += 40
     inl = add(f"#X obj {X} {Y} inlet;")
     rb = add(f"#X obj {X + 60} {Y} r {bus};")
+    sgi = add(f"#X obj {X + 200} {Y} inlet~;") if sig_in is not None else None
     to_ext = []                                  # (object, outlet) -> external inlet 1
     if banks:
         sel = (["save"] if save else []) + (["store"] if store_writes else []) + \
@@ -283,6 +286,8 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
         con(a, o, jn, 0)
     for a, o, i in midi_src:
         con(a, o, jn, i)
+    if sgi is not None:
+        con(sgi, 0, jn, sig_in)
     o1 = add(f"#X obj {X} {jy + 60} outlet~;")
     o2 = add(f"#X obj {X + 60} {jy + 60} outlet~;")
     rf = add(f"#X obj {X + 130} {jy + 30} route float;")

@@ -140,6 +140,37 @@ def select_band(c):
     c.add(f"#X obj {x1 + 400} {y + 74} tgl 15 0 {D}0-zerox {D}0-zeroxv zero{SP}crossings 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 1 1;")
 
 
+SAMPLE_H = 100
+DESTS = "new WS / replace WS / new layer / new instrument"
+
+
+def sample_band(c, y):
+    """the wave recorder: rate, threshold, pre-trigger, where the recording goes, the keys"""
+    x0 = X0
+    c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {SAMPLE_H - 6} empty empty SAMPLE{SP}(audio{SP}into{SP}inlet{SP}2) 4 8 0 10 {S.SELECT} {S.BLUE} 0;")
+    c.add(f"#X text {x0} {y + 20} rate;")
+    bng(c, x0 + 32, y + 20, "rprev", "")
+    c.add(f"#X symbolatom {x0 + 54} {y + 20} 7 0 0 0 - {D}0-ratev -;")
+    bng(c, x0 + 112, y + 20, "rnext", "")
+    c.add(f"#X text {x0 + 140} {y + 20} threshold;")
+    c.add(f"#X floatatom {x0 + 200} {y + 20} 2 0 19 0 - {D}0-threshv {D}0-rthresh;")
+    c.add(f"#X text {x0 + 226} {y + 20} pre ms;")
+    c.add(f"#X floatatom {x0 + 270} {y + 20} 3 0 127 0 - {D}0-prev {D}0-rpre;")
+    c.add(f"#X text {x0 + 306} {y + 20} into;")
+    c.add(f"#X obj {x0 + 336} {y + 20} hradio 15 1 0 4 {D}0-rdest {D}0-destv empty 0 -8 0 10 {S.WIDGET} {S.INK} {S.INK} 0;")
+    c.add(f"#X symbolatom {x0 + 400} {y + 20} 12 0 0 0 - {D}0-destnv -;")
+    c.add(f"#X obj {x0} {y + 46} tgl 15 0 {D}0-rlevel {D}0-rlevelv level 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
+    bng(c, x0 + 60, y + 46, "rstart", "rec")
+    bng(c, x0 + 110, y + 46, "rstop", "stop")
+    c.add(f"#X symbolatom {x0 + 164} {y + 46} 20 0 0 0 - {D}0-meterv -;")
+    c.add(f"#X symbolatom {x0 + 300} {y + 46} 9 0 0 0 - {D}0-statev -;")
+    c.add(f"#X symbolatom {x0 + 366} {y + 46} 30 0 0 0 - {D}0-recinfov -;")
+    c.add(f"#X text {x0} {y + 72} play a key for the selected wavesample:;")
+    bng(c, x0 + 256, y + 72, "lroot", "root key")
+    bng(c, x0 + 346, y + 72, "llo", "low key")
+    bng(c, x0 + 430, y + 72, "lhi", "high key")
+
+
 def tint(title, r):
     for key, colours in TINT.items():
         if key in title:
@@ -166,6 +197,7 @@ def gui(c):
                       f" {S.WIDGET} {S.INK} {S.INK} 0 1;")
                 c.add(f"#X floatatom {x} {yc + 46} 3 0 127 0 - {D}0-v-{nm} {D}0-e-{nm};")
                 c.add(f"#X symbolatom {x + 26} {yc + 46} 7 0 0 0 - {D}0-t-{nm} -;")
+    sample_band(c, TOP + max(len(LEFT), len(RIGHT)) * ROWH)
 
 
 def logic():
@@ -201,7 +233,7 @@ def logic():
     rr = c.add(f"#X obj 110 {y} r {D}0-refresh;")
     dl = c.add(f"#X obj 10 {y + 30} del 800;")
     c.conn(lb, 0, dl, 0); c.conn(rr, 0, dl, 0)
-    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump {COMMA} browse, f 70;")
+    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump {COMMA} browse {COMMA} rec status, f 70;")
     c.conn(dl, 0, allm, 0)
     s2 = c.add(f"#X obj 10 {y + 330} s {D}1;")
     c.conn(allm, 0, s2, 0)
@@ -232,7 +264,16 @@ def logic():
     se = c.add(f"#X obj 730 {ye + 90} s {D}1;"); c.conn(me, 0, se, 0)
     send(850, ye, "follow", f"follow {D}1")
     send(970, ye, "zerox", f"zerox {D}1")
-    yp = ye
+    # the wave recorder
+    yr = ye + 110
+    for k, (recv, text) in enumerate([("rprev", "rec ratestep -1"), ("rnext", "rec ratestep 1"),
+                                      ("rthresh", f"rec thresh {D}1"), ("rpre", f"rec pre {D}1"),
+                                      ("rdest", f"rec dest {D}1"), ("rlevel", f"rec level {D}1"),
+                                      ("rstart", "rec start"), ("rstop", "rec stop"),
+                                      ("lroot", "rec learn root"), ("llo", "rec learn lo"),
+                                      ("lhi", "rec learn hi")]):
+        send(10 + 120 * k, yr, recv, text)
+    yp = yr
     yn = yp
     # saving: replace, save copy (a free name), save as / new folder with the name typed
     ys = yn + 110
@@ -285,6 +326,28 @@ def logic():
     ee = c.add(f"#X obj 640 {ys2 + 60} - 1;"); c.conn(ue, 2, ee, 0)
     me = c.add(f"#X msg 640 {ys2 + 90} set {D}1;"); c.conn(ee, 0, me, 0)
     se = c.add(f"#X obj 640 {ys2 + 120} s {D}0-eselv;"); c.conn(me, 0, se, 0)
+    # the recorder's replies -> the SAMPLE band
+    yq = ys2 + 150
+    rq = c.add(f"#X obj 10 {yq} route recset recstate recinfo recmeter;"); c.conn(ro, 0, rq, 0)
+    rs = c.add(f"#X obj 10 {yq + 30} route rate thresh pre dest;"); c.conn(rq, 0, rs, 0)
+    for k, (outlet, text, dest) in enumerate([(0, f"set {D}2", "ratev"), (1, f"set {D}1", "threshv"),
+                                              (2, f"set {D}1", "prev"), (3, f"set {D}1", "destv"),
+                                              (3, f"set {D}2", "destnv")]):
+        x = 10 + 110 * k
+        ll = c.add(f"#X obj {x} {yq + 60} list;"); c.conn(rs, outlet, ll, 0)
+        m = c.add(f"#X msg {x} {yq + 90} {text};"); c.conn(ll, 0, m, 0)
+        s_ = c.add(f"#X obj {x} {yq + 120} s {D}0-{dest};"); c.conn(m, 0, s_, 0)
+    lists = {}
+    for k, (outlet, dest) in enumerate([(1, "statev"), (2, "recinfov"), (3, "meterv")]):
+        x = 600 + 110 * k
+        ll = c.add(f"#X obj {x} {yq + 30} list;"); c.conn(rq, outlet, ll, 0)   # a word -> symbol
+        lists[outlet] = ll
+        m = c.add(f"#X msg {x} {yq + 60} set {D}1;"); c.conn(ll, 0, m, 0)
+        s_ = c.add(f"#X obj {x} {yq + 90} s {D}0-{dest};"); c.conn(m, 0, s_, 0)
+    sl = c.add(f"#X obj 930 {yq + 30} sel level;"); c.conn(lists[1], 0, sl, 0)
+    m1 = c.add(f"#X msg 930 {yq + 60} set 1;"); c.conn(sl, 0, m1, 0)
+    m0 = c.add(f"#X msg 1000 {yq + 60} set 0;"); c.conn(sl, 1, m0, 0)
+    sv = c.add(f"#X obj 930 {yq + 90} s {D}0-rlevelv;"); c.conn(m1, 0, sv, 0); c.conn(m0, 0, sv, 0)
     lem = c.add(f"#X obj 800 {ys2} list;"); c.conn(ri, 9, lem, 0)
     lbs = c.add(f"#X obj 1000 {ys2} list;"); c.conn(ri, 10, lbs, 0)
     mbs = c.add(f"#X msg 1000 {ys2 + 30} set {D}4;"); c.conn(lbs, 0, mbs, 0)
@@ -301,8 +364,9 @@ def build():
     gui(c)
     lg = logic()
     rows = max(len(LEFT), len(RIGHT))
-    sub = ["#N canvas 40 40 1320 900 logic 0;"] + lg.lines + lg.conns + [f"#X restore {X0} {TOP + rows * ROWH + 4} pd logic;"]
-    h = TOP + rows * ROWH + 34
+    yl = TOP + rows * ROWH + SAMPLE_H
+    sub = ["#N canvas 40 40 1320 900 logic 0;"] + lg.lines + lg.conns + [f"#X restore {X0} {yl} pd logic;"]
+    h = yl + 30
     return "\n".join([f"#N canvas 20 20 {X1 + 8 * CW + 10} {h} 10;"] + c.lines + sub + c.conns) + "\n"
 
 

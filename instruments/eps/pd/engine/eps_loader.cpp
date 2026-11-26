@@ -7,6 +7,7 @@
 #include <cstdio>
 #include <cstring>
 #include <fstream>
+#include <initializer_list>
 
 namespace eps {
 
@@ -34,10 +35,18 @@ uint32_t epsLong(const uint8_t *p) {
     return msw << 12 | lsw;
 }
 
+void putEpsLong(uint8_t *p, uint32_t v) {
+    const uint32_t lo = (v & 0xFFF) << 4, hi = (v >> 12 & 0xFFF) << 4;
+    p[0] = uint8_t(lo >> 8); p[1] = uint8_t(lo); p[2] = uint8_t(hi >> 8); p[3] = uint8_t(hi);
+}
+
 // Offset fields in the instrument header (nybble-packed 24-bit values).
 uint32_t encoded24(const uint8_t *p) {
     uint32_t b0 = p[0], b2 = p[2], b3 = p[3];
     return (b3 >> 4 & 0x0F) << 20 | b0 << 12 | b2 << 4 | (b3 & 0x0F);
+}
+void putEncoded24(uint8_t *p, uint32_t v) {
+    p[0] = uint8_t(v >> 12); p[1] = 0; p[2] = uint8_t(v >> 4); p[3] = uint8_t((v >> 20 & 0xF) << 4 | (v & 0xF));
 }
 
 std::string trimRight(std::string s) {
@@ -727,6 +736,177 @@ bool writeWav(const std::string &path, const WaveSample &ws, const std::vector<i
     fclose(f);
     if (!ok) err = "write error on " + path;
     return ok;
+}
+
+int sampleRateOfIndex(int index) { return sampleRateFromIndex(index); }
+
+// ---- building instrument files ----------------------------------------------------
+
+namespace {
+
+constexpr uint32_t kHeaderBytes = 656, kLayerBlock = 224;
+
+void setEnvelope(Envelope &e, std::initializer_list<int> soft, std::initializer_list<int> hard,
+                 std::initializer_list<int> times, int level5) {
+    int i = 0;
+    for (int v : soft) e.softLevel[i++] = v;
+    i = 0;
+    for (int v : hard) e.hardLevel[i++] = v;
+    i = 1;
+    for (int v : times) e.time[i++] = v;
+    e.level5 = level5;
+}
+
+} // namespace
+
+void newInstrument(Instrument &in) {
+    in = Instrument();
+    in.name = "UNNAMED INST";
+    in.instrumentId = kIdEps16Plus;
+    in.midiOutChannel = 0;
+    in.midiProgram = 1;
+    in.pressureMode = 1;
+    in.sizeBlocks = 0x100;
+    in.keyDestination = 0;
+    in.patches[0] = 7; in.patches[1] = 1; in.patches[2] = 2; in.patches[3] = 3;
+    in.keyDownLayers = 0xFF;
+    in.keyUpLayers = 0;
+    in.patchSelectMode = 0;
+    in.keyLow = 36;
+    in.keyHigh = 96;
+    in.transpose = 0;
+}
+
+Layer newLayer(int index) {
+    Layer l;
+    l.index = index;
+    l.name = "UNNAMEDLAYER";
+    l.velocityLow = 0;
+    l.velocityHigh = 127;
+    return l;
+}
+
+WaveSample newWaveSample(int index) {
+    WaveSample w;
+    w.index = index;
+    w.name = "UNNAMED WS";
+    w.rootNote = 60;
+    w.lfoPitchAmount = 8;
+    w.pitchBendRange = 13;
+    w.pitchModSource = 3;
+    w.filterMode = 3;
+    w.filterCutoff[0] = w.filterCutoff[1] = 127;
+    w.filterKeyAmount[0] = w.filterKeyAmount[1] = 10;
+    w.filterModSource[0] = w.filterModSource[1] = 13;
+    w.volume = 127;
+    w.ampModSource = 13;
+    w.crossfade[0] = 0; w.crossfade[1] = w.crossfade[2] = w.crossfade[3] = 127;
+    w.panEps = 3;
+    w.lfoSpeed = 40;
+    w.lfoDelay = 40;
+    w.lfoDepthModAmount = 127;
+    w.lfoDepthModSource = 10;
+    w.lfoRateModSource = 13;
+    w.randomFreq = 20;
+    w.sampleRateIndex = 14;
+    w.sampleRate = sampleRateFromIndex(14);
+    w.keyLow = 21;
+    w.keyHigh = 108;
+    w.waveModRaw[0] = 13;
+    w.waveModRaw[2] = 6;
+    setEnvelope(w.pitchEnv, {0, 100, 90, 80, 64}, {0, 127, 100, 85, 80}, {10, 64, 52, 40, 30, 0}, -128);
+    setEnvelope(w.filterEnv, {64, 64, 60, 55, 50}, {127, 127, 100, 85, 80}, {10, 64, 52, 40, 30, 0}, -127);
+    setEnvelope(w.ampEnv, {64, 64, 64, 64, 64}, {127, 127, 127, 127, 127}, {0, 64, 52, 40, 20, 0}, -127);
+    return w;
+}
+
+bool buildInstrument(const Instrument &inst, std::vector<uint8_t> &out, std::string &err) {
+    Instrument &in = const_cast<Instrument &>(inst);   // the codec reads the fields only
+    // The file the instrument came from, as bytes (empty for a new instrument).
+    std::vector<uint8_t> old(in.image.size() * 2);
+    for (size_t i = 0; i < in.image.size(); ++i) {
+        old[2 * i] = uint8_t(uint16_t(in.image[i]) >> 8);
+        old[2 * i + 1] = uint8_t(in.image[i]);
+    }
+    const bool haveOld = old.size() >= kHeaderBytes;
+    // A block of the old file: offset (from the header), its length; 0 = none.
+    auto oldBlock = [&](uint32_t off, uint32_t &len) {
+        len = 0;
+        if (!haveOld || off < kHeaderBytes || off + 4 > old.size()) return false;
+        len = epsLong(old.data() + off);
+        if (len < 4 || off + len > old.size()) { len = 0; return false; }
+        return true;
+    };
+
+    out.assign(kHeaderBytes, 0);
+    if (haveOld) {
+        std::memcpy(out.data(), old.data(), kHeaderBytes);
+    } else {
+        // As the OS writes a new instrument (the hardware address is rebuilt on load).
+        static const uint8_t addr[4] = {0xC9, 0x00, 0xFF, 0xD0};
+        std::memcpy(out.data() + 4, addr, 4);
+        out[650] = 0x10;
+    }
+    std::memset(out.data() + 100, 0, 548);              // offset tables and effect
+    std::string name = in.name;
+    {
+        Codec h(out.data(), out.size());
+        if (!codeHeader(h, in, name)) { err = "header"; return false; }
+    }
+    auto append = [&out](const uint8_t *p, size_t n) {
+        const size_t at = out.size();
+        out.resize(at + n, 0);
+        if (p) std::memcpy(out.data() + at, p, n);
+        return uint32_t(at);
+    };
+
+    // The effect: copied as it is.
+    uint32_t len = 0;
+    if (haveOld && oldBlock(encoded24(old.data() + 644), len))
+        putEncoded24(out.data() + 644, append(old.data() + encoded24(old.data() + 644), len));
+
+    std::vector<bool> written(128, false);
+    auto writeWs = [&](int idx) {
+        auto it = in.waveSamples.find(idx);
+        if (it == in.waveSamples.end() || written[size_t(idx)]) return true;
+        written[size_t(idx)] = true;
+        WaveSample &w = it->second;
+        const size_t n = w.copyOfWaveSample ? 0 : w.pcm.size();
+        uint32_t ol = 0;
+        const bool had = w.fileOffset && oldBlock(w.fileOffset, ol) && ol >= kWaveSampleHeader;
+        const uint32_t at = append(had ? old.data() + w.fileOffset : nullptr, kWaveSampleHeader);
+        out.resize(at + kWaveSampleHeader + 2 * n, 0);
+        putEpsLong(out.data() + at, uint32_t(kWaveSampleHeader + 2 * n));
+        Codec c(out.data() + at + 4, kWaveSampleHeader - 4);
+        if (!codeWaveSample(c, w)) { err = "wavesample " + std::to_string(idx); return false; }
+        uint8_t *p = out.data() + at + kWaveSampleHeader;
+        for (size_t i = 0; i < n; ++i) { p[2 * i] = uint8_t(uint16_t(w.pcm[i]) >> 8); p[2 * i + 1] = uint8_t(w.pcm[i]); }
+        putEncoded24(out.data() + 132 + 4 * idx, at);
+        return true;
+    };
+    // Each layer, then its wavesamples (key order), as the OS lays them out.
+    for (size_t li = 0; li < in.layers.size() && li < 8; ++li) {
+        Layer &l = in.layers[li];
+        uint32_t ol = 0;
+        const bool had = l.fileOffset && oldBlock(l.fileOffset, ol) && ol == kLayerBlock;
+        const uint32_t at = append(had ? old.data() + l.fileOffset : nullptr, kLayerBlock);
+        putEpsLong(out.data() + at, kLayerBlock);
+        Codec c(out.data() + at + 4, kLayerBlock - 4);
+        if (!codeLayer(c, l)) { err = "layer " + std::to_string(li + 1); return false; }
+        putEncoded24(out.data() + 100 + 4 * li, at);
+        for (uint8_t k : l.keyMap)
+            if (k && !writeWs(k)) return false;
+    }
+    for (auto &kv : in.waveSamples)
+        if (!writeWs(kv.first)) return false;
+    // Pitch tables: copied as they are.
+    for (int i = 0; i < 8 && haveOld; ++i) {
+        const uint32_t o = encoded24(old.data() + 612 + 4 * i);
+        if (o && oldBlock(o, len)) putEncoded24(out.data() + 612 + 4 * i, append(old.data() + o, len));
+    }
+    out.resize((out.size() + kBlock - 1) / kBlock * kBlock, 0);
+    putEpsLong(out.data(), uint32_t(out.size()));
+    return true;
 }
 
 } // namespace eps

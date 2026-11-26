@@ -66,8 +66,8 @@ PARAMS = [
     ("w_lendf", "fine", "f", "3", 0, 127, "n", "loop end, fine"),
     # wavesample: loop and wave modulation
     ("w_loop", "Loop mode", "w", "W.loopMode", 0, 4, LOOPMODE, "loop mode"),
-    ("w_keylo", "WS key low", "w", "W.keyLow", 21, 108, "note", "lowest key of the wavesample"),
-    ("w_keyhi", "WS key high", "w", "W.keyHigh", 21, 108, "note", "highest key of the wavesample"),
+    ("w_keylo", "WS key low", "w", "W.keyLow", 21, 108, "note", "lowest key of the wavesample in the layer"),
+    ("w_keyhi", "WS key high", "w", "W.keyHigh", 21, 108, "note", "highest key of the wavesample in the layer"),
     ("w_wmsrc", "Wave mod", "w", "W.waveModRaw[0]", 0, 15, "src", "source of the wave modulation"),
     ("w_wmamt", "Wave amt", "w", "W.waveModRaw[1]", -127, 127, "s8", "amount of the wave modulation"),
     ("w_wmtype", "Wave type", "w", "W.waveModRaw[3]", 0, 7, WMTYPE, "type of the wave modulation"),
