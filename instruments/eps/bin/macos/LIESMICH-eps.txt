@@ -27,7 +27,9 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
 8. Befehle (COMMAND-Leiste): die Wave-, LFO- und Amp-Befehle des EPS für das gewählte WS
    (truncate, crossfade-Varianten, convert_rate, normalize, fades, volume_smooth, scale /
    reverse / invert / clear, new / copy / delete WS, new / copy / delete layer, copy_params:
-   alle Parameter des gewählten WS auf "to WS"). do, dann old / new vergleichen,
+   alle Parameter des gewählten WS auf "to WS", bidir_xfade, loop_longer, synth_loop,
+   auto_loop (bestes Loop-Ende in der Nähe), copy_data / mix_data / merge / splice mit "to WS").
+   xcc (Reihe MORE): welcher MIDI-Controller XCTRL ist (Standard 2). do, dann old / new vergleichen,
    keep oder cancel – wie KEEP=OLD NEW am EPS.
 9. Launchkey Mini MK4 (eigene Firmware, Pads im Drum-Modus auf Kanal 10): eps.i~ steuert ihn
    selbst, mit zwei Ebenen. SEL zweimal tippen wechselt PLAY und EDIT (das Display zeigt

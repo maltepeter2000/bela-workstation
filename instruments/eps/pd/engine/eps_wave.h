@@ -22,6 +22,8 @@ enum class WaveCmd {
     Scale, Reverse, Invert, Clear,                                               // COMMAND/LFO
     NewWs, CopyWs, DeleteWs,                                                     // COMMAND/Wave
     NewLayer, CopyLayer, DeleteLayer, CopyParams,                                // COMMAND/Layer, Wave
+    BidirXFade, LoopLonger, SynthLoop,                                           // COMMAND/Wave
+    CopyData, MixData, Merge, Splice, AutoLoop,                                  // COMMAND/LFO, Wave
     Count
 };
 const char *waveCmdName(WaveCmd c);              // "truncate", "crossfade" ...
@@ -54,6 +56,15 @@ double scaleDepthDb(int depth);
 // wavesample in another layer is a copy of one of it; the patches and key-up / key-down
 // layers move with the layers). Copy parameters: all parameters of the wavesample to toWs,
 // but not its data, points, loop mode, root key and tuning, rate, keys and name.
+//
+// More wave commands: bidir_xfade (both loop ends made symmetric over the fade zone, for the
+// bidirectional loop), loop_longer (the loop once more after itself), synth_loop (the loop
+// resynthesized from its spectrum with random phases: a seamless loop of the same colour,
+// at most 65536 samples), copy_data / mix_data (the range of the wavesample written over /
+// added to toWs from its sample start), merge (this wavesample, then toWs, crossfaded over
+// the fade zone of the shorter one; same rate and root key), splice (merge without fade) and
+// auto_loop (the loop end, within the fade zone of the loop length around the old one, where
+// the data matches that around loop start best).
 bool waveCommand(Instrument &in, int layer, int ws, WaveCmd cmd, const WaveArgs &a, int &selWs,
                  std::string &err, int *selLayer = nullptr);
 

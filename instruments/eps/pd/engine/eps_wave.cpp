@@ -108,6 +108,214 @@ bool crossFade(WaveCmd cmd, const WaveSample &w, std::vector<int16_t> &d, const 
     return true;
 }
 
+// In-place radix-2 FFT (n a power of two), inverse with inv.
+void fft(std::vector<double> &re, std::vector<double> &im, bool inv) {
+    const size_t n = re.size();
+    for (size_t i = 1, j = 0; i < n; ++i) {
+        size_t bit = n >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j) { std::swap(re[i], re[j]); std::swap(im[i], im[j]); }
+    }
+    for (size_t len = 2; len <= n; len <<= 1) {
+        const double a = 2.0 * M_PI / double(len) * (inv ? 1.0 : -1.0);
+        for (size_t i = 0; i < n; i += len)
+            for (size_t k = 0; k < len / 2; ++k) {
+                const double cr = std::cos(a * double(k)), ci = std::sin(a * double(k));
+                const size_t u = i + k, v = i + k + len / 2;
+                const double xr = re[v] * cr - im[v] * ci, xi = re[v] * ci + im[v] * cr;
+                re[v] = re[u] - xr; im[v] = im[u] - xi;
+                re[u] += xr; im[u] += xi;
+            }
+    }
+    if (inv) for (size_t i = 0; i < n; ++i) { re[i] /= double(n); im[i] /= double(n); }
+}
+
+// The commands that change the length of the data: the points of the wavesample move with it.
+void shiftAfter(WaveSample &w, long at, long by) {
+    auto mv = [at, by](uint32_t &r) {
+        if (long(r >> 9) >= at) r = uint32_t(std::max(0L, long(r >> 9) + by)) << 9 | (r & 0x1FF);
+    };
+    mv(w.rawStart); mv(w.rawEnd); mv(w.rawLoopStart); mv(w.rawLoopEnd);
+    syncPoints(w);
+}
+
+bool moreCommands(Instrument &in, int ws, WaveCmd cmd, const WaveArgs &a, int &selWs, std::string &err) {
+    auto it = in.waveSamples.find(ws);
+    if (it == in.waveSamples.end()) { err = "NO WAVESAMPLE"; return false; }
+    WaveSample &w = it->second;
+    WaveSample *own = ownerOf(in, w);
+    if (!own) { err = "NO DATA"; return false; }
+    std::vector<int16_t> &d = own->pcm;
+    const long n = long(d.size());
+    const Pts p = points(w);
+    const bool changesLength = cmd == WaveCmd::LoopLonger || cmd == WaveCmd::Merge || cmd == WaveCmd::Splice;
+    if (changesLength && w.copyOfWaveSample) { err = "WS IS A COPY"; return false; }
+    if (changesLength && hasCopies(in, ws)) { err = "WS HAS COPIES"; return false; }
+    switch (cmd) {
+    case WaveCmd::BidirXFade: {
+        if (p.le <= p.ls + 1 || p.le >= n) { err = "NO LOOP"; return false; }
+        const long L = p.le - p.ls;
+        const long F = std::max(1L, L * std::clamp(a.zone, 1, 50) / 100);
+        if (p.le + F >= n) { err = "DECREMENT LOOPEND"; return false; }
+        if (p.ls - F < 0) { err = "INCREMENT LOOPSTART"; return false; }
+        const std::vector<int16_t> old = d;
+        // around each end the data becomes the mean of itself and its mirror image, fully at
+        // the end, fading out over the zone: the turn at either end has no corner
+        for (long k = 0; k <= F; ++k) {
+            const double g = curve(1.0 - double(k) / double(F), a.depth);
+            const double e = 0.5 * (old[size_t(p.le - k)] + old[size_t(p.le + k)]);
+            d[size_t(p.le - k)] = clip(old[size_t(p.le - k)] * (1.0 - g) + e * g);
+            const double s = 0.5 * (old[size_t(p.ls + k)] + old[size_t(p.ls - k)]);
+            d[size_t(p.ls + k)] = clip(old[size_t(p.ls + k)] * (1.0 - g) + s * g);
+        }
+        w.loopMode = 3;
+        return true;
+    }
+    case WaveCmd::LoopLonger: {
+        if (p.le <= p.ls + 1 || p.le > n) { err = "NO LOOP"; return false; }
+        const long L = p.le - p.ls;
+        if (n + L > (1L << 21)) { err = "LOOP TOO LONG"; return false; }
+        std::vector<int16_t> loop(d.begin() + p.ls, d.begin() + p.le);
+        d.insert(d.begin() + p.le, loop.begin(), loop.end());
+        const uint32_t le = w.rawLoopEnd, ls = w.rawLoopStart;
+        shiftAfter(w, p.le, L);
+        w.rawLoopStart = ls;                         // the start stays, the end moves on
+        w.rawLoopEnd = le + (uint32_t(L) << 9);
+        syncPoints(w);
+        return true;
+    }
+    case WaveCmd::SynthLoop: {
+        if (p.le <= p.ls + 16 || p.le > n) { err = "NO LOOP"; return false; }
+        const long L = p.le - p.ls;
+        if (L > 65536) { err = "LOOP LENGTH TOO LONG"; return false; }
+        size_t N = 1;
+        while (N < size_t(L)) N <<= 1;
+        std::vector<double> re(N, 0.0), im(N, 0.0);
+        double rms = 0;
+        for (long i = 0; i < L; ++i) {
+            const double v = d[size_t(p.ls + i)];
+            rms += v * v;
+            re[size_t(i) * N / size_t(L)] += v * (0.5 - 0.5 * std::cos(2.0 * M_PI * (double(i) + 0.5) / double(L)));
+        }
+        rms = std::sqrt(rms / double(L));
+        fft(re, im, false);
+        uint32_t seed = 0x2545F491u;
+        auto rnd = [&seed]() { seed ^= seed << 13; seed ^= seed >> 17; seed ^= seed << 5; return seed / 4294967296.0; };
+        re[0] = im[0] = 0.0;                         // no offset
+        for (size_t k = 1; k < N / 2; ++k) {
+            const double m = std::hypot(re[k], im[k]), ph = 2.0 * M_PI * rnd();
+            re[k] = m * std::cos(ph); im[k] = m * std::sin(ph);
+            re[N - k] = re[k]; im[N - k] = -im[k];
+        }
+        re[N / 2] = im[N / 2] = 0.0;
+        fft(re, im, true);
+        // periodic over N, read back over L (wrapping): periodic over the loop
+        double r2 = 0;
+        std::vector<double> y(static_cast<size_t>(L));
+        for (long i = 0; i < L; ++i) {
+            const double pos = double(i) * double(N) / double(L);
+            const size_t i0 = size_t(pos) % N, i1 = (i0 + 1) % N;
+            const double f = pos - std::floor(pos);
+            y[size_t(i)] = re[i0] * (1.0 - f) + re[i1] * f;
+            r2 += y[size_t(i)] * y[size_t(i)];
+        }
+        r2 = std::sqrt(r2 / double(L));
+        if (r2 < 1e-9 || rms < 1.0) { err = "NO DATA"; return false; }
+        for (long i = 0; i < L; ++i) d[size_t(p.ls + i)] = clip(y[size_t(i)] * rms / r2);
+        return true;
+    }
+    case WaveCmd::CopyData: case WaveCmd::MixData: {
+        auto jt = in.waveSamples.find(a.toWs);
+        if (jt == in.waveSamples.end() || a.toWs == ws) { err = "NO DESTINATION"; return false; }
+        WaveSample *to = ownerOf(in, jt->second);
+        if (!to || to == own) { err = "SAME DATA"; return false; }
+        long lo = 0, hi = 0;
+        if (!range(w, a.range, n, lo, hi, err)) return false;
+        const std::vector<int16_t> src(d.begin() + lo, d.begin() + hi);
+        std::vector<int16_t> &t = to->pcm;
+        const long at = long(jt->second.rawStart >> 9);
+        if (at + long(src.size()) + kTail > long(t.size())) t.resize(size_t(at + long(src.size()) + kTail), 0);
+        for (size_t i = 0; i < src.size(); ++i) {
+            int16_t &o = t[size_t(at) + i];
+            o = cmd == WaveCmd::CopyData ? src[i] : clip(double(o) + double(src[i]));
+        }
+        WaveSample &tw = jt->second;
+        if (long(tw.rawEnd >> 9) < at + long(src.size())) tw.rawEnd = uint32_t(at + long(src.size())) << 9;
+        syncPoints(tw);
+        selWs = a.toWs;
+        return true;
+    }
+    case WaveCmd::AutoLoop: {
+        // the loop end nearest to the old one (within the fade zone of the loop length, at most
+        // 8192 samples either way) where the data around it is most like the data around loop
+        // start: the jump back is as small as it can be, in level and in slope
+        if (p.le <= p.ls + 64 || p.le > n) { err = "NO LOOP"; return false; }
+        const long L = p.le - p.ls, W = 32;
+        const long R = std::min(8192L, std::max(64L, L * std::clamp(a.zone, 1, 99) / 100));
+        const long lo = std::max(p.ls + 64, p.le - R), hi = std::min({p.le + R, std::min(p.se, n) - W - 1});
+        if (hi <= lo || p.ls < W) { err = "NO ROOM"; return false; }
+        double best = 1e300;
+        long at = p.le;
+        for (long c = lo; c <= hi; ++c) {
+            double e = 0;
+            for (long k = -W; k < W; ++k) {
+                const double dv = double(d[size_t(c + k)]) - double(d[size_t(p.ls + k)]);
+                e += dv * dv * (k >= -4 && k < 4 ? 4.0 : 1.0);   // the samples at the joint count most
+            }
+            e *= 1.0 + 0.5 * double(std::labs(c - p.le)) / double(R);   // near the old end wins a tie
+            if (e < best) { best = e; at = c; }
+        }
+        w.rawLoopEnd = uint32_t(at) << 9;
+        syncPoints(w);
+        return true;
+    }
+    case WaveCmd::Merge: case WaveCmd::Splice: {
+        auto jt = in.waveSamples.find(a.toWs);
+        if (jt == in.waveSamples.end() || a.toWs == ws) { err = "NO DESTINATION"; return false; }
+        const WaveSample &b = jt->second;
+        const WaveSample *bo = in.pcmOwner(b);
+        if (!bo) { err = "NO DATA"; return false; }
+        const int ra = own->sampleRate ? own->sampleRate : sampleRateOfIndex(own->sampleRateIndex);
+        const int rb = bo->sampleRate ? bo->sampleRate : sampleRateOfIndex(bo->sampleRateIndex);
+        if (ra != rb || w.rootNote != b.rootNote || w.fineTune != b.fineTune) { err = "PITCH DIFFERENCE"; return false; }
+        const Pts q = points(b);
+        const long a0 = std::clamp(p.ss, 0L, n), a1 = std::clamp(p.se, a0, n);
+        const long nb = long(bo->pcm.size());
+        const long b0 = std::clamp(q.ss, 0L, nb), b1 = std::clamp(q.se, b0, nb);
+        const long la = a1 - a0, lb = b1 - b0;
+        if (la < 2 || lb < 2) { err = "DATA RANGE TOO SMALL"; return false; }
+        const long F = cmd == WaveCmd::Splice ? 0 : std::max(1L, std::min(la, lb) * std::clamp(a.zone, 1, 99) / 100);
+        std::vector<int16_t> out(d.begin() + a0, d.begin() + a1 - F);
+        for (long i = 0; i < F; ++i) {
+            const double t = double(i) / double(F);
+            out.push_back(clip(d[size_t(a1 - F + i)] * curve(1.0 - t, a.depth) + bo->pcm[size_t(b0 + i)] * curve(t, a.depth)));
+        }
+        out.insert(out.end(), bo->pcm.begin() + b0 + F, bo->pcm.begin() + b1);
+        const long off = la - F;                     // where the second one starts
+        // the loop of the second one, else the first one's
+        const bool bLoop = b.loopMode >= 2 && q.le > q.ls;
+        w.rawStart = 0;
+        w.rawEnd = uint32_t(out.size()) << 9;
+        if (bLoop) {
+            w.rawLoopStart = uint32_t(std::max(0L, off + q.ls - b0)) << 9;
+            w.rawLoopEnd = uint32_t(std::max(0L, off + q.le - b0)) << 9;
+            w.loopMode = b.loopMode;
+        } else {
+            w.rawLoopStart = uint32_t(std::clamp(p.ls - a0, 0L, long(out.size()))) << 9;
+            w.rawLoopEnd = uint32_t(std::clamp(p.le - a0, 0L, long(out.size()))) << 9;
+        }
+        out.resize(out.size() + kTail, 0);
+        d.swap(out);
+        syncPoints(w);
+        return true;
+    }
+    default:
+        err = "UNKNOWN COMMAND";
+        return false;
+    }
+}
+
 } // namespace
 
 const char *waveCmdName(WaveCmd c) {
@@ -115,7 +323,8 @@ const char *waveCmdName(WaveCmd c) {
                                     "convert_rate", "normalize", "fade_in", "fade_out", "volume_smooth",
                                     "scale_data", "reverse_data", "invert_data", "clear_data",
                                     "new_ws", "copy_ws", "delete_ws", "new_layer", "copy_layer",
-                                    "delete_layer", "copy_params"};
+                                    "delete_layer", "copy_params", "bidir_xfade", "loop_longer",
+                                    "synth_loop", "copy_data", "mix_data", "merge", "splice", "auto_loop"};
     const int i = int(c);
     return i >= 0 && i < int(WaveCmd::Count) ? k[i] : "?";
 }
@@ -132,12 +341,7 @@ double scaleDepthDb(int depth) {
 
 namespace {
 
-// Bit k of a layer mask = layer position k. Insert a layer at `pos` (bits above move up), or
-// remove it (bits above move down).
-int maskInsert(int m, int pos, bool on) {
-    const int low = m & ((1 << pos) - 1), high = (m >> pos) << (pos + 1);
-    return (low | high | (on ? 1 << pos : 0)) & 0xFF;
-}
+// Bit k of a layer mask = layer position k: remove a layer (the bits above move down).
 int maskRemove(int m, int pos) {
     const int low = m & ((1 << pos) - 1), high = (m >> (pos + 1)) << pos;
     return (low | high) & 0xFF;
@@ -253,6 +457,11 @@ bool waveCommand(Instrument &in, int layer, int ws, WaveCmd cmd, const WaveArgs 
     if (cmd == WaveCmd::NewLayer || cmd == WaveCmd::CopyLayer || cmd == WaveCmd::DeleteLayer) {
         const bool ok = layerCommand(in, layer, cmd, a, selWs, sl, err);
         if (ok && selLayer) *selLayer = sl;
+        return ok;
+    }
+    if (cmd >= WaveCmd::BidirXFade && cmd <= WaveCmd::AutoLoop) {
+        const bool ok = moreCommands(in, ws, cmd, a, selWs, err);
+        if (ok && selLayer) *selLayer = layerOfWs(in, selWs);
         return ok;
     }
     if (cmd == WaveCmd::CopyParams) {

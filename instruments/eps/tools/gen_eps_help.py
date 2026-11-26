@@ -217,7 +217,9 @@ MESSAGES = [
     "  reverse_xfade ensemble_xfade bowtie_xfade convert_rate",
     "  normalize fade_in fade_out volume_smooth scale_data",
     "  reverse_data invert_data clear_data new_ws copy_ws",
-    "  delete_ws new_layer copy_layer delete_layer copy_params),",
+    "  delete_ws new_layer copy_layer delete_layer copy_params",
+    "  bidir_xfade loop_longer synth_loop copy_data mix_data",
+    "  merge splice auto_loop),",
     "  cmd step 1 or -1.",
     "cmd range n: 0 sample, 1 loop, 2 start to loop, 3 loop to end.",
     "cmd depth n (0-5: 3.0 3.5 4.0 4.5 5.5 6.0 dB), cmd zone %,",
@@ -325,6 +327,18 @@ COMMANDS = [
     "copy_params: all parameters of the selected wavesample to WS n (to WS in the editor, "
     "encoder 8 on the Launchkey), not its data, points, loop mode, root key, tuning, rate and "
     "keys. All of them can be heard with old / new before keep.",
+    "bidir_xfade: both loop ends become symmetric over the fade zone (up to 50 %), the loop "
+    "plays forward and back without a corner (loop mode bidir). loop_longer: the loop once more "
+    "after itself (loop end moves). synth_loop: the loop made again from its spectrum with "
+    "random phases, a seamless loop of the same colour (at most 65536 samples). auto_loop: "
+    "the loop end, within the fade zone of the loop length around the old one (at most 8192 "
+    "samples), where the data matches the data at loop start best. On the Launchkey the cell "
+    "ALF (E5) chooses it and opens the COMMAND page.",
+    "copy_data / mix_data: the range of the selected wavesample written over / added to WS n "
+    "from its sample start (to WS). merge: the selected wavesample, then WS n, crossfaded over "
+    "the fade zone of the shorter one, into the selected one (same rate, root key and tuning, "
+    "else PITCH DIFFERENCE, the loop of WS n). splice: the same without a fade. These four "
+    "are the implementation of eps~ after the names of the EPS, not measured.",
 ]
 
 ABOUT = [

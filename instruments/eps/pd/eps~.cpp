@@ -11,7 +11,7 @@
 //   inlet 2   float: velocity for the next note, 0..127 (default 100)
 //   inlet 3   float or list: raw MIDI bytes, as [midiin] gives them: notes,
 //             bend, program change, channel and poly pressure, CC 1 (wheel),
-//             2 (XCTRL), 4 (pedal), 7 (volume), 64 (sustain)
+//             XCTRL (control xcc, 2 by default), 4 (pedal), 7 (volume), 64 (sustain)
 //             any:   a message (the same set as inlet 1)
 //   inlet 4   signal: the audio to sample (the wave recorder, see rec below)
 //   outlet 1  signal, left
@@ -2012,14 +2012,15 @@ void midi_message(t_eps* x, int status, int d1, int d2) {
             if (s) s->noteOff(d1);
             return;
         case 0xB0:
+            if (d1 == x->value[kC_xcc]) {                // the XCTRL controller (2 by default)
+                x->ctl[2] = d2 / 127.0f;
+                if (s) s->setXctrl(x->ctl[2]);
+                return;
+            }
             switch (d1) {
                 case 1:
                     x->wheel = d2 / 127.0f;
                     if (s) s->setModWheel(x->wheel);
-                    return;
-                case 2:
-                    x->ctl[2] = d2 / 127.0f;
-                    if (s) s->setXctrl(x->ctl[2]);
                     return;
                 case 4:
                     x->ctl[1] = d2 / 127.0f;

@@ -54,6 +54,8 @@ CONTROL_LIST = [
     ("fenv", "O", -63, 63, 0, "Filter env", "",
      "added to the filter envelope amount of every wavesample, also of sounding notes"),
     ("vibrate", "O", 0, 127, 50, "Vib rate", "", "rate of the vibrato, 0.1 to 12 Hz"),
+    ("xcc", "S", 0, 119, 2, "XCTRL CC", "",
+     "the MIDI controller that is the XCTRL mod source (2 = breath, as on the EPS), not stored"),
     ("voices", "S", 1, 32, 20, "Voices", "",
      "polyphony: 20 as on the EPS-16 PLUS, up to the 32 of the ES5505, not stored"),
 ]
@@ -67,7 +69,7 @@ CC_ROWS = [
 ]
 # Without CC: the editor and the pads (patch select on PAT < >).
 EXTRA_ROWS = [
-    ("MORE  no CC (editor and pads)", ["patch", "tune", "bend", "vib", "vibrate", "voices", None, None]),
+    ("MORE  no CC (editor and pads)", ["patch", "tune", "bend", "vib", "vibrate", "voices", "xcc", None]),
 ]
 
 # Own pads ([epspads], common/tools/ctpads.py): 36-38 and 44-46 are the same in every

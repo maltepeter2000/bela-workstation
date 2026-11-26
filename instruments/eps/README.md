@@ -137,7 +137,10 @@ truncate, crossfade, reverse / ensemble / bowtie crossfade (fade zone, scale dep
 convert sample rate, normalize, fade in / out, volume smoothing, scale / reverse / invert /
 clear data (range: sample, loop, start to loop, loop to end), new / copy / delete wavesample,
 new / copy / delete layer (patches and key-up / key-down layers follow), copy parameters (all
-but data, points, loop mode, root key, tuning, rate and keys) to another wavesample.
+but data, points, loop mode, root key, tuning, rate and keys) to another wavesample,
+bidirectional crossfade, make loop longer, synthesized loop, auto loop (best loop end near the
+old one), copy / mix data into another wavesample, merge and splice two wavesamples.
+`xcc` (row MORE, E1 XCTL) chooses the MIDI controller of the XCTRL mod source (2 by default).
 The algorithms follow the manual's descriptions. Checked with the original OS: a wavesample
 converted to 12.8 kHz, truncated and crossfaded plays at its pitch; a params-only copy in
 another layer plays the shared data (copy-of layer = position of the original's layer). A new layer, a copied layer (params only and with

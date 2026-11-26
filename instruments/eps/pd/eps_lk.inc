@@ -31,7 +31,8 @@ const char* lk_opt_key(const t_eps* x) {
     if (c == eps::WaveCmd::Smooth) return "smooth";
     if (c == eps::WaveCmd::CopyWs) return "layer";
     if (c == eps::WaveCmd::CopyLayer) return "data";
-    if (c == eps::WaveCmd::CopyParams) return "ws";
+    if (c == eps::WaveCmd::CopyParams || c == eps::WaveCmd::CopyData || c == eps::WaveCmd::MixData ||
+        c == eps::WaveCmd::Merge || c == eps::WaveCmd::Splice) return "ws";
     return "";
 }
 
@@ -110,6 +111,7 @@ int lk_cell_get(t_eps* x, const eps::PageCell& c) {
 std::string lk_cell_text(t_eps* x, const eps::PageCell& c, bool& names) {
     names = false;
     if (c.kind == '-') return "NOT YET";
+    if (c.kind == 'k') return c.target;
     if (!lk_cell_valid(x, c)) return "--";
     switch (c.kind) {
         case 'c': {
@@ -385,7 +387,7 @@ void lk_refresh(t_eps* x, bool force) {
     const eps::Page& p = S.current();
     for (int i = 0; i < 8; ++i) {
         const eps::PageCell& c = p.cell[i];
-        if (!c.kind || c.kind == '-') continue;
+        if (!c.kind || c.kind == '-' || c.kind == 'k') continue;
         const int v = lk_cell_get(x, c);
         if (!force && v == x->fbSent[i]) continue;
         x->fbSent[i] = v;
@@ -460,6 +462,16 @@ bool lk_encoder(t_eps* x, int cc, int v) {
     const eps::PageCell& c = x->lk->current().cell[cell];
     if (c.kind == '-') {
         if (!lk_text(x, c.longName, "NOT YET")) out_display_text(x, c.longName, "not yet");
+        return true;
+    }
+    if (c.kind == 'k') {                             // a command: chosen on the COMMAND page
+        lk_do(x, x->lk->setPage(eps::kAreas[eps::kAreaCommand].first));
+        lk_send(x, std::string("cmd ") + c.target);
+        if (lk_drawing(x)) {
+            std::string a1, b1;
+            lk_split(c.target, a1, b1);
+            lk_screen(x, 10, "CMD TWICE: RUN IT", a1, b1);
+        }
         return true;
     }
     lk_cell_set(x, c, v);

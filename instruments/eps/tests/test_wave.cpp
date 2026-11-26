@@ -163,6 +163,53 @@ int main() {
         for (int k = 0; k < 6; ++k) waveCommand(in, 0, 1, WaveCmd::NewLayer, a, sel, err);
         CHECK(in.layers.size() == 8 && !waveCommand(in, 0, 1, WaveCmd::NewLayer, a, sel, err) && err == "8 LAYERS");
     }
+    {   // more wave commands
+        Instrument in = make();
+        a = WaveArgs();
+        WaveSample &w1 = in.waveSamples[1];
+        const long ls = long(w1.rawLoopStart >> 9), le = long(w1.rawLoopEnd >> 9), n0 = long(w1.pcm.size());
+        CHECK(waveCommand(in, 0, 1, WaveCmd::LoopLonger, a, sel, err));
+        CHECK(long(in.waveSamples[1].rawLoopEnd >> 9) == le + (le - ls) && long(in.waveSamples[1].pcm.size()) == n0 + (le - ls));
+        CHECK(in.waveSamples[1].pcm[size_t(le + 10)] == in.waveSamples[1].pcm[size_t(ls + 10)]);
+        in = make();
+        CHECK(waveCommand(in, 0, 1, WaveCmd::SynthLoop, a, sel, err));
+        CHECK(reparse(in));
+        in = make();
+        a.zone = 10;
+        CHECK(waveCommand(in, 0, 1, WaveCmd::BidirXFade, a, sel, err) && in.waveSamples[1].loopMode == 3);
+        in = make();
+        const long le0 = long(in.waveSamples[1].rawLoopEnd >> 9);
+        in.waveSamples[1].rawLoopEnd = uint32_t(le0 + 37) << 9;          // off the best place
+        a.zone = 20;
+        CHECK(waveCommand(in, 0, 1, WaveCmd::AutoLoop, a, sel, err));
+        {   // the jump back: level and slope as at loop start
+            const auto &d = in.waveSamples[1].pcm;
+            const long e = long(in.waveSamples[1].rawLoopEnd >> 9), s = 5000;
+            CHECK(std::abs(d[size_t(e)] - d[size_t(s)]) < 300);
+            CHECK((d[size_t(e + 1)] - d[size_t(e)]) * (d[size_t(s + 1)] - d[size_t(s)]) > 0);
+            CHECK(std::labs(e - (le0 + 37)) < 600);
+        }
+        // a second wavesample: copy, mix, merge, splice
+        in = make();
+        CHECK(waveCommand(in, 0, 1, WaveCmd::NewWs, a, sel, err) && sel == 2);
+        a.toWs = 2;
+        a.range = WaveRange::Sample;
+        CHECK(!waveCommand(in, 0, 1, WaveCmd::Merge, a, sel, err) && err == "PITCH DIFFERENCE");
+        CHECK(waveCommand(in, 0, 1, WaveCmd::CopyData, a, sel, err) && sel == 2);
+        CHECK(in.waveSamples[2].pcm[100] == in.waveSamples[1].pcm[size_t((in.waveSamples[1].rawStart >> 9) + 100)]);
+        CHECK(waveCommand(in, 0, 1, WaveCmd::MixData, a, sel, err));
+        in.waveSamples[2].rootNote = in.waveSamples[1].rootNote;
+        in.waveSamples[2].fineTune = in.waveSamples[1].fineTune;
+        in.waveSamples[2].sampleRate = in.waveSamples[1].sampleRate;
+        in.waveSamples[2].sampleRateIndex = in.waveSamples[1].sampleRateIndex;
+        const long la = long(in.waveSamples[1].rawEnd >> 9) - long(in.waveSamples[1].rawStart >> 9);
+        const long lb = long(in.waveSamples[2].rawEnd >> 9) - long(in.waveSamples[2].rawStart >> 9);
+        Instrument in2 = in;
+        CHECK(waveCommand(in2, 0, 1, WaveCmd::Splice, a, sel, err) && long(in2.waveSamples[1].rawEnd >> 9) == la + lb);
+        a.zone = 50;
+        CHECK(waveCommand(in, 0, 1, WaveCmd::Merge, a, sel, err) && long(in.waveSamples[1].rawEnd >> 9) < la + lb);
+        CHECK(reparse(in) && reparse(in2));
+    }
     std::printf("test_wave: %s\n", failures ? "FAILED" : "ok");
     return failures ? 1 : 0;
 }
