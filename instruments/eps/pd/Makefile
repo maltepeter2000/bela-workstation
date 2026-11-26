@@ -7,7 +7,7 @@
 # Needs no data files to build. To play, put Ensoniq instruments (EFE) or disk images
 # (IMG, EDE, EDA, GKH) into a folder eps/ beside your patch (or beside the external).
 
-ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp engine/eps_fs.cpp engine/eps_sysex.cpp engine/eps_record.cpp engine/eps_wave.cpp
+ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp engine/eps_fs.cpp engine/eps_sysex.cpp engine/eps_record.cpp engine/eps_wave.cpp engine/eps_surface.cpp
 
 lib.name = eps~
 class.sources = eps~.cpp
@@ -26,7 +26,7 @@ endif
 PDLIBBUILDER_DIR = ../pd-lib-builder
 include $(PDLIBBUILDER_DIR)/Makefile.pdlibbuilder
 
-SOURCES = eps~.cpp eps_params.h $(ENGINE) $(wildcard engine/*.h)
+SOURCES = eps~.cpp eps_params.h eps_lk.inc $(ENGINE) $(wildcard engine/*.h)
 
 # ---- macOS package, cross-built from Linux -----------------------------------
 #   make mac-zig    universal binary (arm64 + x86_64) and the patches into ../bin/macos
@@ -63,6 +63,7 @@ gen:
 	python3 ../tools/gen_eps_tables.py
 	python3 ../tools/eps_params.py
 	python3 ../tools/eps_edit_params.py
+	python3 ../tools/eps_pages.py
 	python3 ../tools/gen_epscc.py
 	python3 ../tools/gen_eps_editor.py
 	python3 ../tools/gen_eps_help.py
@@ -91,6 +92,8 @@ test: $(ENGINE) $(wildcard engine/*.h) $(wildcard $(TESTDIR)/*.cpp)
 	../build/test_record $(FIX)
 	$(CXX) $(SAN) -o ../build/test_wave $(TESTDIR)/test_wave.cpp $(ENGINE)
 	../build/test_wave
+	$(CXX) $(SAN) -o ../build/test_surface $(TESTDIR)/test_surface.cpp engine/eps_surface.cpp
+	../build/test_surface
 
 # Tools: eps_dump (list an image, show an instrument, write its wavesamples as WAV),
 # demo_real (render a demo of an instrument file), read_all_files (check an image's FAT),

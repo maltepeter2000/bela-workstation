@@ -100,7 +100,10 @@ extern "C" {
 #include "eps_sysex.h"
 #include "eps_record.h"
 #include "eps_wave.h"
+#include "eps_surface.h"
 #include "../../../common/gfx/lkgfx_pd.h"
+
+#include <strings.h>
 
 namespace {
 
@@ -457,6 +460,12 @@ struct Recorder {
     std::shared_ptr<Result> result;
 };
 
+// What the Launchkey surface shows (eps_lk.inc): two big lines, the underlined part of the second.
+struct LkScreen {
+    std::string b1, b2;
+    int ulFrom = -1, ulLen = 0;
+};
+
 struct t_eps {
     t_object obj;
     t_float velocity;
@@ -497,7 +506,16 @@ struct t_eps {
     }* wave;
     int jobkind;                         // what the loader's job is: 1 recording, 2 wave command
     lkg_pd_t* gfx;                       // Launchkey pictures: 1 envelope, 2 filter, 3 LFO
-    bool touchedOffset;                  // the envelope picture: att / dec / rel turned
+    int touchedOffset;                   // the envelope picture: 1 att / dec / rel, 2 fatt ... turned
+    // the Launchkey surface (eps_lk.inc)
+    eps::Surface* lk;
+    bool lkOn;
+    int padch;                           // channel of the pads
+    int fbSent[8];                       // encoder values sent back (-1 = send again)
+    int ledSent[16];                     // pad colours sent
+    t_clock* lkclock;
+    LkScreen* scr;
+    double legendUntil;                  // the pad legend shows until then
 };
 
 void out_value(t_eps* x, const char* key, t_float v) {
@@ -513,11 +531,23 @@ void out_slot(t_eps* x, const char* key, int index, const std::string& name) {
     outlet_anything(x->info, gensym(key), 2, a);
 }
 
-void out_display(t_eps* x, const std::string& title, const std::string& value) {
+// The text line for a display (the Launchkey text popup, the editor).
+void out_display_text(t_eps* x, const std::string& title, const std::string& value) {
     t_atom a[2];
     SETSYMBOL(&a[0], gensym(title.c_str()));
     SETSYMBOL(&a[1], gensym(value.empty() ? "-" : value.c_str()));
     outlet_anything(x->info, gensym("display"), 2, a);
+}
+
+bool lk_text(t_eps* x, const std::string& title, const std::string& value);
+bool lk_shown(t_eps* x, const char* name, const std::string& label, const std::string& value, int pic);
+void lk_draw(t_eps* x, lkg_t* g, int kind);
+void lk_refresh(t_eps* x, bool force);
+void lk_show_home(t_eps* x);
+
+// A text for the display: drawn by the Launchkey surface when it is on, else the text line.
+void out_display(t_eps* x, const std::string& title, const std::string& value) {
+    if (!lk_text(x, title, value)) out_display_text(x, title, value);
 }
 
 void out_info(t_eps* x, int i) {
@@ -536,7 +566,8 @@ void out_info(t_eps* x, int i) {
 // 2 the filters of the selected wavesample, 3 its LFO. "lkgfx 0" = the text line.
 
 int gfx_kind(const char* n) {
-    if (!std::strncmp(n, "e_", 2) || !std::strcmp(n, "att") || !std::strcmp(n, "dec") || !std::strcmp(n, "rel")) return 1;
+    if (!std::strncmp(n, "e_", 2) || !std::strcmp(n, "att") || !std::strcmp(n, "dec") || !std::strcmp(n, "rel") ||
+        !std::strcmp(n, "fatt") || !std::strcmp(n, "fdec") || !std::strcmp(n, "frel")) return 1;
     if (!std::strcmp(n, "w_fmode") || !std::strcmp(n, "w_cut1") || !std::strcmp(n, "w_cut2") ||
         !std::strcmp(n, "cut") || !std::strcmp(n, "cut2")) return 2;
     if (!std::strcmp(n, "w_lwave") || !std::strcmp(n, "w_lspeed") || !std::strcmp(n, "w_ldepth") ||
@@ -546,6 +577,7 @@ int gfx_kind(const char* n) {
 
 void gfx_draw(void* owner, lkg_t* g, int kind) {
     t_eps* x = static_cast<t_eps*>(owner);
+    if (kind >= 10) { lk_draw(x, g, kind); return; }
     if (!x->sampler) return;
     const eps::Instrument& in = x->sampler->instrument();
     auto it = in.waveSamples.find(x->editor->ws);
@@ -554,14 +586,17 @@ void gfx_draw(void* owner, lkg_t* g, int kind) {
     if (kind == 1) {
         // L0 -T1- L1 -T2- L2 -T3- L3 -T4- L4 (sustain) -T5- L5 -T6- 0; hard levels; times 0..99
         // grow steeply (width 2 + 40 x^1.7); att / dec / rel only on the amp envelope
-        const bool amp = x->editor->env == 2 || x->touchedOffset;
-        const eps::Envelope& e = amp ? w.ampEnv : (x->editor->env == 0 ? w.pitchEnv : w.filterEnv);
+        // touchedOffset: 1 the amp envelope with att / dec / rel, 2 the filter envelope with
+        // fatt / fdec / frel
+        const int env = x->touchedOffset == 1 ? 2 : (x->touchedOffset == 2 ? 1 : x->editor->env);
+        const eps::Envelope& e = env == 2 ? w.ampEnv : (env == 0 ? w.pitchEnv : w.filterEnv);
         int t[7];
         for (int i = 1; i <= 6; ++i) t[i] = e.time[i];
-        if (amp) {
-            t[1] = std::clamp(t[1] + x->value[kC_att], 0, 99);
-            for (int i = 2; i <= 4; ++i) t[i] = std::clamp(t[i] + x->value[kC_dec], 0, 99);
-            for (int i = 5; i <= 6; ++i) t[i] = std::clamp(t[i] + x->value[kC_rel], 0, 99);
+        if (env >= 1) {
+            const bool amp = env == 2;
+            t[1] = std::clamp(t[1] + x->value[amp ? kC_att : kC_fatt], 0, 99);
+            for (int i = 2; i <= 4; ++i) t[i] = std::clamp(t[i] + x->value[amp ? kC_dec : kC_fdec], 0, 99);
+            for (int i = 5; i <= 6; ++i) t[i] = std::clamp(t[i] + x->value[amp ? kC_rel : kC_frel], 0, 99);
         }
         auto wd = [](int v) { return 2.0f + 40.0f * std::pow(v / 99.0f, 1.7f); };
         const float lvl[6] = {e.hardLevel[1] / 127.f, e.hardLevel[2] / 127.f, e.hardLevel[3] / 127.f,
@@ -620,8 +655,10 @@ void gfx_draw(void* owner, lkg_t* g, int kind) {
 // A change for the display: the picture if it has one, else the text line.
 void out_shown(t_eps* x, const char* name, const std::string& label, const std::string& value) {
     const int kind = gfx_kind(name);
-    x->touchedOffset = !std::strcmp(name, "att") || !std::strcmp(name, "dec") || !std::strcmp(name, "rel");
-    if (!lkg_pd_show(x->gfx, kind, label.c_str(), value.c_str())) out_display(x, label, value);
+    x->touchedOffset = (!std::strcmp(name, "att") || !std::strcmp(name, "dec") || !std::strcmp(name, "rel")) ? 1
+                     : (!std::strcmp(name, "fatt") || !std::strcmp(name, "fdec") || !std::strcmp(name, "frel")) ? 2 : 0;
+    if (lk_shown(x, name, label, value, kind)) return;
+    if (!lkg_pd_show(x->gfx, kind, label.c_str(), value.c_str())) out_display_text(x, label, value);
 }
 
 // ---- the instrument editor (eps_edit) -------------------------------------------
@@ -680,6 +717,9 @@ void apply(t_eps* x) {
     o.attack = v[kC_att];
     o.release = v[kC_rel];
     o.decay = v[kC_dec];
+    o.fAttack = v[kC_fatt];
+    o.fDecay = v[kC_fdec];
+    o.fRelease = v[kC_frel];
     o.filterEnv = v[kC_fenv];
     o.wave = v[kC_wave];
     o.transpose = v[kC_transpose];
@@ -820,6 +860,9 @@ void eps_poll(t_eps* x) {
             out_edump(x, "ilmwepf");
             if (made && x->jobkind == 2)
                 out_display(x, eps::waveCmdName(static_cast<eps::WaveCmd>(x->wave->cmd)), "KEEP=OLD NEW");
+            else if (x->lkOn)
+                lk_show_home(x);
+            lk_refresh(x, false);
         }
     }
     if (x->pending && L.state.load() == 0) {
@@ -899,9 +942,12 @@ void bake_offsets(t_eps* x) {
         w.ampEnv.time[1] = std::clamp(w.ampEnv.time[1] + v(kC_att), 0, 99);
         for (int i = 2; i <= 4; ++i) w.ampEnv.time[i] = std::clamp(w.ampEnv.time[i] + v(kC_dec), 0, 99);
         for (int i = 5; i <= 6; ++i) w.ampEnv.time[i] = std::clamp(w.ampEnv.time[i] + v(kC_rel), 0, 99);
+        w.filterEnv.time[1] = std::clamp(w.filterEnv.time[1] + v(kC_fatt), 0, 99);
+        for (int i = 2; i <= 4; ++i) w.filterEnv.time[i] = std::clamp(w.filterEnv.time[i] + v(kC_fdec), 0, 99);
+        for (int i = 5; i <= 6; ++i) w.filterEnv.time[i] = std::clamp(w.filterEnv.time[i] + v(kC_frel), 0, 99);
         w.fineTune = std::clamp(w.fineTune + static_cast<int>(std::lround(v(kC_tune) * 128.0 / 100.0)), -127, 127);
     }
-    for (int c : {kC_transpose, kC_cut, kC_cut2, kC_fenv, kC_att, kC_dec, kC_rel, kC_tune})
+    for (int c : {kC_transpose, kC_cut, kC_cut2, kC_fenv, kC_att, kC_dec, kC_rel, kC_fatt, kC_fdec, kC_frel, kC_tune})
         x->value[c] = kControls[c].def;
     apply(x);
 }
@@ -1107,6 +1153,7 @@ void eps_rec_tick(t_eps* x) {
         out_recstate(x, b);
         if (R.full) {
             rec_stop(x);
+            lk_refresh(x, false);
             return;
         }
     }
@@ -1432,7 +1479,10 @@ void wave_command(t_eps* x, int argc, t_atom* argv) {
         return;
     } else if (w == "old" || w == "new") {
         if (W.other && W.showingOld != (w == "old")) wave_swap(x);
-        if (W.other) out_wavestate(x, W.showingOld ? "old" : "new", "KEEP=OLD_NEW");
+        if (W.other) {
+            out_wavestate(x, W.showingOld ? "old" : "new", "KEEP=OLD_NEW");
+            out_display(x, eps::waveCmdName(static_cast<eps::WaveCmd>(W.cmd)), "KEEP=OLD NEW");
+        }
         return;
     } else if (w == "keep" || w == "cancel") {
         if (!W.other) return;
@@ -1449,6 +1499,10 @@ void wave_command(t_eps* x, int argc, t_atom* argv) {
     out_waveset(x);
     if (named >= 0 || w == "step") out_display(x, "Command", eps::waveCmdName(static_cast<eps::WaveCmd>(W.cmd)));
 }
+
+// ---- the Launchkey surface -----------------------------------------------------------
+
+#include "eps_lk.inc"
 
 // ---- SysEx with a real EPS ---------------------------------------------------------
 
@@ -1546,7 +1600,7 @@ void eps_sx_tick(t_eps* x) {
     if (x->sysex->busy()) clock_delay(x->sxclock, 20);
 }
 
-void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
+void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     const char* c = s->s_name;
     const t_float f = argc > 0 ? atom_getfloat(argv) : 0;
     const int n = static_cast<int>(f);
@@ -1699,6 +1753,12 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     } else if (is("lkgfx")) {
         lkg_pd_on(x->gfx, n != 0);
         return;
+    } else if (is("lk")) {
+        lk_message(x, argc, argv);
+        return;
+    } else if (is("padchannel")) {
+        x->padch = std::clamp(n, 1, 16);
+        return;
     } else if (is("rec")) {
         rec_command(x, argc, argv);
         return;
@@ -1849,6 +1909,11 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     if (touched) out_shown(x, touched->name, touched->label, value_text(*touched, x->value[control_index(touched)]));
 }
 
+void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
+    eps_command_core(x, s, argc, argv);
+    lk_refresh(x, false);
+}
+
 // follow key: the editor shows the layer and wavesample of the key played
 void follow_note(t_eps* x, int n) {
     if (!x->sampler || !x->editor->follow) return;
@@ -1891,6 +1956,19 @@ void eps_proxy_anything(t_eps_proxy* p, t_symbol* s, int argc, t_atom* argv) {
 // ---- raw MIDI -------------------------------------------------------------------
 
 void midi_message(t_eps* x, int status, int d1, int d2) {
+    const int type = status & 0xF0;
+    // The Launchkey surface takes its pads and encoders first (they are not passed thru).
+    if (x->lkOn && (status & 0x0F) + 1 == x->padch && x->padch != lk_channel(x)) {   // the pads
+        if ((type == 0x90 || type == 0x80) && d1 >= 36 && d1 <= 51) lk_pad(x, d1, type == 0x90 && d2 > 0);
+        else if (type == 0xB0 && d1 == 3) lk_refresh(x, true);   // Drum mode entered: the colours
+        return;
+    }
+    const bool mine = !x->channel || (status & 0x0F) + 1 == x->channel;
+    if (x->lkOn && mine && type == 0xB0 && d1 == 3) {          // the Launchkey asks for the values
+        lk_refresh(x, true);
+        return;
+    }
+    if (x->lkOn && mine && type == 0xB0 && lk_encoder(x, d1, d2)) return;
     if (x->thru) {
         outlet_float(x->info, status);
         outlet_float(x->info, d1);
@@ -1899,6 +1977,15 @@ void midi_message(t_eps* x, int status, int d1, int d2) {
     }
     if (x->channel && (status & 0x0F) + 1 != x->channel) return;
     eps::Sampler* s = x->sampler;
+    if (x->lkOn && type == 0x90 && d2 > 0 && x->lk->selHeld) {   // SEL + key: select, silently
+        x->lk->keyUsed();
+        if (s && x->editor->followKey(s->instrument(), d1, s->instrument().patches[std::clamp(x->value[kC_patch], 0, 3)])) {
+            out_sel(x);
+            out_edump(x, "lmwepf");
+        }
+        lk_show_home(x);
+        return;
+    }
     switch (status & 0xF0) {
         case 0x90:
             if (d2 > 0 && rec_key(x, d1)) return;
@@ -1984,6 +2071,7 @@ void eps_proxy_float(t_eps_proxy* p, t_float f) {
     if (m.have < need) return;
     m.have = 0;
     midi_message(x, m.status, m.data[0], need == 2 ? m.data[1] : 0);
+    lk_refresh(x, false);
 }
 
 void eps_proxy_list(t_eps_proxy* p, t_symbol*, int argc, t_atom* argv) {
@@ -2102,7 +2190,15 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->info = outlet_new(&x->obj, nullptr);
     x->gfx = new lkg_pd_t();
     lkg_pd_init(x->gfx, x->info, gfx_draw, x);
-    x->touchedOffset = false;
+    x->touchedOffset = 0;
+    x->lk = new eps::Surface();
+    x->lkOn = false;
+    x->padch = 10;
+    for (int& v : x->fbSent) v = -1;
+    for (int& v : x->ledSent) v = -1;
+    x->lkclock = clock_new(x, reinterpret_cast<t_method>(eps_lk_tick));
+    x->scr = new LkScreen();
+    x->legendUntil = 0;
 
     Loader* L = x->loader;
     L->thread = std::thread([L] { L->run(); });
@@ -2126,6 +2222,9 @@ void eps_free(t_eps* x) {
     clock_free(x->recclock);
     lkg_pd_free(x->gfx);
     delete x->gfx;
+    clock_free(x->lkclock);
+    delete x->lk;
+    delete x->scr;
     delete x->sysex;
     x->loader->quit.store(true);
     if (x->loader->thread.joinable()) x->loader->thread.join();

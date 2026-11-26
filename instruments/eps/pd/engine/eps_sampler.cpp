@@ -327,7 +327,9 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
     // Envelopes: velocity interpolates between soft and hard levels.
     // CALIBRATE: the OS interpolates differently (seen in the emulator: hard
     // levels below velocity 72); linear here until that is understood.
-    auto setupEnv = [&](Env &e, const Envelope &src, bool amp) {
+    // kind 0 pitch, 1 filter, 2 amp: the offsets of eps~ act on the amp and the filter envelope
+    auto setupEnv = [&](Env &e, const Envelope &src, int kind) {
+        const bool amp = kind == 2;
         e = Env();
         e.code = amp;
         for (int i = 0; i < 5; ++i)
@@ -341,7 +343,8 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
             return envelopeSeconds(int(std::lround(clampf(float(panel) - kb - extra, 0.f, 99.f))));
         };
         for (int i = 1; i <= 4; ++i) {
-            const int o = !amp ? 0 : (i == 1 ? off_.attack : off_.decay);
+            const int o = kind == 2 ? (i == 1 ? off_.attack : off_.decay)
+                        : kind == 1 ? (i == 1 ? off_.fAttack : off_.fDecay) : 0;
             const float velShort = i == 1 ? float(src.time1VelSens) * float(velocity) / 128.f : 0.f;
             e.time[i] = steps(src.time[i] + o, velShort);
         }
@@ -353,9 +356,9 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
         e.mode = src.mode;
         e.start();
     };
-    setupEnv(sl.amp, ws.ampEnv, true);
-    setupEnv(sl.filt, ws.filterEnv, false);
-    setupEnv(sl.pit, ws.pitchEnv, false);
+    setupEnv(sl.amp, ws.ampEnv, 2);
+    setupEnv(sl.filt, ws.filterEnv, 1);
+    setupEnv(sl.pit, ws.pitchEnv, 0);
 
     // LFO: mode 1 restarts with every key, 0 runs on (a phase of its own per
     // voice), 2 humanizes the speed. Noise starts somewhere.
@@ -484,6 +487,8 @@ void Sampler::releaseSlot(int v) {
     // The release offset also reaches notes that are already sounding.
     sl.amp.relSec[0] = envelopeSeconds(sl.amp.releasePanel[0] + off_.release);
     sl.amp.relSec[1] = envelopeSeconds(sl.amp.releasePanel[1] + off_.release);
+    sl.filt.relSec[0] = envelopeSeconds(sl.filt.releasePanel[0] + off_.fRelease);
+    sl.filt.relSec[1] = envelopeSeconds(sl.filt.releasePanel[1] + off_.fRelease);
     sl.amp.release_(true);
     sl.filt.release_(true);
     sl.pit.release_(true);

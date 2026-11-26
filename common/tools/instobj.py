@@ -130,7 +130,8 @@ def bank_rewrite(lines, f):
 
 def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkdisplay=None,
           midi=("raw", 2), pads_channel_rule=True, more_edits=(), save=True, store_writes=False,
-          editor_bank=None, channel_msg="channel", clock=False, dir_msgs=(), sig_in=None, adc_in=False):
+          editor_bank=None, channel_msg="channel", clock=False, dir_msgs=(), sig_in=None, adc_in=False,
+          surface=False):
     """obj: 'juno.i~', ext: the external with its arguments ('juno~'), short: bus name,
     edit / cc / pads / nav / lkdisplay: paths of the generated abstractions,
     edit_title: the title of the bare editor ('juno~ editor'), more_edits: [(path, name)] more
@@ -145,7 +146,9 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     it is there or not (eps~: `library <dir>/eps`, its folder of instruments).
     sig_in: a signal inlet of the external (its index) that becomes inlet 2 of the object, an
     [inlet~] (eps~: the audio to sample). adc_in: Pd's audio inputs 1 and 2 go there as well,
-    chosen by the external's reply `recset input n ...` (0 none, 1 in 1, 2 in 2, 3 both)."""
+    chosen by the external's reply `recset input n ...` (0 none, 1 in 1, 2 in 2, 3 both).
+    surface: the external drives the Launchkey itself (eps~): no controller layer and no pads
+    abstraction (cc=None, pads=None); at load `padchannel <argument 2, 10 if none>` and `lk 1`."""
     bus = "\\$0-" + short
     extname = ext.split()[0]
     title_re = r"^(#X obj \d+ \d+ cnv 10 10 10 empty empty )" + re.escape(edit_title.replace(" ", "\\ ")) + "(?= )"
@@ -154,7 +157,7 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
         (r"^(#X obj \d+ \d+ r )\\\$1-out;$", bus + "-out;"),
         (title_re, obj),
     ], edit)
-    ccl = read(cc)                               # $1 = channel, the same as argument 1
+    ccl = read(cc) if cc else None               # $1 = channel, the same as argument 1
     pdl = None
     if pads:
         pdl = read(pads)
@@ -184,10 +187,11 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
 
     X, Y = 10, y0
     XR = X + 390                                 # the right column
-    parts = " \\, controller layer" + (" \\, pads" if pads else "") + (" \\, display" if lkdisplay else "")
-    args = "<channel> <pads channel>" if pads else "<channel>"
+    parts = ((" \\, controller layer" if cc else "") + (" \\, pads" if pads else "") +
+             (" \\, the Launchkey surface in the external" if surface else "") + (" \\, display" if lkdisplay else ""))
+    args = "<channel> <pads channel>" if pads or surface else "<channel>"
     argtext = "Argument 1: MIDI channel (0 or none = 1)"
-    if pads:
+    if pads or surface:
         argtext += " \\, argument 2: Launchkey pads (0 or none = 10)"
     files = " and ".join([f for _, _, f in banks] + ([editor_bank] if editor_bank else []))
     nfiles = len(banks) + (1 if editor_bank else 0)
@@ -372,12 +376,29 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
 
     # ---- controller layer, pads, pad translator, Launchkey display (right, below): by the bus
     cy = max(cy, jy + 40)
-    note(XR, cy, "controller layer" + (" \\, pads" if pads else "") + (" \\, display" if lkdisplay else ""), 40)
+    if surface:                                  # the pads' channel, the surface on
+        note(XR, cy, "at load: the Launchkey surface (pads channel)", 40)
+        cy += 30
+        lb2 = add(f"#X obj {XR} {cy} loadbang;")
+        tb2 = add(f"#X obj {XR} {cy + 25} t b b;")
+        f2 = add(f"#X obj {XR} {cy + 50} f \\$2;")
+        s0 = add(f"#X obj {XR} {cy + 75} sel 0;")
+        m10 = add(f"#X msg {XR} {cy + 100} 10;")
+        pch = add(f"#X msg {XR} {cy + 125} padchannel \\$1;")
+        lk1 = add(f"#X msg {XR + 120} {cy + 125} lk 1;")
+        ss = add(f"#X obj {XR} {cy + 150} s {bus};")
+        con(lb2, 0, tb2, 0); con(tb2, 1, f2, 0); con(f2, 0, s0, 0)
+        con(s0, 0, m10, 0); con(s0, 1, pch, 0); con(m10, 0, pch, 0)
+        con(tb2, 0, lk1, 0); con(pch, 0, ss, 0); con(lk1, 0, ss, 0)
+        cy += 190
+    note(XR, cy, ("controller layer" if cc else "Launchkey") + (" \\, pads" if pads else "") +
+         (" \\, display" if lkdisplay else ""), 40)
     cy += 30
     ro = add(f"#X obj {XR} {cy} r {bus}-out;")
-    pcc = add(as_subpatch(ccl, "cc", XR, cy + 30))
-    sc = add(f"#X obj {XR} {cy + 60} s {bus};")
-    con(ro, 0, pcc, 0); con(pcc, 0, sc, 0)       # info in, n <name> <value> out
+    if ccl:
+        pcc = add(as_subpatch(ccl, "cc", XR, cy + 30))
+        sc = add(f"#X obj {XR} {cy + 60} s {bus};")
+        con(ro, 0, pcc, 0); con(pcc, 0, sc, 0)   # info in, n <name> <value> out
     disp = (ro, 0)                               # what the display shows
     xp = XR + max(70, 6 * len(f"r $0-{short}-out") + 20)   # beside the receive, not over it
     if pdl:

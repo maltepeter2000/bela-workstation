@@ -29,6 +29,12 @@ CONTROL_LIST = [
      "that follow"),
     ("rel", "O", -63, 63, 0, "Release", "",
      "release: times 5 and 6 of the amp envelope, also for notes already held"),
+    ("fatt", "O", -63, 63, 0, "F attack", "",
+     "attack of the filter envelope (ENV2): time 1, for the notes that follow"),
+    ("fdec", "O", -63, 63, 0, "F decay", "",
+     "decay of the filter envelope: times 2 to 4, for the notes that follow"),
+    ("frel", "O", -63, 63, 0, "F release", "",
+     "release of the filter envelope: times 5 and 6, also for notes already held"),
     ("vib", "O", 0, 127, 0, "Vibrato", "",
      "vibrato of eps~ itself (not the instrument's LFO), up to a semitone"),
     ("wave", "O", 0, 127, 0, "Wave pos", "",
@@ -52,15 +58,17 @@ CONTROL_LIST = [
      "polyphony: 20 as on the EPS-16 PLUS, up to the 32 of the ES5505, not stored"),
 ]
 
-# Controller pages (row k = CC page k of common/tools/ctlayer.py). Page 1 is the same in every
-# instrument: bright, resonance, attack, release, vibrato, effect, own, volume
-# (docs/instrument-contract.md). The effect place stays free until eps~ has its effects; own
-# is the wave position, the transwave scan.
+# Controller pages (row k = CC page k of common/tools/ctlayer.py): P1 and P2 of the Launchkey
+# surface (tools/eps_pages.py), the same CC numbers for the Bela. P1: the two filters and the
+# filter and amp envelopes; P2: volume, transpose, wave position, filter envelope amount.
 CC_ROWS = [
-    ("PERFORM", ["cut", "cut2", "att", "rel", "vib", None, "wave", "volume"]),
-    ("PLAY", ["patch", "transpose", "tune", "bend", "dec", "fenv", "vibrate", "voices"]),
+    ("PERFORM", ["cut", "cut2", "fatt", "fdec", "frel", "att", "dec", "rel"]),
+    ("PLAY", ["volume", "transpose", "wave", "fenv", None, None, None, None]),
 ]
-EXTRA_ROWS = []
+# Without CC: the editor and the pads (patch select on PAT < >).
+EXTRA_ROWS = [
+    ("MORE  no CC (editor and pads)", ["patch", "tune", "bend", "vib", "vibrate", "voices", None, None]),
+]
 
 # Own pads ([epspads], common/tools/ctpads.py): 36-38 and 44-46 are the same in every
 # instrument. eps~: the patch select buttons.

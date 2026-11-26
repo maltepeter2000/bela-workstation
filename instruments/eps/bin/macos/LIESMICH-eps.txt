@@ -9,10 +9,10 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    .gkh; .hfe vorher nach .img wandeln).
 4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge). Klick auf das Objekt öffnet den Editor.
    "library N" lädt Instrument N aus dem Ordner eps, Noten auf MIDI-Kanal 1.
-5. Regler: Offsets über dem geladenen Instrument (0 = wie gespeichert), Seite 1 wie bei den
-   anderen Instrumenten: cut, cut2 (Filter 2 statt Resonanz), att, rel, vib, (frei), wave
-   (Transwave-Position), volume. Seite 2: patch, transpose, tune, bend, dec, fenv, vibrate,
-   voices. Mod-Rad (CC 1): Wave-Modulation (Transwave).
+5. Regler: Offsets über dem geladenen Instrument (0 = wie gespeichert). Seite 1 (P1 PERFORM):
+   cut, cut2, Filter-Attack/-Decay/-Release (ENV2), Amp-Attack/-Decay/-Release (ENV3).
+   Seite 2 (P2 PLAY): volume, transpose, wave (Transwave-Position), fenv. patch, tune, bend,
+   vib, vibrate, voices nur im Editor (Reihe MORE). Mod-Rad (CC 1): Wave-Modulation.
 6. Speichern (immer im Ensoniq-Format, das EPS liest es): replace (über die geladene Datei),
    save copy (neuer Name mit Nummer), new name + save as, new folder. In ein Disk-Image oder
    als EFE in den Ordner eps. <image>.undo hält die alten Blöcke (eps_fs_tool undo).
@@ -28,6 +28,15 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    (truncate, crossfade-Varianten, convert_rate, normalize, fades, volume_smooth, scale /
    reverse / invert / clear, new / copy / delete WS). do, dann old / new vergleichen,
    keep oder cancel – wie KEEP=OLD NEW am EPS.
-9. Pads (Launchkey, Drum-Modus, Kanal 10): factory +/- = nächstes/voriges Instrument der
-   Bibliothek, user +/-, init (2x), save; Pad 4 / 12: Patch-Select + / -.
+9. Launchkey Mini MK4 (eigene Firmware, Pads im Drum-Modus auf Kanal 10): eps.i~ steuert ihn
+   selbst, mit zwei Ebenen. SEL zweimal tippen wechselt PLAY und EDIT (das Display zeigt
+   dann 1,5 s die Pads).
+   PLAY: oben LIB> DIR> INIT(2x) PAT> SMPL, unten LIB< DIR< SAVE(2x) PAT< SEL.
+   Encoder: CC-Seite 1 = P1, Seite 2 = P2.
+   EDIT: oben die Bereiche INST LAYER WAVE PITCH FILTER AMP LFO ENV (nochmal = nächste Seite),
+   unten SEL LAY> WS> ENV# SMPL CMD O/N KEEP. Die Encoder wirken auf die gezeigte Seite,
+   egal auf welcher CC-Seite der Launchkey steht. SEL halten + Taste wählt Layer/WS ohne Ton.
+   SMPL: Seite SAMPLE und Pegel, nochmal: Aufnahme, nochmal: Stopp, dann Grundton spielen.
+   CMD: Seite COMMAND, Befehl mit Encoder 1, CMD 2x: ausführen; O/N alt/neu, KEEP behält.
+   Display: kleine Zeile (Seite, Layer, WS), zwei große Zeilen, gewählte Option unterstrichen.
 10. Laden läuft im Hintergrund: der Klang wechselt, sobald das Instrument eingelesen ist.

@@ -64,6 +64,9 @@ public:
         int attack = 0;      // -63..63 panel steps on time 1 of the amp envelope
         int decay = 0;       // -63..63 on times 2..4
         int release = 0;     // -63..63 on times 5, 6 (also for notes already sounding)
+        int fAttack = 0;     // the same three on the filter envelope (ENV2)
+        int fDecay = 0;
+        int fRelease = 0;
         int wave = 0;        // 0..127, added to the wave mod source (transwave position)
         int transpose = 0;   // semitones, mapping and pitch
         int tune = 0;        // cents

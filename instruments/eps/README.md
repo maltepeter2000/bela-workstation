@@ -58,18 +58,31 @@ glide (every mode is mono with glide).
 ## Controls
 
 Performance offsets over the loaded instrument (0 = as stored); saving writes `transpose tune
-cut cut2 fenv att dec rel` into the instrument and sets them back to 0. `volume` and `voices`
-are settings. One table: `tools/eps_params.py`.
+cut cut2 fenv att dec rel fatt fdec frel` into the instrument and sets them back to 0. `volume`
+and `voices` are settings. One table: `tools/eps_params.py`.
 
 | Page | CC | Controls |
 |---|---|---|
-| 1 PERFORM | 20–27 | `cut cut2 att rel vib` – `wave volume` |
-| 2 PLAY | 28–31, 33–36 | `patch transpose tune bend dec fenv vibrate voices` |
+| 1 PERFORM (P1) | 20–27 | `cut cut2 fatt fdec frel att dec rel` (filter envelope ENV2, amp envelope ENV3) |
+| 2 PLAY (P2) | 28–31 | `volume transpose wave fenv` |
 
-Page 1 follows the other instruments (bright, resonance, attack, release, vibrato, effect, own,
-volume). The EPS has no resonance: `cut2` (filter 2) takes its place. The effect place stays free
-until eps~ has its effects; own is `wave`, the transwave position. Pads 39 / 47: patch select
-+ / −.
+`patch tune bend vib vibrate voices`: editor only (row MORE); patch select is on the pads.
+
+## Launchkey surface
+
+eps.i~ drives the Launchkey Mini MK4 (custom firmware, pads in Drum mode) itself, in two layers
+(`tools/eps_pages.py`, `pd/engine/eps_surface.*`, `pd/eps_lk.inc`): fixed pad meanings, the
+display says what they do. SEL tapped twice: PLAY <-> EDIT.
+
+| Layer | Top pads 36–43 | Bottom pads 44–51 | Encoders |
+|---|---|---|---|
+| PLAY | LIB> DIR> INIT(2x) PAT> SMPL | LIB< DIR< SAVE(2x) PAT< SEL | CC page 1 = P1, page 2 = P2 |
+| EDIT | INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page) | SEL LAY> WS> ENV# SMPL CMD O/N KEEP | encoder n = cell n of the page shown (E1–E19) |
+
+Display: a small line (page, layer, wavesample), two big lines of 10 characters with the chosen
+option underlined, or a picture; the encoder names after a page change. The values of the page
+go back to the encoders as CC. The bare `eps~` has the surface off (`lk 1`); `epscc` and
+`epspads` stay for the Bela patch.
 
 ## Library and saving
 

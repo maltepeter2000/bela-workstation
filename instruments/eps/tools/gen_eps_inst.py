@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Generates pd/eps.i~.pd: eps~ as one instrument object (common/tools/instobj.py), with the
-editor epsedit, the controller layer epscc, the pads epspads and lkdisplay.
+editor epsedit and lkdisplay; eps~ drives the Launchkey itself
+(the surface, tools/eps_pages.py). epscc and epspads stay for the Bela patch.
 
     [adc~ 1]
     |
@@ -22,8 +23,7 @@ if __name__ == "__main__":
     instobj.write(os.path.join(PD, "eps.i~.pd"),
                   obj="eps.i~", ext="eps~", short="eps",
                   edit=os.path.join(PD, "epsedit.pd"), edit_title="eps~ editor",
-                  cc=os.path.join(PD, "epscc.pd"),
-                  pads=os.path.join(PD, "epspads.pd"),
+                  cc=None, pads=None, surface=True,
                   lkdisplay=os.path.join(PD, "lkdisplay.pd"),
                   banks=[],
                   dir_msgs=[("library", "eps")],

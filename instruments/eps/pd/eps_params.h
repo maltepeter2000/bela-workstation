@@ -4,19 +4,22 @@
 static const Control kControls[] = {
     {"cut", 'O', -63, 63, 0, "Cutoff", ""},
     {"cut2", 'O', -63, 63, 0, "Filter 2", ""},
+    {"fatt", 'O', -63, 63, 0, "F attack", ""},
+    {"fdec", 'O', -63, 63, 0, "F decay", ""},
+    {"frel", 'O', -63, 63, 0, "F release", ""},
     {"att", 'O', -63, 63, 0, "Attack", ""},
+    {"dec", 'O', -63, 63, 0, "Decay", ""},
     {"rel", 'O', -63, 63, 0, "Release", ""},
-    {"vib", 'O', 0, 127, 0, "Vibrato", ""},
-    {"wave", 'O', 0, 127, 0, "Wave pos", ""},
     {"volume", 'S', 0, 127, 100, "Volume", ""},
-    {"patch", 'O', 0, 3, 0, "Patch sel", "00|0*|*0|**"},
     {"transpose", 'O', -24, 24, 0, "Transpose", ""},
+    {"wave", 'O', 0, 127, 0, "Wave pos", ""},
+    {"fenv", 'O', -63, 63, 0, "Filter env", ""},
+    {"patch", 'O', 0, 3, 0, "Patch sel", "00|0*|*0|**"},
     {"tune", 'O', -50, 50, 0, "Tune", ""},
     {"bend", 'O', 0, 12, 2, "Bend range", ""},
-    {"dec", 'O', -63, 63, 0, "Decay", ""},
-    {"fenv", 'O', -63, 63, 0, "Filter env", ""},
+    {"vib", 'O', 0, 127, 0, "Vibrato", ""},
     {"vibrate", 'O', 0, 127, 50, "Vib rate", ""},
     {"voices", 'S', 1, 32, 20, "Voices", ""},
 };
 
-enum Ctl { kC_cut, kC_cut2, kC_att, kC_rel, kC_vib, kC_wave, kC_volume, kC_patch, kC_transpose, kC_tune, kC_bend, kC_dec, kC_fenv, kC_vibrate, kC_voices, kCtlCount };
+enum Ctl { kC_cut, kC_cut2, kC_fatt, kC_fdec, kC_frel, kC_att, kC_dec, kC_rel, kC_volume, kC_transpose, kC_wave, kC_fenv, kC_patch, kC_tune, kC_bend, kC_vib, kC_vibrate, kC_voices, kCtlCount };

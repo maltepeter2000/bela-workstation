@@ -13,7 +13,6 @@ sys.path.insert(0, HERE)
 sys.path.insert(1, os.path.join(HERE, "..", "..", "..", "common", "tools"))
 import ctlayer                                    # noqa: E402
 import helpdraw as H                              # noqa: E402
-import helpkit                                    # noqa: E402
 import eps_params as T                            # noqa: E402
 import gen_eps_editor as E                        # noqa: E402  (rows and labels of the editor)
 
@@ -30,8 +29,8 @@ def rng(nm):
 
 
 OBJECT = [
-    "eps.i~ is the whole instrument in one object: eps~, the editor, the controller layer, "
-    "the Launchkey pads and display, MIDI in and out. Put it in a patch, put your Ensoniq "
+    "eps.i~ is the whole instrument in one object: eps~, the editor, the Launchkey surface "
+    "(encoders, pads and display, see Launchkey), MIDI in and out. Put it in a patch, put your Ensoniq "
     "instruments into a folder eps beside the patch, connect the two left outlets to dac~ "
     "and play. Click it to open the editor, see Editor.",
     "Argument 1 is the MIDI channel (0 or none = 1), argument 2 the channel of the pads "
@@ -203,6 +202,13 @@ MESSAGES = [
     "  key / lowest / highest key of the selected wavesample.",
     "rec monitor 0/1: hear the input while level / recording runs.",
     "lkgfx 0/1: the Launchkey pictures off / on (default on).",
+    "lk 0/1: the Launchkey surface off / on (eps.i~: on).",
+    "lk edit [0/1], lk mode: EDIT / PLAY. lk page <P1 .. E19>.",
+    "lk legend: show the pads. lk sync: colours and values again.",
+    "lk pad <note> <velocity>, lk cc <cc> <value>: as from the",
+    "  Launchkey. padchannel n: the pads' channel (default 10).",
+    "lk status: answers lk <play|edit> <page> <on>; lkscreen",
+    "  <small> <line 1> <line 2>: what the display shows.",
     "rec input n: eps.i~ records Pd's audio input 0 none, 1 in 1",
     "  (default), 2 in 2, 3 both, inlet 2 always.",
     "rec status: report the recorder's settings.",
@@ -353,11 +359,51 @@ CREDITS = ("Credits: Modelled on the Ensoniq EPS-16 PLUS; ES5505 after MAME's es
            "Aaron Giles; file format after ConvertWithMoss by Juergen Mossgraber with help by "
            "Claude")
 
+import eps_pages as PG                             # noqa: E402
+
+
+def page_line(p):
+    pid, title, area, cells = p
+    names = " ".join(c[0] if c[2] != "-" else c[0] + "(-)" for c in cells if c)
+    return f"{pid} {title}: {names}"
+
+
+LAUNCHKEY = [
+    "eps~ drives the Launchkey Mini MK4 itself (custom firmware, pads in Drum mode): the "
+    "encoders, the pads and the display follow two layers, PLAY and EDIT. The pads have fixed "
+    "meanings, the display shows what they do. SEL tapped twice switches PLAY and EDIT (later "
+    "the pad-nav button). On the switch the display shows the pads for 1.5 s.",
+    "PLAY pads, top row: 36 LIB> (next instrument of the library), 37 DIR> (next in the "
+    "folder), 38 INIT (twice), 39 PAT> (patch select), 40 SMPL. Bottom row: 44 LIB<, 45 DIR<, "
+    "46 SAVE (twice: a copy with a free name), 47 PAT<, 48 SEL. The encoders: CC page 1 of the "
+    "Launchkey is P1 PERFORM, page 2 is P2 PLAY (the same CC numbers as the controller layer "
+    "of the Bela).",
+    "EDIT pads, top row: the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (pressed again: "
+    "the next page of the area). Bottom row: 44 SEL (held: LAY> WS> ENV# step backwards, a key "
+    "selects its layer and wavesample without sound), 45 LAY> (next layer), 46 WS> (next "
+    "wavesample of the layer), 47 ENV# (ENV1 > ENV2 > ENV3), 48 SMPL, 49 CMD, 50 O/N, 51 KEEP. "
+    "The keys play, follow key selects. The encoders act on the page shown, whatever CC page "
+    "the Launchkey is on: encoder n is cell n.",
+    "SMPL: the SAMPLE page E18 and the level display, pressed again: record (from the "
+    "threshold), again: stop, then play the root key. CMD: the COMMAND page E19, the command "
+    "chosen with encoder 1, pressed twice: run it. Then O/N plays the old or the new version "
+    "(orange / green), KEEP keeps the new one, anything else keeps what plays.",
+    "The display: one small line (page, layer, wavesample), then two big lines of 10, the "
+    "chosen option underlined, or a picture (envelope, filters, LFO). After a page change it "
+    "shows the names of the 8 encoders. The values of the page go back to the encoders as CC "
+    "(the firmware takes them). Pad colours: white = chosen, dimmed = there, dark = no "
+    "function, red = sampling (flashing while recording), orange = old, green = new.",
+    "The pages, encoders 1 to 8 ((-) = not there yet): " + " | ".join(page_line(p) for p in PG.PAGES) + ".",
+    "The bare eps~ has the surface off (lk 1 switches it on). epscc and epspads, the controller "
+    "layer and the pads of the other instruments, stay for patches of your own and the Bela.",
+]
+
 CONTROLS_INTRO = [
     "In the order of the editor: one heading per row, the same title as the row there, page k "
     "on the controller is row k. Each line: name (the label in the editor), range, CC number "
-    "and what it does. Page 1 follows the other instruments: bright, resonance, attack, "
-    "release, vibrato, effect (free for now), own (the wave position) and volume.",
+    "and what it does. Page 1 is P1 PERFORM of the Launchkey: the two filters, the filter "
+    "envelope and the amp envelope. Page 2 is P2 PLAY: volume, transpose, wave position, "
+    "filter envelope. The row MORE has no CC: the editor and the pads (patch select).",
 ]
 
 HELP = {nm: T.CONTROLS[nm][6] for nm in T.CONTROLS}
@@ -389,8 +435,7 @@ def main():
     H.write([os.path.normpath(os.path.join(HERE, "..", "pd", f)) for f in FILES],
             title=TITLE, subtitle=SUBTITLE, obj=OBJ, credits=CREDITS,
             sections=[("text", OBJ, OBJECT), ("text", "Editor", EDITOR),
-                      ("text", "Launchkey", helpkit.launchkey(
-                          "eps~", "epscc", "epspads", "39 patch select +, 47 patch select -")),
+                      ("text", "Launchkey", LAUNCHKEY),
                       ("lines", "Inlet", INLETS), ("lines", "Outlets", OUTLETS),
                       ("text", "Library and saving", PRESETS),
                       ("text", "Sampling", SAMPLING),
