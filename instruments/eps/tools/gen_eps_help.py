@@ -80,7 +80,8 @@ EDITOR = [
     "ms, input (Pd's audio input: none, 1, 2, 1+2), into (new WS, replace WS, new layer, new instrument), level: the level display "
     "(the bars and the star of the threshold), rec and stop, then the state and what it "
     "says. root key, low key, high key: the next key you play sets it for the selected "
-    "wavesample.",
+    "wavesample. monitor: hear the input while level or the recording runs (off by default, "
+    "with a microphone it feeds back).",
     "COMMAND band: the wavesample commands of the EPS for the selected wavesample, see "
     "Wavesample commands. command with its arrows, range (sample, loop, start to loop, loop "
     "to end), do, then old and new to compare, keep or cancel. depth, zone %, scale % (start "
@@ -116,6 +117,8 @@ OUTLETS = [
     "3 folder text n, bsel k n kind name: the folder shown,",
     "  its size and the selected file (kind dir or inst).",
     "3 saved: an instrument was written.",
+    "3 lkgfx bytes: a picture for the Launchkey display (envelope,",
+    "  filter, LFO). lkgfx 0: off, the text line stays.",
     "3 recstate off / level / armed / recording / rootkey, recinfo",
     "  text, recmeter text (level display), recset rate / thresh /",
     "  pre / dest: the recorder. sampled ws layer: a recording is",
@@ -198,6 +201,8 @@ MESSAGES = [
     "rec root n: the root key without playing it.",
     "rec learn root / lo / hi: the next key played sets the root",
     "  key / lowest / highest key of the selected wavesample.",
+    "rec monitor 0/1: hear the input while level / recording runs.",
+    "lkgfx 0/1: the Launchkey pictures off / on (default on).",
     "rec input n: eps.i~ records Pd's audio input 0 none, 1 in 1",
     "  (default), 2 in 2, 3 both, inlet 2 always.",
     "rec status: report the recorder's settings.",

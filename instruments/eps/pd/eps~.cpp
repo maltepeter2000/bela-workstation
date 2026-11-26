@@ -100,6 +100,7 @@ extern "C" {
 #include "eps_sysex.h"
 #include "eps_record.h"
 #include "eps_wave.h"
+#include "../../../common/gfx/lkgfx_pd.h"
 
 namespace {
 
@@ -439,6 +440,8 @@ struct Recorder {
     int pre = 15;                 // pre-trigger in ms (0..127)
     int dest = 0;                 // eps::RecordDest
     int input = 1;                // eps.i~: Pd's audio input 0 none, 1 in 1, 2 in 2, 3 both
+    bool monitor = false;         // hear the input while level / armed / recording
+    std::vector<float> mon;       // the input of one block (it may share its buffer with an output)
     int learn = 0;                // the next key sets 1 root, 2 low key, 3 high key
     bool full = false;            // the memory is full (set in the audio thread)
     std::vector<float> buf, ring; // recording and pre-trigger ring (host rate)
@@ -493,6 +496,8 @@ struct t_eps {
         bool showingOld = false;
     }* wave;
     int jobkind;                         // what the loader's job is: 1 recording, 2 wave command
+    lkg_pd_t* gfx;                       // Launchkey pictures: 1 envelope, 2 filter, 3 LFO
+    bool touchedOffset;                  // the envelope picture: att / dec / rel turned
 };
 
 void out_value(t_eps* x, const char* key, t_float v) {
@@ -524,6 +529,99 @@ void out_info(t_eps* x, int i) {
     SETFLOAT(&a[1], to127(c, x->value[i]));
     SETSYMBOL(&a[2], gensym(t.c_str()));
     outlet_anything(x->info, gensym("info"), 3, a);
+}
+
+// ---- Launchkey pictures (common/gfx, custom firmware branch display-gfx) ---------
+// 1 the envelope selected in the editor (att / dec / rel: the amp envelope with them),
+// 2 the filters of the selected wavesample, 3 its LFO. "lkgfx 0" = the text line.
+
+int gfx_kind(const char* n) {
+    if (!std::strncmp(n, "e_", 2) || !std::strcmp(n, "att") || !std::strcmp(n, "dec") || !std::strcmp(n, "rel")) return 1;
+    if (!std::strcmp(n, "w_fmode") || !std::strcmp(n, "w_cut1") || !std::strcmp(n, "w_cut2") ||
+        !std::strcmp(n, "cut") || !std::strcmp(n, "cut2")) return 2;
+    if (!std::strcmp(n, "w_lwave") || !std::strcmp(n, "w_lspeed") || !std::strcmp(n, "w_ldepth") ||
+        !std::strcmp(n, "w_ldelay") || !std::strcmp(n, "w_lmode")) return 3;
+    return 0;
+}
+
+void gfx_draw(void* owner, lkg_t* g, int kind) {
+    t_eps* x = static_cast<t_eps*>(owner);
+    if (!x->sampler) return;
+    const eps::Instrument& in = x->sampler->instrument();
+    auto it = in.waveSamples.find(x->editor->ws);
+    if (it == in.waveSamples.end()) return;
+    const eps::WaveSample& w = it->second;
+    if (kind == 1) {
+        // L0 -T1- L1 -T2- L2 -T3- L3 -T4- L4 (sustain) -T5- L5 -T6- 0; hard levels; times 0..99
+        // grow steeply (width 2 + 40 x^1.7); att / dec / rel only on the amp envelope
+        const bool amp = x->editor->env == 2 || x->touchedOffset;
+        const eps::Envelope& e = amp ? w.ampEnv : (x->editor->env == 0 ? w.pitchEnv : w.filterEnv);
+        int t[7];
+        for (int i = 1; i <= 6; ++i) t[i] = e.time[i];
+        if (amp) {
+            t[1] = std::clamp(t[1] + x->value[kC_att], 0, 99);
+            for (int i = 2; i <= 4; ++i) t[i] = std::clamp(t[i] + x->value[kC_dec], 0, 99);
+            for (int i = 5; i <= 6; ++i) t[i] = std::clamp(t[i] + x->value[kC_rel], 0, 99);
+        }
+        auto wd = [](int v) { return 2.0f + 40.0f * std::pow(v / 99.0f, 1.7f); };
+        const float lvl[6] = {e.hardLevel[1] / 127.f, e.hardLevel[2] / 127.f, e.hardLevel[3] / 127.f,
+                              e.hardLevel[4] / 127.f, std::max(0, e.level5) / 127.f, 0.f};
+        const float ws[6] = {wd(t[1]), wd(t[2]), wd(t[3]), wd(t[4]), wd(t[5]), wd(t[6])};
+        lkg_env(g, 6, e.hardLevel[0] / 127.f, lvl, ws, e.mode == 1 ? -1 : 3, 16.0f, nullptr);
+    } else if (kind == 2) {
+        // F1: 2 or 3 low-pass poles at cutoff 1, F2: 2 or 1 poles, low or high pass, at
+        // cutoff 2 (filter mode); cutoff 0..150 along the axis (from ~132 open); no resonance
+        const int mode = w.filterMode & 3;
+        const int n1 = (mode & 1) ? 3 : 2, n2 = (mode & 1) ? 1 : 2;
+        const bool hp = (mode & 2) == 0;
+        const float f1 = std::clamp(w.filterCutoff[0] + x->value[kC_cut], 0, 150) / 140.f;
+        const float f2 = std::clamp(w.filterCutoff[1] + x->value[kC_cut2], 0, 150) / 140.f;
+        float v[LKG_W];
+        for (int i = 0; i < LKG_W; ++i) {
+            const float t = static_cast<float>(i) / (LKG_W - 1);
+            const float r1 = std::pow(1000.f, t - f1), r2 = std::pow(1000.f, t - f2);
+            float m = 1.f / std::sqrt(1.f + std::pow(r1, 2.f * n1));
+            const float d2 = std::sqrt(1.f + std::pow(r2, 2.f * n2));
+            m *= hp ? std::pow(r2, static_cast<float>(n2)) / d2 : 1.f / d2;
+            v[i] = std::clamp(20.f * std::log10(std::max(m, 1e-6f)), -48.f, 6.f);
+        }
+        lkg_plot(g, v, LKG_W, -48.f, 6.f);
+        lkg_hdots(g, 0, LKG_W - 1, static_cast<int>(lroundf(lkg_ly(48.f / 54.f))), 4);
+    } else if (kind == 3) {
+        // the LFO over time: speed sets the cycles shown, delay fades it in, depth the size;
+        // +tri / +sine stay above the line
+        const int wave = std::clamp(w.lfoWaveform, 0, 6);
+        const float cycles = 1.f + w.lfoSpeed / 14.f, fade = 0.6f * w.lfoDelay / 99.f;
+        const float depth = 0.15f + 0.85f * w.lfoDepth / 127.f;
+        float v[LKG_W];
+        for (int i = 0; i < LKG_W; ++i) {
+            const float t = static_cast<float>(i) / (LKG_W - 1);
+            const float ph = std::fmod(t * cycles, 1.f);
+            const float tri = ph < 0.5f ? 4.f * ph - 1.f : 3.f - 4.f * ph;
+            const float sine = std::sin(2.f * static_cast<float>(M_PI) * ph);
+            float s = 0.f;
+            switch (wave) {
+                case 0: s = tri; break;
+                case 1: s = 0.5f * (tri + sine); break;
+                case 2: s = sine; break;
+                case 3: s = 0.5f * (tri + 1.f); break;
+                case 4: s = 0.5f * (sine + 1.f); break;
+                case 5: s = 1.f - 2.f * ph; break;
+                default: s = ph < 0.5f ? 1.f : -1.f; break;
+            }
+            const float env = fade > 0.f ? std::clamp(t / fade, 0.f, 1.f) : 1.f;
+            v[i] = s * env * depth;
+        }
+        lkg_plot(g, v, LKG_W, -1.f, 1.f);
+        lkg_hdots(g, 0, LKG_W - 1, static_cast<int>(lroundf(lkg_ly(0.5f))), 4);
+    }
+}
+
+// A change for the display: the picture if it has one, else the text line.
+void out_shown(t_eps* x, const char* name, const std::string& label, const std::string& value) {
+    const int kind = gfx_kind(name);
+    x->touchedOffset = !std::strcmp(name, "att") || !std::strcmp(name, "dec") || !std::strcmp(name, "rel");
+    if (!lkg_pd_show(x->gfx, kind, label.c_str(), value.c_str())) out_display(x, label, value);
 }
 
 // ---- the instrument editor (eps_edit) -------------------------------------------
@@ -950,6 +1048,9 @@ void out_recset(t_eps* x) {
     SETFLOAT(&a[1], R.dest);
     SETSYMBOL(&a[2], gensym(kDestNames[R.dest]));
     outlet_anything(x->info, gensym("recset"), 3, a);
+    SETSYMBOL(&a[0], gensym("monitor"));
+    SETFLOAT(&a[1], R.monitor ? 1 : 0);
+    outlet_anything(x->info, gensym("recset"), 2, a);
     static const char* const kInputs[4] = {"inlet", "in_1", "in_2", "in_1+2"};
     SETSYMBOL(&a[0], gensym("input"));
     SETFLOAT(&a[1], R.input);
@@ -1161,6 +1262,8 @@ void rec_command(t_eps* x, int argc, t_atom* argv) {
         R.dest = std::clamp(n, 0, 3);
     } else if (w == "input") {
         R.input = std::clamp(n, 0, 3);
+    } else if (w == "monitor") {
+        R.monitor = n != 0;
     } else if (w == "level") {
         rec_level_mode(x, argc < 2 || n != 0);
         return;
@@ -1480,6 +1583,8 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         const char sc = eps::kEditParams[id].scope;
         if (sc == 'p' || sc == 'f') out_edump(x, "pf");   // the points limit each other
         else out_einfo(x, id);
+        out_shown(x, eps::kEditParams[id].name, eps::kEditParams[id].label,
+                  x->editor->text(x->sampler->editInstrument(), id));
         if (sc == 'i' || sc == 'm') apply(x);
         return;
     } else if (is("einfo")) {
@@ -1590,6 +1695,9 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         if (!ok) { pd_error(x, "eps~: %s: a SysEx transfer is running (sxcancel stops it)", c); return; }
         x->sxpct = -1;
         clock_delay(x->sxclock, 20);
+        return;
+    } else if (is("lkgfx")) {
+        lkg_pd_on(x->gfx, n != 0);
         return;
     } else if (is("rec")) {
         rec_command(x, argc, argv);
@@ -1738,7 +1846,7 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     }
     apply(x);
     report(x);
-    if (touched) out_display(x, touched->label, value_text(*touched, x->value[control_index(touched)]));
+    if (touched) out_shown(x, touched->name, touched->label, value_text(*touched, x->value[control_index(touched)]));
 }
 
 // follow key: the editor shows the layer and wavesample of the key played
@@ -1917,18 +2025,26 @@ t_int* eps_perform(t_int* w) {
     t_sample* l = reinterpret_cast<t_sample*>(w[3]);
     t_sample* r = reinterpret_cast<t_sample*>(w[4]);
     const int n = static_cast<int>(w[5]);
-    record_block(*x->rec, reinterpret_cast<t_sample*>(w[2]), n);
+    Recorder& R = *x->rec;
+    const t_sample* in = reinterpret_cast<t_sample*>(w[2]);
+    const bool mon = R.monitor && R.state >= Recorder::Level && R.state <= Recorder::Recording &&
+                     static_cast<int>(R.mon.size()) >= n;
+    if (mon) std::copy(in, in + n, R.mon.begin());
+    record_block(R, in, n);
     if (x->sampler) {
         x->sampler->process(l, r, n);
     } else {
         std::fill(l, l + n, 0.0f);
         std::fill(r, r + n, 0.0f);
     }
+    if (mon)
+        for (int i = 0; i < n; ++i) { l[i] += R.mon[size_t(i)]; r[i] += R.mon[size_t(i)]; }
     return w + 6;
 }
 
 void eps_dsp(t_eps* x, t_signal** sp) {
     x->sr = sp[0]->s_sr;
+    x->rec->mon.assign(static_cast<size_t>(sp[0]->s_n), 0.f);
     if (x->sampler) x->sampler->setSampleRate(x->sr);
     // sp[0]: the audio to sample (inlet 4), sp[1], sp[2]: left, right
     dsp_add(eps_perform, 5, x, sp[0]->s_vec, sp[1]->s_vec, sp[2]->s_vec, static_cast<t_int>(sp[0]->s_n));
@@ -1984,6 +2100,9 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     outlet_new(&x->obj, &s_signal);
     outlet_new(&x->obj, &s_signal);
     x->info = outlet_new(&x->obj, nullptr);
+    x->gfx = new lkg_pd_t();
+    lkg_pd_init(x->gfx, x->info, gfx_draw, x);
+    x->touchedOffset = false;
 
     Loader* L = x->loader;
     L->thread = std::thread([L] { L->run(); });
@@ -2005,6 +2124,8 @@ void eps_free(t_eps* x) {
     clock_free(x->poll);
     clock_free(x->sxclock);
     clock_free(x->recclock);
+    lkg_pd_free(x->gfx);
+    delete x->gfx;
     delete x->sysex;
     x->loader->quit.store(true);
     if (x->loader->thread.joinable()) x->loader->thread.join();

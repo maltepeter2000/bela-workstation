@@ -172,6 +172,7 @@ def sample_band(c, y):
     bng(c, x0 + 256, y + 72, "lroot", "root key")
     bng(c, x0 + 346, y + 72, "llo", "low key")
     bng(c, x0 + 430, y + 72, "lhi", "high key")
+    c.add(f"#X obj {x0 + 530} {y + 72} tgl 15 0 {D}0-rmon {D}0-rmonv monitor 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
 
 
 def command_band(c, y):
@@ -310,7 +311,7 @@ def logic():
     for k, (recv, text) in enumerate([("rprev", "rec ratestep -1"), ("rnext", "rec ratestep 1"),
                                       ("rthresh", f"rec thresh {D}1"), ("rpre", f"rec pre {D}1"),
                                       ("rdest", f"rec dest {D}1"), ("rlevel", f"rec level {D}1"),
-                                      ("rinput", f"rec input {D}1"),
+                                      ("rinput", f"rec input {D}1"), ("rmon", f"rec monitor {D}1"),
                                       ("rstart", "rec start"), ("rstop", "rec stop"),
                                       ("lroot", "rec learn root"), ("llo", "rec learn lo"),
                                       ("lhi", "rec learn hi")]):
@@ -381,11 +382,11 @@ def logic():
     # the recorder's replies -> the SAMPLE band
     yq = ys2 + 150
     rq = c.add(f"#X obj 10 {yq} route recset recstate recinfo recmeter;"); c.conn(ro, 0, rq, 0)
-    rs = c.add(f"#X obj 10 {yq + 30} route rate thresh pre dest input;"); c.conn(rq, 0, rs, 0)
+    rs = c.add(f"#X obj 10 {yq + 30} route rate thresh pre dest input monitor;"); c.conn(rq, 0, rs, 0)
     for k, (outlet, text, dest) in enumerate([(0, f"set {D}2", "ratev"), (1, f"set {D}1", "threshv"),
                                               (2, f"set {D}1", "prev"), (3, f"set {D}1", "destv"),
                                               (3, f"set {D}2", "destnv"), (4, f"set {D}1", "inputv"),
-                                              (4, f"set {D}2", "inputnv")]):
+                                              (4, f"set {D}2", "inputnv"), (5, f"set {D}1", "rmonv")]):
         x = 10 + 110 * k
         ll = c.add(f"#X obj {x} {yq + 60} list;"); c.conn(rs, outlet, ll, 0)
         m = c.add(f"#X msg {x} {yq + 90} {text};"); c.conn(ll, 0, m, 0)
