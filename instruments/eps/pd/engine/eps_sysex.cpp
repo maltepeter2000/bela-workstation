@@ -95,6 +95,7 @@ SysexLink::Op SysexLink::param(int inst, int layer, int ws, int page, int item, 
     o.words.push_back(page & 0x7F);
     o.words.push_back(item & 0x7F);
     off20(o.words, value);                 // 24-bit value as two 12-bit words
+    o.settle = 3.0;                        // measured: the OS answers NAK when hurried
     return o;
 }
 
@@ -117,7 +118,7 @@ void SysexLink::start(double now) {
     sendOp();
     state_ = State::Sent;
     deadline_ = now + kReplyTimeout;
-    if (cur_.param) { state_ = State::Quiet; nextAt_ = now + 0.4; }
+    if (cur_.param) { state_ = State::Quiet; nextAt_ = now + cur_.settle; }
     if (total_ > 0) percent = std::min(99, 100 * (total_ - int(ops_.size()) - 1) / total_);
 }
 
@@ -154,7 +155,7 @@ void SysexLink::packetIn(const std::vector<uint8_t> &pk, double now) {
     case State::Sent:
         if (response) {
             const int st = pk[6];
-            if (st == kAck && cur_.simple) { state_ = State::Quiet; nextAt_ = now + 0.3; return; }
+            if (st == kAck && cur_.simple) { state_ = State::Quiet; nextAt_ = now + cur_.settle; return; }
             if (st == kAck && !cur_.payload.empty()) {           // the EPS takes the data block
                 sendData(cur_.payload);
                 state_ = State::PutData;
@@ -194,7 +195,7 @@ void SysexLink::packetIn(const std::vector<uint8_t> &pk, double now) {
         deadline_ = now + kDataGap;
         return;
     case State::PutData:
-        if (response && pk[6] == kAck) { state_ = State::Quiet; nextAt_ = now + 0.3; return; }
+        if (response && pk[6] == kAck) { state_ = State::Quiet; nextAt_ = now + cur_.settle; return; }
         if (response) {
             char b[64];
             std::snprintf(b, sizeof b, "the EPS refused the data (status %02X, command %02X)", pk[6], cur_.cmd);
@@ -495,12 +496,20 @@ void SysexLink::queueWaveData(int inst, int layer, int ws, uint32_t n, uint32_t 
 
 void SysexLink::queuePutData(int inst, int layer, int ws, const std::vector<int16_t> &smp) {
     // Make the wavesample tiny (start 0, end 1, truncate), then write the samples
-    // from the start: writing past the end makes it longer.
+    // from the start: writing past the end makes it longer. A GET first makes it
+    // the EPS's edit wavesample (without it TRUNCATE is refused).
+    Op g;
+    g.cmd = kGetWsParams;
+    g.probe = true;                        // only the header: the EPS times out by itself
+    g.words = addr(inst, layer, ws);
+    g.probed = [](bool) {};
+    ops_.push_back(g);
     ops_.push_back(param(inst, layer, ws, 0x20, 0x15, 0));
     ops_.push_back(param(inst, layer, ws, 0x20, 0x16, 1));
     Op t;
     t.cmd = kTruncateWs;
     t.simple = true;
+    t.settle = 2.5;
     t.words = addr(inst, layer, ws);
     ops_.push_back(t);
     for (uint32_t s = 0; s < smp.size(); s += kChunk) {
@@ -561,71 +570,76 @@ bool SysexLink::sendInstrument(int inst, const std::vector<uint8_t> &f, double n
             const int w = f[layerOff[li] + 48 + 2 * k];
             if (w > 0 && w < 128 && wsOff[size_t(w)] && owner[size_t(w)] < 0) owner[size_t(w)] = int(li);
         }
-    int spare = 127;                         // a free wavesample number for building
-    while (spare > 1 && wsOff[size_t(spare)]) --spare;
-
-    Op ci;
-    ci.cmd = kCreateInstrument;
-    ci.simple = true;
-    ci.words = addr(inst, 0, 1);
-    ops_.push_back(ci);
-    for (size_t li = 0; li < layerOff.size(); ++li) {
-        std::vector<int> mine;
-        for (int w = 1; w < 128; ++w) if (owner[size_t(w)] == int(li)) mine.push_back(w);
-        // the layer is made with one plain wavesample: its first own one, or a spare
-        int first = 0;
-        for (int w : mine) if (!f[wsOff[size_t(w)] + kWsCopyOf]) { first = w; break; }
-        Op cl;
-        cl.cmd = kCreateLayer;
-        cl.simple = true;
-        cl.words = addr(inst, int(li), first ? first : spare);
-        ops_.push_back(cl);
-        for (int w : mine) {
-            if (w == first) continue;
-            const int src = f[wsOff[size_t(w)] + kWsCopyOf];
-            Op c;
-            c.simple = true;
-            if (src && owner[size_t(src)] >= 0) {           // a copy shares the data of its source
-                c.cmd = kCopyWs;
-                c.words = addr(inst, owner[size_t(src)], src);
-                std::vector<int> d = addr(inst, int(li), w);
-                c.words.insert(c.words.end(), d.begin(), d.end());
-                c.words.push_back(0); c.words.push_back(0);      // data flag clear: shared
-            } else {
-                c.cmd = kCreateWs;
-                c.words = addr(inst, int(li), w);
-            }
-            ops_.push_back(c);
-        }
-        if (!first) {
-            Op del;
-            del.cmd = kDeleteWs;
-            del.simple = true;
-            del.words = addr(inst, int(li), spare);
-            ops_.push_back(del);
-        }
-    }
-    // samples of the plain wavesamples, then all parameter blocks
-    for (int w = 1; w < 128; ++w) {
-        const uint32_t o = wsOff[size_t(w)];
-        if (!o || owner[size_t(w)] < 0 || f[o + kWsCopyOf]) continue;
-        const uint32_t len = [&]() {
-            const uint8_t *p = f.data() + o;
-            return (uint32_t(p[2] << 8 | p[3]) >> 4) << 12 | (uint32_t(p[0] << 8 | p[1]) >> 4);
-        }();
+    // The OS 1.30 numbers wavesamples itself, one after the other in the order
+    // they are made (CREATE LAYER makes an empty layer, CREATE and COPY WAVESAMPLE
+    // ignore the number given). Made layer by layer, in order, they get the
+    // file's numbers when those run 1, 2, 3 ... through the layers; num maps.
+    auto samplesOf = [&f](uint32_t o) {
+        const uint8_t *p = f.data() + o;
+        const uint32_t len = (uint32_t(p[2] << 8 | p[3]) >> 4) << 12 | (uint32_t(p[0] << 8 | p[1]) >> 4);
         const uint32_t n = len > kWsHeader ? (len - kWsHeader) / 2 : 0;
         std::vector<int16_t> smp(n);
         for (uint32_t i = 0; i < n && o + kWsHeader + 2 * i + 1 < f.size(); ++i)
             smp[i] = int16_t(f[o + kWsHeader + 2 * i] << 8 | f[o + kWsHeader + 2 * i + 1]);
-        if (n >= 2) queuePutData(inst, owner[size_t(w)], w, smp);
+        // The OS appends 8 zero samples to every wavesample itself (measured); a
+        // file has them already: they are not sent again.
+        if (smp.size() > 10 && std::all_of(smp.end() - 8, smp.end(), [](int16_t v) { return v == 0; }))
+            smp.resize(smp.size() - 8);
+        return smp;
+    };
+    std::vector<int> num(128, 0);
+    int next = 1;
+
+    Op ci;
+    ci.cmd = kCreateInstrument;
+    ci.simple = true;
+    ci.settle = 1.5;
+    ci.words = addr(inst, 0, 1);
+    ops_.push_back(ci);
+    for (size_t li = 0; li < layerOff.size(); ++li) {
+        Op cl;
+        cl.cmd = kCreateLayer;
+        cl.simple = true;
+        cl.settle = 1.5;
+        cl.words = addr(inst, int(li), next);
+        ops_.push_back(cl);
+        for (int w = 1; w < 128; ++w) {
+            if (owner[size_t(w)] != int(li)) continue;
+            const int src = f[wsOff[size_t(w)] + kWsCopyOf];
+            Op c;
+            c.simple = true;
+            c.settle = 4.0;
+            if (src && src < 128 && num[size_t(src)]) {     // a copy shares the data of its source
+                c.cmd = kCopyWs;
+                c.words = addr(inst, owner[size_t(src)], num[size_t(src)]);
+                std::vector<int> d = addr(inst, int(li), next);
+                c.words.insert(c.words.end(), d.begin(), d.end());
+                c.words.push_back(0); c.words.push_back(0);      // data flag clear: shared
+                num[size_t(w)] = next++;
+                ops_.push_back(c);
+            } else {
+                // made and filled before anything copies it (data into a wavesample
+                // that has copies is refused)
+                c.cmd = kCreateWs;
+                c.words = addr(inst, int(li), next);
+                num[size_t(w)] = next++;
+                ops_.push_back(c);
+                const std::vector<int16_t> smp = samplesOf(wsOff[size_t(w)]);
+                if (smp.size() >= 2) queuePutData(inst, int(li), num[size_t(w)], smp);
+            }
+        }
     }
+    // then all parameter blocks
     for (int w = 1; w < 128; ++w) {
         if (!wsOff[size_t(w)] || owner[size_t(w)] < 0) continue;
         Op p;
         p.cmd = kPutWsParams;
-        p.words = addr(inst, owner[size_t(w)], w);
+        p.words = addr(inst, owner[size_t(w)], num[size_t(w)]);
         p.payload = words16(wsOff[size_t(w)] + 10, kWsHeader - 10);
         p.payload.resize(139);
+        // the copy reference in the block is a wavesample number too
+        const int src = f[wsOff[size_t(w)] + kWsCopyOf];
+        if (src && src < 128) p.payload[12] = uint16_t(num[size_t(src)] << 8 | (p.payload[12] & 0xFF));
         p.before = [this]() { step = "parameters"; };
         ops_.push_back(p);
     }

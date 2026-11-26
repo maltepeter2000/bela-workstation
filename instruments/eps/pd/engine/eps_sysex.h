@@ -74,6 +74,7 @@ private:
         bool simple = false;             // a command answered by a RESPONSE only
         bool param = false;              // PUT PARAMETER: answered only on an error
         std::vector<uint16_t> payload;   // PUT: the data block after the EPS's ACK
+        double settle = 0.3;             // pause after it (the OS works on in the background)
         std::function<void()> before;    // runs just before the command goes out
         Op();
         ~Op();
