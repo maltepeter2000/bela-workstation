@@ -531,10 +531,36 @@ bool SysexLink::sendWaveSample(int inst, int layer, int ws, const std::vector<in
     error.clear();
     step = "samples";
     percent = 0;
-    queuePutData(inst, layer, ws, samples);
+    // Write over the wavesample from its start (it grows if needed), then set its
+    // end and cut what is behind it (TRUNCATE before writing is refused when the
+    // wavesample has copies).
     const uint32_t n = uint32_t(samples.size());
+    for (uint32_t s0 = 0; s0 < n; s0 += kChunk) {
+        const uint32_t e = std::min(n, s0 + kChunk);
+        Op d;
+        d.cmd = kPutWsData;
+        d.words = addr(inst, layer, ws);
+        off20(d.words, s0);
+        off20(d.words, e);
+        for (uint32_t i = s0; i < e; ++i) d.payload.push_back(uint16_t(samples[i]));
+        ops_.push_back(d);
+    }
+    Op g;
+    g.cmd = kGetWsParams;
+    g.probe = true;
+    g.words = addr(inst, layer, ws);
+    g.probed = [](bool) {};
+    ops_.push_back(g);
+    ops_.push_back(param(inst, layer, ws, 0x20, 0x15, 0));       // sample start
     ops_.push_back(param(inst, layer, ws, 0x20, 0x16, n - 1));   // sample end
+    ops_.push_back(param(inst, layer, ws, 0x20, 0x17, 0));       // loop start
     ops_.push_back(param(inst, layer, ws, 0x20, 0x18, n - 1));   // loop end
+    Op t;
+    t.cmd = kTruncateWs;
+    t.simple = true;
+    t.settle = 2.5;
+    t.words = addr(inst, layer, ws);
+    ops_.push_back(t);
     total_ = int(ops_.size());
     start(now);
     return true;
