@@ -90,9 +90,9 @@ float crossfade(float x, const int *abcd) {
 float envelopeSeconds(int v) { return kEnvMs[v < 0 ? 0 : (v > 99 ? 99 : v)] * 0.001f; }
 
 const char *modSourceName(int src) {
-    static const char *const kNames[kSrcCount] = {"LFO", "ENV1", "ENV2", "ENV3", "VEL", "VEL2", "PR+VL",
-                                                  "VEL3", "KBD", "KBD2", "WHEEL", "PEDAL", "XCTRL",
-                                                  "PRESS", "WHL+PR", "PITCH"};
+    static const char *const kNames[kSrcCount] = {"LFO", "RANDM", "ENV1", "ENV2", "PR+VL", "VEL", "VEL1",
+                                                  "VEL2", "KBD", "PITCH", "WHEEL", "PEDAL", "XCTRL",
+                                                  "PRESS", "WL+PR", "OFF"};
     return src >= 0 && src < kSrcCount ? kNames[src] : "?";
 }
 
@@ -526,23 +526,26 @@ void Sampler::allNotesOff() {
 // 14 half of wheel plus pressure. CALIBRATE: 12, 13, 15.
 float Sampler::source(const Slot &sl, int src) const {
     switch (src) {
-        case kSrcLfo:   return sl.lfoOut;
-        case kSrcEnv1:  return sl.pit.lin / 127.f;
-        case kSrcEnv2:  return sl.filt.lin / 127.f;
-        case kSrcEnv3:  return sl.amp.lin / 127.f;
-        case kSrcVel:   return sl.vel;
-        case kSrcVel2:  return velCurve(sl.vel, kVel2);
-        case kSrcPrVl:  return clampf(sl.vel + pressureOf(sl), 0.f, 1.f);
-        case kSrcVel3:  return velCurve(sl.vel, kVel3);
-        case kSrcKbd:
-        case kSrcKbd2:  return clampf(float(sl.key) / 127.f, 0.f, 1.f);
-        case kSrcPress: return pressureOf(sl);
-        case kSrcWhlPr: return clampf(0.5f * (mod_[kSrcWheel] + pressureOf(sl)), 0.f, 1.f);
+        case kSrcLfo:    return sl.lfoOut;
+        case kSrcRandom: return sl.noise;
+        case kSrcEnv1:   return sl.pit.lin / 127.f;
+        case kSrcEnv2:   return sl.filt.lin / 127.f;
+        case kSrcPrVl:   return clampf(sl.vel + pressureOf(sl), 0.f, 1.f);
+        case kSrcVel:    return velCurve(sl.vel, kVel2);
+        case kSrcVel1:   return sl.vel;
+        case kSrcVel2:   return velCurve(sl.vel, kVel3);
+        case kSrcKbd:    return clampf(float(sl.key) / 127.f, 0.f, 1.f);
+        // PITCH: the key through the (standard) pitch table plus the bend, in keys
+        // (measured: like KBD, bend adds).
+        case kSrcPitch:  return clampf((float(sl.key) + bend_ * bendRange_) / 127.f, -1.f, 1.f);
+        case kSrcPress:  return pressureOf(sl);
+        case kSrcWhlPr:  return clampf(0.5f * (mod_[kSrcWheel] + pressureOf(sl)), 0.f, 1.f);
+        case kSrcOff:    return 0.f;
         default:        return (src >= 0 && src < kSrcCount) ? mod_[src] : 0.f;
     }
 }
 
-static bool isBipolar(int src) { return src == kSrcLfo || src == kSrcPitch; }
+static bool isBipolar(int src) { return src == kSrcLfo || src == kSrcRandom; }
 
 float Sampler::pressureOf(const Slot &sl) const {
     const float p = sl.note >= 0 && sl.note < 128 ? polyPressure_[sl.note] : 0.f;
@@ -666,7 +669,7 @@ void Sampler::updateControl(int v, float dt) {
 }
 
 void Sampler::setModSource(int source, float value) {
-    if (source >= 0 && source < kSrcCount) mod_[source] = clampf(value, source == kSrcPitch ? -1.f : 0.f, 1.f);
+    if (source >= 0 && source < kSrcCount) mod_[source] = clampf(value, 0.f, 1.f);
 }
 
 void Sampler::setPolyPressure(int note, float value) {

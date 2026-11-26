@@ -193,7 +193,7 @@ static void modulation_tests(const eps::Instrument &base) {
     // pitch modulation by velocity: +1 semitone at full velocity
     {
         eps::Instrument in = base;
-        in.waveSamples[1].pitchModSource = eps::kSrcVel;
+        in.waveSamples[1].pitchModSource = eps::kSrcVel1;
         in.waveSamples[1].pitchModAmount = 8;
         eps::Sampler a(set), b(set);
         a.load(in, err);
@@ -235,7 +235,7 @@ static void modulation_tests(const eps::Instrument &base) {
     // amp by velocity, crossfade by key, pan by wheel
     {
         eps::Instrument in = base;
-        in.waveSamples[1].ampModSource = eps::kSrcVel;
+        in.waveSamples[1].ampModSource = eps::kSrcVel1;
         in.waveSamples[1].ampModAmount = 127;
         eps::Sampler a(set), b(set);
         a.load(in, err);
@@ -245,7 +245,7 @@ static void modulation_tests(const eps::Instrument &base) {
         run(a, 256);
         run(b, 256);
         const int la = s_vol(a), lb = s_vol(b);
-        printf("  amp mod VEL 127: volume code %d at velocity 127, %d at 32\n", la, lb);
+        printf("  amp mod VEL1 127: volume code %d at velocity 127, %d at 32\n", la, lb);
         CHECK(la - lb >= 25);       // 4 bits per 6 dB step: about -12 dB
 
         eps::Instrument x = base;

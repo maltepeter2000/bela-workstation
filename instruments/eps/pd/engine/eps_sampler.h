@@ -33,10 +33,12 @@ namespace eps {
 // 14 wheel plus pressure. The display names of 4-9 and 12-15 still need
 // confirming on the hardware.
 enum ModSource {
-    kSrcLfo = 0, kSrcEnv1 = 1, kSrcEnv2 = 2, kSrcEnv3 = 3, kSrcVel = 4,
-    kSrcVel2 = 5, kSrcPrVl = 6, kSrcVel3 = 7, kSrcKbd = 8, kSrcKbd2 = 9,
+    // The numbers of the EPS-16 PLUS External Command Specification, table 2 (the
+    // same in the files); 4-14 also measured on the original OS.
+    kSrcLfo = 0, kSrcRandom = 1, kSrcEnv1 = 2, kSrcEnv2 = 3, kSrcPrVl = 4,
+    kSrcVel = 5, kSrcVel1 = 6, kSrcVel2 = 7, kSrcKbd = 8, kSrcPitch = 9,
     kSrcWheel = 10, kSrcPedal = 11, kSrcXctrl = 12, kSrcPress = 13,
-    kSrcWhlPr = 14, kSrcPitch = 15, kSrcCount = 16
+    kSrcWhlPr = 14, kSrcOff = 15, kSrcCount = 16
 };
 const char *modSourceName(int src);
 
@@ -87,7 +89,7 @@ public:
     void setPolyPressure(int note, float value);
     void setOffsets(const Offsets &o) { off_ = o; }
     const Offsets &offsets() const { return off_; }
-    void setBend(float v) { bend_ = v < -1.f ? -1.f : (v > 1.f ? 1.f : v); mod_[kSrcPitch] = bend_; }
+    void setBend(float v) { bend_ = v < -1.f ? -1.f : (v > 1.f ? 1.f : v); }
     void setBendRange(int semis) { bendRange_ = semis < 0 ? 0 : (semis > 24 ? 24 : semis); }
     void setVibrato(float depth01, float rateHz) { vibDepth_ = depth01; vibRate_ = rateHz; }
     void setSustain(bool on);

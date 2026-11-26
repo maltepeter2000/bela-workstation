@@ -23,7 +23,7 @@ ROOT = os.path.dirname(HERE)
 
 ONOFF = "off|on"
 LOOPMODE = "fwd|bwd|loop|bidir|untilrel"
-WMTYPE = "off|looppos|start|start+lp|loopstrt|loopend|lstart-x|transwav"
+WMTYPE = "off|looppos|start|start+lp|loopstrt|loopend|lpstrt-x|transwav"
 LFOWAVE = "tri|sin/tri|sine|+tri|+sine|saw|square"
 LFOMODE = "normal|reset|human"
 ENVMODE = "normal|finite|repeat"

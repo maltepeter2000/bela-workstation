@@ -197,8 +197,8 @@ ABOUT = [
     "select, the three envelopes (pitch, filter, amp) with the two-stage release, attack "
     "velocity, keyboard time scaling and the finite mode, the LFO with its seven waves, delay, "
     "reset and humanize, random pitch, the modulation of pitch, both filters, amp and pan from "
-    "the 16 sources (LFO, ENV1-3, three velocity curves, PR+VL, KBD, KBD2, WHEEL, PEDAL, XCTRL, "
-    "PRESS, WHL+PR, PITCH), crossfades, layer glide and all seven wave modulation types "
+    "the 15 sources (LFO, RANDM, ENV1, ENV2, PR+VL, VEL, VEL1, VEL2, KBD, PITCH, WHEEL, PEDAL, "
+    "XCTRL, PRESS, WL+PR, numbered as in the External Command Specification), crossfades, layer glide and all seven wave modulation types "
     "(loop position, sample start, both, loop start, loop end, loop start-X, transwave).",
     "Calibrated against the original operating system (OS 1.30 in an emulator, register "
     "traces of test instruments): cutoff scale of both filters, volume and envelope level law, "

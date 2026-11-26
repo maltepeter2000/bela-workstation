@@ -41,7 +41,7 @@ static const EditParam kEditParams[] = {
     {"w_keyhi", "WS key high", 'w', 21, 108, "note", -1},
     {"w_wmsrc", "Wave mod", 'w', 0, 15, "src", -1},
     {"w_wmamt", "Wave amt", 'w', -127, 127, "s8", -1},
-    {"w_wmtype", "Wave type", 'w', 0, 7, "off|looppos|start|start+lp|loopstrt|loopend|lstart-x|transwav", -1},
+    {"w_wmtype", "Wave type", 'w', 0, 7, "off|looppos|start|start+lp|loopstrt|loopend|lpstrt-x|transwav", -1},
     {"w_wmrng", "Wave range", 'w', 0, 15, "range", -1},
     {"w_root", "Root key", 'w', 21, 108, "note", -1},
     {"w_fine", "Fine", 'w', -127, 127, "cents", -1},
