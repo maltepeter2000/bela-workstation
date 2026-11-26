@@ -44,6 +44,12 @@ static bool rebuild(const Instrument &in, Instrument &out) {
     std::string err;
     if (!buildInstrument(in, f, err)) { std::printf("build: %s\n", err.c_str()); return false; }
     if (f.size() % 512) return false;
+    // every block on 16 bytes (the OS ignores the low four bits: a layer elsewhere is silent)
+    for (int i = 0; i < 8 + 128; ++i) {
+        const uint8_t *p = f.data() + (i < 8 ? 100 + 4 * i : 132 + 4 * (i - 8));
+        const uint32_t off = (uint32_t(p[3]) >> 4 & 15) << 20 | uint32_t(p[0]) << 12 | uint32_t(p[2]) << 4 | (p[3] & 15u);
+        if (off % 16) { std::printf("block %d at %u, not on 16 bytes\n", i, off); return false; }
+    }
     if (!parseInstrument(f.data(), f.size(), "", out, err)) { std::printf("parse: %s\n", err.c_str()); return false; }
     return true;
 }

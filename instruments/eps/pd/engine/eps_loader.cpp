@@ -853,8 +853,10 @@ bool buildInstrument(const Instrument &inst, std::vector<uint8_t> &out, std::str
         Codec h(out.data(), out.size());
         if (!codeHeader(h, in, name)) { err = "header"; return false; }
     }
+    // Every block starts on 16 bytes: the OS ignores the low four bits of the offsets
+    // (measured: a layer at an odd offset stays silent), as its own files show.
     auto append = [&out](const uint8_t *p, size_t n) {
-        const size_t at = out.size();
+        const size_t at = (out.size() + 15) & ~size_t(15);
         out.resize(at + n, 0);
         if (p) std::memcpy(out.data() + at, p, n);
         return uint32_t(at);
