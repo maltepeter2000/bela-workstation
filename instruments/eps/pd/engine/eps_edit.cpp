@@ -87,6 +87,17 @@ void Editor::fit(const Instrument &in) {
 }
 
 bool Editor::followKey(const Instrument &in, int key, int patchMask) {
+    // the selected layer first, if it plays the key (several layers on one key: choose the
+    // layer by hand, the wavesample follows); else the first layer that plays it
+    if (layer >= 0 && layer < int(in.layers.size()) && (patchMask & (1 << layer))) {
+        const int w = in.layers[size_t(layer)].waveSampleForNote(key);
+        if (w && in.waveSamples.count(w)) {
+            if (w == ws) return false;
+            ws = w;
+            fit(in);
+            return true;
+        }
+    }
     for (size_t l = 0; l < in.layers.size() && l < 8; ++l) {
         if (!(patchMask & (1 << l))) continue;
         const int w = in.layers[l].waveSampleForNote(key);

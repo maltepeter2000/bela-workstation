@@ -704,7 +704,6 @@ void eps_poll(t_eps* x) {
                 // the new wavesample selected in the editor
                 x->editor->layer = x->rec->result->layer;
                 x->editor->ws = x->rec->result->ws;
-                x->editor->follow = false;
                 t_atom r[2];
                 SETFLOAT(&r[0], x->rec->result->ws);
                 SETFLOAT(&r[1], x->rec->result->layer + 1);
@@ -1733,6 +1732,17 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     if (touched) out_display(x, touched->label, value_text(*touched, x->value[control_index(touched)]));
 }
 
+// follow key: the editor shows the layer and wavesample of the key played
+void follow_note(t_eps* x, int n) {
+    if (!x->sampler || !x->editor->follow) return;
+    const eps::Instrument& in = x->sampler->instrument();
+    const int mask = in.patches[std::clamp(x->value[kC_patch], 0, 3)];
+    if (x->editor->followKey(in, n, mask)) {
+        out_sel(x);
+        out_edump(x, "lmwepf");
+    }
+}
+
 void eps_note(t_eps* x, t_float note, t_float velocity) {
     const int n = static_cast<int>(note);
     if (n < 0 || n > 127) return;
@@ -1746,14 +1756,7 @@ void eps_note(t_eps* x, t_float note, t_float velocity) {
     if (!x->sampler) return;
     if (velocity > 0) x->sampler->noteOn(n, std::clamp(static_cast<int>(velocity), 1, 127));
     else x->sampler->noteOff(n);
-    if (velocity > 0 && x->editor->follow) {
-        const eps::Instrument& in = x->sampler->instrument();
-        const int mask = in.patches[std::clamp(x->value[kC_patch], 0, 3)];
-        if (x->editor->followKey(in, n, mask)) {
-            out_sel(x);
-            out_edump(x, "lmwepf");
-        }
-    }
+    if (velocity > 0) follow_note(x, n);
 }
 
 void eps_float(t_eps* x, t_float f) { eps_note(x, f, x->velocity); }
@@ -1785,6 +1788,7 @@ void midi_message(t_eps* x, int status, int d1, int d2) {
             if (!s) return;
             if (d2 > 0) s->noteOn(d1, d2);
             else s->noteOff(d1);
+            if (d2 > 0) follow_note(x, d1);
             return;
         case 0x80:
             if (s) s->noteOff(d1);

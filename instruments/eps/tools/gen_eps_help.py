@@ -72,7 +72,8 @@ EDITOR = [
     "SELECT band: the layer and the wavesample the LAYER and WS rows show, with their names "
     "and the key range, root key, rate and length of the wavesample. envelope: which one the "
     "ENV rows show (1 pitch, 2 filter, 3 amp). follow key (on by default): a played key "
-    "selects its layer and wavesample, the rows jump to their values. zero crossings (on by "
+    "selects its layer and wavesample, the rows jump to their values; when several layers "
+    "play the key, the layer chosen stays and its wavesample follows. zero crossings (on by "
     "default): sample and loop points move to the nearest rising zero crossing.",
     "SAMPLE band: the wave recorder, see Sampling. rate with its arrows, threshold, pre "
     "ms, into (new WS, replace WS, new layer, new instrument), level: the level display "
