@@ -79,6 +79,10 @@ EDITOR = [
     "(the bars and the star of the threshold), rec and stop, then the state and what it "
     "says. root key, low key, high key: the next key you play sets it for the selected "
     "wavesample.",
+    "COMMAND band: the wavesample commands of the EPS for the selected wavesample, see "
+    "Wavesample commands. command with its arrows, range (sample, loop, start to loop, loop "
+    "to end), do, then old and new to compare, keep or cancel. depth, zone %, scale % (start "
+    "and end), rate, smooth, copy to layer and with data are the values the commands take.",
     "Sample and loop points have two cells each: the first sets the position coarsely, in "
     "steps of 1/127 of the sample, the second (fine) moves it by -64 to +63 samples from "
     "there. The box shows the sample number. Edits change the playing instrument at once "
@@ -113,6 +117,8 @@ OUTLETS = [
     "  text, recmeter text (level display), recset rate / thresh /",
     "  pre / dest: the recorder. sampled ws layer: a recording is",
     "  in the instrument.",
+    "3 cmdstate idle / busy / new / old, cmdinfo text, cmdset",
+    "  name value text: the wavesample commands.",
 ]
 
 MESSAGES = [
@@ -190,6 +196,20 @@ MESSAGES = [
     "rec learn root / lo / hi: the next key played sets the root",
     "  key / lowest / highest key of the selected wavesample.",
     "rec status: report the recorder's settings.",
+    "The wavesample commands (see Wavesample commands):",
+    "cmd name or cmd n: choose one (truncate crossfade",
+    "  reverse_xfade ensemble_xfade bowtie_xfade convert_rate",
+    "  normalize fade_in fade_out volume_smooth scale_data",
+    "  reverse_data invert_data clear_data new_ws copy_ws",
+    "  delete_ws), cmd step 1 or -1.",
+    "cmd range n: 0 sample, 1 loop, 2 start to loop, 3 loop to end.",
+    "cmd depth n (0-5: 3.0 3.5 4.0 4.5 5.5 6.0 dB), cmd zone %,",
+    "  cmd sstart %, cmd send % (scale data, 0-200), cmd rate n",
+    "  (0-6, convert), cmd smooth n (0-4), cmd layer n, cmd data",
+    "  0/1 (copy with its data).",
+    "cmd do: run it on the selected wavesample. cmd old, cmd new:",
+    "  hear before and after. cmd keep, cmd cancel: decide.",
+    "cmd status: report the settings.",
     "bend f: pitch wheel, -1 to 1, times bend.",
     "mod f: modulation wheel, 0 to 1 (EPS source WHEEL).",
     "pressure f: channel pressure, 0 to 1 (PRESS).",
@@ -255,6 +275,29 @@ SAMPLING = [
     "The recording is in the instrument that plays, not yet on disk: save it with replace, "
     "save copy or save as (a new instrument with save as or save copy). The file is the "
     "EPS's own: the original operating system loads and plays what eps~ recorded.",
+]
+
+COMMANDS = [
+    "The commands of the EPS's COMMAND/Wave, LFO and Amp pages (Musician's Manual section 6) "
+    "for the wavesample selected in the SELECT band. After do the result plays at once, as "
+    "KEEP=OLD NEW on the EPS: old and new switch between before and after, keep takes the "
+    "new one, cancel the old one. Editing, loading, saving or the next command keep what "
+    "plays. The algorithms follow the manual's descriptions, the results are alike, not the "
+    "same bits.",
+    "truncate: cuts the data before sample start and after sample end (not for a wavesample "
+    "with copies, as on the EPS). crossfade: the end of the loop fades into the data before "
+    "loop start (zone: % of the loop, depth: 3 dB smooth to 6 dB linear). reverse_xfade: into "
+    "the data after loop start, backwards. ensemble_xfade: the whole loop. bowtie_xfade: "
+    "around both loop points, zone up to 50 %, needs data after loop end. The messages "
+    "INCREMENT LOOPSTART and DECREMENT LOOPEND say there is not enough data before or after "
+    "the loop. convert_rate: to one of the seven rates, the pitch stays, all points move.",
+    "normalize: the whole data to full level. fade_in, fade_out, scale_data (from scale % "
+    "start to end, the depth curve), reverse_data, invert_data, clear_data, volume_smooth "
+    "(evens out the level, smooth from very fine to very coarse, at least 256 samples): over "
+    "the range. Data commands change the copies that share the data.",
+    "new_ws: a small square wave on the keys around C4 in the selected layer. copy_ws: a copy "
+    "into copy to layer on the keys the original has (params only: it plays the same data, "
+    "with data: its own). delete_ws: not if copies use its data.",
 ]
 
 ABOUT = [
@@ -338,6 +381,7 @@ def main():
                       ("lines", "Inlet", INLETS), ("lines", "Outlets", OUTLETS),
                       ("text", "Library and saving", PRESETS),
                       ("text", "Sampling", SAMPLING),
+                      ("text", "Wavesample commands", COMMANDS),
                       ("lines", "Messages", MESSAGES), ("text", "The instrument", ABOUT),
                       ("text", "Data files", DATA),
                       ("controls", CONTROLS_INTRO, rows, control_line),

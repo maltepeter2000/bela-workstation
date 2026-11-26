@@ -55,6 +55,10 @@
 //   (then the next key is the root key; stop again cancels), rec root n,
 //   rec learn root|lo|hi (the next key sets it for the selected WS), rec status.
 //   Outlet 3: recstate, recinfo, recmeter, recset ..., sampled <ws> <layer>.
+// The wavesample commands (COMMAND/Wave, LFO, Amp of the EPS) on the selected wavesample:
+//   cmd <name>|<n>, cmd step d, cmd range|depth|zone|sstart|send|rate|smooth|layer|data n,
+//   cmd do, then cmd old / cmd new (KEEP=OLD NEW), cmd keep / cmd cancel, cmd status.
+//   Outlet 3: cmdstate, cmdinfo, cmdset <key> <value> <text>.
 // Controls (tools/eps_params.py): <name> <value>, <name>, n <name> <0-127>,
 //   ninfo <name>, cycle <name> [n], dump
 // Playing: bend f (-1..1), mod f (wheel 0..1), pressure f, polypressure note f,
@@ -94,6 +98,7 @@ extern "C" {
 #include "eps_fs.h"
 #include "eps_sysex.h"
 #include "eps_record.h"
+#include "eps_wave.h"
 
 namespace {
 
@@ -478,6 +483,14 @@ struct t_eps {
     eps::Editor* editor;                 // selection and edits of the editor
     Recorder* rec;
     t_clock* recclock;                   // level display while sampling
+    // the wavesample commands: what runs, and the instrument before (KEEP=OLD NEW)
+    struct Wave {
+        int cmd = 1;                     // eps::WaveCmd
+        eps::WaveArgs args;
+        eps::Sampler* other = nullptr;   // the one not playing: old while NEW plays, or new
+        bool showingOld = false;
+    }* wave;
+    int jobkind;                         // what the loader's job is: 1 recording, 2 wave command
 };
 
 void out_value(t_eps* x, const char* key, t_float v) {
@@ -612,7 +625,10 @@ void eps_poll(t_eps* x);
 void follow_entry(t_eps* x);
 
 // Ask the loader for an instrument; if it is busy, the newest request waits.
+void wave_settle(t_eps* x);
+
 void request(t_eps* x, const LibEntry& e) {
+    wave_settle(x);
     Loader& L = *x->loader;
     *x->entry = e;
     if (L.state.load() != 0) {
@@ -647,7 +663,15 @@ void eps_poll(t_eps* x) {
             made = L.made;
         }
         L.state.store(0);
-        if (!s && made) {
+        if (!s && made && x->jobkind == 2) {
+            pd_error(x, "eps~: %s: %s", eps::waveCmdName(static_cast<eps::WaveCmd>(x->wave->cmd)), err.c_str());
+            out_display(x, eps::waveCmdName(static_cast<eps::WaveCmd>(x->wave->cmd)), err);
+            t_atom e;
+            SETSYMBOL(&e, gensym("idle"));
+            outlet_anything(x->info, gensym("cmdstate"), 1, &e);
+            SETSYMBOL(&e, gensym(spaces_to_underscore(err).c_str()));
+            outlet_anything(x->info, gensym("cmdinfo"), 1, &e);
+        } else if (!s && made) {
             pd_error(x, "eps~: sample: %s", err.c_str());
             out_display(x, "Not sampled", err);
         } else if (!s) {
@@ -658,14 +682,25 @@ void eps_poll(t_eps* x) {
             x->sampler = s.release();
             if (x->sampler->sampleRate() != x->sr) x->sampler->setSampleRate(x->sr);
             apply(x);
-            if (old) {
+            if (old && made && x->jobkind == 2) {
+                x->wave->other = old;            // KEEP=OLD NEW: the old one waits
+                x->wave->showingOld = false;
+            } else if (old) {
                 std::lock_guard<std::mutex> g(L.m);
                 L.trash.emplace_back(old);
             }
             *x->name = spaces_to_underscore(nm);
             out_source(x);
             const eps::Instrument& in = x->sampler->instrument();
-            if (made && x->rec->result) {
+            if (made && x->rec->result && x->jobkind == 2) {
+                x->editor->layer = x->rec->result->layer;
+                if (x->rec->result->ws) x->editor->ws = x->rec->result->ws;
+                t_atom r;
+                SETSYMBOL(&r, gensym("new"));
+                outlet_anything(x->info, gensym("cmdstate"), 1, &r);
+                SETSYMBOL(&r, gensym("KEEP=OLD_NEW"));
+                outlet_anything(x->info, gensym("cmdinfo"), 1, &r);
+            } else if (made && x->rec->result) {
                 // the new wavesample selected in the editor
                 x->editor->layer = x->rec->result->layer;
                 x->editor->ws = x->rec->result->ws;
@@ -684,6 +719,8 @@ void eps_poll(t_eps* x) {
             follow_entry(x);
             out_sel(x);
             out_edump(x, "ilmwepf");
+            if (made && x->jobkind == 2)
+                out_display(x, eps::waveCmdName(static_cast<eps::WaveCmd>(x->wave->cmd)), "KEEP=OLD NEW");
         }
     }
     if (x->pending && L.state.load() == 0) {
@@ -1041,6 +1078,8 @@ void rec_stop(t_eps* x) {
 void rec_place(t_eps* x, int root) {
     Recorder& R = *x->rec;
     if (R.state != Recorder::RootKey) return;
+    wave_settle(x);
+    x->jobkind = 1;
     R.state = Recorder::Off;
     eps::RecordDest dest = static_cast<eps::RecordDest>(R.dest);
     if (!x->sampler || x->sampler->instrument().layers.empty()) dest = eps::RecordDest::NewInstrument;
@@ -1141,6 +1180,163 @@ void rec_command(t_eps* x, int argc, t_atom* argv) {
     if (idle) out_recstate(x, rec_summary(x));
     if (w == "rate") out_display(x, "Sample rate", rate_text(rec_rate_hz(R)));
     else if (w == "dest") out_display(x, "Sample into", kDestNames[R.dest]);
+}
+
+// ---- the wavesample commands (COMMAND/Wave, LFO, Amp pages) ---------------------------
+
+const char* const kSmoothNames[5] = {"very_fine", "fine", "medium", "coarse", "very_coarse"};
+
+void out_wavestate(t_eps* x, const char* state, const std::string& info) {
+    t_atom a;
+    SETSYMBOL(&a, gensym(state));
+    outlet_anything(x->info, gensym("cmdstate"), 1, &a);
+    SETSYMBOL(&a, gensym(info.empty() ? "-" : info.c_str()));
+    outlet_anything(x->info, gensym("cmdinfo"), 1, &a);
+}
+
+void out_waveset(t_eps* x) {
+    const t_eps::Wave& W = *x->wave;
+    const eps::WaveArgs& A = W.args;
+    auto one = [x](const char* k, int v, const std::string& text) {
+        t_atom a[3];
+        SETSYMBOL(&a[0], gensym(k));
+        SETFLOAT(&a[1], v);
+        SETSYMBOL(&a[2], gensym(text.empty() ? "-" : text.c_str()));
+        outlet_anything(x->info, gensym("cmdset"), 3, a);
+    };
+    char b[16];
+    std::snprintf(b, sizeof b, "%.1fdB", eps::scaleDepthDb(A.depth));
+    one("cmd", W.cmd, eps::waveCmdName(static_cast<eps::WaveCmd>(W.cmd)));
+    one("range", static_cast<int>(A.range), eps::waveRangeName(A.range));
+    one("depth", A.depth, b);
+    one("zone", A.zone, "");
+    one("sstart", A.scaleStart, "");
+    one("send", A.scaleEnd, "");
+    one("rate", A.rate, rate_text(eps::sampleRateOfIndex(eps::kRecordRateIndex[A.rate])));
+    one("smooth", A.smooth, kSmoothNames[A.smooth]);
+    one("layer", A.toLayer + 1, "");
+    one("data", A.withData ? 1 : 0, A.withData ? "params_&_data" : "params_only");
+}
+
+void trash_sampler(t_eps* x, eps::Sampler* s) {
+    if (!s) return;
+    std::lock_guard<std::mutex> g(x->loader->m);
+    x->loader->trash.emplace_back(s);
+}
+
+// Swap what plays with the other one (KEEP=OLD NEW).
+void wave_swap(t_eps* x) {
+    t_eps::Wave& W = *x->wave;
+    if (!W.other || !x->sampler) return;
+    x->sampler->allNotesOff();
+    std::swap(x->sampler, W.other);
+    W.showingOld = !W.showingOld;
+    if (x->sampler->sampleRate() != x->sr) x->sampler->setSampleRate(x->sr);
+    apply(x);
+    x->editor->fit(x->sampler->instrument());
+    out_sel(x);
+    out_edump(x, "ilmwepf");
+}
+
+// The audition ends: what plays now stays (an edit, a load, a save ...).
+void wave_settle(t_eps* x) {
+    t_eps::Wave& W = *x->wave;
+    if (!W.other) return;
+    trash_sampler(x, W.other);
+    W.other = nullptr;
+    W.showingOld = false;
+    out_wavestate(x, "idle", "");
+}
+
+void wave_run(t_eps* x) {
+    t_eps::Wave& W = *x->wave;
+    Recorder& R = *x->rec;
+    if (!x->sampler) { pd_error(x, "eps~: cmd: no instrument"); return; }
+    if (R.waiting || x->loader->state.load() != 0) { pd_error(x, "eps~: cmd: busy"); return; }
+    if (R.state != Recorder::Off && R.state != Recorder::Level) { pd_error(x, "eps~: cmd: the recorder is busy"); return; }
+    wave_settle(x);
+    auto base = std::make_shared<eps::Instrument>(x->sampler->instrument());
+    auto res = std::make_shared<Recorder::Result>();
+    R.result = res;
+    const int layer = x->editor->layer, ws = x->editor->ws;
+    const eps::WaveCmd cmd = static_cast<eps::WaveCmd>(W.cmd);
+    const eps::WaveArgs args = W.args;
+    R.job = [base, res, layer, ws, cmd, args](eps::Instrument& out, std::string& err) {
+        int sel = ws;
+        if (!eps::waveCommand(*base, layer, ws, cmd, args, sel, err)) return false;
+        std::vector<uint8_t> file;
+        if (!eps::buildInstrument(*base, file, err)) return false;
+        if (!eps::parseInstrument(file.data(), file.size(), base->name, out, err)) return false;
+        res->layer = cmd == eps::WaveCmd::CopyWs ? args.toLayer : layer;
+        res->ws = sel;
+        return true;
+    };
+    x->jobkind = 2;
+    R.waiting = true;
+    out_wavestate(x, "busy", eps::waveCmdName(cmd));
+    out_display(x, eps::waveCmdName(cmd), "DATA BEING PROCESSED");
+    clock_delay(x->poll, 5);
+}
+
+void wave_command(t_eps* x, int argc, t_atom* argv) {
+    t_eps::Wave& W = *x->wave;
+    eps::WaveArgs& A = W.args;
+    if (argc < 1) return;
+    const int cnt = static_cast<int>(eps::WaveCmd::Count);
+    if (argv[0].a_type == A_FLOAT) {                     // cmd n: the command by number
+        W.cmd = std::clamp(static_cast<int>(atom_getfloat(argv)), 0, cnt - 1);
+        out_waveset(x);
+        out_display(x, "Command", eps::waveCmdName(static_cast<eps::WaveCmd>(W.cmd)));
+        return;
+    }
+    const std::string w = atom_getsymbol(argv)->s_name;
+    const int n = argc > 1 ? static_cast<int>(atom_getfloat(argv + 1)) : 0;
+    int named = -1;
+    for (int i = 0; i < cnt; ++i)
+        if (w == eps::waveCmdName(static_cast<eps::WaveCmd>(i))) named = i;
+    if (named >= 0) {                                    // cmd crossfade: the command by name
+        W.cmd = named;
+    } else if (w == "step") {
+        W.cmd = ((W.cmd + (argc > 1 ? n : 1)) % cnt + cnt) % cnt;
+    } else if (w == "range") {
+        A.range = static_cast<eps::WaveRange>(std::clamp(n, 0, 3));
+    } else if (w == "depth") {
+        A.depth = std::clamp(n, 0, 5);
+    } else if (w == "zone") {
+        A.zone = std::clamp(n, 1, 99);
+    } else if (w == "sstart") {
+        A.scaleStart = std::clamp(n, 0, 200);
+    } else if (w == "send") {
+        A.scaleEnd = std::clamp(n, 0, 200);
+    } else if (w == "rate") {
+        A.rate = std::clamp(n, 0, 6);
+    } else if (w == "smooth") {
+        A.smooth = std::clamp(n, 0, 4);
+    } else if (w == "layer") {
+        A.toLayer = std::clamp(n, 1, 8) - 1;
+    } else if (w == "data") {
+        A.withData = n != 0;
+    } else if (w == "do") {
+        wave_run(x);
+        return;
+    } else if (w == "old" || w == "new") {
+        if (W.other && W.showingOld != (w == "old")) wave_swap(x);
+        if (W.other) out_wavestate(x, W.showingOld ? "old" : "new", "KEEP=OLD_NEW");
+        return;
+    } else if (w == "keep" || w == "cancel") {
+        if (!W.other) return;
+        if (W.showingOld == (w == "keep")) wave_swap(x);     // keep: NEW plays, cancel: OLD
+        const bool kept = w == "keep";
+        wave_settle(x);
+        out_display(x, eps::waveCmdName(static_cast<eps::WaveCmd>(W.cmd)), kept ? "COMMAND COMPLETED" : "CANCELLED");
+        return;
+    } else if (w == "status") {
+    } else {
+        pd_error(x, "eps~: cmd: no command or setting '%s'", w.c_str());
+        return;
+    }
+    out_waveset(x);
+    if (named >= 0 || w == "step") out_display(x, "Command", eps::waveCmdName(static_cast<eps::WaveCmd>(W.cmd)));
 }
 
 // ---- SysEx with a real EPS ---------------------------------------------------------
@@ -1267,6 +1463,7 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         touched = nc;
         if (x->value[i] == before) out_info(x, i);   // always answered
     } else if (is("e")) {
+        wave_settle(x);
         // e <name> <0-127>: change a parameter of the loaded instrument (editor)
         if (argc < 2 || argv[0].a_type != A_SYMBOL || !x->sampler) return;
         const int id = eps::Editor::find(atom_getsymbol(argv)->s_name);
@@ -1389,6 +1586,9 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     } else if (is("rec")) {
         rec_command(x, argc, argv);
         return;
+    } else if (is("cmd")) {
+        wave_command(x, argc, argv);
+        return;
     } else if (is("sxcancel")) {
         if (x->sysex) x->sysex->cancel();
         out_display(x, "SysEx", "cancelled");
@@ -1440,6 +1640,7 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
             if (it.kind == 'I' && it.lib >= 0) { select_library(x, it.lib); break; }
         }
     } else if (is("saveas") || is("replace") || is("save")) {
+        wave_settle(x);
         std::string err;
         const bool rep = is("replace");
         const std::string name = is("save") ? free_name(x) : pd_text(argc, argv);
@@ -1736,6 +1937,8 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->pending = false;
     x->editor = new eps::Editor();
     x->rec = new Recorder();
+    x->wave = new t_eps::Wave();
+    x->jobkind = 0;
     x->sr = sys_getsr() > 0 ? sys_getsr() : 44100.0f;
     x->channel = 0;
     x->txchannel = 1;
@@ -1800,6 +2003,8 @@ void eps_free(t_eps* x) {
     delete x->name;
     delete x->editor;
     delete x->rec;
+    delete x->wave->other;
+    delete x->wave;
     delete x->bfile;
     delete x->bdir;
 }

@@ -7,7 +7,7 @@
 # Needs no data files to build. To play, put Ensoniq instruments (EFE) or disk images
 # (IMG, EDE, EDA, GKH) into a folder eps/ beside your patch (or beside the external).
 
-ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp engine/eps_fs.cpp engine/eps_sysex.cpp engine/eps_record.cpp
+ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp engine/eps_fs.cpp engine/eps_sysex.cpp engine/eps_record.cpp engine/eps_wave.cpp
 
 lib.name = eps~
 class.sources = eps~.cpp
@@ -89,6 +89,8 @@ test: $(ENGINE) $(wildcard engine/*.h) $(wildcard $(TESTDIR)/*.cpp)
 	../build/test_fs $(FIX)
 	$(CXX) $(SAN) -o ../build/test_record $(TESTDIR)/test_record.cpp $(ENGINE)
 	../build/test_record $(FIX)
+	$(CXX) $(SAN) -o ../build/test_wave $(TESTDIR)/test_wave.cpp $(ENGINE)
+	../build/test_wave
 
 # Tools: eps_dump (list an image, show an instrument, write its wavesamples as WAV),
 # demo_real (render a demo of an instrument file), read_all_files (check an image's FAT),

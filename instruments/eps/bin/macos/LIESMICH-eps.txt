@@ -23,6 +23,10 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    Danach PLAY ROOT KEY: die nächste gespielte Taste ist der Grundton. Tastenbereich wie am
    EPS (Mitte zwischen den Grundtönen der Nachbarn), ändern mit root key / low key / high key
    (nächste Taste) oder den Zellen WS key low / high. Speichern wie unter 6.
-8. Pads (Launchkey, Drum-Modus, Kanal 10): factory +/- = nächstes/voriges Instrument der
+8. Befehle (COMMAND-Leiste): die Wave-, LFO- und Amp-Befehle des EPS für das gewählte WS
+   (truncate, crossfade-Varianten, convert_rate, normalize, fades, volume_smooth, scale /
+   reverse / invert / clear, new / copy / delete WS). do, dann old / new vergleichen,
+   keep oder cancel – wie KEEP=OLD NEW am EPS.
+9. Pads (Launchkey, Drum-Modus, Kanal 10): factory +/- = nächstes/voriges Instrument der
    Bibliothek, user +/-, init (2x), save; Pad 4 / 12: Patch-Select + / -.
-9. Laden läuft im Hintergrund: der Klang wechselt, sobald das Instrument eingelesen ist.
+10. Laden läuft im Hintergrund: der Klang wechselt, sobald das Instrument eingelesen ist.

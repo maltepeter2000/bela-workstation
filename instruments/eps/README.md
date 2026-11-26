@@ -117,6 +117,18 @@ Checked with the original OS in the emulator: it loads an instrument recorded by
 effect block) and plays it at the right pitch, and CLASSIC PAD with a wavesample added. The
 recording is in memory until saved (`replace`, `saveas`, `save`).
 
+## Wavesample commands
+
+The commands of the COMMAND/Wave, LFO and Amp pages of the EPS (`pd/engine/eps_wave.*`, the
+COMMAND band of the editor, `cmd ...` messages) on the selected wavesample, with KEEP=OLD NEW:
+the result plays at once, `cmd old` / `cmd new` compare, `cmd keep` / `cmd cancel` decide.
+truncate, crossfade, reverse / ensemble / bowtie crossfade (fade zone, scale depth 3–6 dB),
+convert sample rate, normalize, fade in / out, volume smoothing, scale / reverse / invert /
+clear data (range: sample, loop, start to loop, loop to end), new / copy / delete wavesample.
+The algorithms follow the manual's descriptions. Checked with the original OS: a wavesample
+converted to 12.8 kHz, truncated and crossfaded plays at its pitch; a params-only copy in
+another layer plays the shared data (copy-of layer = position of the original's layer).
+
 ## Build
 
 ```

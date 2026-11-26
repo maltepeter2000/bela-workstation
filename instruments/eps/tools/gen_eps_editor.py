@@ -171,6 +171,43 @@ def sample_band(c, y):
     bng(c, x0 + 430, y + 72, "lhi", "high key")
 
 
+def command_band(c, y):
+    """the wavesample commands of the EPS (COMMAND/Wave, LFO, Amp) with KEEP=OLD NEW"""
+    x0 = X1
+    c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {SAMPLE_H - 6} empty empty COMMAND{SP}(selected{SP}wavesample) 4 8 0 10 {S.SELECT} {S.BLUE} 0;")
+    c.add(f"#X text {x0} {y + 20} command;")
+    bng(c, x0 + 50, y + 20, "cprev", "")
+    c.add(f"#X symbolatom {x0 + 72} {y + 20} 14 0 0 0 - {D}0-cmdv -;")
+    bng(c, x0 + 166, y + 20, "cnext", "")
+    c.add(f"#X text {x0 + 196} {y + 20} range;")
+    c.add(f"#X obj {x0 + 232} {y + 20} hradio 15 1 0 4 {D}0-crange {D}0-crangev empty 0 -8 0 10 {S.WIDGET} {S.INK} {S.INK} 0;")
+    c.add(f"#X symbolatom {x0 + 296} {y + 20} 10 0 0 0 - {D}0-crangenv -;")
+    bng(c, x0 + 380, y + 20, "cdo", "do")
+    bng(c, x0 + 420, y + 20, "cold", "old")
+    bng(c, x0 + 466, y + 20, "cnew", "new")
+    bng(c, x0 + 512, y + 20, "ckeep", "keep")
+    bng(c, x0 + 562, y + 20, "ccancel", "cancel")
+    c.add(f"#X text {x0} {y + 46} depth;")
+    c.add(f"#X floatatom {x0 + 34} {y + 46} 1 0 5 0 - {D}0-cdepthv {D}0-cdepth;")
+    c.add(f"#X symbolatom {x0 + 50} {y + 46} 5 0 0 0 - {D}0-cdepthnv -;")
+    c.add(f"#X text {x0 + 92} {y + 46} zone %;")
+    c.add(f"#X floatatom {x0 + 134} {y + 46} 2 1 99 0 - {D}0-czonev {D}0-czone;")
+    c.add(f"#X text {x0 + 164} {y + 46} scale %;")
+    c.add(f"#X floatatom {x0 + 212} {y + 46} 3 0 200 0 - {D}0-csstartv {D}0-csstart;")
+    c.add(f"#X floatatom {x0 + 240} {y + 46} 3 0 200 0 - {D}0-csendv {D}0-csend;")
+    c.add(f"#X text {x0 + 276} {y + 46} rate;")
+    c.add(f"#X floatatom {x0 + 304} {y + 46} 1 0 6 0 - {D}0-cratev {D}0-crate;")
+    c.add(f"#X symbolatom {x0 + 320} {y + 46} 7 0 0 0 - {D}0-cratenv -;")
+    c.add(f"#X text {x0 + 376} {y + 46} smooth;")
+    c.add(f"#X floatatom {x0 + 418} {y + 46} 1 0 4 0 - {D}0-csmoothv {D}0-csmooth;")
+    c.add(f"#X symbolatom {x0 + 434} {y + 46} 11 0 0 0 - {D}0-csmoothnv -;")
+    c.add(f"#X text {x0} {y + 72} copy to layer;")
+    c.add(f"#X floatatom {x0 + 84} {y + 72} 1 1 8 0 - {D}0-clayerv {D}0-clayer;")
+    c.add(f"#X obj {x0 + 104} {y + 72} tgl 15 0 {D}0-cdata {D}0-cdatav with{SP}data 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
+    c.add(f"#X symbolatom {x0 + 200} {y + 72} 5 0 0 0 - {D}0-cstatev -;")
+    c.add(f"#X symbolatom {x0 + 240} {y + 72} 30 0 0 0 - {D}0-cinfov -;")
+
+
 def tint(title, r):
     for key, colours in TINT.items():
         if key in title:
@@ -198,6 +235,7 @@ def gui(c):
                 c.add(f"#X floatatom {x} {yc + 46} 3 0 127 0 - {D}0-v-{nm} {D}0-e-{nm};")
                 c.add(f"#X symbolatom {x + 26} {yc + 46} 7 0 0 0 - {D}0-t-{nm} -;")
     sample_band(c, TOP + max(len(LEFT), len(RIGHT)) * ROWH)
+    command_band(c, TOP + max(len(LEFT), len(RIGHT)) * ROWH)
 
 
 def logic():
@@ -233,7 +271,7 @@ def logic():
     rr = c.add(f"#X obj 110 {y} r {D}0-refresh;")
     dl = c.add(f"#X obj 10 {y + 30} del 800;")
     c.conn(lb, 0, dl, 0); c.conn(rr, 0, dl, 0)
-    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump {COMMA} browse {COMMA} rec status, f 70;")
+    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump {COMMA} browse {COMMA} rec status {COMMA} cmd status, f 70;")
     c.conn(dl, 0, allm, 0)
     s2 = c.add(f"#X obj 10 {y + 330} s {D}1;")
     c.conn(allm, 0, s2, 0)
@@ -273,7 +311,17 @@ def logic():
                                       ("lroot", "rec learn root"), ("llo", "rec learn lo"),
                                       ("lhi", "rec learn hi")]):
         send(10 + 120 * k, yr, recv, text)
-    yp = yr
+    # the wavesample commands
+    yc = yr + 110
+    for k, (recv, text) in enumerate([("cprev", "cmd step -1"), ("cnext", "cmd step 1"),
+                                      ("crange", f"cmd range {D}1"), ("cdepth", f"cmd depth {D}1"),
+                                      ("czone", f"cmd zone {D}1"), ("csstart", f"cmd sstart {D}1"),
+                                      ("csend", f"cmd send {D}1"), ("crate", f"cmd rate {D}1"),
+                                      ("csmooth", f"cmd smooth {D}1"), ("clayer", f"cmd layer {D}1"),
+                                      ("cdata", f"cmd data {D}1"), ("cdo", "cmd do"), ("cold", "cmd old"),
+                                      ("cnew", "cmd new"), ("ckeep", "cmd keep"), ("ccancel", "cmd cancel")]):
+        send(10 + 120 * (k % 11), yc + 110 * (k // 11), recv, text)
+    yp = yc + 110
     yn = yp
     # saving: replace, save copy (a free name), save as / new folder with the name typed
     ys = yn + 110
@@ -348,6 +396,30 @@ def logic():
     m1 = c.add(f"#X msg 930 {yq + 60} set 1;"); c.conn(sl, 0, m1, 0)
     m0 = c.add(f"#X msg 1000 {yq + 60} set 0;"); c.conn(sl, 1, m0, 0)
     sv = c.add(f"#X obj 930 {yq + 90} s {D}0-rlevelv;"); c.conn(m1, 0, sv, 0); c.conn(m0, 0, sv, 0)
+    # the command replies -> the COMMAND band
+    yk = yq + 180
+    rk = c.add(f"#X obj 10 {yk} route cmdset cmdstate cmdinfo;"); c.conn(ro, 0, rk, 0)
+    keys = ["cmd", "range", "depth", "zone", "sstart", "send", "rate", "smooth", "layer", "data"]
+    rks = c.add(f"#X obj 10 {yk + 30} route {' '.join(keys)};"); c.conn(rk, 0, rks, 0)
+    dests = [("cmd", [(f"set {D}2", "cmdv")]), ("range", [(f"set {D}1", "crangev"), (f"set {D}2", "crangenv")]),
+             ("depth", [(f"set {D}1", "cdepthv"), (f"set {D}2", "cdepthnv")]), ("zone", [(f"set {D}1", "czonev")]),
+             ("sstart", [(f"set {D}1", "csstartv")]), ("send", [(f"set {D}1", "csendv")]),
+             ("rate", [(f"set {D}1", "cratev"), (f"set {D}2", "cratenv")]),
+             ("smooth", [(f"set {D}1", "csmoothv"), (f"set {D}2", "csmoothnv")]),
+             ("layer", [(f"set {D}1", "clayerv")]), ("data", [(f"set {D}1", "cdatav")])]
+    col = 0
+    for k, (_, outs) in enumerate(dests):
+        ll = c.add(f"#X obj {10 + 110 * col} {yk + 60} list;"); c.conn(rks, k, ll, 0)
+        for text, dest in outs:
+            x = 10 + 110 * col
+            m = c.add(f"#X msg {x} {yk + 90} {text};"); c.conn(ll, 0, m, 0)
+            s_ = c.add(f"#X obj {x} {yk + 120} s {D}0-{dest};"); c.conn(m, 0, s_, 0)
+            col += 1
+    for k, (outlet, dest) in enumerate([(1, "cstatev"), (2, "cinfov")]):
+        x = 10 + 110 * (col + k)
+        ll = c.add(f"#X obj {x} {yk + 30} list;"); c.conn(rk, outlet, ll, 0)
+        m = c.add(f"#X msg {x} {yk + 60} set {D}1;"); c.conn(ll, 0, m, 0)
+        s_ = c.add(f"#X obj {x} {yk + 90} s {D}0-{dest};"); c.conn(m, 0, s_, 0)
     lem = c.add(f"#X obj 800 {ys2} list;"); c.conn(ri, 9, lem, 0)
     lbs = c.add(f"#X obj 1000 {ys2} list;"); c.conn(ri, 10, lbs, 0)
     mbs = c.add(f"#X msg 1000 {ys2 + 30} set {D}4;"); c.conn(lbs, 0, mbs, 0)
