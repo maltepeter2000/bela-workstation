@@ -111,7 +111,7 @@ int lk_cell_get(t_eps* x, const eps::PageCell& c) {
 std::string lk_cell_text(t_eps* x, const eps::PageCell& c, bool& names) {
     names = false;
     if (c.kind == '-') return "NOT YET";
-    if (c.kind == 'k') return c.target;
+    if (c.kind == 'k' || c.kind == 'a') return c.target;
     if (!lk_cell_valid(x, c)) return "--";
     switch (c.kind) {
         case 'c': {
@@ -387,7 +387,7 @@ void lk_refresh(t_eps* x, bool force) {
     const eps::Page& p = S.current();
     for (int i = 0; i < 8; ++i) {
         const eps::PageCell& c = p.cell[i];
-        if (!c.kind || c.kind == '-' || c.kind == 'k') continue;
+        if (!c.kind || c.kind == '-' || c.kind == 'k' || c.kind == 'a') continue;
         const int v = lk_cell_get(x, c);
         if (!force && v == x->fbSent[i]) continue;
         x->fbSent[i] = v;
@@ -462,6 +462,10 @@ bool lk_encoder(t_eps* x, int cc, int v) {
     const eps::PageCell& c = x->lk->current().cell[cell];
     if (c.kind == '-') {
         if (!lk_text(x, c.longName, "NOT YET")) out_display_text(x, c.longName, "not yet");
+        return true;
+    }
+    if (c.kind == 'a') {                             // a message (copy / paste the envelope)
+        lk_send(x, c.target);
         return true;
     }
     if (c.kind == 'k') {                             // a command: chosen on the COMMAND page

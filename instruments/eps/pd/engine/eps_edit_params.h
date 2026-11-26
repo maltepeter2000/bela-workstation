@@ -93,7 +93,7 @@ static const EditParam kEditParams[] = {
     {"e_l3h", "L3 hard", 'e', 0, 127, "n", -1},
     {"e_l4h", "L4 hard", 'e', 0, 127, "n", -1},
     {"e_l5", "L5 release", 'e', -127, 127, "s", -1},
-    {"e_mode", "Env mode", 'e', 0, 2, "normal|finite|repeat", -1},
+    {"e_mode", "Env mode", 'e', 0, 2, "normal|cycle|repeat", -1},
     {"e_type", "Soft curve", 'e', 0, 4, "n", -1},
     {"e_l0s", "L0 soft", 'e', 0, 127, "n", -1},
     {"e_l1s", "L1 soft", 'e', 0, 127, "n", -1},

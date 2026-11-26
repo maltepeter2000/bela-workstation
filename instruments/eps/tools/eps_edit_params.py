@@ -26,7 +26,7 @@ LOOPMODE = "fwd|bwd|loop|bidir|untilrel"
 WMTYPE = "off|looppos|start|start+lp|loopstrt|loopend|lpstrt-x|transwav"
 LFOWAVE = "tri|sin/tri|sine|+tri|+sine|saw|square"
 LFOMODE = "normal|reset|human"
-ENVMODE = "normal|finite|repeat"
+ENVMODE = "normal|cycle|repeat"   # External Command Specification 7.3
 
 # name, label (<= 12), scope, C++ field (I instrument, L layer, W wavesample, E envelope),
 # lo, hi, kind, help

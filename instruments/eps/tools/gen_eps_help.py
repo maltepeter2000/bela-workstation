@@ -202,6 +202,8 @@ MESSAGES = [
     "  key / lowest / highest key of the selected wavesample.",
     "rec monitor 0/1: hear the input while level / recording runs.",
     "lkgfx 0/1: the Launchkey pictures off / on (default on).",
+    "env copy / env paste: the selected envelope of the selected",
+    "  wavesample into a buffer / from it (E16 COPY and PSTE).",
     "lk 0/1: the Launchkey surface off / on (eps.i~: on).",
     "lk edit [0/1], lk mode: EDIT / PLAY. lk page <P1 .. E19>.",
     "lk legend: show the pads. lk sync: colours and values again.",

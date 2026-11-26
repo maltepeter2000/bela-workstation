@@ -517,6 +517,7 @@ struct t_eps {
     t_clock* lkclock;
     LkScreen* scr;
     double legendUntil;                  // the pad legend shows until then
+    eps::Envelope* envbuf;               // env copy / paste (null = nothing copied)
 };
 
 void out_value(t_eps* x, const char* key, t_float v) {
@@ -1770,6 +1771,31 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     } else if (is("lk")) {
         lk_message(x, argc, argv);
         return;
+    } else if (is("env")) {
+        // env copy: the selected envelope of the selected wavesample into the buffer,
+        // env paste: the buffer into it (the template SAVED of the EPS)
+        if (argc < 1 || argv[0].a_type != A_SYMBOL || !x->sampler) return;
+        const std::string w = atom_getsymbol(argv)->s_name;
+        eps::Instrument& in = x->sampler->editInstrument();
+        auto it = in.waveSamples.find(x->editor->ws);
+        if (it == in.waveSamples.end()) return;
+        eps::WaveSample& ws = it->second;
+        eps::Envelope& e = x->editor->env == 0 ? ws.pitchEnv : (x->editor->env == 1 ? ws.filterEnv : ws.ampEnv);
+        const std::string nm = "ENV" + std::to_string(x->editor->env + 1);
+        if (w == "copy") {
+            if (!x->envbuf) x->envbuf = new eps::Envelope();
+            *x->envbuf = e;
+            out_display(x, nm, "COPIED");
+        } else if (w == "paste") {
+            if (!x->envbuf) { out_display(x, nm, "NOTHING COPIED"); return; }
+            wave_settle(x);
+            e = *x->envbuf;
+            out_edump(x, "e");
+            out_display(x, nm, "PASTED");
+        } else {
+            pd_error(x, "eps~: env: copy or paste");
+        }
+        return;
     } else if (is("padchannel")) {
         x->padch = std::clamp(n, 1, 16);
         return;
@@ -2214,6 +2240,7 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->lkclock = clock_new(x, reinterpret_cast<t_method>(eps_lk_tick));
     x->scr = new LkScreen();
     x->legendUntil = 0;
+    x->envbuf = nullptr;
 
     Loader* L = x->loader;
     L->thread = std::thread([L] { L->run(); });
@@ -2240,6 +2267,7 @@ void eps_free(t_eps* x) {
     clock_free(x->lkclock);
     delete x->lk;
     delete x->scr;
+    delete x->envbuf;
     delete x->sysex;
     x->loader->quit.store(true);
     if (x->loader->thread.joinable()) x->loader->thread.join();
