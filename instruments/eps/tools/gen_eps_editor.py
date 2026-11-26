@@ -39,7 +39,7 @@ assert not set(ALL) & set(EDIT)
 
 CW, ROWH, X0 = 80, 88, 10
 BAND_Y = 44
-BAND_H = 100
+BAND_H = 124
 TOP = BAND_Y + BAND_H + 10
 X1 = X0 + 8 * CW + 30
 BAND = (S.YELLOW, S.ROW)
@@ -76,32 +76,41 @@ def bng(c, x, y, send, text):
 
 
 def top_band(c):
-    """instrument name, library and user bank, MIDI channels"""
+    """instrument name, library folders, saving, MIDI channels"""
     y = BAND_Y
     c.add(f"#X obj {X0 - 4} {y} cnv 15 {8 * CW} {BAND_H} empty empty PATCH 4 8 0 10 {S.PATCH} {S.BLUE} 0;")
     c.add(f"#X text {X0} {y + 20} name;")
     c.add(f"#X symbolatom {X0 + 40} {y + 20} 20 0 0 0 - {D}0-namev -;")
     c.add(f"#X text {X0 + 190} {y + 20} library;")
     c.add(f"#X floatatom {X0 + 240} {y + 20} 4 0 9999 0 - {D}0-presetv {D}0-preset;")
-    c.add(f"#X text {X0 + 290} {y + 20} user;")
-    c.add(f"#X floatatom {X0 + 324} {y + 20} 3 0 63 0 - {D}0-userv {D}0-urecall;")
-    bng(c, X0 + 370, y + 20, "reload", "reload")
-    bng(c, X0 + 440, y + 20, "init", "init")
+    bng(c, X0 + 290, y + 20, "reload", "reload")
+    bng(c, X0 + 360, y + 20, "init", "init")
+    bng(c, X0 + 420, y + 20, "rescan", "rescan")
     bng(c, X0 + 8 * CW - 110, y + 20, "refresh", "refresh")
-    c.add(f"#X text {X0} {y + 46} store to;")
-    c.add(f"#X floatatom {X0 + 56} {y + 46} 3 0 63 0 - - {D}0-uslot;")
-    bng(c, X0 + 90, y + 46, "usave", "save patch")
-    bng(c, X0 + 186, y + 46, "uload", "load bank")
-    bng(c, X0 + 276, y + 46, "uwrite", "write bank")
-    bng(c, X0 + 370, y + 46, "rescan", "rescan library")
-    c.add(f"#X text {X0} {y + 74} MIDI in;")
-    c.add(f"#X floatatom {X0 + 52} {y + 74} 3 0 16 0 - {D}0-chv {D}0-ch;")
-    c.add(f"#X text {X0 + 82} {y + 74} 0=all;")
-    c.add(f"#X text {X0 + 130} {y + 74} out;")
-    c.add(f"#X floatatom {X0 + 156} {y + 74} 3 1 16 0 - {D}0-txv {D}0-tx;")
-    c.add(f"#X obj {X0 + 220} {y + 74} tgl 15 0 {D}0-thru {D}0-thruv MIDI{SP}thru 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
-    c.add(f"#X text {X0 + 330} {y + 74} library size;")
-    c.add(f"#X floatatom {X0 + 410} {y + 74} 5 0 0 0 - {D}0-countv -;")
+    c.add(f"#X text {X0} {y + 46} folder;")
+    c.add(f"#X symbolatom {X0 + 46} {y + 46} 40 0 0 0 - {D}0-folderv -;")
+    bng(c, X0 + 300, y + 46, "bup", "up")
+    c.add(f"#X text {X0 + 360} {y + 46} size;")
+    c.add(f"#X floatatom {X0 + 390} {y + 46} 3 0 0 0 - {D}0-fcountv -;")
+    c.add(f"#X text {X0 + 430} {y + 46} library size;")
+    c.add(f"#X floatatom {X0 + 510} {y + 46} 5 0 0 0 - {D}0-countv -;")
+    c.add(f"#X text {X0} {y + 72} file;")
+    bng(c, X0 + 40, y + 72, "bprev", "")
+    c.add(f"#X symbolatom {X0 + 62} {y + 72} 16 0 0 0 - {D}0-bselv -;")
+    bng(c, X0 + 170, y + 72, "bnext", "")
+    bng(c, X0 + 196, y + 72, "benter", "open")
+    bng(c, X0 + 270, y + 72, "replace", "replace")
+    bng(c, X0 + 360, y + 72, "savecopy", "save copy")
+    c.add(f"#X text {X0} {y + 98} MIDI in;")
+    c.add(f"#X floatatom {X0 + 52} {y + 98} 3 0 16 0 - {D}0-chv {D}0-ch;")
+    c.add(f"#X text {X0 + 82} {y + 98} 0=all;")
+    c.add(f"#X text {X0 + 124} {y + 98} out;")
+    c.add(f"#X floatatom {X0 + 148} {y + 98} 3 1 16 0 - {D}0-txv {D}0-tx;")
+    c.add(f"#X obj {X0 + 190} {y + 98} tgl 15 0 {D}0-thru {D}0-thruv thru 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
+    c.add(f"#X text {X0 + 270} {y + 98} new name;")
+    c.add(f"#X symbolatom {X0 + 330} {y + 98} 14 0 0 0 - - {D}0-newname;")
+    bng(c, X0 + 432, y + 98, "saveas", "save as")
+    bng(c, X0 + 520, y + 98, "mkdir", "new folder")
     select_band(c)
 
 
@@ -192,7 +201,7 @@ def logic():
     rr = c.add(f"#X obj 110 {y} r {D}0-refresh;")
     dl = c.add(f"#X obj 10 {y + 30} del 800;")
     c.conn(lb, 0, dl, 0); c.conn(rr, 0, dl, 0)
-    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump, f 70;")
+    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump {COMMA} browse, f 70;")
     c.conn(dl, 0, allm, 0)
     s2 = c.add(f"#X obj 10 {y + 330} s {D}1;")
     c.conn(allm, 0, s2, 0)
@@ -200,11 +209,11 @@ def logic():
     # patch handling
     yp = y + 400
     send(10, yp, "preset", f"preset {D}1")
-    send(130, yp, "urecall", f"user {D}1")
+    send(130, yp, "bup", "bup")
     send(250, yp, "reload", "reload")
     send(350, yp, "init", "init")
-    send(450, yp, "uload", "userread")
-    send(570, yp, "uwrite", "userwrite")
+    send(450, yp, "bprev", "bstep -1")
+    send(570, yp, "bnext", "bstep 1")
     send(690, yp, "rescan", "rescan")
     send(930, yp, "ch", f"channel {D}1")
     send(1050, yp, "tx", f"txchannel {D}1")
@@ -225,19 +234,24 @@ def logic():
     send(970, ye, "zerox", f"zerox {D}1")
     yp = ye
     yn = yp
-    # store to N (only the slot) + save patch: store N, then write the bank
+    # saving: replace, save copy (a free name), save as / new folder with the name typed
     ys = yn + 110
-    rsl = c.add(f"#X obj 110 {ys} r {D}0-uslot;")
-    rsv = c.add(f"#X obj 10 {ys} r {D}0-usave;")
-    fsl = c.add(f"#X obj 10 {ys + 30} f;"); c.conn(rsv, 0, fsl, 0); c.conn(rsl, 0, fsl, 1)
-    msv = c.add(f"#X msg 10 {ys + 60} store {D}1 {COMMA} userwrite;"); c.conn(fsl, 0, msv, 0)
-    ssv = c.add(f"#X obj 10 {ys + 90} s {D}1;"); c.conn(msv, 0, ssv, 0)
-    c.add(f"#X text 200 {ys + 60} store to N only keeps the slot number \\, save patch stores and writes the file, f 60;")
+    send(10, ys, "benter", "benter")
+    send(130, ys, "replace", "replace")
+    send(250, ys, "savecopy", "save")
+    rnn = c.add(f"#X obj 400 {ys} r {D}0-newname;")
+    for k, (recv, msg) in enumerate([("saveas", "saveas"), ("mkdir", "mkdir")]):
+        x = 520 + 120 * k
+        rb = c.add(f"#X obj {x} {ys} r {D}0-{recv};")
+        sy = c.add(f"#X obj {x} {ys + 30} symbol;"); c.conn(rb, 0, sy, 0); c.conn(rnn, 0, sy, 1)
+        mm = c.add(f"#X msg {x} {ys + 60} {msg} {D}1;"); c.conn(sy, 0, mm, 0)
+        ss = c.add(f"#X obj {x} {ys + 90} s {D}1;"); c.conn(mm, 0, ss, 0)
+    c.add(f"#X text 760 {ys + 30} new name: '_' = space \\, 12 characters A-Z 0-9 * - +, f 40;")
 
     # replies -> cells, names, numbers
     y2 = ys + 150
     ro = c.add(f"#X obj 10 {y2} r {D}1-out;")
-    ri = c.add(f"#X obj 10 {y2 + 30} route info name preset user channel txchannel thru presets sel editmode;"); c.conn(ro, 0, ri, 0)
+    ri = c.add(f"#X obj 10 {y2 + 30} route info name preset folder channel txchannel thru presets sel editmode bsel;"); c.conn(ro, 0, ri, 0)
     lp = c.add(f"#X obj 10 {y2 + 60} list prepend {D}0;")   # route info gives the list: name 0-127 text
     stm = c.add(f"#X msg 10 {y2 + 90} {SEMI} {D}1-v-{D}2 set {D}3 {SEMI} {D}1-t-{D}2 set {D}4;")
     c.conn(ri, 0, lp, 0); c.conn(lp, 0, stm, 0)
@@ -251,7 +265,10 @@ def logic():
 
     show(520, 1, f"set {D}1", "namev")
     show(640, 2, f"set {D}1", "presetv")
-    show(760, 3, f"set {D}1", "userv")
+    show(760, 3, f"set {D}1", "folderv")
+    lfc = c.add(f"#X obj 760 {y2 + 150} list;"); c.conn(ri, 3, lfc, 0)
+    mfc = c.add(f"#X msg 760 {y2 + 180} set {D}2;"); c.conn(lfc, 0, mfc, 0)
+    sfc = c.add(f"#X obj 760 {y2 + 210} s {D}0-fcountv;"); c.conn(mfc, 0, sfc, 0)
     show(880, 4, f"set {D}1", "chv")
     show(1000, 5, f"set {D}1", "txv")
     show(1120, 6, f"set {D}1", "thruv")
@@ -269,6 +286,9 @@ def logic():
     me = c.add(f"#X msg 640 {ys2 + 90} set {D}1;"); c.conn(ee, 0, me, 0)
     se = c.add(f"#X obj 640 {ys2 + 120} s {D}0-eselv;"); c.conn(me, 0, se, 0)
     lem = c.add(f"#X obj 800 {ys2} list;"); c.conn(ri, 9, lem, 0)
+    lbs = c.add(f"#X obj 1000 {ys2} list;"); c.conn(ri, 10, lbs, 0)
+    mbs = c.add(f"#X msg 1000 {ys2 + 30} set {D}4;"); c.conn(lbs, 0, mbs, 0)
+    sbs = c.add(f"#X obj 1000 {ys2 + 60} s {D}0-bselv;"); c.conn(mbs, 0, sbs, 0)
     uem = c.add(f"#X obj 800 {ys2 + 30} unpack f f;"); c.conn(lem, 0, uem, 0)
     for k, dest in [(0, "followv"), (1, "zeroxv")]:
         m = c.add(f"#X msg {800 + 80 * k} {ys2 + 60} set {D}1;"); c.conn(uem, k, m, 0)

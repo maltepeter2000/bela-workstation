@@ -51,30 +51,53 @@ std::string printable(const std::string &s) {
     return r;
 }
 
-// Bounds-checked sequential reader mirroring ConvertWithMoss' StreamUtils.
-class Cursor {
+// Bounds-checked sequential reader/writer mirroring ConvertWithMoss' StreamUtils.
+// The same field list reads a file (const data) or writes the fields back into a
+// copy of it (mutable data), so saving changes only the fields eps~ knows.
+class Codec {
 public:
-    Cursor(const uint8_t *d, size_t n) : d_(d), n_(n) {}
+    Codec(const uint8_t *d, size_t n) : r_(d), n_(n) {}
+    Codec(uint8_t *d, size_t n) : r_(d), w_(d), n_(n) {}
     bool ok() const { return ok_; }
+    bool writing() const { return w_ != nullptr; }
     size_t pos() const { return pos_; }
     void skip(size_t k) { need(k) ? pos_ += k : 0; }
-    int u8() { return need(1) ? d_[pos_++] : 0; }
-    int s8() { return need(1) ? int(int8_t(d_[pos_++])) : 0; }
+    void u8(int &v) {
+        if (!need(1)) { if (!w_) v = 0; return; }
+        if (w_) w_[pos_] = uint8_t(v); else v = r_[pos_];
+        ++pos_;
+    }
+    void s8(int &v) { u8(v); if (!w_) v = int(int8_t(uint8_t(v))); }
     // Parameter stored in the high byte of a 16-bit word.
-    int u8w() { int v = u8(); skip(1); return v; }
-    int s8w() { int v = s8(); skip(1); return v; }
-    int u16() { if (!need(2)) return 0; int v = be16(d_ + pos_); pos_ += 2; return v; }
-    // ASCII text with one character per 16-bit word (high byte).
-    std::string asciiWords(size_t chars) {
-        std::string s;
-        for (size_t i = 0; i < chars; ++i) { s += char(u8()); skip(1); }
-        return s;
+    void u8w(int &v) { u8(v); skip(1); }
+    void s8w(int &v) { s8(v); skip(1); }
+    void u16(int &v) {
+        if (!need(2)) { if (!w_) v = 0; return; }
+        if (w_) { w_[pos_] = uint8_t(v >> 8); w_[pos_ + 1] = uint8_t(v); } else v = be16(r_ + pos_);
+        pos_ += 2;
+    }
+    // ASCII text with one character per 16-bit word (high byte); read trims the
+    // padding, write pads with spaces.
+    void ascii(std::string &s, size_t chars) {
+        std::string r;
+        for (size_t i = 0; i < chars; ++i) {
+            int ch = w_ ? (i < s.size() ? (unsigned char)s[i] : ' ') : 0;
+            u8(ch);
+            skip(1);
+            r += char(ch);
+        }
+        if (!w_) s = trimRight(r);
     }
     // 32-bit value assembled from the high bytes of four words.
-    uint32_t highBytes32() {
-        uint32_t v = 0;
-        for (int i = 0; i < 4; ++i) { v = v << 8 | uint32_t(u8()); skip(1); }
-        return v;
+    void highBytes32(uint32_t &v) {
+        uint32_t r = 0;
+        for (int i = 0; i < 4; ++i) {
+            int b = int(v >> (24 - 8 * i) & 0xFF);
+            u8(b);
+            skip(1);
+            r = r << 8 | uint32_t(b);
+        }
+        if (!w_) v = r;
     }
 
 private:
@@ -82,27 +105,28 @@ private:
         if (pos_ + k > n_) { ok_ = false; pos_ = n_; return false; }
         return true;
     }
-    const uint8_t *d_;
+    const uint8_t *r_;
+    uint8_t *w_ = nullptr;
     size_t n_, pos_ = 0;
     bool ok_ = true;
 };
 
-void readEnvelope(Cursor &c, Envelope &e) {
-    e.type = c.u8w();
-    e.softLevel[0] = c.u8w();
-    e.hardLevel[0] = c.u8w();
+void codeEnvelope(Codec &c, Envelope &e) {
+    c.u8w(e.type);
+    c.u8w(e.softLevel[0]);
+    c.u8w(e.hardLevel[0]);
     for (int i = 1; i <= 4; ++i) {
-        e.time[i] = c.u8w();
-        e.softLevel[i] = c.u8w();
-        e.hardLevel[i] = c.u8w();
+        c.u8w(e.time[i]);
+        c.u8w(e.softLevel[i]);
+        c.u8w(e.hardLevel[i]);
     }
-    e.time[5] = c.u8w();
-    e.velocitySwitch = c.u8w();
-    e.level5 = c.s8w();
-    e.time[6] = c.u8w();
-    e.time1VelSens = c.u8w();
-    e.kbTimeScaling = c.u8w();
-    e.mode = c.u8w();
+    c.u8w(e.time[5]);
+    c.u8w(e.velocitySwitch);
+    c.s8w(e.level5);
+    c.u8w(e.time[6]);
+    c.u8w(e.time1VelSens);
+    c.u8w(e.kbTimeScaling);
+    c.u8w(e.mode);
 }
 
 int sampleRateFromIndex(int idx) {
@@ -111,73 +135,78 @@ int sampleRateFromIndex(int idx) {
     return int(625000.0 / idx + 0.5);
 }
 
-// `d`/`n` cover the wavesample block *after* its 4-byte length word.
-bool parseWaveSample(int index, const uint8_t *d, size_t n, WaveSample &ws, std::string &err) {
-    Cursor c(d, n);
-    ws.index = index;
+bool codeWaveSample(Codec &c, WaveSample &ws) {
     c.skip(6);
-    ws.name = trimRight(c.asciiWords(12));
-    ws.copyOfWaveSample = c.u8w();
-    ws.copyOfLayer = c.u8w();
-    readEnvelope(c, ws.pitchEnv);
-    readEnvelope(c, ws.filterEnv);
-    readEnvelope(c, ws.ampEnv);
-    ws.rootNote = c.u8();
-    ws.volumeModCrossfadeCurve = c.u8();
-    ws.pitchEnvAmount = c.s8w();
-    ws.lfoPitchAmount = c.s8w();
-    ws.randomModAmount = c.s8w();
-    ws.pitchBendRange = c.u8w();
-    ws.pitchModSource = c.u8w();
-    ws.fineTune = c.s8w();
-    ws.pitchModAmount = c.s8w();
-    ws.filterMode = c.u8w();
-    ws.filterCutoff[0] = c.u8w();
-    ws.filterCutoff[1] = c.u8w();
-    ws.filterKeyAmount[0] = c.s8w();
-    ws.filterKeyAmount[1] = c.s8w();
-    ws.filterEnvAmount[0] = c.s8w();
-    ws.filterEnvAmount[1] = c.s8w();
-    ws.filterModSource[0] = c.u8w();
-    ws.filterModSource[1] = c.u8w();
-    ws.filterModAmount[0] = c.s8w();
-    ws.filterModAmount[1] = c.s8w();
-    ws.volume = c.u8();
-    ws.outputBus = c.u8();
-    ws.ampModSource = c.u8();
-    ws.panModSource = c.u8();
-    for (int i = 0; i < 4; ++i) ws.crossfade[i] = c.s8w();
-    ws.panEps = c.u8();
-    ws.panSigned = c.s8();
-    ws.ampModAmount = c.u8();
-    ws.panModAmount = c.u8();
-    ws.lfoWaveform = c.u8();
-    ws.boost = c.u8();
-    ws.lfoSpeed = c.u8();
-    ws.lfoRateModAmount = c.s8();
-    ws.lfoDepth = c.u8w();
-    ws.lfoDelay = c.u8();
-    ws.lfoDepthModAmount = c.s8();
-    ws.lfoDepthModSource = c.u8();
-    ws.lfoRateModSource = c.u8();
-    ws.lfoMode = c.u8w();
-    ws.randomFreq = c.u8w();
-    ws.loopMode = c.u8w();
-    ws.rawStart = c.highBytes32();
-    ws.rawEnd = c.highBytes32();
-    ws.rawLoopStart = c.highBytes32();
-    ws.rawLoopEnd = c.highBytes32();
+    c.ascii(ws.name, 12);
+    c.u8w(ws.copyOfWaveSample);
+    c.u8w(ws.copyOfLayer);
+    codeEnvelope(c, ws.pitchEnv);
+    codeEnvelope(c, ws.filterEnv);
+    codeEnvelope(c, ws.ampEnv);
+    c.u8(ws.rootNote);
+    c.u8(ws.volumeModCrossfadeCurve);
+    c.s8w(ws.pitchEnvAmount);
+    c.s8w(ws.lfoPitchAmount);
+    c.s8w(ws.randomModAmount);
+    c.u8w(ws.pitchBendRange);
+    c.u8w(ws.pitchModSource);
+    c.s8w(ws.fineTune);
+    c.s8w(ws.pitchModAmount);
+    c.u8w(ws.filterMode);
+    c.u8w(ws.filterCutoff[0]);
+    c.u8w(ws.filterCutoff[1]);
+    c.s8w(ws.filterKeyAmount[0]);
+    c.s8w(ws.filterKeyAmount[1]);
+    c.s8w(ws.filterEnvAmount[0]);
+    c.s8w(ws.filterEnvAmount[1]);
+    c.u8w(ws.filterModSource[0]);
+    c.u8w(ws.filterModSource[1]);
+    c.s8w(ws.filterModAmount[0]);
+    c.s8w(ws.filterModAmount[1]);
+    c.u8(ws.volume);
+    c.u8(ws.outputBus);
+    c.u8(ws.ampModSource);
+    c.u8(ws.panModSource);
+    for (int i = 0; i < 4; ++i) c.s8w(ws.crossfade[i]);
+    c.u8(ws.panEps);
+    c.s8(ws.panSigned);
+    c.u8(ws.ampModAmount);
+    c.u8(ws.panModAmount);
+    c.u8(ws.lfoWaveform);
+    c.u8(ws.boost);
+    c.u8(ws.lfoSpeed);
+    c.s8(ws.lfoRateModAmount);
+    c.u8w(ws.lfoDepth);
+    c.u8(ws.lfoDelay);
+    c.s8(ws.lfoDepthModAmount);
+    c.u8(ws.lfoDepthModSource);
+    c.u8(ws.lfoRateModSource);
+    c.u8w(ws.lfoMode);
+    c.u8w(ws.randomFreq);
+    c.u8w(ws.loopMode);
+    c.highBytes32(ws.rawStart);
+    c.highBytes32(ws.rawEnd);
+    c.highBytes32(ws.rawLoopStart);
+    c.highBytes32(ws.rawLoopEnd);
+    c.u8w(ws.sampleRateIndex);
+    c.u8w(ws.keyLow);
+    c.u8w(ws.keyHigh);
+    for (int i = 0; i < 5; ++i) c.u8w(ws.waveModRaw[i]);
+    if (c.writing()) return c.ok();
     ws.sampleStart = ws.rawStart >> 9;
     ws.sampleEnd = ws.rawEnd >> 9;
     ws.loopStart = ws.rawLoopStart >> 9;
     // As in ConvertWithMoss: loop end carries a 4-bit fine part.
     ws.loopEnd = (ws.rawLoopEnd >> 9) + ((ws.rawLoopEnd >> 5) & 0xF);
-    ws.sampleRateIndex = c.u8w();
     ws.sampleRate = sampleRateFromIndex(ws.sampleRateIndex);
-    ws.keyLow = c.u8w();
-    ws.keyHigh = c.u8w();
-    for (int i = 0; i < 5; ++i) ws.waveModRaw[i] = c.u8w();
-    if (!c.ok()) { err = "wavesample " + std::to_string(index) + ": header truncated"; return false; }
+    return c.ok();
+}
+
+// `d`/`n` cover the wavesample block *after* its 4-byte length word.
+bool parseWaveSample(int index, const uint8_t *d, size_t n, WaveSample &ws, std::string &err) {
+    Codec c(d, n);
+    ws.index = index;
+    if (!codeWaveSample(c, ws)) { err = "wavesample " + std::to_string(index) + ": header truncated"; return false; }
 
     const size_t headerAfterLen = kWaveSampleHeader - 4;
     if (n > headerAfterLen) {
@@ -189,25 +218,55 @@ bool parseWaveSample(int index, const uint8_t *d, size_t n, WaveSample &ws, std:
     return true;
 }
 
+bool codeLayer(Codec &c, Layer &l) {
+    c.skip(2);
+    c.s8w(l.index);
+    c.skip(2);
+    c.ascii(l.name, 12);
+    c.u8(l.glideMode);
+    c.u8(l.delayModByVelocity);
+    c.u8(l.glideTime);
+    c.u8(l.restrikeDecay);
+    c.u8(l.legatoLayer);
+    c.u8(l.stereoLink);
+    c.u8w(l.velocityLow);
+    c.u8w(l.velocityHigh);
+    c.u8w(l.pitchTable);
+    c.u8w(l.delayTime);
+    for (int i = 0; i < 88; ++i) {
+        int k = l.keyMap[i];
+        c.u8w(k);
+        l.keyMap[i] = uint8_t(k);
+    }
+    return c.ok();
+}
+
 bool parseLayer(const uint8_t *d, size_t n, Layer &l, std::string &err) {
-    Cursor c(d, n);
-    c.skip(2);
-    l.index = c.s8w();
-    c.skip(2);
-    l.name = trimRight(c.asciiWords(12));
-    l.glideMode = c.u8();
-    l.delayModByVelocity = c.u8();
-    l.glideTime = c.u8();
-    l.restrikeDecay = c.u8();
-    l.legatoLayer = c.u8();
-    l.stereoLink = c.u8();
-    l.velocityLow = c.u8w();
-    l.velocityHigh = c.u8w();
-    l.pitchTable = c.u8w();
-    l.delayTime = c.u8w();
-    for (int i = 0; i < 88; ++i) l.keyMap[i] = uint8_t(c.u8w());
-    if (!c.ok()) { err = "layer truncated"; return false; }
+    Codec c(d, n);
+    if (!codeLayer(c, l)) { err = "layer truncated"; return false; }
     return true;
+}
+
+// The instrument header up to the offset tables (100 bytes).
+bool codeHeader(Codec &c, Instrument &in, std::string &name) {
+    c.skip(4 + 4 + 2);    // total size, hardware slot address, unknown
+    c.ascii(name, 12);
+    c.s8w(in.midiOutChannel);
+    c.s8w(in.midiProgram);
+    c.s8w(in.pressureMode);
+    c.u16(in.sizeBlocks);
+    c.s8w(in.keyDestination);
+    for (int i = 0; i < 4; ++i) c.s8w(in.patches[i]);
+    c.s8w(in.keyDownLayers);
+    c.s8w(in.keyUpLayers);
+    c.s8w(in.patchSelectMode);
+    c.skip(2);
+    c.u16(in.instrumentId);
+    c.s8w(in.keyLow);
+    c.s8w(in.keyHigh);
+    c.s8w(in.transpose);
+    c.skip(32);                                   // pitch table offsets
+    return c.ok() && c.pos() == 100;
 }
 
 bool readWholeFile(const std::string &path, std::vector<uint8_t> &out, std::string &err) {
@@ -274,26 +333,13 @@ bool parseInstrument(const uint8_t *data, size_t size, const std::string &fallba
     out = Instrument();
     const size_t kHeader = 644;
     if (size < kHeader) { err = "instrument file too small"; return false; }
-    Cursor c(data, size);
-    c.skip(4 + 4 + 2);    // total size, hardware slot address, unknown
-    std::string name = trimRight(c.asciiWords(12));
+    Codec c(data, size);
+    std::string name;
+    if (!codeHeader(c, out, name)) { err = "instrument header layout mismatch"; return false; }
     out.name = printable(name.empty() ? fallbackName : name);
-    out.midiOutChannel = c.s8w();
-    out.midiProgram = c.s8w();
-    out.pressureMode = c.s8w();
-    out.sizeBlocks = c.u16();
-    out.keyDestination = c.s8w();
-    for (int i = 0; i < 4; ++i) out.patches[i] = c.s8w() & 0xFF;
-    out.keyDownLayers = c.s8w() & 0xFF;
-    out.keyUpLayers = c.s8w() & 0xFF;
-    out.patchSelectMode = c.s8w();
-    c.skip(2);
-    out.instrumentId = c.u16();
-    out.keyLow = c.s8w();
-    out.keyHigh = c.s8w();
-    out.transpose = c.s8w();
-    c.skip(32);                                   // pitch table offsets
-    if (!c.ok() || c.pos() != 100) { err = "instrument header layout mismatch"; return false; }
+    for (int i = 0; i < 4; ++i) out.patches[i] &= 0xFF;
+    out.keyDownLayers &= 0xFF;
+    out.keyUpLayers &= 0xFF;
 
     uint32_t layerOffsets[8], wsOffsets[128];
     for (int i = 0; i < 8; ++i) layerOffsets[i] = encoded24(data + 100 + 4 * i);
@@ -308,6 +354,7 @@ bool parseInstrument(const uint8_t *data, size_t size, const std::string &fallba
         if (len < 4 || off + len > size) { err = "layer length out of range"; return false; }
         Layer l;
         if (!parseLayer(data + off + 4, len - 4, l, err)) return false;
+        l.fileOffset = off;
         out.layers.push_back(l);
     }
     for (int i = 0; i < 128; ++i) {
@@ -322,6 +369,7 @@ bool parseInstrument(const uint8_t *data, size_t size, const std::string &fallba
         }
         WaveSample ws;
         if (!parseWaveSample(i, data + off + 4, len - 4, ws, err)) return false;
+        ws.fileOffset = off;
         if (!ws.pcm.empty() && (off % 2) == 0) ws.imageWord = (off + kWaveSampleHeader) / 2;
         out.waveSamples[i] = std::move(ws);
     }
@@ -329,6 +377,35 @@ bool parseInstrument(const uint8_t *data, size_t size, const std::string &fallba
     // and PCM in file order, 16-bit words (measured on the original OS).
     out.image.resize(size / 2);
     for (size_t i = 0; i < out.image.size(); ++i) out.image[i] = int16_t(be16(data + 2 * i));
+    return true;
+}
+
+bool encodeInstrument(const Instrument &inst, std::vector<uint8_t> &out, std::string &err) {
+    if (inst.image.size() * 2 < 644) { err = "no file data to write"; return false; }
+    out.resize(inst.image.size() * 2);
+    for (size_t i = 0; i < inst.image.size(); ++i) {
+        out[2 * i] = uint8_t(uint16_t(inst.image[i]) >> 8);
+        out[2 * i + 1] = uint8_t(inst.image[i]);
+    }
+    // The codec takes references; writing reads them and changes nothing, so the
+    // instrument (with its PCM) is not copied.
+    Instrument &in = const_cast<Instrument &>(inst);
+    std::string name = in.name;
+    Codec h(out.data(), out.size());
+    if (!codeHeader(h, in, name)) { err = "header"; return false; }
+    for (Layer &l : in.layers) {
+        if (!l.fileOffset || l.fileOffset + 4 > out.size()) { err = "layer offset"; return false; }
+        const uint32_t len = epsLong(out.data() + l.fileOffset);
+        Codec c(out.data() + l.fileOffset + 4, len - 4);
+        if (len < 4 || !codeLayer(c, l)) { err = "layer " + std::to_string(l.index); return false; }
+    }
+    for (auto &kv : in.waveSamples) {
+        WaveSample &w = kv.second;
+        if (!w.fileOffset || w.fileOffset + 4 > out.size()) { err = "wavesample offset"; return false; }
+        const uint32_t len = epsLong(out.data() + w.fileOffset);
+        Codec c(out.data() + w.fileOffset + 4, len - 4);
+        if (len < 4 || !codeWaveSample(c, w)) { err = "wavesample " + std::to_string(kv.first); return false; }
+    }
     return true;
 }
 
@@ -564,8 +641,9 @@ bool Disk::parseDir(uint32_t first, uint32_t blocks, uint32_t contiguous, const 
         de.contiguousBlocks = be16(e + 16);
         de.firstBlock = be32(e + 18);
         files_.push_back(de);
-        if (type == kSubdir && !parseDir(de.firstBlock, de.sizeBlocks, de.contiguousBlocks, de.path,
-                                         depth + 1, err))
+        // A directory is always 2 contiguous blocks; the size field of its entry
+        // counts the files in it (the original OS writes 0 for a new directory).
+        if (type == kSubdir && !parseDir(de.firstBlock, 2, 2, de.path, depth + 1, err))
             return false;
     }
     return true;

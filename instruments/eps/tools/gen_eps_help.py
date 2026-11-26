@@ -50,13 +50,21 @@ EDITOR = [
     "controller layer. Each cell: name and label, a slider and a number box with the value as "
     "from a pot (0 to 127), the box beside it the value itself.",
     "PATCH band. name: the instrument that plays. library N: load instrument N of the "
-    "library. user N: a user slot. reload: the instrument or slot again, edits dropped. init: "
-    "all controls back to 0, the instrument stays. store to N: chooses the user slot, save "
-    "patch stores there and writes the user bank, see Presets. load bank, write bank: read or "
-    "write the bank file without storing. rescan library: read the folder again after adding "
-    "files.",
+    "whole library. reload: the instrument again, edits dropped. init: all controls back to "
+    "0, the instrument stays. rescan: read the library folder again after adding files.",
+    "folder: where you are, as on the EPS: library is the top (disk images and EFE files), "
+    "an image and its directories below (DISK1.img/BASSES). up: one folder up. file: the "
+    "selected file with the arrows before and after it, a directory ends in a slash. open: "
+    "enter the directory or load the instrument. Loading an instrument shows its folder.",
+    "Saving always writes the Ensoniq format, so the EPS reads it. The offsets of the "
+    "controls (cutoff, attack ...) go into the instrument first and are set back to 0. "
+    "replace: over the file the instrument was loaded from. save copy: a new file in the "
+    "folder shown, named after the instrument with a number. new name and save as: a new "
+    "file of that name in the folder shown (in an image, or an EFE at the top). new folder: "
+    "a directory of that name, inside an image. Names: up to 12 characters, A-Z 0-9 space * "
+    "- + (what the EPS lets you type), underscore for a space. See Library and saving.",
     "MIDI in: the receive channel, 0 = all. out: the channel of the controller feedback. "
-    "MIDI thru: see Messages, thru. library size: how many instruments the folder holds.",
+    "thru: see Messages, thru. size: files in the folder, library size: instruments in all.",
     "The other rows edit the loaded instrument itself (mouse only, see Instrument rows). "
     "SELECT band: the layer and the wavesample the LAYER and WS rows show, with their names "
     "and the key range, root key, rate and length of the wavesample. envelope: which one the "
@@ -67,7 +75,8 @@ EDITOR = [
     "steps of 1/127 of the sample, the second (fine) moves it by -64 to +63 samples from "
     "there. The box shows the sample number. Edits change the playing instrument at once "
     "(the next note, filter, amp, pan, LFO and wave modulation also sounding notes). They "
-    "are not saved yet and a reload or an instrument change drops them.",
+    "are kept with replace, save copy or save as, a reload or an instrument change drops "
+    "them.",
 ]
 
 INLETS = [
@@ -87,7 +96,10 @@ OUTLETS = [
     "3 loaded model layers wavesamples: an instrument is in.",
     "3 display title value: two lines for a display: a control",
     "  (Cutoff, -12), the instrument (Preset 3, CLASSIC_PAD),",
-    "  Loading, a store (Stored, User 11).",
+    "  Loading, saving (Saved, PAD_BRIGHT).",
+    "3 folder text n, bsel k n kind name: the folder shown,",
+    "  its size and the selected file (kind dir or inst).",
+    "3 saved: an instrument was written.",
 ]
 
 MESSAGES = [
@@ -117,19 +129,22 @@ MESSAGES = [
     "  without the library. A name without a path is beside",
     "  the external.",
     "presets: list the library as preset n name.",
-    "user n: a user slot, 0 to 63: its instrument and controls.",
-    "userstep 1 or -1: the next or previous used user slot.",
-    "init: every stored control back to 0, the instrument stays.",
-    "reload: the instrument or slot again, edits dropped.",
-    "store n: the playing instrument and its controls into",
-    "  user slot n, in memory. Without n: the slot chosen or",
-    "  stored last.",
-    "save: store, then write the user bank (the pads' save).",
-    "savearm, saveslot n, savecancel: the pads' store with a",
-    "  question: show the slot, move it, drop it.",
-    "userwrite [file], userread [file]: the user bank, see",
-    "  Presets.",
-    "users: list the used user slots.",
+    "browse: report the folder shown (folder, bsel).",
+    "bstep 1 or -1, bselect k: move the selection in the folder.",
+    "benter: enter the selected directory or load the selected",
+    "  instrument. bup: the folder above.",
+    "userstep 1 or -1: the next or previous instrument in the",
+    "  folder of the one playing (the pads' user + and -).",
+    "init: every control back to 0, the instrument stays.",
+    "reload: the instrument again, edits dropped.",
+    "saveas name: write the instrument as a new file into the",
+    "  folder shown: into the image, or name.efe at the top.",
+    "  Refused if the name is there.",
+    "replace: write it over the file it was loaded from.",
+    "save: saveas with a free name, the instrument's and a",
+    "  number (the pads' save).",
+    "mkdir name: a new directory in the folder shown (images).",
+    "  All three write the offsets into the instrument first.",
     "bend f: pitch wheel, -1 to 1, times bend.",
     "mod f: modulation wheel, 0 to 1 (EPS source WHEEL).",
     "pressure f: channel pressure, 0 to 1 (PRESS).",
@@ -145,23 +160,30 @@ MESSAGES = [
 ]
 
 PRESETS = [
-    "The library is every instrument in every file of the folder eps beside the patch "
-    "(EFE, IMG, EDE, EDA, GKH, also images of hard disks and SD cards in Ensoniq format, HDA, "
-    "should work too but are not tested yet), in "
-    "the order of the file names and of the instruments in each disk image. preset N, "
-    "presetstep and program changes load from it. An instrument is read in the background: "
-    "notes go on sounding until it is in, then it takes over. Your Ensoniq files are not part "
-    "of eps~ and are never in git.",
-    "The user bank (64 slots) is epsuser-bank.txt in the folder of your patch, a text file: "
-    "per slot the file, the instrument and the controls. eps.i~ reads it at load if it is "
-    "there, otherwise the bank beside eps~ is the starting point. save, userwrite and "
-    "userread without a file name use this file: store to N in the editor chooses the slot, "
-    "save patch stores and writes. Save the patch first, an unsaved patch has no folder of "
-    "its own.",
-    "There is one user bank and one library in Pd, not one per object: two eps.i~ in one "
-    "patch share them.",
-    "volume and voices belong to the instrument object. An instrument change leaves them "
-    "alone and they are not stored.",
+    "The library is the folder eps beside the patch: Ensoniq disk images (IMG from a floppy, "
+    "HDA or IMG images of the hard disk on the SD card of a ZuluSCSI or BlueSCSI, EDE, EDA, "
+    "GKH) and EFE files. The editor shows it as on the EPS: each image is a folder with its "
+    "directories, the EFE files lie at the top. preset N, presetstep and program changes "
+    "go through all instruments, in the order of the file names and the directories. An "
+    "instrument is read in the background: notes go on sounding until it is in.",
+    "Saving keeps the Ensoniq format: into an image the file goes as the EPS writes it "
+    "(checked against the original operating system: it lists and loads what eps~ saved), "
+    "at the top level as an EFE. So your library can go back onto the SD card of the "
+    "ZuluSCSI as it is. A directory holds 38 files, names have 12 characters.",
+    "Before eps~ writes into an image it checks it: the free block count must match the "
+    "FAT and every directory its file count, otherwise it refuses and changes nothing. Every "
+    "block it changes is first copied to <image>.undo beside the image: build/eps_fs_tool "
+    "undo <image> puts the image back as it was before the first change (and deletes the "
+    "journal). Delete the .undo file once you are happy, and keep a copy of your SD card "
+    "anyway.",
+    "There is one library in Pd, not one per object: two eps.i~ in one patch share it. "
+    "Save the patch first, an unsaved patch has no folder of its own.",
+    "The controls of eps~ are offsets over the instrument while you play. Saving writes "
+    "transpose, tune, cutoff, filter 2, filter env, attack, decay and release into the "
+    "instrument (into every wavesample) and sets them back to 0. vibrato, wave position, "
+    "bend range, patch select and vibrato rate are playing controls, the EPS has no place "
+    "for them in an instrument: they stay. volume and voices belong to the instrument "
+    "object.",
 ]
 
 ABOUT = [
@@ -243,7 +265,7 @@ def main():
                       ("text", "Launchkey", helpkit.launchkey(
                           "eps~", "epscc", "epspads", "39 patch select +, 47 patch select -")),
                       ("lines", "Inlet", INLETS), ("lines", "Outlets", OUTLETS),
-                      ("text", "Presets and user bank", PRESETS),
+                      ("text", "Library and saving", PRESETS),
                       ("lines", "Messages", MESSAGES), ("text", "The instrument", ABOUT),
                       ("text", "Data files", DATA),
                       ("controls", CONTROLS_INTRO, rows, control_line),

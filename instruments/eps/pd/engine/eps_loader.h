@@ -129,10 +129,12 @@ struct WaveSample {
 
     std::vector<int16_t> pcm;  // mono 16-bit
     uint32_t imageWord = 0;    // where the PCM starts in Instrument::image (0 = not there)
+    uint32_t fileOffset = 0;   // of its block in the instrument file (for writing)
 };
 
 struct Layer {
     int index = 0;             // 1-based
+    uint32_t fileOffset = 0;   // of its block in the instrument file (for writing)
     std::string name;
     int glideMode = 0, delayModByVelocity = 0, glideTime = 0;
     int restrikeDecay = 0, legatoLayer = 0, stereoLink = 0;
@@ -223,6 +225,11 @@ private:
 // Parse an instrument file's raw bytes (as stored on disk, without EFE header).
 bool parseInstrument(const uint8_t *data, size_t size, const std::string &fallbackName,
                      Instrument &out, std::string &err);
+
+// The instrument file again (without EFE header): the bytes it was loaded from
+// (Instrument::image) with every parsed field written back, so changes made to the
+// structs land in the file and everything else stays as it was.
+bool encodeInstrument(const Instrument &in, std::vector<uint8_t> &out, std::string &err);
 
 // Helpers for checking results.
 bool writeWav(const std::string &path, const WaveSample &ws, const std::vector<int16_t> &pcm,

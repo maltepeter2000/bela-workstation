@@ -4,8 +4,8 @@ editor epsedit, the controller layer epscc, the pads epspads and lkdisplay.
 
     [eps.i~ <channel> <pads channel>] -> [dac~]
 
-The user bank (epsuser-bank.txt) and the library (the folder eps/) lie beside the patch that
-holds the object. Run after the abstractions are generated (make gen does).
+The library (the folder eps/: Ensoniq disk images and EFE files) lies beside the patch that
+holds the object; eps~ saves into it. Run after the abstractions are generated (make gen does).
 usage: python3 tools/gen_eps_inst.py
 """
 import os
@@ -23,6 +23,6 @@ if __name__ == "__main__":
                   cc=os.path.join(PD, "epscc.pd"),
                   pads=os.path.join(PD, "epspads.pd"),
                   lkdisplay=os.path.join(PD, "lkdisplay.pd"),
-                  banks=[("userwrite", "userread", "epsuser-bank.txt")],
+                  banks=[],
                   dir_msgs=[("library", "eps")],
                   midi=("raw", 2))

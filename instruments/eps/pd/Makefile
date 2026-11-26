@@ -7,7 +7,7 @@
 # Needs no data files to build. To play, put Ensoniq instruments (EFE) or disk images
 # (IMG, EDE, EDA, GKH) into a folder eps/ beside your patch (or beside the external).
 
-ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp
+ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp engine/eps_fs.cpp
 
 lib.name = eps~
 class.sources = eps~.cpp
@@ -83,13 +83,19 @@ test: $(ENGINE) $(wildcard engine/*.h) $(wildcard $(TESTDIR)/*.cpp)
 	../build/test_loader $(FIX)
 	../build/fuzz_loader $(FIX)
 	../build/render_test $(FIX)
+	$(CXX) $(SAN) -o ../build/roundtrip $(TESTDIR)/roundtrip.cpp engine/eps_loader.cpp
+	$(CXX) $(SAN) -o ../build/test_fs $(TESTDIR)/test_fs.cpp engine/eps_fs.cpp engine/eps_loader.cpp
+	../build/roundtrip $(FIX)/test.efe $(FIX)/test.img $(FIX)/test.ede
+	../build/test_fs $(FIX)
 
 # Tools: eps_dump (list an image, show an instrument, write its wavesamples as WAV),
-# demo_real (render a demo of an instrument file), read_all_files (check an image's FAT).
+# demo_real (render a demo of an instrument file), read_all_files (check an image's FAT),
+# eps_fs_tool (write into an image: ls, mkdir, put, check, undo).
 tools: $(ENGINE)
 	mkdir -p ../build
 	$(CXX) -std=c++17 -O2 -o ../build/eps_dump $(TESTDIR)/eps_dump.cpp $(ENGINE)
 	$(CXX) -std=c++17 -O2 -o ../build/demo_real $(TESTDIR)/demo_real.cpp $(ENGINE)
 	$(CXX) -std=c++17 -O2 -o ../build/read_all_files $(TESTDIR)/read_all_files.cpp engine/eps_loader.cpp
+	$(CXX) -std=c++17 -O2 -o ../build/eps_fs_tool $(TESTDIR)/eps_fs_tool.cpp engine/eps_fs.cpp engine/eps_loader.cpp
 
 .PHONY: mac-zig bela-gem gen test tools

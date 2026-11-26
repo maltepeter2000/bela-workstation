@@ -5,8 +5,8 @@ the ES5505 ("OTIS") voice chip of the EPS-16 PLUS. No Ensoniq data is part of th
 your instruments into a folder `eps/` beside your patch.
 
 ```
-[eps.i~ 1]        library: eps/ beside the patch (EFE, IMG, EDE, EDA, GKH)
-|      |          user bank: epsuser-bank.txt beside the patch
+[eps.i~ 1]        library: eps/ beside the patch (disk images, EFE)
+|      |          saving: into the images (Ensoniq format) or as EFE
 [dac~   ]
 ```
 
@@ -57,8 +57,9 @@ glide (every mode is mono with glide).
 
 ## Controls
 
-Performance offsets over the loaded instrument (0 = as stored), kept with a user slot;
-`volume` and `voices` are settings and not stored. One table: `tools/eps_params.py`.
+Performance offsets over the loaded instrument (0 = as stored); saving writes `transpose tune
+cut cut2 fenv att dec rel` into the instrument and sets them back to 0. `volume` and `voices`
+are settings. One table: `tools/eps_params.py`.
 
 | Page | CC | Controls |
 |---|---|---|
@@ -70,14 +71,25 @@ volume). The EPS has no resonance: `cut2` (filter 2) takes its place. The effect
 until eps~ has its effects; own is `wave`, the transwave position. Pads 39 / 47: patch select
 + / −.
 
-## Presets and user bank
+## Library and saving
 
-- **Library**: every instrument in every file of `eps/` beside the patch (`eps.i~` sends
-  `library <dir>/eps` at load; `[eps~]` alone takes `eps/` beside the external), in the order of
-  the file names and of the instruments inside a disk image. `preset n`, `presetstep`, program
-  change. `rescan` after adding files.
-- **User bank**: `epsuser-bank.txt`, 64 slots, text (no Ensoniq format covers it): per slot the
-  file, the instrument number in it, the name and the controls.
+- **Library**: `eps/` beside the patch (`eps.i~` sends `library <dir>/eps` at load; `[eps~]`
+  alone takes `eps/` beside the external): disk images (floppy, ZuluSCSI / BlueSCSI hard disk
+  images) and EFE files. Folders as on the EPS: `browse`, `bstep`, `benter`, `bup`; `preset n`,
+  `presetstep`, program change go through all instruments. `rescan` after adding files.
+- **Saving** (`pd/engine/eps_fs.*`) always in the Ensoniq format, so the EPS reads it:
+  `saveas <name>` (a new file in the folder shown: into the image, or `<name>.efe` at the top),
+  `replace` (over the file it came from), `save` (a free name, the pads), `mkdir <name>`.
+  The file is the instrument as loaded with every parsed field written back
+  (`encodeInstrument`: byte for byte the same when nothing changed). The file system is written
+  as the original OS 1.30 writes it (checked in the emulator: CREATE DIRECTORY gives the same
+  blocks, the OS lists and loads instruments eps~ saved): directory entry with size = files in
+  it and 2 contiguous blocks, a parent entry (type 8) first in each directory, FAT chain, free
+  count in block 2, 38 files per directory, names of 12 characters A-Z 0-9 space `* - +` (the
+  characters the OS offers when you type a name).
+- **Safety**: before writing, eps~ checks the image (free count = FAT, directory sizes = file
+  counts) and refuses otherwise. Every block it changes is copied to `<image>.undo` first;
+  `build/eps_fs_tool undo <image>` restores the image and deletes the journal.
 
 ## Build
 
@@ -87,7 +99,7 @@ make mac-zig    # bin/macos, universal
 make bela-gem   # ../../build/bela-gem
 make gen        # parameter header, controller layer, pads, editor, help, eps.i~
 make test       # engine tests on synthetic disk images (ASan/UBSan, fuzzing)
-make tools      # build/eps_dump, build/demo_real, build/read_all_files
+make tools      # build/eps_dump, build/demo_real, build/read_all_files, build/eps_fs_tool
 ```
 
 `build/eps_dump disk.img` lists a disk, `build/eps_dump PAD.EFE 00 wavs/` shows an instrument's

@@ -175,7 +175,7 @@ def dir_entry(t, name, size, contig, first):
 
 # sub-directory at blocks 20-21
 root = bytearray(1024)
-root[0:26] = dir_entry(2, "SOUNDS", 2, 2, 20)
+root[0:26] = dir_entry(2, "SOUNDS", 1, 2, 20)      # as the EPS writes it: size = files in it
 root[1022:1024] = b"DR"
 img[3 * 512:5 * 512] = root
 fat_set(20, 21); fat_set(21, 1)
@@ -186,10 +186,12 @@ for i, b in enumerate(layout):
     img[b * 512:(b + 1) * 512] = inst[i * 512:(i + 1) * 512]
     fat_set(b, layout[i + 1] if i + 1 < len(layout) else 1)
 sub = bytearray(1024)
-sub[0:26] = dir_entry(8, "", 0, 0, 3)                 # parent pointer
+sub[0:26] = dir_entry(8, "ROOT", 0, 2, 3)             # parent pointer
 sub[26 * 3:26 * 4] = dir_entry(3, "TEST SYNTH", blocks, 3, 30)
 sub[1022:1024] = b"DR"
 img[20 * 512:22 * 512] = sub
+free = sum(1 for b in range(TOTAL) if not any(img[(5 + b // 170) * 512 + (b % 170) * 3:(5 + b // 170) * 512 + (b % 170) * 3 + 3]))
+img[1024:1028] = struct.pack(">I", free)
 (out / "test.img").write_bytes(bytes(img))
 
 # ---- EDE: skip all-empty blocks after block 15

@@ -30,10 +30,23 @@
 //   presetstep [n]      the next (n = -1: the previous) library instrument
 //   open <file> [k]     load instrument k (or the first) of any file
 //   presets             list the library
-// User bank (64 slots, text, epsuser-bank.txt): a slot keeps the file, the
-// instrument and the offsets.
-//   user n, userstep [n], store [n], save, savearm, saveslot n, savecancel,
-//   userwrite [file], userread [file], users, init, reload
+// Folders, as on the EPS: the library's images are folders, with the Ensoniq
+// directories inside; EFE files at the top level are single instruments.
+//   browse              show the current folder (folder, bsel)
+//   bstep [n], bselect k   move the selection in the folder
+//   benter              enter the selected directory or load the selected instrument
+//   bup                 the folder above
+//   userstep [n]        the next (previous) instrument in the folder of the one playing
+// Saving (always in the Ensoniq format, readable on the EPS): the offsets of the
+// controls are written into the instrument, then set back to 0.
+//   saveas <name>       a new file in the current folder: into the image, or an
+//                       EFE at the top level; refused if the name is there
+//   replace             overwrite the file the instrument was loaded from
+//   save                saveas with a free name made from the instrument's (pads)
+//   mkdir <name>        a new directory in the current folder of an image
+// Names: 12 characters of A-Z 0-9 space * - + ('_' = space). Changes to an image
+// are journaled: <image>.undo keeps the old blocks (eps_fs_tool undo restores).
+//   init, reload
 // Controls (tools/eps_params.py): <name> <value>, <name>, n <name> <0-127>,
 //   ninfo <name>, cycle <name> [n], dump
 // Playing: bend f (-1..1), mod f (wheel 0..1), pressure f, polypressure note f,
@@ -69,6 +82,7 @@ extern "C" {
 
 #include "eps_sampler.h"
 #include "eps_edit.h"
+#include "eps_fs.h"
 
 namespace {
 
@@ -84,9 +98,7 @@ struct Control {
 t_class* eps_class = nullptr;
 t_class* eps_proxy_class = nullptr;
 
-const char kUserFile[] = "epsuser-bank.txt";
 constexpr float kOutputGain = 1.0f;   // a voice at full level is -12 dB (0xE0), as on the EPS
-constexpr int kUserSlots = 64;
 
 // ---- controls ----------------------------------------------------------------
 
@@ -142,18 +154,20 @@ struct LibEntry {
     std::string file;     // path as given (relative to the library or absolute)
     int index = 0;        // which instrument of the file (0-based, in directory order)
     std::string name;     // shown name
+    std::string path;     // slot numbers in the image ("03 07"), "" for EFE files
 };
 
-struct Slot {
-    bool used = false;
-    LibEntry entry;
-    int value[kCtlCount] = {};
+// The files of the library with their directory entries (read once per scan).
+struct LibFile {
+    std::string file;
+    bool image = false;                  // a disk image (folders), else a single file
+    std::vector<eps::DirEntry> entries;
 };
 
 std::string g_ext_dir;                 // the external's folder
 std::string g_lib_dir;                 // the library folder in use
 std::vector<LibEntry> g_lib;
-Slot g_user[kUserSlots];
+std::vector<LibFile> g_files;
 bool g_data_tried = false;
 
 std::string join(const std::string& dir, const std::string& f) {
@@ -182,6 +196,7 @@ std::string spaces_to_underscore(std::string s) {
 
 int scan_library(const std::string& dir) {
     g_lib.clear();
+    g_files.clear();
     g_lib_dir = dir;
     std::vector<std::string> files;
 #ifndef _WIN32
@@ -202,72 +217,22 @@ int scan_library(const std::string& dir) {
             continue;
         }
         const auto list = disk.instruments();
-        const bool single = disk.format() == eps::ImageFormat::Efe;
+        const bool image = disk.format() == eps::ImageFormat::Raw;
+        LibFile lf;
+        lf.file = f;
+        lf.image = image;
+        lf.entries = disk.files();
+        g_files.push_back(lf);
         for (size_t k = 0; k < list.size(); ++k) {
             LibEntry le;
             le.file = f;
             le.index = static_cast<int>(k);
-            le.name = spaces_to_underscore(single ? list[k]->name : list[k]->name);
+            le.name = spaces_to_underscore(list[k]->name);
+            le.path = image ? list[k]->path : "";
             g_lib.push_back(le);
         }
     }
     return static_cast<int>(g_lib.size());
-}
-
-bool write_user(const std::string& path, std::string& err) {
-    FILE* f = std::fopen(path.c_str(), "w");
-    if (!f) { err = "cannot write " + path; return false; }
-    std::fprintf(f, "# eps~ user bank: slot, file, instrument number in the file, name, then the "
-                    "controls as name=value\n");
-    for (int s = 0; s < kUserSlots; ++s) {
-        const Slot& u = g_user[s];
-        if (!u.used) continue;
-        std::fprintf(f, "%d\t%s\t%d\t%s", s, u.entry.file.c_str(), u.entry.index, u.entry.name.c_str());
-        for (int i = 0; i < kCtlCount; ++i)
-            if (kControls[i].kind == 'O') std::fprintf(f, "\t%s=%d", kControls[i].name, u.value[i]);
-        std::fprintf(f, "\n");
-    }
-    const bool ok = !std::ferror(f);
-    std::fclose(f);
-    if (!ok) err = "write error on " + path;
-    return ok;
-}
-
-int read_user(const std::string& path, std::string& err) {
-    FILE* f = std::fopen(path.c_str(), "r");
-    if (!f) { err = "cannot read " + path; return -1; }
-    for (Slot& u : g_user) u = Slot();
-    char line[2048];
-    int got = 0;
-    while (std::fgets(line, sizeof line, f)) {
-        if (line[0] == '#' || line[0] == '\n') continue;
-        std::vector<std::string> fields;
-        std::string cur;
-        for (char* p = line; *p && *p != '\n' && *p != '\r'; ++p) {
-            if (*p == '\t') { fields.push_back(cur); cur.clear(); }
-            else cur += *p;
-        }
-        fields.push_back(cur);
-        if (fields.size() < 4) continue;
-        const int s = std::atoi(fields[0].c_str());
-        if (s < 0 || s >= kUserSlots) continue;
-        Slot& u = g_user[s];
-        u.used = true;
-        u.entry.file = fields[1];
-        u.entry.index = std::atoi(fields[2].c_str());
-        u.entry.name = fields[3];
-        for (int i = 0; i < kCtlCount; ++i) u.value[i] = kControls[i].def;
-        for (size_t k = 4; k < fields.size(); ++k) {
-            const size_t eq = fields[k].find('=');
-            if (eq == std::string::npos) continue;
-            const Control* c = find_control(fields[k].substr(0, eq).c_str());
-            if (c && c->kind == 'O')
-                u.value[control_index(c)] = std::clamp(std::atoi(fields[k].c_str() + eq + 1), c->lo, c->hi);
-        }
-        ++got;
-    }
-    std::fclose(f);
-    return got;
 }
 
 void load_data() {
@@ -277,18 +242,70 @@ void load_data() {
     g_ext_dir = h ? h : ".";
     const int n = scan_library(g_ext_dir + "/eps");
     if (n) post("eps~: library %s/eps: %d instruments", g_ext_dir.c_str(), n);
-    std::string err;
-    const std::string user = g_ext_dir + "/" + kUserFile;
-    if (FILE* f = std::fopen(user.c_str(), "r")) {
-        std::fclose(f);
-        const int got = read_user(user, err);
-        if (got >= 0) post("eps~: %s: %d user slots", kUserFile, got);
-    }
 }
 
-std::string user_path(int argc, t_atom* argv) {
-    if (argc > 0 && argv[0].a_type == A_SYMBOL) return join(g_ext_dir, atom_getsymbol(argv)->s_name);
-    return g_ext_dir + "/" + kUserFile;
+// ---- folders ----------------------------------------------------------------------
+
+std::string parent_path(const std::string& p) {
+    const size_t k = p.rfind(' ');
+    return k == std::string::npos ? "" : p.substr(0, k);
+}
+
+const LibFile* lib_file(const std::string& f) {
+    for (const LibFile& lf : g_files) if (lf.file == f) return &lf;
+    return nullptr;
+}
+
+int lib_index(const std::string& file, const std::string& path, int index) {
+    for (size_t i = 0; i < g_lib.size(); ++i)
+        if (g_lib[i].file == file && (path.empty() ? g_lib[i].index == index : g_lib[i].path == path))
+            return static_cast<int>(i);
+    return -1;
+}
+
+struct BItem {
+    char kind;            // 'D' folder, 'I' instrument
+    std::string name;
+    std::string file, path;
+    int lib = -1;         // instrument: index in g_lib
+};
+
+// What a folder shows: at the top the images (folders) and EFE files, in an image
+// its directories and instruments in directory order.
+std::vector<BItem> folder_items(const std::string& file, const std::string& dir) {
+    std::vector<BItem> v;
+    if (file.empty()) {
+        for (const LibFile& lf : g_files) {
+            if (lf.image) { v.push_back({'D', lf.file, lf.file, "", -1}); continue; }
+            const int li = lib_index(lf.file, "", 0);
+            if (li >= 0) v.push_back({'I', g_lib[size_t(li)].name, lf.file, "", li});
+        }
+        return v;
+    }
+    const LibFile* lf = lib_file(file);
+    if (!lf) return v;
+    for (const eps::DirEntry& e : lf->entries) {
+        if (parent_path(e.path) != dir) continue;
+        if (e.type == eps::kSubdir) v.push_back({'D', spaces_to_underscore(e.name), file, e.path, -1});
+        else if (e.type == eps::kInstrument) v.push_back({'I', spaces_to_underscore(e.name), file, e.path, lib_index(file, e.path, 0)});
+    }
+    return v;
+}
+
+// "IMAGE.hda/PIANOS/GRAND" for a folder.
+std::string folder_text(const std::string& file, const std::string& dir) {
+    if (file.empty()) return "library";
+    std::string t = file;
+    const LibFile* lf = lib_file(file);
+    std::string p;
+    size_t pos = 0;
+    while (lf && pos < dir.size()) {
+        const size_t sp = dir.find(' ', pos);
+        p = dir.substr(0, sp == std::string::npos ? dir.size() : sp);
+        for (const eps::DirEntry& e : lf->entries) if (e.path == p) t += "/" + spaces_to_underscore(e.name);
+        pos = sp == std::string::npos ? dir.size() : sp + 1;
+    }
+    return t;
 }
 
 // ---- the loader thread ------------------------------------------------------------
@@ -378,7 +395,7 @@ struct Midi {
     bool in_sx = false;
 };
 
-enum Source { kNone = -1, kInit = 0, kLibrary = 1, kUser = 2, kOpen = 3 };
+enum Source { kNone = -1, kInit = 0, kLibrary = 1, kOpen = 3 };
 
 struct t_eps {
     t_object obj;
@@ -393,7 +410,10 @@ struct t_eps {
     int shown[kCtlCount];                // what outlet 3 said last
     float sr;
     int channel, txchannel, thru;
-    int source, index, last_user, store_to;
+    int source, index;
+    std::string* bfile;                  // the folder shown: library file ("" = top level)
+    std::string* bdir;                   // and directory in it (slot numbers)
+    int bsel;                            // the selected item in the folder
     LibEntry* entry;                     // what plays (or loads)
     std::string* name;
     float wheel, bend;
@@ -519,9 +539,6 @@ void out_source(t_eps* x) {
     if (x->source == kLibrary) {
         out_display(x, "Preset " + std::to_string(x->index), nm);
         out_slot(x, "preset", x->index, nm);
-    } else if (x->source == kUser) {
-        out_display(x, "User " + std::to_string(x->index), nm);
-        out_slot(x, "user", x->index, nm);
     } else if (x->source == kOpen) {
         out_display(x, "File", nm);
     } else if (x->source == kInit) {
@@ -534,6 +551,7 @@ void out_source(t_eps* x) {
 }
 
 void eps_poll(t_eps* x);
+void follow_entry(t_eps* x);
 
 // Ask the loader for an instrument; if it is busy, the newest request waits.
 void request(t_eps* x, const LibEntry& e) {
@@ -590,6 +608,7 @@ void eps_poll(t_eps* x) {
             SETFLOAT(&a[2], static_cast<t_float>(in.waveSamples.size()));
             outlet_anything(x->info, gensym("loaded"), 3, a);
             x->editor->fit(in);
+            follow_entry(x);
             out_sel(x);
             out_edump(x, "ilmwepf");
         }
@@ -617,48 +636,152 @@ bool select_library(t_eps* x, int n) {
     return true;
 }
 
-bool select_user(t_eps* x, int n) {
-    if (n < 0 || n >= kUserSlots || !g_user[n].used) return false;
-    for (int i = 0; i < kCtlCount; ++i)
-        if (kControls[i].kind == 'O') x->value[i] = g_user[n].value[i];
-    x->source = kUser;
-    x->index = n;
-    x->last_user = n;
-    // the same instrument again: only the controls change, nothing is loaded
-    const LibEntry& e = g_user[n].entry;
-    if (x->sampler && e.file == x->entry->file && e.index == x->entry->index) {
-        *x->name = e.name;
-        apply(x);
-        out_source(x);
+void out_folder(t_eps* x) {
+    const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+    if (x->bsel >= static_cast<int>(v.size())) x->bsel = static_cast<int>(v.size()) - 1;
+    if (x->bsel < 0) x->bsel = 0;
+    t_atom a[4];
+    SETSYMBOL(&a[0], gensym(folder_text(*x->bfile, *x->bdir).c_str()));
+    SETFLOAT(&a[1], static_cast<t_float>(v.size()));
+    outlet_anything(x->info, gensym("folder"), 2, a);
+    SETFLOAT(&a[0], x->bsel);
+    SETFLOAT(&a[1], static_cast<t_float>(v.size()));
+    const bool any = !v.empty();
+    SETSYMBOL(&a[2], gensym(any ? (v[size_t(x->bsel)].kind == 'D' ? "dir" : "inst") : "-"));
+    const std::string shown = any ? v[size_t(x->bsel)].name + (v[size_t(x->bsel)].kind == 'D' ? "/" : "") : "-";
+    SETSYMBOL(&a[3], gensym(shown.c_str()));
+    outlet_anything(x->info, gensym("bsel"), 4, a);
+}
+
+// Show the folder of the instrument that plays, with it selected.
+void follow_entry(t_eps* x) {
+    const LibEntry& e = *x->entry;
+    const LibFile* lf = lib_file(e.file);
+    if (!lf) return;
+    *x->bfile = lf->image ? e.file : "";
+    *x->bdir = lf->image ? parent_path(e.path) : "";
+    const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+    for (size_t i = 0; i < v.size(); ++i)
+        if (v[i].kind == 'I' && v[i].file == e.file && v[i].path == e.path) x->bsel = static_cast<int>(i);
+    out_folder(x);
+}
+
+// The offsets of the controls written into the instrument (as far as the EPS has
+// the parameter), then set to 0: what plays stays the same.
+void bake_offsets(t_eps* x) {
+    eps::Instrument& in = x->sampler->editInstrument();
+    auto v = [x](int c) { return x->value[c]; };
+    in.transpose = std::clamp(in.transpose + v(kC_transpose), -36, 36);
+    for (auto& kv : in.waveSamples) {
+        eps::WaveSample& w = kv.second;
+        w.filterCutoff[0] = std::clamp(w.filterCutoff[0] + v(kC_cut), 0, 150);
+        w.filterCutoff[1] = std::clamp(w.filterCutoff[1] + v(kC_cut2), 0, 150);
+        w.filterEnvAmount[0] = std::clamp(w.filterEnvAmount[0] + v(kC_fenv), -127, 127);
+        w.ampEnv.time[1] = std::clamp(w.ampEnv.time[1] + v(kC_att), 0, 99);
+        for (int i = 2; i <= 4; ++i) w.ampEnv.time[i] = std::clamp(w.ampEnv.time[i] + v(kC_dec), 0, 99);
+        for (int i = 5; i <= 6; ++i) w.ampEnv.time[i] = std::clamp(w.ampEnv.time[i] + v(kC_rel), 0, 99);
+        w.fineTune = std::clamp(w.fineTune + static_cast<int>(std::lround(v(kC_tune) * 128.0 / 100.0)), -127, 127);
+    }
+    for (int c : {kC_transpose, kC_cut, kC_cut2, kC_fenv, kC_att, kC_dec, kC_rel, kC_tune})
+        x->value[c] = kControls[c].def;
+    apply(x);
+}
+
+std::string pd_text(int argc, t_atom* argv) {
+    std::string t;
+    for (int i = 0; i < argc; ++i) {
+        char b[256];
+        atom_string(argv + i, b, sizeof b);
+        if (!t.empty()) t += ' ';
+        t += b;
+    }
+    return t;
+}
+
+// Write the instrument that plays. replace: over the file it came from; else a new
+// file `name` in the folder shown.
+bool save_instrument(t_eps* x, std::string name, bool replace, std::string& err) {
+    if (!x->sampler) { err = "nothing loaded"; return false; }
+    eps::Instrument& in = x->sampler->editInstrument();
+    const LibEntry src = *x->entry;
+    if (replace) name = in.name;
+    name = eps::ensoniqName(name);
+    if (name.empty()) { err = "no name"; return false; }
+    const std::string file = replace ? src.file : *x->bfile;
+    const LibFile* lf = file.empty() ? nullptr : lib_file(file);
+    if (replace && !lf) { err = "the instrument is not from the library"; return false; }
+    LibEntry ne;
+    ne.name = spaces_to_underscore(name);
+    // Everything that can refuse is checked before the offsets go into the instrument.
+    eps::Volume vol;
+    uint32_t dir = 3;
+    int replaceSlot = -1;
+    std::string dirPath, efePath;
+    if (lf && lf->image) {
+        const std::string img = join(g_lib_dir, file);
+        if (!vol.open(img, err)) return false;
+        vol.setJournal(img + ".undo");
+        dirPath = replace ? parent_path(src.path) : *x->bdir;
+        if (!vol.dirOfPath(dirPath, false, dir, err)) return false;
+        if (replace) {
+            const size_t sp = src.path.rfind(' ');
+            replaceSlot = std::atoi(src.path.c_str() + (sp == std::string::npos ? 0 : sp + 1));
+        } else {
+            std::vector<eps::FsEntry> l;
+            if (!vol.list(dir, l, err)) return false;
+            for (const eps::FsEntry& e : l)
+                if (e.type == eps::kInstrument && e.name == name) { err = name + " is already in this folder"; return false; }
+        }
     } else {
-        request(x, e);
-        apply(x);
+        ne.file = replace ? src.file : spaces_to_underscore(name) + ".efe";
+        efePath = join(g_lib_dir, ne.file);
+        if (!replace)
+            if (FILE* f = std::fopen(efePath.c_str(), "rb")) { std::fclose(f); err = ne.file + " is already there"; return false; }
     }
+    bake_offsets(x);
+    in.name = name;
+    std::vector<uint8_t> data;
+    if (!eps::encodeInstrument(in, data, err)) return false;
+    if (vol.isOpen()) {
+        int slot = -1;
+        bool exists = false;
+        if (!vol.writeFile(dir, name, eps::kInstrument, data, replaceSlot, slot, exists, err)) return false;
+        vol.close();
+        char num[8];
+        std::snprintf(num, sizeof num, "%02d", slot);
+        ne.file = file;
+        ne.path = dirPath.empty() ? num : dirPath + " " + num;
+    } else if (!eps::writeEfe(efePath, name, eps::kInstrument, data, err)) {
+        return false;
+    }
+    scan_library(g_lib_dir);
+    const int li = lib_index(ne.file, ne.path, 0);
+    ne.index = li >= 0 ? g_lib[size_t(li)].index : 0;
+    *x->entry = ne;
+    *x->name = ne.name;
+    x->source = kLibrary;
+    x->index = li;
+    follow_entry(x);
+    out_source(x);
+    out_value(x, "presets", static_cast<t_float>(g_lib.size()));
     return true;
 }
 
-void step_user(t_eps* x, int by) {
-    // the next used slot from the one chosen last, wrapping
-    int s = x->source == kUser ? x->index : x->last_user;
-    for (int k = 0; k < kUserSlots; ++k) {
-        s = ((s + (by >= 0 ? 1 : -1)) % kUserSlots + kUserSlots) % kUserSlots;
-        if (g_user[s].used) { select_user(x, s); return; }
+// A free name for the pads' save: the instrument's name with a number at the end.
+std::string free_name(t_eps* x) {
+    const std::string base = eps::ensoniqName(x->sampler ? x->sampler->instrument().name : "NEW");
+    const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+    for (int k = 1; k < 1000; ++k) {
+        const std::string suf = " " + std::to_string(k);
+        std::string b = base;
+        while (!b.empty() && b.size() + suf.size() > 12) b.pop_back();
+        while (!b.empty() && b.back() == ' ') b.pop_back();
+        const std::string cand = b + suf;
+        bool used = false;
+        for (const BItem& it : v) used = used || it.name == spaces_to_underscore(cand);
+        if (!used) return cand;
     }
-    out_display(x, "User bank", "empty");
-}
-
-bool store(t_eps* x, int n) {
-    if (n < 0) n = x->store_to >= 0 ? x->store_to : (x->last_user >= 0 ? x->last_user : 0);
-    if (n >= kUserSlots || x->entry->file.empty()) return false;
-    Slot& u = g_user[n];
-    u.used = true;
-    u.entry = *x->entry;
-    u.entry.name = *x->name;
-    for (int i = 0; i < kCtlCount; ++i) u.value[i] = x->value[i];
-    x->source = kUser;
-    x->index = n;
-    x->last_user = n;
-    return true;
+    return base;
 }
 
 void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
@@ -776,10 +899,84 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         x->index = -1;
         request(x, e);
         apply(x);
-    } else if (is("user")) {
-        if (argc < 1 || !select_user(x, n)) pd_error(x, "eps~: user: slot %d is empty", n);
+    } else if (is("browse")) {
+        out_folder(x);
+        return;
+    } else if (is("bstep") || is("bselect")) {
+        const int cnt = static_cast<int>(folder_items(*x->bfile, *x->bdir).size());
+        if (cnt) x->bsel = is("bselect") ? std::clamp(n, 0, cnt - 1)
+                                         : ((x->bsel + (argc > 0 ? n : 1)) % cnt + cnt) % cnt;
+        out_folder(x);
+        return;
+    } else if (is("benter")) {
+        const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+        if (x->bsel < 0 || x->bsel >= static_cast<int>(v.size())) return;
+        const BItem& it = v[size_t(x->bsel)];
+        if (it.kind == 'D') {
+            *x->bfile = it.file;
+            *x->bdir = it.path;
+            x->bsel = 0;
+            out_folder(x);
+        } else if (it.lib >= 0) {
+            select_library(x, it.lib);
+        }
+        return;
+    } else if (is("bup")) {
+        if (x->bfile->empty()) return;
+        const std::string from = *x->bdir;
+        if (x->bdir->empty()) {
+            const std::string was = *x->bfile;
+            x->bfile->clear();
+            const std::vector<BItem> v = folder_items("", "");
+            for (size_t i = 0; i < v.size(); ++i) if (v[i].file == was) x->bsel = static_cast<int>(i);
+        } else {
+            *x->bdir = parent_path(from);
+            const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+            for (size_t i = 0; i < v.size(); ++i) if (v[i].path == from) x->bsel = static_cast<int>(i);
+        }
+        out_folder(x);
+        return;
     } else if (is("userstep")) {
-        step_user(x, argc > 0 ? n : 1);
+        // the next instrument in the folder of the one playing
+        follow_entry(x);
+        const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+        const int cnt = static_cast<int>(v.size()), by = argc > 0 && n < 0 ? -1 : 1;
+        for (int k = 1; k <= cnt; ++k) {
+            const BItem& it = v[size_t(((x->bsel + by * k) % cnt + cnt) % cnt)];
+            if (it.kind == 'I' && it.lib >= 0) { select_library(x, it.lib); break; }
+        }
+    } else if (is("saveas") || is("replace") || is("save")) {
+        std::string err;
+        const bool rep = is("replace");
+        const std::string name = is("save") ? free_name(x) : pd_text(argc, argv);
+        if (!rep && name.empty()) { pd_error(x, "eps~: saveas: give a name"); return; }
+        if (!save_instrument(x, name, rep, err)) {
+            pd_error(x, "eps~: %s: %s", c, err.c_str());
+            out_display(x, "Not saved", err);
+        } else {
+            out_display(x, "Saved", *x->name);
+            outlet_anything(x->info, gensym("saved"), 0, nullptr);
+        }
+        report(x);
+        return;
+    } else if (is("mkdir")) {
+        std::string err;
+        const LibFile* lf = lib_file(*x->bfile);
+        if (!lf || !lf->image) { pd_error(x, "eps~: mkdir: open a folder in a disk image first"); return; }
+        eps::Volume vol;
+        const std::string img = join(g_lib_dir, *x->bfile);
+        uint32_t dir = 3;
+        int slot = -1;
+        const std::string nm = eps::ensoniqName(pd_text(argc, argv));
+        if (nm.empty() || !vol.open(img, err) || (vol.setJournal(img + ".undo"), !vol.dirOfPath(*x->bdir, false, dir, err)) ||
+            !vol.makeDir(dir, nm, slot, err)) {
+            pd_error(x, "eps~: mkdir: %s", nm.empty() ? "give a name" : err.c_str());
+            return;
+        }
+        vol.close();
+        scan_library(g_lib_dir);
+        out_folder(x);
+        return;
     } else if (is("init")) {
         set_defaults(x, true);
         x->source = kInit;
@@ -787,50 +984,9 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         out_source(x);
     } else if (is("reload")) {
         if (x->source == kLibrary) select_library(x, x->index);
-        else if (x->source == kUser) select_user(x, x->index);
-    } else if (is("store")) {
-        if (!store(x, argc > 0 ? n : -1)) pd_error(x, "eps~: store: nothing loaded, or not 0..%d", kUserSlots - 1);
-        else out_display(x, "Stored", "User " + std::to_string(x->index));
-    } else if (is("savearm")) {
-        x->store_to = x->last_user >= 0 ? x->last_user : 0;
-        out_display(x, "Store to?", "User " + std::to_string(x->store_to));
-        return;
-    } else if (is("saveslot")) {
-        if (x->store_to >= 0) {
-            x->store_to = ((x->store_to + (argc > 0 ? n : 1)) % kUserSlots + kUserSlots) % kUserSlots;
-            out_display(x, "Store to?", "User " + std::to_string(x->store_to));
-        }
-        return;
-    } else if (is("savecancel")) {
-        if (x->store_to >= 0) out_display(x, "Store", "cancelled");
-        x->store_to = -1;
-        return;
-    } else if (is("save")) {
-        const bool ok = store(x, -1);
-        x->store_to = -1;
-        if (ok) {
-            std::string err;
-            if (!write_user(g_ext_dir + "/" + kUserFile, err)) pd_error(x, "eps~: save: %s", err.c_str());
-            out_display(x, "Stored", "User " + std::to_string(x->index));
-        }
-    } else if (is("userwrite")) {
-        std::string err;
-        const std::string path = user_path(argc, argv);
-        if (!write_user(path, err)) pd_error(x, "eps~: userwrite: %s", err.c_str());
-        else post("eps~: user bank written to %s", path.c_str());
-    } else if (is("userread")) {
-        std::string err;
-        const std::string path = user_path(argc, argv);
-        const int got = read_user(path, err);
-        if (got < 0) pd_error(x, "eps~: userread: %s", err.c_str());
-        else post("eps~: user bank: %d slots from %s", got, path.c_str());
     } else if (is("presets")) {
         for (size_t i = 0; i < g_lib.size(); ++i) out_slot(x, "preset", static_cast<int>(i), g_lib[i].name);
         out_value(x, "presets", static_cast<t_float>(g_lib.size()));
-    } else if (is("users")) {
-        for (int i = 0; i < kUserSlots; ++i)
-            if (g_user[i].used) out_slot(x, "user", i, g_user[i].entry.name);
-        out_value(x, "users", kUserSlots);
     } else if (is("channel")) {
         x->channel = std::clamp(n, 0, 16);
         out_value(x, "channel", x->channel);
@@ -967,8 +1123,7 @@ void midi_message(t_eps* x, int status, int d1, int d2) {
                     return;   // the CC pages belong to [epscc]
             }
         case 0xC0:
-            if (x->source == kUser && d1 < kUserSlots && g_user[d1].used) select_user(x, d1);
-            else select_library(x, d1);
+            select_library(x, d1);
             report(x);
             return;
         case 0xA0:
@@ -1059,8 +1214,9 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->thru = 1;
     x->source = kNone;
     x->index = -1;
-    x->last_user = -1;
-    x->store_to = -1;
+    x->bfile = new std::string();
+    x->bdir = new std::string();
+    x->bsel = 0;
     x->wheel = 0;
     x->bend = 0;
     x->ctl[0] = x->ctl[1] = x->ctl[2] = 0;
@@ -1104,6 +1260,8 @@ void eps_free(t_eps* x) {
     delete x->pending_entry;
     delete x->name;
     delete x->editor;
+    delete x->bfile;
+    delete x->bdir;
 }
 
 }  // namespace
