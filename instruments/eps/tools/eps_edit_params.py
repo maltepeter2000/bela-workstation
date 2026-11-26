@@ -64,6 +64,8 @@ PARAMS = [
     ("w_lstf", "fine", "f", "2", 0, 127, "n", "loop start, fine"),
     ("w_lend", "Loop end", "p", "3", 0, 127, "n", "loop end, coarse"),
     ("w_lendf", "fine", "f", "3", 0, 127, "n", "loop end, fine"),
+    ("w_lpos", "Loop pos", "p", "4", 0, 127, "n", "loop position: moves loop start and end together, coarse"),
+    ("w_lposf", "fine", "f", "4", 0, 127, "n", "loop position, fine"),
     # wavesample: loop and wave modulation
     ("w_loop", "Loop mode", "w", "W.loopMode", 0, 4, LOOPMODE, "loop mode"),
     ("w_keylo", "WS key low", "w", "W.keyLow", 21, 108, "note", "lowest key of the wavesample in the layer"),
@@ -150,7 +152,7 @@ ROWS_LEFT = [
     ("LAYER", ["l_vello", "l_velhi", "l_glmode", "l_gltime", "l_delay", "l_dlyvel", "l_restrk", "l_legato"]),
     ("LAYER PATCHES", ["l_in00", "l_in0x", "l_inx0", "l_inxx", "l_keyup", "l_stlink", "l_ptable", None]),
     ("WS POINTS", ["w_sst", "w_sstf", "w_send", "w_sendf", "w_lst", "w_lstf", "w_lend", "w_lendf"]),
-    ("WS LOOP / WAVE MOD", ["w_loop", "w_keylo", "w_keyhi", "w_wmsrc", "w_wmamt", "w_wmtype", "w_wmrng", None]),
+    ("WS LOOP / KEYS", ["w_loop", "w_lpos", "w_lposf", None, "w_keylo", "w_keyhi", None, None]),
     ("WS PITCH", ["w_root", "w_fine", "w_bend", "w_penv", "w_plfo", "w_psrc", "w_pamt", "w_rand"]),
 ]
 ROWS_RIGHT = [
@@ -162,6 +164,7 @@ ROWS_RIGHT = [
     ("ENV LEVELS HARD", ["e_l0h", "e_l1h", "e_l2h", "e_l3h", "e_l4h", "e_l5", "e_mode", "e_type"]),
     ("ENV LEVELS SOFT", ["e_l0s", "e_l1s", "e_l2s", "e_l3s", "e_l4s", "e_t1vel", "e_kbs", "e_vsw"]),
     ("ENV TIMES", ["e_t1", "e_t2", "e_t3", "e_t4", "e_t5", "e_t6", None, None]),
+    ("WS WAVE MOD", ["w_wmsrc", "w_wmamt", "w_wmtype", "w_wmrng", None, None, None, None]),
 ]
 
 P = {p[0]: p for p in PARAMS}

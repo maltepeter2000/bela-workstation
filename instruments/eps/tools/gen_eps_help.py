@@ -72,7 +72,7 @@ EDITOR = [
     "SELECT band: the layer and the wavesample the LAYER and WS rows show, with their names "
     "and the key range, root key, rate and length of the wavesample. envelope: which one the "
     "ENV rows show (1 pitch, 2 filter, 3 amp). follow key (on by default): a played key "
-    "selects its layer and wavesample, the rows jump to their values; when several layers "
+    "selects its layer and wavesample, the rows jump to their values, and when several layers "
     "play the key, the layer chosen stays and its wavesample follows. zero crossings (on by "
     "default): sample and loop points move to the nearest rising zero crossing.",
     "SAMPLE band: the wave recorder, see Sampling. rate with its arrows, threshold, pre "
@@ -86,7 +86,8 @@ EDITOR = [
     "and end), rate, smooth, copy to layer and with data are the values the commands take.",
     "Sample and loop points have two cells each: the first sets the position coarsely, in "
     "steps of 1/127 of the sample, the second (fine) moves it by -64 to +63 samples from "
-    "there. The box shows the sample number. Edits change the playing instrument at once "
+    "there. Loop pos moves loop start and end together, the loop keeps its length "
+    "(and pitch), as LOOPPOS on the EPS, and shows the loop start. The box shows the sample number. Edits change the playing instrument at once "
     "(the next note, filter, amp, pan, LFO and wave modulation also sounding notes). They "
     "are kept with replace, save copy or save as, a reload or an instrument change drops "
     "them.",

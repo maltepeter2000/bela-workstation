@@ -234,8 +234,8 @@ def gui(c):
                       f" {S.WIDGET} {S.INK} {S.INK} 0 1;")
                 c.add(f"#X floatatom {x} {yc + 46} 3 0 127 0 - {D}0-v-{nm} {D}0-e-{nm};")
                 c.add(f"#X symbolatom {x + 26} {yc + 46} 7 0 0 0 - {D}0-t-{nm} -;")
-    sample_band(c, TOP + max(len(LEFT), len(RIGHT)) * ROWH)
-    command_band(c, TOP + max(len(LEFT), len(RIGHT)) * ROWH)
+    sample_band(c, TOP + len(LEFT) * ROWH)
+    command_band(c, TOP + len(RIGHT) * ROWH)
 
 
 def logic():

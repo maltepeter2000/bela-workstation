@@ -81,9 +81,9 @@ void Editor::fit(const Instrument &in) {
     }
     if (!in.waveSamples.count(ws)) ws = in.waveSamples.empty() ? 1 : in.waveSamples.begin()->first;
     env = std::clamp(env, 0, 2);
-    for (int i = 0; i < 4; ++i) anchor_[i] = 0;
+    for (int i = 0; i < 5; ++i) anchor_[i] = 0;
     if (const auto it = in.waveSamples.find(ws); it != in.waveSamples.end())
-        for (int i = 0; i < 4; ++i) anchor_[i] = point(it->second, i);
+        for (int i = 0; i < 5; ++i) anchor_[i] = point(it->second, i);
 }
 
 bool Editor::followKey(const Instrument &in, int key, int patchMask) {
@@ -129,7 +129,8 @@ uint32_t Editor::point(const WaveSample &w, int i) const {
         case 0: return w.sampleStart;
         case 1: return w.sampleEnd;
         case 2: return w.loopStart;
-        default: return w.loopEnd;
+        case 3: return w.loopEnd;
+        default: return w.loopStart;   // 4: loop position, shown as the loop start (as on the EPS)
     }
 }
 
@@ -148,6 +149,18 @@ void Editor::setPoint(Instrument &in, WaveSample &w, int i, int64_t pos) {
         }
     }
     int64_t s = w.sampleStart, e = w.sampleEnd, ls = w.loopStart, le = w.loopEnd;
+    if (i == 4) {
+        // loop position: loop start and end move together, the loop keeps its length (and
+        // the fine part of its end), so its pitch stays
+        const int64_t len = int64_t(w.rawLoopEnd >> 9) - int64_t(w.rawLoopStart >> 9);
+        const int64_t to = std::clamp<int64_t>(pos, s, std::max<int64_t>(s, e - len));
+        const int64_t d = to - int64_t(w.rawLoopStart >> 9);
+        w.rawLoopStart = uint32_t(int64_t(w.rawLoopStart) + d * 512);
+        w.rawLoopEnd = uint32_t(int64_t(w.rawLoopEnd) + d * 512);
+        w.loopStart = w.rawLoopStart >> 9;
+        w.loopEnd = (w.rawLoopEnd >> 9) + ((w.rawLoopEnd >> 5) & 0xF);
+        return;
+    }
     switch (i) {
         case 0: s = std::min(pos, ls); break;
         case 1: e = std::max(pos, le); break;
@@ -221,6 +234,10 @@ void Editor::set127(Instrument &in, int id, double x) {
         } else {
             setPoint(in, *w, i, int64_t(anchor_[i]) + int64_t(std::lround(x)) - 64);
         }
+        // the other points may have moved with it (loop position, limits): their fine
+        // cells count from where they are now
+        for (int j = 0; j < 5; ++j)
+            if (j != i) anchor_[j] = point(*w, j);
         return;
     }
     setValue(in, id, from127(p.lo, p.hi, x));

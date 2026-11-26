@@ -48,7 +48,7 @@ private:
     Envelope *envP(Instrument &in) const;
     uint32_t point(const WaveSample &w, int i) const;
     void setPoint(Instrument &in, WaveSample &w, int i, int64_t pos);
-    uint32_t anchor_[4] = {0, 0, 0, 0};           // coarse position of each point
+    uint32_t anchor_[5] = {0, 0, 0, 0, 0};        // coarse position of each point (4: loop position)
 };
 
 } // namespace eps

@@ -36,6 +36,8 @@ static const EditParam kEditParams[] = {
     {"w_lstf", "fine", 'f', 0, 127, "n", 2},
     {"w_lend", "Loop end", 'p', 0, 127, "n", 3},
     {"w_lendf", "fine", 'f', 0, 127, "n", 3},
+    {"w_lpos", "Loop pos", 'p', 0, 127, "n", 4},
+    {"w_lposf", "fine", 'f', 0, 127, "n", 4},
     {"w_loop", "Loop mode", 'w', 0, 4, "fwd|bwd|loop|bidir|untilrel", -1},
     {"w_keylo", "WS key low", 'w', 21, 108, "note", -1},
     {"w_keyhi", "WS key high", 'w', 21, 108, "note", -1},
@@ -108,7 +110,7 @@ static const EditParam kEditParams[] = {
     {"e_t5", "T5 release", 'e', 0, 99, "n", -1},
     {"e_t6", "T6 release", 'e', 0, 99, "n", -1},
 };
-constexpr int kEditParamCount = 101;
+constexpr int kEditParamCount = 103;
 
 // The field of an i, l, w or e parameter (nullptr for the others); defined where
 // EPS_EDIT_FIELDS is set (eps_edit.cpp).
@@ -133,77 +135,77 @@ int *editField(int id, Instrument &I, Layer *Lp, WaveSample *Wp, Envelope *Ep) {
         case 14: if (!Lp) return nullptr; { Layer &L = *Lp; return &L.legatoLayer; }
         case 20: if (!Lp) return nullptr; { Layer &L = *Lp; return &L.stereoLink; }
         case 21: if (!Lp) return nullptr; { Layer &L = *Lp; return &L.pitchTable; }
-        case 30: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.loopMode; }
-        case 31: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.keyLow; }
-        case 32: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.keyHigh; }
-        case 33: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.waveModRaw[0]; }
-        case 34: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.waveModRaw[1]; }
-        case 35: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.waveModRaw[3]; }
-        case 36: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.waveModRaw[2]; }
-        case 37: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.rootNote; }
-        case 38: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.fineTune; }
-        case 39: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.pitchBendRange; }
-        case 40: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.pitchEnvAmount; }
-        case 41: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoPitchAmount; }
-        case 42: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.pitchModSource; }
-        case 43: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.pitchModAmount; }
-        case 44: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.randomModAmount; }
-        case 45: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterMode; }
-        case 46: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterCutoff[0]; }
-        case 47: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterKeyAmount[0]; }
-        case 48: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterEnvAmount[0]; }
-        case 49: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterModSource[0]; }
-        case 50: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterModAmount[0]; }
-        case 51: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterCutoff[1]; }
-        case 52: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterKeyAmount[1]; }
-        case 53: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterEnvAmount[1]; }
-        case 54: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterModSource[1]; }
-        case 55: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterModAmount[1]; }
-        case 56: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.volume; }
-        case 57: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.panSigned; }
-        case 58: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.boost; }
-        case 59: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.ampModSource; }
-        case 60: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.ampModAmount; }
-        case 61: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.panModSource; }
-        case 62: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.panModAmount; }
-        case 63: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.outputBus; }
-        case 64: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoWaveform; }
-        case 65: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoSpeed; }
-        case 66: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoDepth; }
-        case 67: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoDelay; }
-        case 68: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoMode; }
-        case 69: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoRateModSource; }
-        case 70: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoRateModAmount; }
-        case 71: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.randomFreq; }
-        case 72: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.crossfade[0]; }
-        case 73: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.crossfade[1]; }
-        case 74: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.crossfade[2]; }
-        case 75: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.crossfade[3]; }
-        case 76: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.volumeModCrossfadeCurve; }
-        case 77: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoDepthModSource; }
-        case 78: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoDepthModAmount; }
-        case 79: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[0]; }
-        case 80: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[1]; }
-        case 81: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[2]; }
-        case 82: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[3]; }
-        case 83: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[4]; }
-        case 84: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.level5; }
-        case 85: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.mode; }
-        case 86: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.type; }
-        case 87: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[0]; }
-        case 88: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[1]; }
-        case 89: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[2]; }
-        case 90: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[3]; }
-        case 91: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[4]; }
-        case 92: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time1VelSens; }
-        case 93: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.kbTimeScaling; }
-        case 94: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.velocitySwitch; }
-        case 95: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[1]; }
-        case 96: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[2]; }
-        case 97: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[3]; }
-        case 98: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[4]; }
-        case 99: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[5]; }
-        case 100: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[6]; }
+        case 32: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.loopMode; }
+        case 33: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.keyLow; }
+        case 34: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.keyHigh; }
+        case 35: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.waveModRaw[0]; }
+        case 36: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.waveModRaw[1]; }
+        case 37: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.waveModRaw[3]; }
+        case 38: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.waveModRaw[2]; }
+        case 39: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.rootNote; }
+        case 40: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.fineTune; }
+        case 41: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.pitchBendRange; }
+        case 42: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.pitchEnvAmount; }
+        case 43: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoPitchAmount; }
+        case 44: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.pitchModSource; }
+        case 45: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.pitchModAmount; }
+        case 46: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.randomModAmount; }
+        case 47: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterMode; }
+        case 48: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterCutoff[0]; }
+        case 49: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterKeyAmount[0]; }
+        case 50: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterEnvAmount[0]; }
+        case 51: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterModSource[0]; }
+        case 52: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterModAmount[0]; }
+        case 53: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterCutoff[1]; }
+        case 54: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterKeyAmount[1]; }
+        case 55: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterEnvAmount[1]; }
+        case 56: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterModSource[1]; }
+        case 57: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.filterModAmount[1]; }
+        case 58: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.volume; }
+        case 59: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.panSigned; }
+        case 60: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.boost; }
+        case 61: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.ampModSource; }
+        case 62: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.ampModAmount; }
+        case 63: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.panModSource; }
+        case 64: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.panModAmount; }
+        case 65: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.outputBus; }
+        case 66: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoWaveform; }
+        case 67: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoSpeed; }
+        case 68: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoDepth; }
+        case 69: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoDelay; }
+        case 70: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoMode; }
+        case 71: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoRateModSource; }
+        case 72: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoRateModAmount; }
+        case 73: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.randomFreq; }
+        case 74: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.crossfade[0]; }
+        case 75: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.crossfade[1]; }
+        case 76: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.crossfade[2]; }
+        case 77: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.crossfade[3]; }
+        case 78: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.volumeModCrossfadeCurve; }
+        case 79: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoDepthModSource; }
+        case 80: if (!Wp) return nullptr; { WaveSample &W = *Wp; return &W.lfoDepthModAmount; }
+        case 81: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[0]; }
+        case 82: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[1]; }
+        case 83: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[2]; }
+        case 84: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[3]; }
+        case 85: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.hardLevel[4]; }
+        case 86: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.level5; }
+        case 87: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.mode; }
+        case 88: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.type; }
+        case 89: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[0]; }
+        case 90: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[1]; }
+        case 91: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[2]; }
+        case 92: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[3]; }
+        case 93: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.softLevel[4]; }
+        case 94: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time1VelSens; }
+        case 95: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.kbTimeScaling; }
+        case 96: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.velocitySwitch; }
+        case 97: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[1]; }
+        case 98: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[2]; }
+        case 99: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[3]; }
+        case 100: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[4]; }
+        case 101: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[5]; }
+        case 102: if (!Ep) return nullptr; { Envelope &E = *Ep; return &E.time[6]; }
         default: return nullptr;
     }
 }
