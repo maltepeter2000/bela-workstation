@@ -633,7 +633,12 @@ void Sampler::updateControl(int v, float dt) {
                          off_.tune / 100.0 + double(vib);
     // FC has 10 fractional bits but bit 0 is ignored by the chip: round to the
     // nearest even value (2/1024 steps, as on the original hardware).
-    long fc = std::lround(sl.baseRatio * std::pow(2.0, semis / 12.0) * 512.0) * 2;
+    double ratio = sl.baseRatio * std::pow(2.0, semis / 12.0);
+    // Loop start-X: the OS raises the pitch with the loop length, so the loop
+    // keeps its period (measured; sounds like hard sync).
+    if (sl.waveModType == 5 && sl.loopEnd > sl.loopStart)
+        ratio *= double(int64_t(sl.loopEnd) - sl.loopStart - sl.startShift) / double(sl.loopEnd - sl.loopStart);
+    long fc = std::lround(ratio * 512.0) * 2;
     chip_.writeReg(v, otis::FC, uint16_t(fc < 2 ? 2 : (fc > 0xfffe ? 0xfffe : fc)));
     updateWaveMod(v);
 }
@@ -652,8 +657,8 @@ void Sampler::setPolyPressure(int note, float value) {
 //   2 start + loop pos     both
 //   3 loop start           the loop start moves, the end stays
 //   4 loop end             the loop end moves, the start stays
-//   5 loop start-X         the loop start moves back (CALIBRATE: law fitted to
-//                          two measured points, about 0.28 * range * value^2)
+//   5 loop start-X         the loop start moves back, exponentially, and the pitch
+//                          rises with the loop length (hard sync)
 //   6 transwave            the window jumps in steps of the loop length
 // Measured on the original OS: the travel is RANGE * amount/128 * value * 127/128
 // samples (RANGE 2^(21-n), 6 = 32K); transwave takes floor(amount/128 * value *
@@ -681,8 +686,15 @@ void Sampler::updateWaveMod(int v) {
         if (type == 4) en = std::min<int64_t>(std::max<int64_t>(en + d, st + 2), sl.sampleEnd);
         else if (type == 3) st = std::max<int64_t>(std::min<int64_t>(st + d, en - 2), sl.sampleStart);
         else {
-            const double f = double(m < 0.f ? 0.f : m);
-            st = std::max<int64_t>(st - int64_t(std::lround(0.28 * sl.waveModRange * f * f)), sl.sampleStart);
+            // Loop start-X: the loop grows backwards, 2^(5.25 * value) times as
+            // long at full amount, whatever the range (measured: 2.5x at wheel 32,
+            // 6.3x at 64). The pitch follows (see updateControl). Like the
+            // original it reaches in front of the sample start, into whatever lies
+            // before it in memory; the original wraps around at the very bottom,
+            // eps~ stops at address 0.
+            const double f = double(m < 0.f ? 0.f : m) * 128.0 / 127.0;
+            const double len = double(loopLen) * std::exp2(5.25 * f);
+            st = std::max<int64_t>(en - int64_t(std::lround(len)), -int64_t(sl.base));
         }
         if (st - sl.loopStart == sl.startShift && en - sl.loopEnd == sl.endShift) return;
         sl.startShift = st - sl.loopStart;

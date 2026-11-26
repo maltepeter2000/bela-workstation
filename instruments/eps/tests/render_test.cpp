@@ -313,6 +313,34 @@ static void modulation_tests(const eps::Instrument &base) {
         printf("  random on pitch: swing %.0f cent in 2 s\n", 1200 * std::log2(hi / lo));
         CHECK(1200 * std::log2(hi / lo) > 30 && 1200 * std::log2(hi / lo) <= 205);
     }
+    // Loop start-X on WS1 (loop 200..1000, first in memory): the loop grows
+    // backwards 2^(5.25 * value) times (measured) and the pitch follows the loop
+    // length. Wheel 0.1: 800 * 2^(0.525) = 1151 -> start 1000 - 1151 < 0 ->
+    // stops at address 0; wheel 0.05: 800 * 2^(0.2625) = 959 -> start 41.
+    {
+        auto lsx = [&](float wheel, uint32_t &st, double &fcv) {
+            eps::Instrument in = base;
+            eps::WaveSample &w = in.waveSamples[1];
+            w.waveModRaw[0] = eps::kSrcWheel;
+            w.waveModRaw[1] = 127;
+            w.waveModRaw[2] = 6;
+            w.waveModRaw[3] = 6;   // loop start-X
+            eps::Sampler s(set);
+            s.load(in, err);
+            s.setModWheel(wheel * 127.f / 128.f);
+            s.noteOn(50, 100);
+            run(s, 64); run(s, 64);
+            const int v = sounding(s);
+            st = s.chipForDebug().voice(v).start >> 11;
+            fcv = fc(s, v);
+        };
+        uint32_t st0, st1, st2; double f0v, f1v, f2v;
+        lsx(0.f, st0, f0v); lsx(0.05f, st1, f1v); lsx(0.1f, st2, f2v);
+        printf("  loop start-X: start %u / %u / %u, pitch x%.3f / x%.3f\n", st0, st1, st2, f1v / f0v, f2v / f0v);
+        CHECK(st0 == 200 && st1 >= 38 && st1 <= 44 && st2 == 0);
+        CHECK(std::fabs(f1v / f0v - (1000.0 - st1) / 800.0) < 0.01 && std::fabs(f2v / f0v - 1.25) < 0.01);
+    }
+
     // wave mod types 1 (sample start), 3 (loop start), 4 (loop end) on WS1
     // (loop 200..1000, end 1099), wheel = 1, range 13 = 256 samples; travel
     // 256 * 127/128 * 127/128 = 252
