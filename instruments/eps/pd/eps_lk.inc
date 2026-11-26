@@ -295,6 +295,17 @@ bool lk_text(t_eps* x, const std::string& title, const std::string& value) {
     return true;
 }
 
+// The level display of the SAMPLE page as a picture: the bar, the threshold dotted, the state.
+void lk_meter(t_eps* x, float db) {
+    if (!lk_drawing(x) || x->lk->area() != eps::kAreaSample) return;
+    x->scr->db = db;
+    const Recorder& R = *x->rec;
+    char b[48];
+    std::snprintf(b, sizeof b, "E18 %s THRS %d", rate_text(rec_rate_hz(R)).c_str(), R.thresh);
+    x->legendUntil = 0;
+    lkg_pd_show(x->gfx, 13, lk_up(b, 21).c_str(), "");
+}
+
 void lk_draw(t_eps* x, lkg_t* g, int kind) {
     const LkScreen& s = *x->scr;
     if (kind == 10) {                    // two big lines, the chosen option underlined
@@ -316,6 +327,19 @@ void lk_draw(t_eps* x, lkg_t* g, int kind) {
             const int w = 6 * static_cast<int>(std::strlen(t)) - 1;
             lkg_text(g, bx + (31 - w) / 2, by + 6, t);
         }
+    } else if (kind == 13) {             // the level: -57 .. 0 dB over the width
+        const Recorder& R = *x->rec;
+        const int w = std::clamp(static_cast<int>((s.db + 57.f) / 57.f * LKG_W), 0, LKG_W);
+        lkg_rect(g, 0, 12, LKG_W, 16);
+        if (w > 0) lkg_fill(g, 0, 12, w, 16);
+        if (R.thresh > 0) {
+            const int tx = std::clamp(R.thresh * LKG_W / 20, 1, LKG_W - 2);
+            lkg_vdots(g, tx, 9, 31, 2);
+        }
+        char b[32];
+        if (R.state == Recorder::Recording) std::snprintf(b, sizeof b, "REC %.1fS", R.len / R.recSr);
+        else std::snprintf(b, sizeof b, "%s", R.state == Recorder::Armed ? "ARMED" : "LEVEL");
+        lkg_text2(g, 2, 33, b);
     } else if (kind == 12) {             // the pads: top row, then bottom row, 4 a line
         const char* const* t = x->lk->mode == eps::Surface::Play ? eps::kPadsPlay : eps::kPadsEdit;
         for (int i = 0; i < 16; ++i) {

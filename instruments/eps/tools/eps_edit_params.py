@@ -36,7 +36,9 @@ PARAMS = [
     ("i_keylo", "Key low", "i", "I.keyLow", 21, 108, "note", "lowest key the instrument plays"),
     ("i_keyhi", "Key high", "i", "I.keyHigh", 21, 108, "note", "highest key the instrument plays"),
     ("i_press", "Pressure", "i", "I.pressureMode", 0, 3, "n", "pressure mode as stored (0..3)"),
-    ("i_psel", "Patch mode", "i", "I.patchSelectMode", 0, 3, "n", "patch select mode as stored"),
+    ("i_psel", "Patch mode", "i", "I.patchSelectMode", 0, 4, "LIVE|HELD|0*|*0|**",
+     "patch select mode: LIVE and HELD start in patch 00, 0* *0 ** start in that patch (measured in "
+     "the OS: the patch the instrument plays after loading)"),
     ("i_prog", "MIDI prog", "i", "I.midiProgram", 0, 127, "n", "MIDI program as stored"),
     ("i_mout", "MIDI out ch", "i", "I.midiOutChannel", 0, 16, "n", "MIDI out channel as stored"),
     # layer

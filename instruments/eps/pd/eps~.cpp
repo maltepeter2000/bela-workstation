@@ -464,6 +464,7 @@ struct Recorder {
 struct LkScreen {
     std::string b1, b2;
     int ulFrom = -1, ulLen = 0;
+    float db = -100.f;                   // the level on the SAMPLE page
 };
 
 struct t_eps {
@@ -544,6 +545,7 @@ bool lk_shown(t_eps* x, const char* name, const std::string& label, const std::s
 void lk_draw(t_eps* x, lkg_t* g, int kind);
 void lk_refresh(t_eps* x, bool force);
 void lk_show_home(t_eps* x);
+void lk_meter(t_eps* x, float db);
 
 // A text for the display: drawn by the Launchkey surface when it is on, else the text line.
 void out_display(t_eps* x, const std::string& title, const std::string& value) {
@@ -830,6 +832,14 @@ void eps_poll(t_eps* x) {
                 L.trash.emplace_back(old);
             }
             *x->name = spaces_to_underscore(nm);
+            if (!made) {
+                // the patch select mode of the instrument: 0* *0 ** start in that patch,
+                // LIVE and HELD in 00 (as the OS does after loading)
+                const int psel = x->sampler->instrument().patchSelectMode;
+                x->value[kC_patch] = psel >= 2 && psel <= 4 ? psel - 1 : 0;
+                apply(x);
+                report(x);
+            }
             out_source(x);
             const eps::Instrument& in = x->sampler->instrument();
             if (made && x->rec->result && x->jobkind == 2) {
@@ -1139,6 +1149,7 @@ void out_recmeter(t_eps* x) {
     t_atom a;
     SETSYMBOL(&a, gensym(m.c_str()));
     outlet_anything(x->info, gensym("recmeter"), 1, &a);
+    lk_meter(x, db);
 }
 
 void rec_stop(t_eps* x);

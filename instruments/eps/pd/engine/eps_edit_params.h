@@ -10,7 +10,7 @@ static const EditParam kEditParams[] = {
     {"i_keylo", "Key low", 'i', 21, 108, "note", -1},
     {"i_keyhi", "Key high", 'i', 21, 108, "note", -1},
     {"i_press", "Pressure", 'i', 0, 3, "n", -1},
-    {"i_psel", "Patch mode", 'i', 0, 3, "n", -1},
+    {"i_psel", "Patch mode", 'i', 0, 4, "LIVE|HELD|0*|*0|**", -1},
     {"i_prog", "MIDI prog", 'i', 0, 127, "n", -1},
     {"i_mout", "MIDI out ch", 'i', 0, 16, "n", -1},
     {"l_vello", "Vel low", 'l', 0, 127, "n", -1},
