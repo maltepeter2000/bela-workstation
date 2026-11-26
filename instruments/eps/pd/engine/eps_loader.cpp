@@ -322,8 +322,13 @@ bool parseInstrument(const uint8_t *data, size_t size, const std::string &fallba
         }
         WaveSample ws;
         if (!parseWaveSample(i, data + off + 4, len - 4, ws, err)) return false;
+        if (!ws.pcm.empty() && (off % 2) == 0) ws.imageWord = (off + kWaveSampleHeader) / 2;
         out.waveSamples[i] = std::move(ws);
     }
+    // The whole instrument as the EPS holds it in sample memory: headers, layers
+    // and PCM in file order, 16-bit words (measured on the original OS).
+    out.image.resize(size / 2);
+    for (size_t i = 0; i < out.image.size(); ++i) out.image[i] = int16_t(be16(data + 2 * i));
     return true;
 }
 

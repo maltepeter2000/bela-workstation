@@ -167,34 +167,56 @@ Sampler::Sampler(const Settings &s) : s_(s) {
     buildFilterTables();
 }
 
+constexpr uint32_t kImageBase = 1792;
+
 bool Sampler::load(const Instrument &inst, std::string &err) {
     allNotesOff();
     for (auto &sl : slots_) sl = Slot();
     loaded_ = false;
     inst_ = inst;
 
-    // Place every PCM owner in bank 0 or, if full, bank 1 (1M words each).
-    // Two extra words of padding after each sample keep interpolation clean.
     constexpr uint32_t kBankWords = 1u << 20;
     uint32_t used[2] = {0, 0};
     std::vector<int> bankOf(128, -1);
     wsBase_.assign(128, 0);
-    for (auto &kv : inst_.waveSamples) {
-        const WaveSample &ws = kv.second;
-        if (ws.copyOfWaveSample || ws.pcm.empty()) continue;
-        uint32_t need = uint32_t(ws.pcm.size()) + 2;
-        int bank = used[0] + need <= kBankWords ? 0 : (used[1] + need <= kBankWords ? 1 : -1);
-        if (bank < 0) { err = "instrument exceeds 2M words of sample memory"; return false; }
-        bankOf[ws.index] = bank;
-        wsBase_[ws.index] = used[bank];
-        used[bank] += need;
-    }
-    ram_.assign(size_t(used[0]) + used[1], 0);
-    for (auto &kv : inst_.waveSamples) {
-        const WaveSample &ws = kv.second;
-        if (bankOf[ws.index] < 0) continue;
-        size_t off = (bankOf[ws.index] ? used[0] : 0) + wsBase_[ws.index];
-        std::memcpy(&ram_[off], ws.pcm.data(), ws.pcm.size() * sizeof(int16_t));
+    // As the EPS-16 PLUS: the whole instrument image (headers, layers, PCM in
+    // file order) in sample memory, the first one loaded at word 1792 (measured:
+    // CLASSIC PAD WS 1 plays from 7632 = 1792 + its offset in the file). What lies
+    // in front of a sample is then the same as on the original, which matters for
+    // loop start-X.
+    bool imageOk = !inst_.image.empty() && kImageBase + inst_.image.size() + 2 <= kBankWords;
+    for (auto &kv : inst_.waveSamples)
+        if (!kv.second.copyOfWaveSample && !kv.second.pcm.empty() && kv.second.imageWord == 0) imageOk = false;
+    if (imageOk) {
+        used[0] = uint32_t(kImageBase + inst_.image.size() + 2);
+        ram_.assign(used[0], 0);
+        std::memcpy(&ram_[kImageBase], inst_.image.data(), inst_.image.size() * sizeof(int16_t));
+        for (auto &kv : inst_.waveSamples) {
+            const WaveSample &ws = kv.second;
+            if (ws.copyOfWaveSample || ws.pcm.empty()) continue;
+            bankOf[ws.index] = 0;
+            wsBase_[ws.index] = kImageBase + ws.imageWord;
+        }
+    } else {
+        // Otherwise every PCM owner in bank 0 or, if full, bank 1 (1M words each),
+        // two words of padding after each sample keep interpolation clean.
+        for (auto &kv : inst_.waveSamples) {
+            const WaveSample &ws = kv.second;
+            if (ws.copyOfWaveSample || ws.pcm.empty()) continue;
+            uint32_t need = uint32_t(ws.pcm.size()) + 2;
+            int bank = used[0] + need <= kBankWords ? 0 : (used[1] + need <= kBankWords ? 1 : -1);
+            if (bank < 0) { err = "instrument exceeds 2M words of sample memory"; return false; }
+            bankOf[ws.index] = bank;
+            wsBase_[ws.index] = used[bank];
+            used[bank] += need;
+        }
+        ram_.assign(size_t(used[0]) + used[1], 0);
+        for (auto &kv : inst_.waveSamples) {
+            const WaveSample &ws = kv.second;
+            if (bankOf[ws.index] < 0) continue;
+            size_t off = (bankOf[ws.index] ? used[0] : 0) + wsBase_[ws.index];
+            std::memcpy(&ram_[off], ws.pcm.data(), ws.pcm.size() * sizeof(int16_t));
+        }
     }
     chip_.reset();
     chip_.writeReg(0, otis::ACT, uint16_t(s_.maxVoices - 1));
@@ -688,18 +710,19 @@ void Sampler::updateWaveMod(int v) {
         else {
             // Loop start-X: the loop grows backwards, 2^(5.25 * value) times as
             // long at full amount, whatever the range (measured: 2.5x at wheel 32,
-            // 6.3x at 64). The pitch follows (see updateControl). Like the
-            // original it reaches in front of the sample start, into whatever lies
-            // before it in memory; the original wraps around at the very bottom,
-            // eps~ stops at address 0.
+            // 6.3x at 64). The pitch follows (see updateControl). As on the
+            // original it reaches in front of the sample start into the memory
+            // before it (the wavesample header, earlier data), and below address 0
+            // it wraps around the 20-bit address space of the bank.
             const double f = double(m < 0.f ? 0.f : m) * 128.0 / 127.0;
-            const double len = double(loopLen) * std::exp2(5.25 * f);
-            st = std::max<int64_t>(en - int64_t(std::lround(len)), -int64_t(sl.base));
+            const double len = std::min(double(loopLen) * std::exp2(5.25 * f), double((1 << 20) - 4));
+            st = en - int64_t(std::lround(len));
         }
         if (st - sl.loopStart == sl.startShift && en - sl.loopEnd == sl.endShift) return;
         sl.startShift = st - sl.loopStart;
         sl.endShift = en - sl.loopEnd;
-        write(uint32_t(sl.base + st) << 9, uint32_t(sl.base + en) << 9);
+        auto addr = [&](int64_t p) { return uint32_t((int64_t(sl.base) + p) & 0xfffff) << 9; };
+        write(addr(st), addr(en));
         return;
     }
 

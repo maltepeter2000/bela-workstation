@@ -315,8 +315,9 @@ static void modulation_tests(const eps::Instrument &base) {
     }
     // Loop start-X on WS1 (loop 200..1000, first in memory): the loop grows
     // backwards 2^(5.25 * value) times (measured) and the pitch follows the loop
-    // length. Wheel 0.1: 800 * 2^(0.525) = 1151 -> start 1000 - 1151 < 0 ->
-    // stops at address 0; wheel 0.05: 800 * 2^(0.2625) = 959 -> start 41.
+    // length. Wheel 0.05: 800 * 2^(0.2625) = 959 -> start 41; wheel 0.1:
+    // 800 * 2^(0.525) = 1151 -> start -151, in front of the sample (in the
+    // wavesample header, as on the original). Positions relative to the sample.
     {
         auto lsx = [&](float wheel, uint32_t &st, double &fcv) {
             eps::Instrument in = base;
@@ -334,11 +335,13 @@ static void modulation_tests(const eps::Instrument &base) {
             st = s.chipForDebug().voice(v).start >> 11;
             fcv = fc(s, v);
         };
-        uint32_t st0, st1, st2; double f0v, f1v, f2v;
-        lsx(0.f, st0, f0v); lsx(0.05f, st1, f1v); lsx(0.1f, st2, f2v);
-        printf("  loop start-X: start %u / %u / %u, pitch x%.3f / x%.3f\n", st0, st1, st2, f1v / f0v, f2v / f0v);
-        CHECK(st0 == 200 && st1 >= 38 && st1 <= 44 && st2 == 0);
-        CHECK(std::fabs(f1v / f0v - (1000.0 - st1) / 800.0) < 0.01 && std::fabs(f2v / f0v - 1.25) < 0.01);
+        uint32_t a0, a1, a2; double f0v, f1v, f2v;
+        lsx(0.f, a0, f0v); lsx(0.05f, a1, f1v); lsx(0.1f, a2, f2v);
+        const long b = long(a0) - 200;                    // sample start in memory
+        const long st1 = long(a1) - b, st2 = long(a2) - b;
+        printf("  loop start-X: start 200 / %ld / %ld, pitch x%.3f / x%.3f\n", st1, st2, f1v / f0v, f2v / f0v);
+        CHECK(st1 >= 38 && st1 <= 44 && st2 >= -154 && st2 <= -148);
+        CHECK(std::fabs(f1v / f0v - (1000.0 - st1) / 800.0) < 0.01 && std::fabs(f2v / f0v - (1000.0 - st2) / 800.0) < 0.01);
     }
 
     // wave mod types 1 (sample start), 3 (loop start), 4 (loop end) on WS1
@@ -358,10 +361,13 @@ static void modulation_tests(const eps::Instrument &base) {
             s.noteOn(50, 100);
             const int v = sounding(s);
             const otis::Voice &cv = s.chipForDebug().voice(v);
-            const double acc0 = double(cv.accum) / 2048.0;
+            double acc0 = double(cv.accum) / 2048.0;
             run(s, 64);
-            const uint32_t st = cv.start >> 11, en = cv.end >> 11;
-            // WS1 is the first sample in memory: base address 0
+            uint32_t st = cv.start >> 11, en = cv.end >> 11;
+            // positions relative to the sample start in memory (base: the
+            // unmoved loop point: end 1000 for types 1 and 3, start 200 for 4)
+            const uint32_t b = type == 4 ? st - 200 : en - 1000;
+            acc0 -= b; st -= b; en -= b;
             printf("  wave mod type %d: start %u end %u, first position %.1f\n", type, st, en, acc0);
             if (type == 1) CHECK(acc0 >= 240 && acc0 < 256);          // start moved, into the loop
             if (type == 3) CHECK(st >= 200 + 250 && st <= 200 + 254 && en == 1000);

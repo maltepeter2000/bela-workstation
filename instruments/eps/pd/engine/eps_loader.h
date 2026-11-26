@@ -133,6 +133,7 @@ struct WaveSample {
     int keyLow = 0, keyHigh = 127;
 
     std::vector<int16_t> pcm;  // mono 16-bit
+    uint32_t imageWord = 0;    // where the PCM starts in Instrument::image (0 = not there)
 };
 
 struct Layer {
@@ -163,6 +164,10 @@ struct Instrument {
     int keyLow = 0, keyHigh = 127, transpose = 0;
     std::vector<Layer> layers;
     std::map<int, WaveSample> waveSamples;   // by slot number
+    // The instrument data as it sits in the EPS sample memory (16-bit words):
+    // the PCM of every wavesample is preceded by its header and the instrument's
+    // other data. Loop start-X reads into it, as on the original.
+    std::vector<int16_t> image;
 
     // Resolve copy references: returns the wavesample that owns the PCM.
     const WaveSample *pcmOwner(const WaveSample &ws) const;
