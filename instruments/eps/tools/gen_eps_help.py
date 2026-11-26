@@ -37,8 +37,9 @@ OBJECT = [
     "Argument 1 is the MIDI channel (0 or none = 1), argument 2 the channel of the pads "
     "(0 or none = 10, the Drums Channel). Several eps.i~ do not get in each other's way, "
     "each has its own editor and plays its own instrument.",
-    "Inlet 2 of eps.i~ takes the audio to sample: connect adc~ (or any signal) to it and "
-    "record new wavesamples with the SAMPLE band of the editor, see Sampling.",
+    "eps.i~ samples Pd's audio input 1 (input in the SAMPLE band: none, 1, 2 or both) and "
+    "whatever comes into its inlet 2: record new wavesamples with the SAMPLE band of the "
+    "editor, see Sampling.",
     "eps~ is the bare engine inside, for patches of your own: inlet 2 takes the velocity of "
     "a note sent as a float, inlet 3 raw MIDI bytes from midiin, inlet 4 the audio to "
     "sample, and the floats of outlet 3 "
@@ -76,7 +77,7 @@ EDITOR = [
     "play the key, the layer chosen stays and its wavesample follows. zero crossings (on by "
     "default): sample and loop points move to the nearest rising zero crossing.",
     "SAMPLE band: the wave recorder, see Sampling. rate with its arrows, threshold, pre "
-    "ms, into (new WS, replace WS, new layer, new instrument), level: the level display "
+    "ms, input (Pd's audio input: none, 1, 2, 1+2), into (new WS, replace WS, new layer, new instrument), level: the level display "
     "(the bars and the star of the threshold), rec and stop, then the state and what it "
     "says. root key, low key, high key: the next key you play sets it for the selected "
     "wavesample.",
@@ -197,6 +198,8 @@ MESSAGES = [
     "rec root n: the root key without playing it.",
     "rec learn root / lo / hi: the next key played sets the root",
     "  key / lowest / highest key of the selected wavesample.",
+    "rec input n: eps.i~ records Pd's audio input 0 none, 1 in 1",
+    "  (default), 2 in 2, 3 both, inlet 2 always.",
     "rec status: report the recorder's settings.",
     "The wavesample commands (see Wavesample commands):",
     "cmd name or cmd n: choose one (truncate crossfade",
@@ -254,9 +257,12 @@ PRESETS = [
 ]
 
 SAMPLING = [
-    "As on the EPS (SAMPLE, Musician's Manual section 5): the audio at inlet 2 of eps.i~ "
-    "(inlet 4 of eps~) becomes a wavesample of the instrument that plays. There is no "
-    "waveform display: set the points in the WS POINTS row afterwards, by ear.",
+    "As on the EPS (SAMPLE, Musician's Manual section 5): the audio in becomes a wavesample "
+    "of the instrument that plays. eps.i~ takes Pd's audio input (input in the SAMPLE band, "
+    "1 by default) plus its inlet 2, eps~ its inlet 4. Pd's audio must be on (DSP) with an "
+    "input device chosen in the audio settings, on a Mac Pd needs the permission for the "
+    "microphone (System Settings, Privacy). level shows whether anything comes in. There is "
+    "no waveform display: set the points in the WS POINTS row afterwards, by ear.",
     "Choose the rate (the seven of the EPS-16 PLUS, 44.6 to 11.2 kHz: lower rates hold "
     "longer sounds, they are band-limited as by the EPS's input filter) and where the "
     "recording goes: new WS (a new wavesample in the layer selected in the SELECT band), "

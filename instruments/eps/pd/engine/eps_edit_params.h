@@ -53,7 +53,7 @@ static const EditParam kEditParams[] = {
     {"w_psrc", "Pitch mod", 'w', 0, 15, "src", -1},
     {"w_pamt", "Pitch amt", 'w', -127, 127, "s", -1},
     {"w_rand", "Random", 'w', 0, 127, "n", -1},
-    {"w_fmode", "Filt mode", 'w', 0, 3, "n", -1},
+    {"w_fmode", "Filt mode", 'w', 0, 3, "2LP/2HP|3LP/1HP|2LP/2LP|3LP/1LP", -1},
     {"w_cut1", "Cutoff 1", 'w', 0, 150, "n", -1},
     {"w_key1", "Key 1", 'w', -127, 127, "s", -1},
     {"w_env1", "Env 1", 'w', -127, 127, "s", -1},

@@ -28,4 +28,4 @@ if __name__ == "__main__":
                   banks=[],
                   dir_msgs=[("library", "eps")],
                   midi=("raw", 2, "sysex"),
-                  sig_in=3)
+                  sig_in=3, adc_in=True)

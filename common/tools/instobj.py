@@ -130,7 +130,7 @@ def bank_rewrite(lines, f):
 
 def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkdisplay=None,
           midi=("raw", 2), pads_channel_rule=True, more_edits=(), save=True, store_writes=False,
-          editor_bank=None, channel_msg="channel", clock=False, dir_msgs=(), sig_in=None):
+          editor_bank=None, channel_msg="channel", clock=False, dir_msgs=(), sig_in=None, adc_in=False):
     """obj: 'juno.i~', ext: the external with its arguments ('juno~'), short: bus name,
     edit / cc / pads / nav / lkdisplay: paths of the generated abstractions,
     edit_title: the title of the bare editor ('juno~ editor'), more_edits: [(path, name)] more
@@ -144,7 +144,8 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     dir_msgs: [(message, name)] sent at load as `message <folder of the patch>/<name>`, whether
     it is there or not (eps~: `library <dir>/eps`, its folder of instruments).
     sig_in: a signal inlet of the external (its index) that becomes inlet 2 of the object, an
-    [inlet~] (eps~: the audio to sample)."""
+    [inlet~] (eps~: the audio to sample). adc_in: Pd's audio inputs 1 and 2 go there as well,
+    chosen by the external's reply `recset input n ...` (0 none, 1 in 1, 2 in 2, 3 both)."""
     bus = "\\$0-" + short
     extname = ext.split()[0]
     title_re = r"^(#X obj \d+ \d+ cnv 10 10 10 empty empty )" + re.escape(edit_title.replace(" ", "\\ ")) + "(?= )"
@@ -253,6 +254,24 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     else:
         to_ext += [(inl, 0), (rb, 0)]
         my = Y + 40
+    adc_out = []
+    if sig_in is not None and adc_in:              # Pd's audio inputs, chosen by recset input n
+        ar = add(f"#X obj {X + 100} {Y + 30} r {bus}-out;")
+        a1 = add(f"#X obj {X + 100} {Y + 55} route recset;")
+        a2 = add(f"#X obj {X + 100} {Y + 80} route input;")
+        a3 = add(f"#X obj {X + 100} {Y + 105} sel 0 1 2 3;")
+        gm = [add(f"#X msg {X + 100 + 40 * k} {Y + 130} {g};") for k, g in enumerate(["0 0", "1 0", "0 1", "0.5 0.5"])]
+        up = add(f"#X obj {X + 100} {Y + 155} unpack f f;")
+        ad = add(f"#X obj {X + 200} {Y + 155} adc~ 1 2;")
+        m1 = add(f"#X obj {X + 150} {Y + 185} *~ 1;")
+        m2 = add(f"#X obj {X + 210} {Y + 185} *~ 0;")
+        con(ar, 0, a1, 0); con(a1, 0, a2, 0); con(a2, 0, a3, 0)
+        for k, g in enumerate(gm):
+            con(a3, k, g, 0); con(g, 0, up, 0)
+        con(up, 0, m1, 1); con(up, 1, m2, 1)
+        con(ad, 0, m1, 0); con(ad, 1, m2, 0)
+        adc_out = [m1, m2]
+        my = max(my, Y + 210)
 
     # ---- MIDI in (left, above the external)
     if midi[0] == "raw":
@@ -288,6 +307,8 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
         con(a, o, jn, i)
     if sgi is not None:
         con(sgi, 0, jn, sig_in)
+    for m in adc_out:
+        con(m, 0, jn, sig_in)
     o1 = add(f"#X obj {X} {jy + 60} outlet~;")
     o2 = add(f"#X obj {X + 60} {jy + 60} outlet~;")
     rf = add(f"#X obj {X + 130} {jy + 30} route float;")

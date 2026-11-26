@@ -53,7 +53,8 @@
 //   rec pre ms (0-127), rec dest n (0 new WS in the selected layer, 1 replace the selected
 //   WS, 2 new layer, 3 new instrument), rec level 0/1 (level display), rec start, rec stop
 //   (then the next key is the root key; stop again cancels), rec root n,
-//   rec learn root|lo|hi (the next key sets it for the selected WS), rec status.
+//   rec learn root|lo|hi (the next key sets it for the selected WS), rec input n (eps.i~:
+//   Pd's audio input 0 none, 1 in 1 (default), 2 in 2, 3 both; inlet 2 always), rec status.
 //   Outlet 3: recstate, recinfo, recmeter, recset ..., sampled <ws> <layer>.
 // The wavesample commands (COMMAND/Wave, LFO, Amp of the EPS) on the selected wavesample:
 //   cmd <name>|<n>, cmd step d, cmd range|depth|zone|sstart|send|rate|smooth|layer|data n,
@@ -437,6 +438,7 @@ struct Recorder {
     int thresh = 0;               // 0..19: the star of the level display, 0 = at once
     int pre = 15;                 // pre-trigger in ms (0..127)
     int dest = 0;                 // eps::RecordDest
+    int input = 1;                // eps.i~: Pd's audio input 0 none, 1 in 1, 2 in 2, 3 both
     int learn = 0;                // the next key sets 1 root, 2 low key, 3 high key
     bool full = false;            // the memory is full (set in the audio thread)
     std::vector<float> buf, ring; // recording and pre-trigger ring (host rate)
@@ -948,6 +950,11 @@ void out_recset(t_eps* x) {
     SETFLOAT(&a[1], R.dest);
     SETSYMBOL(&a[2], gensym(kDestNames[R.dest]));
     outlet_anything(x->info, gensym("recset"), 3, a);
+    static const char* const kInputs[4] = {"inlet", "in_1", "in_2", "in_1+2"};
+    SETSYMBOL(&a[0], gensym("input"));
+    SETFLOAT(&a[1], R.input);
+    SETSYMBOL(&a[2], gensym(kInputs[R.input]));
+    outlet_anything(x->info, gensym("recset"), 3, a);
 }
 
 void out_recstate(t_eps* x, const std::string& info) {
@@ -1152,6 +1159,8 @@ void rec_command(t_eps* x, int argc, t_atom* argv) {
     } else if (w == "dest") {
         if (!idle) return;
         R.dest = std::clamp(n, 0, 3);
+    } else if (w == "input") {
+        R.input = std::clamp(n, 0, 3);
     } else if (w == "level") {
         rec_level_mode(x, argc < 2 || n != 0);
         return;

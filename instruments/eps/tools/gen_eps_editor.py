@@ -158,7 +158,10 @@ def sample_band(c, y):
     c.add(f"#X floatatom {x0 + 270} {y + 20} 3 0 127 0 - {D}0-prev {D}0-rpre;")
     c.add(f"#X text {x0 + 306} {y + 20} into;")
     c.add(f"#X obj {x0 + 336} {y + 20} hradio 15 1 0 4 {D}0-rdest {D}0-destv empty 0 -8 0 10 {S.WIDGET} {S.INK} {S.INK} 0;")
-    c.add(f"#X symbolatom {x0 + 400} {y + 20} 12 0 0 0 - {D}0-destnv -;")
+    c.add(f"#X symbolatom {x0 + 400} {y + 20} 11 0 0 0 - {D}0-destnv -;")
+    c.add(f"#X text {x0 + 480} {y + 20} input;")
+    c.add(f"#X obj {x0 + 514} {y + 20} hradio 15 1 0 4 {D}0-rinput {D}0-inputv empty 0 -8 0 10 {S.WIDGET} {S.INK} {S.INK} 1;")
+    c.add(f"#X symbolatom {x0 + 576} {y + 20} 6 0 0 0 - {D}0-inputnv -;")
     c.add(f"#X obj {x0} {y + 46} tgl 15 0 {D}0-rlevel {D}0-rlevelv level 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
     bng(c, x0 + 60, y + 46, "rstart", "rec")
     bng(c, x0 + 110, y + 46, "rstop", "stop")
@@ -307,6 +310,7 @@ def logic():
     for k, (recv, text) in enumerate([("rprev", "rec ratestep -1"), ("rnext", "rec ratestep 1"),
                                       ("rthresh", f"rec thresh {D}1"), ("rpre", f"rec pre {D}1"),
                                       ("rdest", f"rec dest {D}1"), ("rlevel", f"rec level {D}1"),
+                                      ("rinput", f"rec input {D}1"),
                                       ("rstart", "rec start"), ("rstop", "rec stop"),
                                       ("lroot", "rec learn root"), ("llo", "rec learn lo"),
                                       ("lhi", "rec learn hi")]):
@@ -377,10 +381,11 @@ def logic():
     # the recorder's replies -> the SAMPLE band
     yq = ys2 + 150
     rq = c.add(f"#X obj 10 {yq} route recset recstate recinfo recmeter;"); c.conn(ro, 0, rq, 0)
-    rs = c.add(f"#X obj 10 {yq + 30} route rate thresh pre dest;"); c.conn(rq, 0, rs, 0)
+    rs = c.add(f"#X obj 10 {yq + 30} route rate thresh pre dest input;"); c.conn(rq, 0, rs, 0)
     for k, (outlet, text, dest) in enumerate([(0, f"set {D}2", "ratev"), (1, f"set {D}1", "threshv"),
                                               (2, f"set {D}1", "prev"), (3, f"set {D}1", "destv"),
-                                              (3, f"set {D}2", "destnv")]):
+                                              (3, f"set {D}2", "destnv"), (4, f"set {D}1", "inputv"),
+                                              (4, f"set {D}2", "inputnv")]):
         x = 10 + 110 * k
         ll = c.add(f"#X obj {x} {yq + 60} list;"); c.conn(rs, outlet, ll, 0)
         m = c.add(f"#X msg {x} {yq + 90} {text};"); c.conn(ll, 0, m, 0)

@@ -7,8 +7,7 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
 3. Neuen Patch anlegen und speichern. Daneben einen Ordner "eps" anlegen und eigene
    Ensoniq-Instrumente hineinlegen: .efe-Dateien oder ganze Disk-Images (.img, .ede, .eda,
    .gkh; .hfe vorher nach .img wandeln).
-4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge), zum Sampeln [adc~ 1] -> rechter
-   Eingang. Klick auf das Objekt öffnet den Editor.
+4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge). Klick auf das Objekt öffnet den Editor.
    "library N" lädt Instrument N aus dem Ordner eps, Noten auf MIDI-Kanal 1.
 5. Regler: Offsets über dem geladenen Instrument (0 = wie gespeichert), Seite 1 wie bei den
    anderen Instrumenten: cut, cut2 (Filter 2 statt Resonanz), att, rel, vib, (frei), wave
@@ -17,8 +16,10 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
 6. Speichern (immer im Ensoniq-Format, das EPS liest es): replace (über die geladene Datei),
    save copy (neuer Name mit Nummer), new name + save as, new folder. In ein Disk-Image oder
    als EFE in den Ordner eps. <image>.undo hält die alten Blöcke (eps_fs_tool undo).
-7. Sampeln (SAMPLE-Leiste im Editor): Audio an den rechten Eingang von [eps.i~] legen, z. B.
-   [adc~ 1]. rate (44,6 bis 11,2 kHz), threshold, pre ms, into (neues WS im gewählten Layer,
+7. Sampeln (SAMPLE-Leiste im Editor): eps.i~ nimmt Pds Audio-Eingang 1 (input: keiner, 1, 2,
+   1+2) und alles am rechten Eingang. Voraussetzung: DSP an, Eingangsgerät in den
+   Audio-Einstellungen gewählt, Pd darf das Mikrofon benutzen (Systemeinstellungen >
+   Datenschutz & Sicherheit > Mikrofon). Mit "level" siehst du, ob etwas ankommt. rate (44,6 bis 11,2 kHz), threshold, pre ms, into (neues WS im gewählten Layer,
    gewähltes WS ersetzen, neuer Layer, neues Instrument), level zeigt den Pegel, rec / stop.
    Danach PLAY ROOT KEY: die nächste gespielte Taste ist der Grundton. Tastenbereich wie am
    EPS (Mitte zwischen den Grundtönen der Nachbarn), ändern mit root key / low key / high key

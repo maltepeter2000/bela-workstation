@@ -5,11 +5,9 @@ the ES5505 ("OTIS") voice chip of the EPS-16 PLUS. No Ensoniq data is part of th
 your instruments into a folder `eps/` beside your patch.
 
 ```
-[adc~ 1]
-|
 [eps.i~ 1]        library: eps/ beside the patch (disk images, EFE)
 |      |          saving: into the images (Ensoniq format) or as EFE
-[dac~   ]         inlet 2: the audio to sample (SAMPLE band of the editor)
+[dac~   ]         audio to sample: Pd's input 1 (SAMPLE band: input) and inlet 2
 ```
 
 ## What it does

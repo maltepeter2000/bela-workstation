@@ -84,7 +84,7 @@ PARAMS = [
     ("w_pamt", "Pitch amt", "w", "W.pitchModAmount", -127, 127, "s", "pitch modulation amount"),
     ("w_rand", "Random", "w", "W.randomModAmount", 0, 127, "n", "random pitch amount"),
     # wavesample: filters
-    ("w_fmode", "Filt mode", "w", "W.filterMode", 0, 3, "n", "filter mode (0, 1: filter 2 is a high-pass)"),
+    ("w_fmode", "Filt mode", "w", "W.filterMode", 0, 3, "2LP/2HP|3LP/1HP|2LP/2LP|3LP/1LP", "filter mode as on the EPS: F1 poles low pass / F2 poles low or high pass (2LP/2HP, 3LP/1HP, 2LP/2LP, 3LP/1LP)"),
     ("w_cut1", "Cutoff 1", "w", "W.filterCutoff[0]", 0, 150, "n", "cutoff of filter 1"),
     ("w_key1", "Key 1", "w", "W.filterKeyAmount[0]", -127, 127, "s", "key tracking of filter 1"),
     ("w_env1", "Env 1", "w", "W.filterEnvAmount[0]", -127, 127, "s", "ENV2 amount on filter 1"),
