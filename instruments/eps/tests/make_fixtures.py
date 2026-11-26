@@ -89,7 +89,7 @@ ws_blocks = {
     1: wavesample("SAW LOW", 0, 48, 2, 0, 1099, 200, 1000, 1, 21, 59, saw),
     2: wavesample("SINE HI", 0, 72, 2, 0, 703, 64, 640, 25, 60, 108, sine),
     3: wavesample("SAW COPY", 1, 60, 0, 0, 999, 0, 999, 1, 21, 108, []),
-    4: wavesample("TRANSWAVE", 0, 69, 2, 0, 799, 0, 100, 1, 21, 108, tw, (10, 127, 6, 2, 0), (150, 150)),   # range 2 = 1024 samples
+    4: wavesample("TRANSWAVE", 0, 69, 2, 0, 799, 0, 100, 1, 21, 108, tw, (10, 127, 11, 7, 0), (150, 150)),   # range 11 = 1024 samples, type 7 transwave
 }
 keymap1 = [1] * 39 + [2] * 49          # A0..B3 -> WS1, C4.. -> WS2
 keymap2 = [0] * 30 + [3] * 30 + [0] * 28

@@ -43,6 +43,9 @@ and modulation amounts, the volume / envelope level law, pan law and boost, enve
 shapes (the amp envelope runs in the chip's volume code domain), attack velocity, keyboard
 time scaling, the two-stage release (T5 to L5, then T6), the finite mode, LFO speeds, depth and
 delay, pitch envelope (relative to its sustain level), pitch modulation and random amounts,
+the wave modulation (word 3 of the five is the type: 0 off, 1 loop position, 2 sample start,
+3 start + loop position, 4 loop start, 5 loop end, 6 loop start-X, 7 transwave; word 2 the
+range, 2^(21 − n) samples, 6 = 32K; transwave moves by whole waves and ignores the range),
 the behaviour of the mod sources 0–11 (4 and 6 linear velocity, 5 and 7 velocity curves, 8
 and 9 the key, 10 wheel, 11 pedal). The display names of 4–9 and 12–15 still need confirming.
 Compared with the original on DECAY BASS and MOOG FUNK 1, pitch, filter and volume registers

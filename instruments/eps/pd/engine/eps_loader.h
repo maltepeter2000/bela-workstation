@@ -116,8 +116,17 @@ struct WaveSample {
     int waveModSource() const { return waveModRaw[0]; }
     int waveModAmount() const { return int(int8_t(waveModRaw[1])); }
     int waveModAmountDisplay() const { return (waveModAmount() * 99 + (waveModAmount() >= 0 ? 63 : -63)) / 127; }
-    int waveModType() const { return waveModRaw[2]; }
-    uint32_t waveModRangeSamples() const { return 256u << (waveModRaw[3] > 12 ? 12 : waveModRaw[3]); }
+    // Measured on the original OS: word 3 is the type, word 2 the range
+    // (2^(21 - n) samples: 6 = 32K). Types as stored: 0 off, 1 loop position,
+    // 2 sample start, 3 start + loop position, 4 loop start, 5 loop end,
+    // 6 loop start-X, 7 transwave. waveModType() returns the engine's numbering
+    // (0 loop position .. 6 transwave, -1 off).
+    int waveModTypeRaw() const { return waveModRaw[3]; }
+    int waveModType() const {
+        static const int kMap[8] = {-1, 0, 1, 2, 3, 4, 5, 6};
+        return (waveModRaw[3] >= 0 && waveModRaw[3] < 8) ? kMap[waveModRaw[3]] : -1;
+    }
+    uint32_t waveModRangeSamples() const { return 1u << (21 - (waveModRaw[2] > 21 ? 21 : waveModRaw[2])); }
 
     int sampleRateIndex = 0;
     int sampleRate = 0;        // Hz, derived from the index

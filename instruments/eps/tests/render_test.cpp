@@ -314,15 +314,16 @@ static void modulation_tests(const eps::Instrument &base) {
         CHECK(1200 * std::log2(hi / lo) > 30 && 1200 * std::log2(hi / lo) <= 205);
     }
     // wave mod types 1 (sample start), 3 (loop start), 4 (loop end) on WS1
-    // (loop 200..1000, end 1099), wheel = 1, range 256 << 0
+    // (loop 200..1000, end 1099), wheel = 1, range 13 = 256 samples; travel
+    // 256 * 127/128 * 127/128 = 252
     {
         for (int type : {1, 3, 4}) {
             eps::Instrument in = base;
             eps::WaveSample &w = in.waveSamples[1];
             w.waveModRaw[0] = eps::kSrcWheel;
             w.waveModRaw[1] = 127;
-            w.waveModRaw[2] = type;
-            w.waveModRaw[3] = 0;   // 256 samples
+            w.waveModRaw[2] = 13;          // range 256 samples
+            w.waveModRaw[3] = type + 1;    // stored type numbers start with 0 = off
             eps::Sampler s(set);
             s.load(in, err);
             s.setModWheel(1.f);
@@ -334,8 +335,8 @@ static void modulation_tests(const eps::Instrument &base) {
             const uint32_t st = cv.start >> 11, en = cv.end >> 11;
             // WS1 is the first sample in memory: base address 0
             printf("  wave mod type %d: start %u end %u, first position %.1f\n", type, st, en, acc0);
-            if (type == 1) CHECK(acc0 >= 190 && acc0 < 200);          // start moved up to the loop
-            if (type == 3) CHECK(st == 200 + 256 && en == 1000);
+            if (type == 1) CHECK(acc0 >= 240 && acc0 < 256);          // start moved, into the loop
+            if (type == 3) CHECK(st >= 200 + 250 && st <= 200 + 254 && en == 1000);
             if (type == 4) CHECK(st == 200 && en == 1099);            // clamped to the sample end
         }
     }
@@ -431,7 +432,9 @@ int main(int argc, char **argv) {
         const double f0 = 441.0 * kFine;   // key 69 = root, 100-sample waves at 44.1 kHz
         double ratio[3];
         const float wheel[3] = {0.f, 0.5f, 1.f};
-        const int harmonic[3] = {1, 4, 7};   // 6 steps reachable: round(0.5*6)=3 -> wave 3 -> harmonic 4
+        // 6 steps reachable; floor(127/128 * wheel * 6) waves (measured): 0.5 -> wave 2
+        // -> harmonic 3, 1.0 -> wave 5 -> harmonic 6
+        const int harmonic[3] = {1, 3, 6};
         for (int t = 0; t < 3; ++t) {
             eps::Sampler s(set);
             s.load(inst, err);
@@ -448,8 +451,8 @@ int main(int argc, char **argv) {
             CHECK(std::fabs(1200 * std::log2(p / f0)) < 5.0);
         }
         CHECK(ratio[0] < 0.02);    // wave 0: pure sine
-        CHECK(ratio[1] > 0.3);     // wave 3: strong 4th harmonic
-        CHECK(ratio[2] > 0.6);     // wave 6: strong 7th harmonic
+        CHECK(ratio[1] > 0.25);    // wave 2: 3rd harmonic
+        CHECK(ratio[2] > 0.6);     // wave 5: strong 6th harmonic
 
         // Moving the wheel while the note is held changes the wave without
         // restarting the voice.
@@ -461,24 +464,27 @@ int main(int argc, char **argv) {
         s.setModWheel(1.f);
         auto b = render(s, int(SR * 0.5));
         CHECK(s.activeVoiceCount() == 1);
-        CHECK(harmonicLevel(b, 10000, f0 * 7) / harmonicLevel(b, 10000, f0) > 0.6);
-        CHECK(harmonicLevel(a, 10000, f0 * 7) / harmonicLevel(a, 10000, f0) < 0.02);
+        CHECK(harmonicLevel(b, 10000, f0 * 6) / harmonicLevel(b, 10000, f0) > 0.6);
+        CHECK(harmonicLevel(a, 10000, f0 * 6) / harmonicLevel(a, 10000, f0) < 0.02);
     }
 
-    // Wave mod RANGE limits the window travel: with range 256 samples only
-    // 2 of the 6 possible steps are reachable, so full wheel = wave 2.
+    // Transwave ignores RANGE (measured): with range 256 samples, full wheel
+    // and amount 127 the window still takes floor(127/128 * 6) = 5 waves.
     {
         eps::Instrument limited = inst;
-        limited.waveSamples[4].waveModRaw[3] = 0;   // 256 samples
-        eps::Sampler s(set);
-        s.load(limited, err);
-        s.setPatch(3);
-        s.setModWheel(1.f);
-        s.noteOn(71, 120);
-        render(s, 1024);
-        const otis::Voice &v = s.chipForDebug().voice(0);
-        const uint32_t base = (v.end >> 11) - 100 - 200;   // window start = base + 200
-        CHECK(((v.start >> 11) - base) == 200);
+        limited.waveSamples[4].waveModRaw[2] = 13;  // range 256 samples
+        uint32_t st[2];
+        for (int k = 0; k < 2; ++k) {
+            eps::Sampler s(set);
+            s.load(limited, err);
+            s.setPatch(3);
+            s.setModWheel(float(k));
+            s.noteOn(71, 120);
+            render(s, 1024);
+            st[k] = s.chipForDebug().voice(0).start >> 11;
+        }
+        printf("  transwave, range 256: window moved %u samples (500)\n", st[1] - st[0]);
+        CHECK(st[1] - st[0] == 500);
     }
 
     // Performance controls of eps~: bend, tune, transpose, sustain, volume, cutoff.

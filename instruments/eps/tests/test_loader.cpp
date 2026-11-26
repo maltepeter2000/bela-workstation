@@ -65,7 +65,7 @@ static void checkInstrument(const eps::Instrument &in) {
     CHECK(it4 != in.waveSamples.end());
     if (it4 != in.waveSamples.end()) {
         const eps::WaveSample &w4 = it4->second;
-        CHECK(w4.waveModType() == 6 && w4.waveModSource() == 10 && w4.waveModAmount() == 127);
+        CHECK(w4.waveModType() == 6 && w4.waveModTypeRaw() == 7 && w4.waveModSource() == 10 && w4.waveModAmount() == 127);
         CHECK(w4.waveModAmountDisplay() == 99 && w4.waveModRangeSamples() == 1024);
         CHECK(w4.loopStart == 0 && w4.loopEnd == 100 && w4.sampleEnd == 799 && w4.pcm.size() == 800);
     }

@@ -388,15 +388,16 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
         if (!needsLoop || mode == 2 || mode == 3 || mode == 4) {
             sl.waveModType = t;
             sl.waveModSource = ws.waveModSource() & 15;
-            sl.waveModDepth = float(ws.waveModAmount()) / 127.f;
+            sl.waveModDepth = float(ws.waveModAmount()) / 128.f;   // measured: amount / 128
             sl.waveModRange = ws.waveModRangeSamples();
         }
     }
     // Sample start (types 1 and 2): the note starts later in the sample, set once.
     if ((sl.waveModType == 1 || sl.waveModType == 2) && mode != 1) {
         const float m = clampf(waveModValue(sl), 0.f, 1.f);
-        const uint32_t limit = (mode >= 2 ? lStart : sEnd) > sStart + 2 ? (mode >= 2 ? lStart : sEnd) - 2 : sStart;
-        uint32_t s2 = sStart + uint32_t(std::lround(double(m) * sl.waveModRange));
+        // measured: the start may move into the loop, up to the loop end
+        const uint32_t limit = (mode >= 2 ? lEnd : sEnd) > sStart + 2 ? (mode >= 2 ? lEnd : sEnd) - 1 : sStart;
+        uint32_t s2 = sStart + uint32_t(std::lround(double(m) * 127.0 / 128.0 * sl.waveModRange));
         if (s2 > limit) s2 = limit;
         acc = a29(s2);
         if (mode == 0) st = acc;
@@ -651,9 +652,12 @@ void Sampler::setPolyPressure(int note, float value) {
 //   2 start + loop pos     both
 //   3 loop start           the loop start moves, the end stays
 //   4 loop end             the loop end moves, the start stays
-//   5 loop start-X         as 3 (CALIBRATE: the X variant is not told apart)
+//   5 loop start-X         the loop start moves back (CALIBRATE: law fitted to
+//                          two measured points, about 0.28 * range * value^2)
 //   6 transwave            the window jumps in steps of the loop length
-// RANGE limits how far. Where the window moves as a whole, the playback position
+// Measured on the original OS: the travel is RANGE * amount/128 * value * 127/128
+// samples (RANGE 2^(21-n), 6 = 32K); transwave takes floor(amount/128 * value *
+// waves) whole waves of the remaining sample, independent of RANGE. Where the window moves as a whole, the playback position
 // moves with it so the phase inside the wave is kept.
 void Sampler::updateWaveMod(int v) {
     Slot &sl = slots_[v];
@@ -671,12 +675,15 @@ void Sampler::updateWaveMod(int v) {
     };
 
     if (type == 3 || type == 4 || type == 5) {
-        // One loop point moves (both directions), within the sample and keeping
-        // at least 2 samples of loop.
+        // One loop point moves, within the sample and keeping at least 2 samples of loop.
         int64_t st = sl.loopStart, en = sl.loopEnd;
-        const int64_t d = int64_t(std::lround(double(m) * sl.waveModRange));
+        const int64_t d = int64_t(std::lround(double(m) * 127.0 / 128.0 * sl.waveModRange));
         if (type == 4) en = std::min<int64_t>(std::max<int64_t>(en + d, st + 2), sl.sampleEnd);
-        else st = std::max<int64_t>(std::min<int64_t>(st + d, en - 2), sl.sampleStart);
+        else if (type == 3) st = std::max<int64_t>(std::min<int64_t>(st + d, en - 2), sl.sampleStart);
+        else {
+            const double f = double(m < 0.f ? 0.f : m);
+            st = std::max<int64_t>(st - int64_t(std::lround(0.28 * sl.waveModRange * f * f)), sl.sampleStart);
+        }
         if (st - sl.loopStart == sl.startShift && en - sl.loopEnd == sl.endShift) return;
         sl.startShift = st - sl.loopStart;
         sl.endShift = en - sl.loopEnd;
@@ -686,12 +693,15 @@ void Sampler::updateWaveMod(int v) {
 
     // 0, 2, 6: the window moves as a whole, forward from where it is stored.
     int64_t room = int64_t(sl.sampleEnd) - sl.loopEnd;
-    if (room > int64_t(sl.waveModRange)) room = int64_t(sl.waveModRange);
     if (room <= 0) return;
-    const float mp = m < 0.f ? 0.f : m;   // CALIBRATE: negative amounts
+    const float mp = m < 0.f ? 0.f : m;   // negative amounts stay at the stored window (measured)
     int64_t target;
-    if (type == 6) target = int64_t(std::lround(double(mp) * double(room / loopLen))) * loopLen;
-    else target = int64_t(std::lround(double(mp) * double(room)));
+    if (type == 6) {
+        target = int64_t(std::floor(double(mp) * double(room / loopLen) + 1e-6)) * loopLen;
+    } else {
+        target = int64_t(std::lround(double(mp) * 127.0 / 128.0 * double(sl.waveModRange)));
+        if (target > room) target = room;
+    }
     if (target == sl.shift) return;
     const int64_t delta = target - sl.shift;
     sl.shift = target;

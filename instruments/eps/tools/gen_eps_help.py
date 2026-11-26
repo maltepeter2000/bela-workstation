@@ -159,7 +159,8 @@ ABOUT = [
     "(loop position, sample start, both, loop start, loop end, loop start-X, transwave).",
     "Calibrated against the original operating system (OS 1.30 in an emulator, register "
     "traces of test instruments): cutoff scale of both filters, volume and envelope level law, "
-    "pan law, boost, envelope times and shapes, release, LFO speeds and depth, the pitch, "
+    "pan law, boost, envelope times and shapes, release, LFO speeds and depth, wave "
+    "modulation types and range, the pitch, "
     "filter and key amounts, the mod sources 0-11. Still approximations: the soft/hard "
     "velocity levels, amp and pan modulation amounts, crossfade curves, glide (every mode is "
     "mono with glide). Not there: pitch tables and the effects of the ES5510. The controls of "
