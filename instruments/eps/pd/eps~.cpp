@@ -1385,6 +1385,7 @@ void out_waveset(t_eps* x) {
     one("smooth", A.smooth, kSmoothNames[A.smooth]);
     one("layer", A.toLayer + 1, "");
     one("data", A.withData ? 1 : 0, A.withData ? "params_&_data" : "params_only");
+    one("ws", A.toWs, A.toWs ? "WS_" + std::to_string(A.toWs) : "-");
 }
 
 void trash_sampler(t_eps* x, eps::Sampler* s) {
@@ -1431,12 +1432,12 @@ void wave_run(t_eps* x) {
     const eps::WaveCmd cmd = static_cast<eps::WaveCmd>(W.cmd);
     const eps::WaveArgs args = W.args;
     R.job = [base, res, layer, ws, cmd, args](eps::Instrument& out, std::string& err) {
-        int sel = ws;
-        if (!eps::waveCommand(*base, layer, ws, cmd, args, sel, err)) return false;
+        int sel = ws, selLayer = layer;
+        if (!eps::waveCommand(*base, layer, ws, cmd, args, sel, err, &selLayer)) return false;
         std::vector<uint8_t> file;
         if (!eps::buildInstrument(*base, file, err)) return false;
         if (!eps::parseInstrument(file.data(), file.size(), base->name, out, err)) return false;
-        res->layer = cmd == eps::WaveCmd::CopyWs ? args.toLayer : layer;
+        res->layer = cmd == eps::WaveCmd::CopyWs ? args.toLayer : selLayer;
         res->ws = sel;
         return true;
     };
@@ -1485,6 +1486,8 @@ void wave_command(t_eps* x, int argc, t_atom* argv) {
         A.toLayer = std::clamp(n, 1, 8) - 1;
     } else if (w == "data") {
         A.withData = n != 0;
+    } else if (w == "ws") {
+        A.toWs = std::clamp(n, 0, 127);
     } else if (w == "do") {
         wave_run(x);
         return;

@@ -217,12 +217,13 @@ MESSAGES = [
     "  reverse_xfade ensemble_xfade bowtie_xfade convert_rate",
     "  normalize fade_in fade_out volume_smooth scale_data",
     "  reverse_data invert_data clear_data new_ws copy_ws",
-    "  delete_ws), cmd step 1 or -1.",
+    "  delete_ws new_layer copy_layer delete_layer copy_params),",
+    "  cmd step 1 or -1.",
     "cmd range n: 0 sample, 1 loop, 2 start to loop, 3 loop to end.",
     "cmd depth n (0-5: 3.0 3.5 4.0 4.5 5.5 6.0 dB), cmd zone %,",
     "  cmd sstart %, cmd send % (scale data, 0-200), cmd rate n",
     "  (0-6, convert), cmd smooth n (0-4), cmd layer n, cmd data",
-    "  0/1 (copy with its data).",
+    "  0/1 (copy with its data), cmd ws n (copy_params: to WS n).",
     "cmd do: run it on the selected wavesample. cmd old, cmd new:",
     "  hear before and after. cmd keep, cmd cancel: decide.",
     "cmd status: report the settings.",
@@ -317,6 +318,13 @@ COMMANDS = [
     "new_ws: a small square wave on the keys around C4 in the selected layer. copy_ws: a copy "
     "into copy to layer on the keys the original has (params only: it plays the same data, "
     "with data: its own). delete_ws: not if copies use its data.",
+    "new_layer: a new layer (up to 8) with a small square wave on all keys, in patch 00. "
+    "copy_layer: the selected layer into a new one, its wavesamples as copies (with data: "
+    "their own), in the same patches. delete_layer: the selected layer and its wavesamples, "
+    "not the last layer and not if another layer plays copies of them, the patches follow. "
+    "copy_params: all parameters of the selected wavesample to WS n (to WS in the editor, "
+    "encoder 8 on the Launchkey), not its data, points, loop mode, root key, tuning, rate and "
+    "keys. All of them can be heard with old / new before keep.",
 ]
 
 ABOUT = [

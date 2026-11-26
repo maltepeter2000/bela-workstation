@@ -129,6 +129,40 @@ int main() {
         CHECK(waveCommand(in, 0, 3, WaveCmd::DeleteWs, a, sel, err) && !in.waveSamples.count(3));
         CHECK(reparse(in));
     }
+    {   // layers: new, copy, delete; copy parameters
+        Instrument in = make();
+        a = WaveArgs();
+        in.patches[0] = 1; in.patches[1] = 1; in.patches[2] = 0; in.patches[3] = 1;
+        in.keyDownLayers = 0xFF;
+        int sl = -1;
+        CHECK(waveCommand(in, 0, 1, WaveCmd::NewLayer, a, sel, err, &sl) && sl == 1 && in.layers.size() == 2);
+        CHECK(sel == 2 && in.layers[1].waveSampleForNote(60) == 2 && in.patches[0] == 3 && in.patches[1] == 1);
+        CHECK(waveCommand(in, 0, 1, WaveCmd::CopyLayer, a, sel, err, &sl) && sl == 2 && in.layers.size() == 3);
+        CHECK(sel == 3 && in.waveSamples[3].copyOfWaveSample == 1 && in.layers[2].waveSampleForNote(60) == 3);
+        CHECK(in.patches[0] == 7 && in.patches[1] == 5 && in.patches[3] == 5);   // where layer 1 is
+        CHECK(!waveCommand(in, 0, 1, WaveCmd::DeleteLayer, a, sel, err, &sl) && err == "WS HAS COPIES");
+        CHECK(waveCommand(in, 1, 2, WaveCmd::DeleteLayer, a, sel, err, &sl) && sl == 0 && in.layers.size() == 2);
+        CHECK(!in.waveSamples.count(2) && in.patches[0] == 3 && in.patches[1] == 3 && in.patches[3] == 3);
+        CHECK(in.layers[1].waveSampleForNote(60) == 3 && in.keyDownLayers == 0xFF);
+        // copy parameters: cutoff, envelope; the target keeps its data, root, loop
+        in.waveSamples[1].filterCutoff[0] = 33;
+        in.waveSamples[1].ampEnv.time[1] = 44;
+        CHECK(waveCommand(in, 0, 1, WaveCmd::NewWs, a, sel, err) && sel == 2);
+        const auto pcm = in.waveSamples[2].pcm;
+        const int root = in.waveSamples[2].rootNote;
+        a.toWs = 2;
+        CHECK(waveCommand(in, 0, 1, WaveCmd::CopyParams, a, sel, err) && sel == 2);
+        CHECK(in.waveSamples[2].filterCutoff[0] == 33 && in.waveSamples[2].ampEnv.time[1] == 44);
+        CHECK(in.waveSamples[2].pcm == pcm && in.waveSamples[2].rootNote == root && in.waveSamples[2].index == 2);
+        a.toWs = 1;
+        CHECK(!waveCommand(in, 0, 1, WaveCmd::CopyParams, a, sel, err) && err == "SAME WAVESAMPLE");
+        a.withData = true;
+        CHECK(waveCommand(in, 0, 1, WaveCmd::CopyLayer, a, sel, err, &sl));
+        CHECK(!in.waveSamples[sel].copyOfWaveSample && in.waveSamples[sel].pcm == in.waveSamples[in.layers[0].keyMap[0]].pcm);
+        CHECK(reparse(in));
+        for (int k = 0; k < 6; ++k) waveCommand(in, 0, 1, WaveCmd::NewLayer, a, sel, err);
+        CHECK(in.layers.size() == 8 && !waveCommand(in, 0, 1, WaveCmd::NewLayer, a, sel, err) && err == "8 LAYERS");
+    }
     std::printf("test_wave: %s\n", failures ? "FAILED" : "ok");
     return failures ? 1 : 0;
 }

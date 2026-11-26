@@ -21,6 +21,7 @@ enum class WaveCmd {
     Normalize, FadeIn, FadeOut, Smooth,                                          // COMMAND/Amp
     Scale, Reverse, Invert, Clear,                                               // COMMAND/LFO
     NewWs, CopyWs, DeleteWs,                                                     // COMMAND/Wave
+    NewLayer, CopyLayer, DeleteLayer, CopyParams,                                // COMMAND/Layer, Wave
     Count
 };
 const char *waveCmdName(WaveCmd c);              // "truncate", "crossfade" ...
@@ -38,13 +39,22 @@ struct WaveArgs {
     int smooth = 2;          // volume smoothing 0 very fine .. 4 very coarse
     int toLayer = 0;         // copy: the layer (position in Instrument::layers)
     bool withData = false;   // copy: params & data (else params only)
+    int toWs = 0;            // copy parameters: the wavesample that takes them (its number)
 };
 double scaleDepthDb(int depth);
 
 // Run a command on wavesample ws of layer `layer` (its position). Returns false with
 // a message (as the EPS shows it) if it cannot be done; selWs is the wavesample to
-// select afterwards (the new one for new / copy, another or 0 after delete).
+// select afterwards (the new one for new / copy, another or 0 after delete), selLayer
+// (if given) the layer to select (the new one for new / copy layer, after delete the one before).
+//
+// The layer commands (COMMAND/Layer of the EPS): new layer (a layer with a small square wave,
+// in patch 00 and played on key down), copy layer (into a new layer: its wavesamples as copies,
+// with data: their own; in the same patches), delete layer (not the last one, not if a
+// wavesample in another layer is a copy of one of it; the patches and key-up / key-down
+// layers move with the layers). Copy parameters: all parameters of the wavesample to toWs,
+// but not its data, points, loop mode, root key and tuning, rate, keys and name.
 bool waveCommand(Instrument &in, int layer, int ws, WaveCmd cmd, const WaveArgs &a, int &selWs,
-                 std::string &err);
+                 std::string &err, int *selLayer = nullptr);
 
 } // namespace eps

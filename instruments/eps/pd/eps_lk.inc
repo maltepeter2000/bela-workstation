@@ -30,6 +30,8 @@ const char* lk_opt_key(const t_eps* x) {
     const auto c = static_cast<eps::WaveCmd>(x->wave->cmd);
     if (c == eps::WaveCmd::Smooth) return "smooth";
     if (c == eps::WaveCmd::CopyWs) return "layer";
+    if (c == eps::WaveCmd::CopyLayer) return "data";
+    if (c == eps::WaveCmd::CopyParams) return "ws";
     return "";
 }
 
@@ -43,6 +45,8 @@ LkRange lk_cmd_range(const t_eps* x, std::string n) {
     if (n == "rate") return {0, 6};
     if (n == "smooth") return {0, 4};
     if (n == "layer") return {1, 8};
+    if (n == "data") return {0, 1};
+    if (n == "ws") return {1, 127};
     return {0, 0};
 }
 
@@ -68,6 +72,8 @@ int lk_cmd_value(const t_eps* x, std::string n) {
     if (n == "rate") return A.rate;
     if (n == "smooth") return A.smooth;
     if (n == "layer") return A.toLayer + 1;
+    if (n == "data") return A.withData ? 1 : 0;
+    if (n == "ws") return A.toWs;
     return 0;
 }
 
@@ -133,7 +139,16 @@ std::string lk_cell_text(t_eps* x, const eps::PageCell& c, bool& names) {
             std::string n = c.target;
             if (n == "opt") n = lk_opt_key(x);
             const int v = lk_cmd_value(x, n);
-            names = n == "cmd" || n == "range" || n == "smooth";
+            names = n == "cmd" || n == "range" || n == "smooth" || n == "data";
+            if (n == "data") return v ? "WITH DATA" : "PARAMS";
+            if (n == "ws") {                         // the wavesample with its layer: L2 WS3
+                if (!x->sampler || !x->sampler->instrument().waveSamples.count(v)) return v ? "WS " + std::to_string(v) + " --" : "--";
+                const eps::Instrument& in = x->sampler->instrument();
+                for (size_t l = 0; l < in.layers.size(); ++l)
+                    for (uint8_t k : in.layers[l].keyMap)
+                        if (k == v) return "L" + std::to_string(l + 1) + " WS" + std::to_string(v);
+                return "WS " + std::to_string(v);
+            }
             if (n == "cmd") return eps::waveCmdName(static_cast<eps::WaveCmd>(v));
             if (n == "range") return eps::waveRangeName(static_cast<eps::WaveRange>(v));
             if (n == "smooth") return kSmoothNames[v];

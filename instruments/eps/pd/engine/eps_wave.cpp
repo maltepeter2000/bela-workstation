@@ -114,7 +114,8 @@ const char *waveCmdName(WaveCmd c) {
     static const char *const k[] = {"truncate", "crossfade", "reverse_xfade", "ensemble_xfade", "bowtie_xfade",
                                     "convert_rate", "normalize", "fade_in", "fade_out", "volume_smooth",
                                     "scale_data", "reverse_data", "invert_data", "clear_data",
-                                    "new_ws", "copy_ws", "delete_ws"};
+                                    "new_ws", "copy_ws", "delete_ws", "new_layer", "copy_layer",
+                                    "delete_layer", "copy_params"};
     const int i = int(c);
     return i >= 0 && i < int(WaveCmd::Count) ? k[i] : "?";
 }
@@ -129,24 +130,166 @@ double scaleDepthDb(int depth) {
     return k[std::clamp(depth, 0, 5)];
 }
 
-bool waveCommand(Instrument &in, int layer, int ws, WaveCmd cmd, const WaveArgs &a, int &selWs, std::string &err) {
+namespace {
+
+// Bit k of a layer mask = layer position k. Insert a layer at `pos` (bits above move up), or
+// remove it (bits above move down).
+int maskInsert(int m, int pos, bool on) {
+    const int low = m & ((1 << pos) - 1), high = (m >> pos) << (pos + 1);
+    return (low | high | (on ? 1 << pos : 0)) & 0xFF;
+}
+int maskRemove(int m, int pos) {
+    const int low = m & ((1 << pos) - 1), high = (m >> (pos + 1)) << pos;
+    return (low | high) & 0xFF;
+}
+
+WaveSample squareWave(int idx) {
+    // "a small squarewave": one period of C4 at 44.6 kHz, four periods, looped
+    WaveSample w = newWaveSample(idx);
+    const int period = 171, n = 4 * period;
+    for (int i = 0; i < n; ++i) w.pcm.push_back(int16_t((i % period) < period / 2 ? 16000 : -16000));
+    w.pcm.resize(size_t(n + kTail), 0);
+    w.loopMode = 2;
+    w.rawStart = 0;
+    w.rawEnd = uint32_t(n) << 9;
+    w.rawLoopStart = uint32_t(n - period) << 9;
+    w.rawLoopEnd = uint32_t(n) << 9;
+    syncPoints(w);
+    return w;
+}
+
+bool layerCommand(Instrument &in, int layer, WaveCmd cmd, const WaveArgs &a, int &selWs, int &selLayer,
+                  std::string &err) {
+    const int nl = int(in.layers.size());
+    if (cmd != WaveCmd::NewLayer && (layer < 0 || layer >= nl)) { err = "NO LAYER"; return false; }
+    if (cmd == WaveCmd::DeleteLayer) {
+        if (nl <= 1) { err = "ONLY ONE LAYER"; return false; }
+        std::vector<int> mine;
+        for (uint8_t k : in.layers[size_t(layer)].keyMap)
+            if (k && std::find(mine.begin(), mine.end(), int(k)) == mine.end()) mine.push_back(k);
+        for (size_t l = 0; l < in.layers.size(); ++l) {
+            if (int(l) == layer) continue;
+            for (uint8_t k : in.layers[l].keyMap) {
+                auto it = in.waveSamples.find(k);
+                if (!k || it == in.waveSamples.end()) continue;
+                const WaveSample *o = in.pcmOwner(it->second);
+                if (o && std::find(mine.begin(), mine.end(), o->index) != mine.end()) { err = "WS HAS COPIES"; return false; }
+            }
+        }
+        for (int w : mine) in.waveSamples.erase(w);
+        in.layers.erase(in.layers.begin() + layer);
+        for (int &m : in.patches) m = maskRemove(m, layer);
+        in.keyDownLayers = maskRemove(in.keyDownLayers, layer) | (in.keyDownLayers & 0x80 ? 0x80 : 0);
+        in.keyUpLayers = maskRemove(in.keyUpLayers, layer);
+        selLayer = std::max(0, layer - 1);
+        selWs = 0;
+        for (uint8_t k : in.layers[size_t(selLayer)].keyMap) if (k) { selWs = k; break; }
+        return true;
+    }
+    if (nl >= 8) { err = "8 LAYERS"; return false; }
+    const int pos = nl;                                  // the new layer comes last
+    Layer l = cmd == WaveCmd::CopyLayer ? in.layers[size_t(layer)] : newLayer(pos + 1);
+    l.fileOffset = 0;
+    l.index = pos + 1;
+    if (cmd == WaveCmd::NewLayer) {
+        const int idx = freeIndex(in);
+        if (!idx) { err = "127 WAVESAMPLES"; return false; }
+        in.waveSamples[idx] = squareWave(idx);
+        for (auto &k : l.keyMap) k = uint8_t(idx);
+        selWs = idx;
+        in.layers.push_back(l);
+        in.patches[0] |= 1 << pos;
+        in.keyDownLayers |= 1 << pos;
+    } else {
+        // the wavesamples of the layer, each once, as copies (or with their own data)
+        std::vector<std::pair<int, int>> map;            // old -> new
+        for (uint8_t &k : l.keyMap) {
+            if (!k) continue;
+            int to = 0;
+            for (auto &m : map) if (m.first == k) to = m.second;
+            if (!to) {
+                auto it = in.waveSamples.find(k);
+                if (it == in.waveSamples.end()) { k = 0; continue; }
+                const int idx = freeIndex(in);
+                if (!idx) { err = "127 WAVESAMPLES"; return false; }
+                WaveSample c = it->second;
+                const WaveSample *own = in.pcmOwner(it->second);
+                c.index = idx;
+                c.fileOffset = 0;
+                c.imageWord = 0;
+                if (a.withData && own) {
+                    c.copyOfWaveSample = 0;
+                    c.copyOfLayer = 0;
+                    c.pcm = own->pcm;
+                } else if (own) {
+                    c.copyOfWaveSample = own->index;
+                    c.copyOfLayer = layerOfWs(in, own->index);
+                    c.pcm.clear();
+                }
+                in.waveSamples[idx] = std::move(c);
+                map.push_back({k, idx});
+                to = idx;
+            }
+            k = uint8_t(to);
+        }
+        selWs = map.empty() ? 0 : map.front().second;
+        in.layers.push_back(l);
+        for (int &m : in.patches) if (m & (1 << layer)) m |= 1 << pos;
+        if (in.keyDownLayers & (1 << layer)) in.keyDownLayers |= 1 << pos;
+        if (in.keyUpLayers & (1 << layer)) in.keyUpLayers |= 1 << pos;
+    }
+    updateKeyRanges(in, pos);
+    selLayer = pos;
+    return true;
+}
+
+}  // namespace
+
+bool waveCommand(Instrument &in, int layer, int ws, WaveCmd cmd, const WaveArgs &a, int &selWs, std::string &err,
+                 int *selLayer) {
     selWs = ws;
+    int sl = layer;
+    if (selLayer) *selLayer = layer;
+    if (cmd == WaveCmd::NewLayer || cmd == WaveCmd::CopyLayer || cmd == WaveCmd::DeleteLayer) {
+        const bool ok = layerCommand(in, layer, cmd, a, selWs, sl, err);
+        if (ok && selLayer) *selLayer = sl;
+        return ok;
+    }
+    if (cmd == WaveCmd::CopyParams) {
+        auto from = in.waveSamples.find(ws);
+        auto to = in.waveSamples.find(a.toWs);
+        if (from == in.waveSamples.end()) { err = "NO WAVESAMPLE"; return false; }
+        if (to == in.waveSamples.end()) { err = "NO DESTINATION"; return false; }
+        if (a.toWs == ws) { err = "SAME WAVESAMPLE"; return false; }
+        WaveSample keep = std::move(to->second);
+        WaveSample c = from->second;
+        c.index = keep.index;
+        c.name = keep.name;
+        c.copyOfWaveSample = keep.copyOfWaveSample;
+        c.copyOfLayer = keep.copyOfLayer;
+        c.rootNote = keep.rootNote;
+        c.fineTune = keep.fineTune;
+        c.loopMode = keep.loopMode;
+        c.sampleStart = keep.sampleStart; c.sampleEnd = keep.sampleEnd;
+        c.loopStart = keep.loopStart; c.loopEnd = keep.loopEnd;
+        c.rawStart = keep.rawStart; c.rawEnd = keep.rawEnd;
+        c.rawLoopStart = keep.rawLoopStart; c.rawLoopEnd = keep.rawLoopEnd;
+        c.sampleRateIndex = keep.sampleRateIndex;
+        c.sampleRate = keep.sampleRate;
+        c.keyLow = keep.keyLow; c.keyHigh = keep.keyHigh;
+        c.pcm = std::move(keep.pcm);
+        c.imageWord = keep.imageWord;
+        c.fileOffset = keep.fileOffset;
+        to->second = std::move(c);
+        selWs = a.toWs;
+        if (selLayer) *selLayer = layerOfWs(in, a.toWs);
+        return true;
+    }
     if (cmd == WaveCmd::NewWs) {
         if (layer < 0 || layer >= int(in.layers.size())) { err = "NO LAYER"; return false; }
         const int idx = freeIndex(in);
         if (!idx) { err = "127 WAVESAMPLES"; return false; }
-        // "a small squarewave": one period of C4 at 44.6 kHz, four periods, looped
-        WaveSample w = newWaveSample(idx);
-        const int period = 171, n = 4 * period;
-        for (int i = 0; i < n; ++i) w.pcm.push_back(int16_t((i % period) < period / 2 ? 16000 : -16000));
-        w.pcm.resize(size_t(n + kTail), 0);
-        w.loopMode = 2;
-        w.rawStart = 0;
-        w.rawEnd = uint32_t(n) << 9;
-        w.rawLoopStart = uint32_t(n - period) << 9;
-        w.rawLoopEnd = uint32_t(n) << 9;
-        syncPoints(w);
-        in.waveSamples[idx] = std::move(w);
+        in.waveSamples[idx] = squareWave(idx);
         splitAtRoot(in, layer, idx);
         selWs = idx;
         return true;

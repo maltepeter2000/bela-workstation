@@ -208,8 +208,10 @@ def command_band(c, y):
     c.add(f"#X text {x0} {y + 72} copy to layer;")
     c.add(f"#X floatatom {x0 + 84} {y + 72} 1 1 8 0 - {D}0-clayerv {D}0-clayer;")
     c.add(f"#X obj {x0 + 104} {y + 72} tgl 15 0 {D}0-cdata {D}0-cdatav with{SP}data 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
-    c.add(f"#X symbolatom {x0 + 200} {y + 72} 5 0 0 0 - {D}0-cstatev -;")
-    c.add(f"#X symbolatom {x0 + 240} {y + 72} 30 0 0 0 - {D}0-cinfov -;")
+    c.add(f"#X text {x0 + 196} {y + 72} to WS;")
+    c.add(f"#X floatatom {x0 + 232} {y + 72} 3 0 127 0 - {D}0-cwsv {D}0-cws;")
+    c.add(f"#X symbolatom {x0 + 264} {y + 72} 5 0 0 0 - {D}0-cstatev -;")
+    c.add(f"#X symbolatom {x0 + 304} {y + 72} 28 0 0 0 - {D}0-cinfov -;")
 
 
 def tint(title, r):
@@ -324,7 +326,8 @@ def logic():
                                       ("csend", f"cmd send {D}1"), ("crate", f"cmd rate {D}1"),
                                       ("csmooth", f"cmd smooth {D}1"), ("clayer", f"cmd layer {D}1"),
                                       ("cdata", f"cmd data {D}1"), ("cdo", "cmd do"), ("cold", "cmd old"),
-                                      ("cnew", "cmd new"), ("ckeep", "cmd keep"), ("ccancel", "cmd cancel")]):
+                                      ("cnew", "cmd new"), ("ckeep", "cmd keep"), ("ccancel", "cmd cancel"),
+                                      ("cws", f"cmd ws {D}1")]):
         send(10 + 120 * (k % 11), yc + 110 * (k // 11), recv, text)
     yp = yc + 110
     yn = yp
@@ -405,14 +408,15 @@ def logic():
     # the command replies -> the COMMAND band
     yk = yq + 180
     rk = c.add(f"#X obj 10 {yk} route cmdset cmdstate cmdinfo;"); c.conn(ro, 0, rk, 0)
-    keys = ["cmd", "range", "depth", "zone", "sstart", "send", "rate", "smooth", "layer", "data"]
+    keys = ["cmd", "range", "depth", "zone", "sstart", "send", "rate", "smooth", "layer", "data", "ws"]
     rks = c.add(f"#X obj 10 {yk + 30} route {' '.join(keys)};"); c.conn(rk, 0, rks, 0)
     dests = [("cmd", [(f"set {D}2", "cmdv")]), ("range", [(f"set {D}1", "crangev"), (f"set {D}2", "crangenv")]),
              ("depth", [(f"set {D}1", "cdepthv"), (f"set {D}2", "cdepthnv")]), ("zone", [(f"set {D}1", "czonev")]),
              ("sstart", [(f"set {D}1", "csstartv")]), ("send", [(f"set {D}1", "csendv")]),
              ("rate", [(f"set {D}1", "cratev"), (f"set {D}2", "cratenv")]),
              ("smooth", [(f"set {D}1", "csmoothv"), (f"set {D}2", "csmoothnv")]),
-             ("layer", [(f"set {D}1", "clayerv")]), ("data", [(f"set {D}1", "cdatav")])]
+             ("layer", [(f"set {D}1", "clayerv")]), ("data", [(f"set {D}1", "cdatav")]),
+             ("ws", [(f"set {D}1", "cwsv")])]
     col = 0
     for k, (_, outs) in enumerate(dests):
         ll = c.add(f"#X obj {10 + 110 * col} {yk + 60} list;"); c.conn(rks, k, ll, 0)

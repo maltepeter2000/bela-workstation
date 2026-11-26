@@ -135,10 +135,14 @@ COMMAND band of the editor, `cmd ...` messages) on the selected wavesample, with
 the result plays at once, `cmd old` / `cmd new` compare, `cmd keep` / `cmd cancel` decide.
 truncate, crossfade, reverse / ensemble / bowtie crossfade (fade zone, scale depth 3–6 dB),
 convert sample rate, normalize, fade in / out, volume smoothing, scale / reverse / invert /
-clear data (range: sample, loop, start to loop, loop to end), new / copy / delete wavesample.
+clear data (range: sample, loop, start to loop, loop to end), new / copy / delete wavesample,
+new / copy / delete layer (patches and key-up / key-down layers follow), copy parameters (all
+but data, points, loop mode, root key, tuning, rate and keys) to another wavesample.
 The algorithms follow the manual's descriptions. Checked with the original OS: a wavesample
 converted to 12.8 kHz, truncated and crossfaded plays at its pitch; a params-only copy in
-another layer plays the shared data (copy-of layer = position of the original's layer).
+another layer plays the shared data (copy-of layer = position of the original's layer). A new layer, a copied layer (params only and with
+data) and the layer left after deleting the first one play on the original OS. Written blocks
+start on 16 bytes: the OS ignores the low four bits of their offsets.
 
 ## Build
 
