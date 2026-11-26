@@ -97,6 +97,9 @@ public:
     float sampleRate() const { return s_.sampleRate; }
     int voices() const { return s_.maxVoices; }
     const Instrument &instrument() const { return inst_; }
+    // For the editor: the playing instrument, changed in place. Takes effect at the
+    // next note; filter, amp, pan, LFO and wave modulation also for sounding notes.
+    Instrument &editInstrument() { return inst_; }
     int patch() const { return patch_; }
     void process(float *left, float *right, int frames);   // overwrites buffers
     int activeVoiceCount() const;

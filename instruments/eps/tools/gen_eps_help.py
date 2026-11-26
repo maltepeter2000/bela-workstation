@@ -57,6 +57,17 @@ EDITOR = [
     "files.",
     "MIDI in: the receive channel, 0 = all. out: the channel of the controller feedback. "
     "MIDI thru: see Messages, thru. library size: how many instruments the folder holds.",
+    "The other rows edit the loaded instrument itself (mouse only, see Instrument rows). "
+    "SELECT band: the layer and the wavesample the LAYER and WS rows show, with their names "
+    "and the key range, root key, rate and length of the wavesample. envelope: which one the "
+    "ENV rows show (1 pitch, 2 filter, 3 amp). follow key (on by default): a played key "
+    "selects its layer and wavesample, the rows jump to their values. zero crossings (on by "
+    "default): sample and loop points move to the nearest rising zero crossing.",
+    "Sample and loop points have two cells each: the first sets the position coarsely, in "
+    "steps of 1/127 of the sample, the second (fine) moves it by -64 to +63 samples from "
+    "there. The box shows the sample number. Edits change the playing instrument at once "
+    "(the next note, filter, amp, pan, LFO and wave modulation also sounding notes). They "
+    "are not saved yet and a reload or an instrument change drops them.",
 ]
 
 INLETS = [
@@ -86,6 +97,16 @@ MESSAGES = [
     "ninfo name: report it as info.",
     "cycle name [-1]: the next (previous) value, round and round.",
     "dump: every control as info.",
+    "e name v: set an instrument parameter (see Instrument",
+    "  rows) from 0 to 127. einfo name: report it as info.",
+    "edump: the selection (sel) and every instrument parameter.",
+    "sel layer N, sel ws N, sel env N (1-3): select what the",
+    "  LAYER, WS and ENV rows edit; sel layerstep / wsstep +-1.",
+    "  ws N counts within the layer (WS 1..n of it, as on the EPS).",
+    "  Answers sel <layer> <ws> <env> <layers> <layer name>",
+    "  <ws name> <info> <wavesamples in the layer>.",
+    "follow 0/1: a played key selects its layer and wavesample.",
+    "zerox 0/1: points snap to zero crossings.",
     "library [dir]: use this folder as the library and read",
     "  its list. Without dir: eps beside the external.",
     "rescan: read the library folder again.",
@@ -199,6 +220,20 @@ def control_line(nm):
     return f"{nm} ({E.label(nm)}) {lo}..{hi}{cc}: {HELP[nm]}"
 
 
+import eps_edit_params as EP                       # noqa: E402
+
+EDIT_INTRO = [
+    "The rows below the controls edit the instrument (mouse only, message e). Each line: "
+    "name (label) and range of the value as stored, what it is.",
+]
+
+
+def edit_line(nm):
+    _, lbl, scope, _, lo, hi, kind, hlp = EP.P[nm]
+    rng_ = "0..127" if scope in "pf" else f"{lo}..{hi}"
+    return f"{nm} ({lbl}) {rng_}: {hlp}"
+
+
 def main():
     rows = [(f"{title}  {E.cc_text([n for n in names if n])}".replace(":", ""), [n for n in names if n])
             for title, names in E.ROWS]
@@ -211,7 +246,9 @@ def main():
                       ("text", "Presets and user bank", PRESETS),
                       ("lines", "Messages", MESSAGES), ("text", "The instrument", ABOUT),
                       ("text", "Data files", DATA),
-                      ("controls", CONTROLS_INTRO, rows, control_line)])
+                      ("controls", CONTROLS_INTRO, rows, control_line),
+                      ("controls", EDIT_INTRO, [(t, [n for n in ns if n]) for t, ns in EP.ROWS_LEFT + EP.ROWS_RIGHT],
+                       edit_line, "Instrument rows")])
 
 
 if __name__ == "__main__":

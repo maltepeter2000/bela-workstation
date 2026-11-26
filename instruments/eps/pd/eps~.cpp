@@ -68,6 +68,7 @@ extern "C" {
 }
 
 #include "eps_sampler.h"
+#include "eps_edit.h"
 
 namespace {
 
@@ -400,6 +401,7 @@ struct t_eps {
     bool sustain;
     bool pending;                        // a request waits for the loader to be free
     LibEntry* pending_entry;
+    eps::Editor* editor;                 // selection and edits of the editor
 };
 
 void out_value(t_eps* x, const char* key, t_float v) {
@@ -431,6 +433,51 @@ void out_info(t_eps* x, int i) {
     SETFLOAT(&a[1], to127(c, x->value[i]));
     SETSYMBOL(&a[2], gensym(t.c_str()));
     outlet_anything(x->info, gensym("info"), 3, a);
+}
+
+// ---- the instrument editor (eps_edit) -------------------------------------------
+
+void out_einfo(t_eps* x, int id) {
+    if (!x->sampler) return;
+    eps::Instrument& in = x->sampler->editInstrument();
+    const std::string t = x->editor->text(in, id);
+    t_atom a[3];
+    SETSYMBOL(&a[0], gensym(eps::kEditParams[id].name));
+    SETFLOAT(&a[1], x->editor->get127(in, id));
+    SETSYMBOL(&a[2], gensym(t.c_str()));
+    outlet_anything(x->info, gensym("info"), 3, a);
+}
+
+// sel <layer> <wavesample in layer> <env> <layers> <layer name> <wavesample name> <info> <wavesamples in layer>
+void out_sel(t_eps* x) {
+    if (!x->sampler) return;
+    const eps::Instrument& in = x->sampler->instrument();
+    const eps::Editor& e = *x->editor;
+    const std::string ln = e.layer < int(in.layers.size()) ? spaces_to_underscore(in.layers[size_t(e.layer)].name) : "-";
+    auto it = in.waveSamples.find(e.ws);
+    const std::string wn = it != in.waveSamples.end() ? spaces_to_underscore(it->second.name) : "-";
+    const std::string info = e.selectionInfo(in);
+    t_atom a[8];
+    SETFLOAT(&a[0], e.layer + 1);
+    SETFLOAT(&a[1], e.wsPosition(in));
+    SETFLOAT(&a[2], e.env + 1);
+    SETFLOAT(&a[3], static_cast<t_float>(in.layers.size()));
+    SETSYMBOL(&a[4], gensym(ln.empty() ? "-" : ln.c_str()));
+    SETSYMBOL(&a[5], gensym(wn.empty() ? "-" : wn.c_str()));
+    SETSYMBOL(&a[6], gensym(info.c_str()));
+    SETFLOAT(&a[7], static_cast<t_float>(e.layerWaveSamples(in).size()));
+    outlet_anything(x->info, gensym("sel"), 8, a);
+    t_atom f[2];
+    SETFLOAT(&f[0], e.follow);
+    SETFLOAT(&f[1], e.zeroCross);
+    outlet_anything(x->info, gensym("editmode"), 2, f);
+}
+
+// All parameters of the given scopes ("ilmwepf" = everything).
+void out_edump(t_eps* x, const char* scopes) {
+    if (!x->sampler) return;
+    for (int i = 0; i < eps::kEditParamCount; ++i)
+        if (std::strchr(scopes, eps::kEditParams[i].scope)) out_einfo(x, i);
 }
 
 // The controls -> the sampler.
@@ -542,6 +589,9 @@ void eps_poll(t_eps* x) {
             SETFLOAT(&a[1], static_cast<t_float>(in.layers.size()));
             SETFLOAT(&a[2], static_cast<t_float>(in.waveSamples.size()));
             outlet_anything(x->info, gensym("loaded"), 3, a);
+            x->editor->fit(in);
+            out_sel(x);
+            out_edump(x, "ilmwepf");
         }
     }
     if (x->pending && L.state.load() == 0) {
@@ -638,6 +688,51 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         x->value[i] = from127(*nc, atom_getfloat(argv + 1));
         touched = nc;
         if (x->value[i] == before) out_info(x, i);   // always answered
+    } else if (is("e")) {
+        // e <name> <0-127>: change a parameter of the loaded instrument (editor)
+        if (argc < 2 || argv[0].a_type != A_SYMBOL || !x->sampler) return;
+        const int id = eps::Editor::find(atom_getsymbol(argv)->s_name);
+        if (id < 0) { pd_error(x, "eps~: e: no parameter '%s'", atom_getsymbol(argv)->s_name); return; }
+        x->editor->set127(x->sampler->editInstrument(), id, atom_getfloat(argv + 1));
+        const char sc = eps::kEditParams[id].scope;
+        if (sc == 'p' || sc == 'f') out_edump(x, "pf");   // the points limit each other
+        else out_einfo(x, id);
+        if (sc == 'i' || sc == 'm') apply(x);
+        return;
+    } else if (is("einfo")) {
+        if (argc < 1 || argv[0].a_type != A_SYMBOL) return;
+        const int id = eps::Editor::find(atom_getsymbol(argv)->s_name);
+        if (id >= 0) out_einfo(x, id);
+        return;
+    } else if (is("edump")) {
+        out_sel(x);
+        out_edump(x, "ilmwepf");
+        return;
+    } else if (is("sel")) {
+        // sel layer|ws|env <n>, sel layerstep|wsstep <+-1>
+        if (argc < 2 || argv[0].a_type != A_SYMBOL || !x->sampler) return;
+        const std::string what = atom_getsymbol(argv)->s_name;
+        const int v = static_cast<int>(atom_getfloat(argv + 1));
+        const eps::Instrument& in = x->sampler->instrument();
+        eps::Editor& e = *x->editor;
+        if (what == "layer") e.layer = std::clamp(v - 1, 0, std::max(0, int(in.layers.size()) - 1));
+        else if (what == "layerstep" && !in.layers.empty())
+            e.layer = ((e.layer + v) % int(in.layers.size()) + int(in.layers.size())) % int(in.layers.size());
+        else if (what == "env") e.env = std::clamp(v - 1, 0, 2);
+        else if (what == "ws") e.selectWs(in, v);
+        else if (what == "wsstep") e.stepWs(in, v);
+        e.fit(in);
+        out_sel(x);
+        out_edump(x, what == "env" ? "e" : "lmwepf");
+        return;
+    } else if (is("follow")) {
+        x->editor->follow = n != 0;
+        out_sel(x);
+        return;
+    } else if (is("zerox")) {
+        x->editor->zeroCross = n != 0;
+        out_sel(x);
+        return;
     } else if (is("cycle")) {
         if (argc < 1 || argv[0].a_type != A_SYMBOL) return;
         const Control* nc = find_control(atom_getsymbol(argv)->s_name);
@@ -799,6 +894,14 @@ void eps_note(t_eps* x, t_float note, t_float velocity) {
     if (!x->sampler) return;
     if (velocity > 0) x->sampler->noteOn(n, std::clamp(static_cast<int>(velocity), 1, 127));
     else x->sampler->noteOff(n);
+    if (velocity > 0 && x->editor->follow) {
+        const eps::Instrument& in = x->sampler->instrument();
+        const int mask = in.patches[std::clamp(x->value[kC_patch], 0, 3)];
+        if (x->editor->followKey(in, n, mask)) {
+            out_sel(x);
+            out_edump(x, "lmwepf");
+        }
+    }
 }
 
 void eps_float(t_eps* x, t_float f) { eps_note(x, f, x->velocity); }
@@ -949,6 +1052,7 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->pending_entry = new LibEntry();
     x->name = new std::string();
     x->pending = false;
+    x->editor = new eps::Editor();
     x->sr = sys_getsr() > 0 ? sys_getsr() : 44100.0f;
     x->channel = 0;
     x->txchannel = 1;
@@ -999,6 +1103,7 @@ void eps_free(t_eps* x) {
     delete x->entry;
     delete x->pending_entry;
     delete x->name;
+    delete x->editor;
 }
 
 }  // namespace

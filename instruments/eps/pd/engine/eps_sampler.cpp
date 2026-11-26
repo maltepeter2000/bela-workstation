@@ -336,7 +336,7 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
         // velocity * amount / 128, keyboard time scaling all times by
         // (key - root) * amount / 64 (both measured on time 1; CALIBRATE: the
         // other times assumed to scale alike).
-        const float kb = float(src.kbTimeScaling) * float(key - ws.rootNote) / 64.f;
+        const float kb = float(int8_t(src.kbTimeScaling)) * float(key - ws.rootNote) / 64.f;
         auto steps = [&](int panel, float extra) {
             return envelopeSeconds(int(std::lround(clampf(float(panel) - kb - extra, 0.f, 99.f))));
         };

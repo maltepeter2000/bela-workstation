@@ -104,14 +104,9 @@ struct WaveSample {
     // exact register programming later.
     uint32_t rawStart = 0, rawEnd = 0, rawLoopStart = 0, rawLoopEnd = 0;
 
-    // Wave modulation (EDIT/Wave page), the 5 words after the key range.
-    // Confirmed on the EPS-16 PLUS display with CLASSIC PAD
-    // (raw 10/127/6/7/0 = SRC WHEEL, AMT +99, MOD TRANSWAVE, RANGE 32K):
-    //   [0] mod source (10 = wheel)
-    //   [1] amount, signed raw -127..127 = display -99..+99
-    //   [2] mod type (6 = transwave)
-    //   [3] range: 256 << value samples (7 = 32K); only 7 is confirmed
-    //   [4] unknown
+    // Wave modulation (EDIT/Wave page), the 5 words after the key range:
+    // [0] source, [1] amount (raw byte, signed), [2] range, [3] type, [4] no effect
+    // seen (measured on the original OS, see below).
     int waveModRaw[5] = {};
     int waveModSource() const { return waveModRaw[0]; }
     int waveModAmount() const { return int(int8_t(waveModRaw[1])); }

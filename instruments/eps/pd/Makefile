@@ -7,7 +7,7 @@
 # Needs no data files to build. To play, put Ensoniq instruments (EFE) or disk images
 # (IMG, EDE, EDA, GKH) into a folder eps/ beside your patch (or beside the external).
 
-ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp
+ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp
 
 lib.name = eps~
 class.sources = eps~.cpp
@@ -62,6 +62,7 @@ bela-gem: $(SOURCES)
 gen:
 	python3 ../tools/gen_eps_tables.py
 	python3 ../tools/eps_params.py
+	python3 ../tools/eps_edit_params.py
 	python3 ../tools/gen_epscc.py
 	python3 ../tools/gen_eps_editor.py
 	python3 ../tools/gen_eps_help.py
