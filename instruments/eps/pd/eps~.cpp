@@ -83,6 +83,7 @@ extern "C" {
 #include "eps_sampler.h"
 #include "eps_edit.h"
 #include "eps_fs.h"
+#include "eps_sysex.h"
 
 namespace {
 
@@ -403,6 +404,10 @@ struct t_eps {
     t_eps_proxy proxy;
     t_outlet* info;
     t_clock* poll;
+    t_clock* sxclock;                    // SysEx with a real EPS: steps and timeouts
+    eps::SysexLink* sysex;
+    int epsch;                           // the EPS's MIDI base channel (1-16)
+    int sxpct;                           // last progress reported
     eps::Sampler* sampler;               // the playing instrument (null = none yet)
     Loader* loader;
     Midi* midi;
@@ -784,6 +789,102 @@ std::string free_name(t_eps* x) {
     return base;
 }
 
+// ---- SysEx with a real EPS ---------------------------------------------------------
+
+// A name not yet used in the folder shown: the name itself, else with a number.
+std::string unused_name(t_eps* x, const std::string& want) {
+    const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+    auto used = [&v](const std::string& n) {
+        for (const BItem& it : v) if (it.name == spaces_to_underscore(n)) return true;
+        return false;
+    };
+    const std::string base = eps::ensoniqName(want.empty() ? "FROM EPS" : want);
+    if (!used(base)) return base;
+    for (int k = 1; k < 1000; ++k) {
+        const std::string suf = " " + std::to_string(k);
+        std::string b = base;
+        while (!b.empty() && b.size() + suf.size() > 12) b.pop_back();
+        while (!b.empty() && b.back() == ' ') b.pop_back();
+        if (!used(b + suf)) return b + suf;
+    }
+    return base;
+}
+
+// A fetched instrument file as a new file in the folder shown, then loaded.
+bool store_fetched(t_eps* x, const std::string& want, std::vector<uint8_t> data, std::string& err) {
+    const std::string name = unused_name(x, want);
+    for (int i = 0; i < 12; ++i) data[size_t(10 + 2 * i)] = static_cast<uint8_t>(i < static_cast<int>(name.size()) ? name[size_t(i)] : ' ');
+    const LibFile* lf = x->bfile->empty() ? nullptr : lib_file(*x->bfile);
+    LibEntry ne;
+    if (lf && lf->image) {
+        const std::string img = join(g_lib_dir, *x->bfile);
+        eps::Volume vol;
+        if (!vol.open(img, err)) return false;
+        vol.setJournal(img + ".undo");
+        uint32_t dir = 3;
+        int slot = -1;
+        bool exists = false;
+        if (!vol.dirOfPath(*x->bdir, false, dir, err) ||
+            !vol.writeFile(dir, name, eps::kInstrument, data, -1, slot, exists, err)) return false;
+        char num[8];
+        std::snprintf(num, sizeof num, "%02d", slot);
+        ne.file = *x->bfile;
+        ne.path = x->bdir->empty() ? num : *x->bdir + " " + num;
+    } else {
+        ne.file = spaces_to_underscore(name) + ".efe";
+        if (!eps::writeEfe(join(g_lib_dir, ne.file), name, eps::kInstrument, data, err)) return false;
+    }
+    scan_library(g_lib_dir);
+    const int li = lib_index(ne.file, ne.path, 0);
+    out_value(x, "presets", static_cast<t_float>(g_lib.size()));
+    if (li >= 0) select_library(x, li);
+    return true;
+}
+
+void eps_sx_tick(t_eps* x) {
+    if (!x->sysex) return;
+    const double now = clock_gettimesince(0) / 1000.0;
+    x->sysex->tick(now);
+    if (x->sysex->percent != x->sxpct) {
+        x->sxpct = x->sysex->percent;
+        t_atom a[2];
+        SETSYMBOL(&a[0], gensym(x->sysex->step.c_str()));
+        SETFLOAT(&a[1], x->sxpct);
+        outlet_anything(x->info, gensym("sysex"), 2, a);
+        out_display(x, "SysEx " + std::to_string(x->sxpct) + "%", x->sysex->step);
+    }
+    std::string err;
+    switch (x->sysex->takeDone()) {
+    case eps::SysexLink::Done::Instrument:
+        if (!store_fetched(x, x->sysex->name, x->sysex->file, err)) {
+            pd_error(x, "eps~: fetch: %s", err.c_str());
+            out_display(x, "Not saved", err);
+        }
+        outlet_anything(x->info, gensym("fetched"), 0, nullptr);
+        break;
+    case eps::SysexLink::Done::WaveSample: {
+        eps::WaveSample ws;
+        ws.sampleRate = x->sysex->sampleRate;
+        const std::string fn = join(g_lib_dir, spaces_to_underscore(eps::ensoniqName(x->sysex->name)) + ".wav");
+        if (!eps::writeWav(fn, ws, x->sysex->pcm, err)) pd_error(x, "eps~: fetchws: %s", err.c_str());
+        else { post("eps~: wavesample %s -> %s", x->sysex->name.c_str(), fn.c_str()); out_display(x, "Fetched", x->sysex->name); }
+        outlet_anything(x->info, gensym("fetched"), 0, nullptr);
+        break;
+    }
+    case eps::SysexLink::Done::Sent:
+        out_display(x, "Sent", "to the EPS");
+        outlet_anything(x->info, gensym("sent"), 0, nullptr);
+        break;
+    case eps::SysexLink::Done::Error:
+        pd_error(x, "eps~: SysEx: %s", x->sysex->error.c_str());
+        out_display(x, "SysEx failed", x->sysex->error);
+        break;
+    case eps::SysexLink::Done::None:
+        break;
+    }
+    if (x->sysex->busy()) clock_delay(x->sxclock, 20);
+}
+
 void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     const char* c = s->s_name;
     const t_float f = argc > 0 ? atom_getfloat(argv) : 0;
@@ -899,6 +1000,42 @@ void eps_command(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         x->index = -1;
         request(x, e);
         apply(x);
+    } else if (is("epsch")) {
+        x->epsch = std::clamp(n, 1, 16);
+        if (x->sysex) x->sysex->setChannel(x->epsch - 1);
+        return;
+    } else if (is("fetch") || is("fetchws") || is("send") || is("sendws")) {
+        const double now = clock_gettimesince(0) / 1000.0;
+        auto num = [&](int i, int def) { return argc > i && argv[i].a_type == A_FLOAT ? static_cast<int>(atom_getfloat(argv + i)) : def; };
+        const int inst = std::clamp(num(0, 1), 1, 8) - 1;
+        bool ok = false;
+        x->sysex->setChannel(x->epsch - 1);
+        if (is("fetch")) ok = x->sysex->fetchInstrument(inst, now);
+        else if (is("fetchws")) ok = x->sysex->fetchWaveSample(inst, std::clamp(num(1, 1), 1, 8) - 1, std::clamp(num(2, 1), 1, 127), now);
+        else if (is("send")) {
+            std::vector<uint8_t> data;
+            std::string err;
+            if (!x->sampler || !eps::encodeInstrument(x->sampler->instrument(), data, err)) {
+                pd_error(x, "eps~: send: %s", x->sampler ? err.c_str() : "nothing loaded");
+                return;
+            }
+            ok = x->sysex->sendInstrument(inst, data, now);
+        } else {
+            std::vector<int16_t> pcm;
+            int rate = 0;
+            std::string err;
+            const std::string wav = argc > 3 && argv[3].a_type == A_SYMBOL ? join(g_lib_dir, atom_getsymbol(argv + 3)->s_name) : "";
+            if (wav.empty() || !eps::readWav(wav, pcm, rate, err)) { pd_error(x, "eps~: sendws: %s", wav.empty() ? "give a WAV file" : err.c_str()); return; }
+            ok = x->sysex->sendWaveSample(inst, std::clamp(num(1, 1), 1, 8) - 1, std::clamp(num(2, 1), 1, 127), pcm, now);
+        }
+        if (!ok) { pd_error(x, "eps~: %s: a SysEx transfer is running (sxcancel stops it)", c); return; }
+        x->sxpct = -1;
+        clock_delay(x->sxclock, 20);
+        return;
+    } else if (is("sxcancel")) {
+        if (x->sysex) x->sysex->cancel();
+        out_display(x, "SysEx", "cancelled");
+        return;
     } else if (is("browse")) {
         out_folder(x);
         return;
@@ -1146,6 +1283,7 @@ void eps_proxy_float(t_eps_proxy* p, t_float f) {
     t_eps* x = p->owner;
     Midi& m = *x->midi;
     const int b = static_cast<int>(f) & 0xFF;
+    if (x->sysex && (b == 0xF0 || m.in_sx)) x->sysex->receive(static_cast<uint8_t>(b), clock_gettimesince(0) / 1000.0);
     if (b >= 0xF8) {
         if (x->thru) outlet_float(x->info, b);
         return;
@@ -1224,6 +1362,12 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     set_defaults(x, false);
     for (int& v : x->shown) v = INT32_MIN;
     x->poll = clock_new(x, reinterpret_cast<t_method>(eps_poll));
+    x->sxclock = clock_new(x, reinterpret_cast<t_method>(eps_sx_tick));
+    x->epsch = 1;
+    x->sxpct = -1;
+    x->sysex = new eps::SysexLink([x](const std::vector<uint8_t>& p) {
+        for (uint8_t b : p) outlet_float(x->info, b);
+    });
 
     floatinlet_new(&x->obj, &x->velocity);
     x->proxy.pd = eps_proxy_class;
@@ -1251,6 +1395,8 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
 
 void eps_free(t_eps* x) {
     clock_free(x->poll);
+    clock_free(x->sxclock);
+    delete x->sysex;
     x->loader->quit.store(true);
     if (x->loader->thread.joinable()) x->loader->thread.join();
     delete x->loader;

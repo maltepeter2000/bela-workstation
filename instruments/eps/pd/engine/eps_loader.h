@@ -232,6 +232,8 @@ bool parseInstrument(const uint8_t *data, size_t size, const std::string &fallba
 bool encodeInstrument(const Instrument &in, std::vector<uint8_t> &out, std::string &err);
 
 // Helpers for checking results.
+// A WAV file (PCM 16 or 24 bit, the first channel) as 16-bit samples.
+bool readWav(const std::string &path, std::vector<int16_t> &pcm, int &rate, std::string &err);
 bool writeWav(const std::string &path, const WaveSample &ws, const std::vector<int16_t> &pcm,
               std::string &err);
 

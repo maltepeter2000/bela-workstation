@@ -7,7 +7,7 @@
 # Needs no data files to build. To play, put Ensoniq instruments (EFE) or disk images
 # (IMG, EDE, EDA, GKH) into a folder eps/ beside your patch (or beside the external).
 
-ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp engine/eps_fs.cpp
+ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp engine/eps_fs.cpp engine/eps_sysex.cpp
 
 lib.name = eps~
 class.sources = eps~.cpp

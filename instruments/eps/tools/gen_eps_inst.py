@@ -25,4 +25,4 @@ if __name__ == "__main__":
                   lkdisplay=os.path.join(PD, "lkdisplay.pd"),
                   banks=[],
                   dir_msgs=[("library", "eps")],
-                  midi=("raw", 2))
+                  midi=("raw", 2, "sysex"))

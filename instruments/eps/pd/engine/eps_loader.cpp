@@ -664,6 +664,41 @@ bool Disk::loadInstrument(const DirEntry &e, Instrument &out, std::string &err) 
 
 // ---------------------------------------------------------------- WAV
 
+bool readWav(const std::string &path, std::vector<int16_t> &pcm, int &rate, std::string &err) {
+    std::vector<uint8_t> d;
+    if (!readWholeFile(path, d, err)) return false;
+    auto le16 = [&d](size_t o) { return uint32_t(d[o] | d[o + 1] << 8); };
+    auto le32 = [&](size_t o) { return le16(o) | le16(o + 2) << 16; };
+    if (d.size() < 44 || std::memcmp(d.data(), "RIFF", 4) || std::memcmp(d.data() + 8, "WAVE", 4)) {
+        err = path + ": not a WAV file";
+        return false;
+    }
+    int channels = 0, bits = 0;
+    for (size_t o = 12; o + 8 <= d.size();) {
+        const uint32_t len = le32(o + 4);
+        const size_t body = o + 8;
+        if (!std::memcmp(d.data() + o, "fmt ", 4) && body + 16 <= d.size()) {
+            if (le16(body) != 1 && le16(body) != 0xFFFE) { err = path + ": not PCM"; return false; }
+            channels = int(le16(body + 2));
+            rate = int(le32(body + 4));
+            bits = int(le16(body + 14));
+        } else if (!std::memcmp(d.data() + o, "data", 4)) {
+            if (channels < 1 || (bits != 16 && bits != 24)) { err = path + ": 16 or 24 bit PCM only"; return false; }
+            const size_t frame = size_t(channels) * size_t(bits / 8);
+            const size_t n = std::min<size_t>(len, d.size() - body) / frame;
+            pcm.resize(n);
+            for (size_t i = 0; i < n; ++i) {
+                const uint8_t *p = d.data() + body + i * frame;
+                pcm[i] = bits == 16 ? int16_t(p[0] | p[1] << 8) : int16_t(p[1] | p[2] << 8);
+            }
+            return true;
+        }
+        o = body + len + (len & 1);
+    }
+    err = path + ": no data";
+    return false;
+}
+
 bool writeWav(const std::string &path, const WaveSample &ws, const std::vector<int16_t> &pcm,
               std::string &err) {
     FILE *f = fopen(path.c_str(), "wb");

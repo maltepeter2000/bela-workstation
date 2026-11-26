@@ -27,7 +27,8 @@ bank beside the external stays (the starting point). The write / read messages w
 name use that file, with a file name they go on unchanged. save = store, then the first write.
 banks=[] leaves all of that to the external or the editor.
 
-MIDI in: ("raw", inlet) raw bytes from [midiin] into that inlet, or ("notein",) notes as lists
+MIDI in: ("raw", inlet) raw bytes from [midiin] into that inlet (("raw", inlet, "sysex"): also
+the System Exclusive bytes from [sysexin]), or ("notein",) notes as lists
 (note velocity channel) and bend as "bend -1..1" into inlet 1.
 """
 import re
@@ -254,6 +255,9 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     if midi[0] == "raw":
         mi = add(f"#X obj {X + 290} {my - 35} midiin;")
         midi_src = [(mi, 0, midi[1])]
+        if len(midi) > 2 and midi[2] == "sysex":
+            sxi = add(f"#X obj {X + 350} {my - 35} sysexin;")
+            midi_src.append((sxi, 0, midi[1]))
     else:
         ni = add(f"#X obj {X + 130} {my - 35} notein;")
         pk = add(f"#X obj {X + 130} {my - 10} pack f f f;")
