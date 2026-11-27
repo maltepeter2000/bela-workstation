@@ -82,6 +82,21 @@ int main(int argc, char **argv) {
         }
         CHECK(found);
     }
+    {   // a folder without its DR marker is left out, the rest of the disk stays
+        std::fstream f(img, std::ios::binary | std::ios::in | std::ios::out);
+        f.seekp(std::streamoff(sub) * 512 + 1022);
+        f.write("XX", 2);
+        f.close();
+        eps::Disk d;
+        CHECK(d.open(img, err));
+        CHECK(d.warnings().size() == 1 && d.warnings()[0].find("NEW DIR") == 0);
+        bool edited = false;
+        for (const eps::DirEntry *e : d.instruments()) edited = edited || e->name == "EDITED";
+        CHECK(!edited && !d.instruments().empty());
+        std::fstream g(img, std::ios::binary | std::ios::in | std::ios::out);
+        g.seekp(std::streamoff(sub) * 512 + 1022);
+        g.write("DR", 2);
+    }
     CHECK(eps::undoJournal(img, journal, err));
     CHECK(slurp(img) == orig);
     std::remove(img.c_str());

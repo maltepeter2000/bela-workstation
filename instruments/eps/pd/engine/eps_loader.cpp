@@ -440,6 +440,7 @@ bool Disk::open(const std::string &path, std::string &err) {
         data_.clear();
         skipTable_.clear();
         files_.clear();
+        warnings_.clear();
         label_.clear();
         osVersion_.clear();
         blockSize_ = kBlock;
@@ -460,6 +461,7 @@ bool Disk::openMemory(std::vector<uint8_t> d, const std::string &nameHint, std::
     data_ = std::move(d);
     skipTable_.clear();
     files_.clear();
+    warnings_.clear();
     label_.clear();
     osVersion_.clear();
     blockSize_ = kBlock;
@@ -652,8 +654,15 @@ bool Disk::parseDir(uint32_t first, uint32_t blocks, uint32_t contiguous, const 
         files_.push_back(de);
         // A directory is always 2 contiguous blocks; the size field of its entry
         // counts the files in it (the original OS writes 0 for a new directory).
-        if (type == kSubdir && !parseDir(de.firstBlock, 2, 2, de.path, depth + 1, err))
-            return false;
+        if (type == kSubdir) {
+            // a folder that cannot be read is left out (with what was in it), the rest stays
+            const size_t keep = files_.size() - 1;
+            std::string why;
+            if (!parseDir(de.firstBlock, 2, 2, de.path, depth + 1, why)) {
+                files_.resize(keep);
+                warnings_.push_back(de.name + " (block " + std::to_string(de.firstBlock) + "): " + why);
+            }
+        }
     }
     return true;
 }

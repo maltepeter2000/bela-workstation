@@ -237,6 +237,8 @@ int scan_library(const std::string& dir) {
             post("eps~: %s: %s", f.c_str(), err.c_str());
             continue;
         }
+        for (const std::string& w : disk.warnings())
+            post("eps~: %s: folder %s left out", f.c_str(), w.c_str());
         const auto list = disk.instruments();
         const bool image = disk.format() == eps::ImageFormat::Raw;
         LibFile lf;
@@ -1790,10 +1792,9 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     } else if (is("rescan")) {
         out_value(x, "presets", scan_library(g_lib_dir.empty() ? g_ext_dir + "/eps" : g_lib_dir));
     } else if (is("preset")) {
-        if (argc < 1 || !select_library(x, n)) {
-            if (g_lib.empty()) pd_error(x, "eps~: preset: the library (%s) is empty", g_lib_dir.c_str());
-            else pd_error(x, "eps~: preset: expected 0..%d", static_cast<int>(g_lib.size()) - 1);
-        }
+        // past the end: the last one (the number box of the editor goes to 9999)
+        if (g_lib.empty()) pd_error(x, "eps~: preset: the library (%s) is empty", g_lib_dir.c_str());
+        else if (argc > 0) select_library(x, std::clamp(n, 0, static_cast<int>(g_lib.size()) - 1));
     } else if (is("presetstep")) {
         if (g_lib.empty()) { out_display(x, "Library", "empty"); return; }
         const int cnt = static_cast<int>(g_lib.size());

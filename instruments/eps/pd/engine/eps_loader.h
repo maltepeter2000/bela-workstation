@@ -199,6 +199,9 @@ public:
     const std::string &osVersion() const { return osVersion_; }
     const std::vector<DirEntry> &files() const { return files_; }
     std::vector<const DirEntry *> instruments() const;
+    // Folders that could not be read (no DR marker, outside the image): left out, the rest
+    // of the disk is there. One line each, "NAME (block n): why".
+    const std::vector<std::string> &warnings() const { return warnings_; }
 
     bool readFile(const DirEntry &e, std::vector<uint8_t> &out, std::string &err) const;
     bool loadInstrument(const DirEntry &e, Instrument &out, std::string &err) const;
@@ -220,6 +223,7 @@ private:
     uint32_t blockSize_ = 512;
     std::string label_, osVersion_;
     std::vector<DirEntry> files_;
+    std::vector<std::string> warnings_;
 };
 
 // Parse an instrument file's raw bytes (as stored on disk, without EFE header).
