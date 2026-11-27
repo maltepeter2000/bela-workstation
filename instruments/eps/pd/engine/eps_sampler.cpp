@@ -399,7 +399,9 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
     sl.volCode = levelCode(float(ws.volume)) - float(kVolumeCode[127]) + (ws.boost ? float(kBoostCode) : 0.f);
     // CALIBRATE: the byte before the pitch envelope amount switches the amp
     // modulation to a crossfade (1, seen in DECAY BASS with KBD and 0/0/64/127).
-    sl.xfade = ws.volumeModCrossfadeCurve == 1;
+    // With amount 0 no crossfade: ASR-10 files carry the flag with the default window
+    // 0/127/127/127 and amp mod amount 0 (UNISON X-R 1 was silent without pressure).
+    sl.xfade = ws.volumeModCrossfadeCurve == 1 && ws.ampModAmount != 0;
 
     sl.base = base;
     sl.sampleStart = sStart;

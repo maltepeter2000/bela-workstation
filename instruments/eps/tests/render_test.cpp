@@ -252,6 +252,7 @@ static void modulation_tests(const eps::Instrument &base) {
         eps::WaveSample &w = x.waveSamples[1];   // keys 21..59
         w.volumeModCrossfadeCurve = 1;
         w.ampModSource = eps::kSrcKbd;
+        w.ampModAmount = 64;       // as DECAY BASS: with amount 0 there is no crossfade
         w.crossfade[0] = 0; w.crossfade[1] = 0; w.crossfade[2] = 20; w.crossfade[3] = 50;
         eps::Sampler lo(set), hi(set);
         lo.load(x, err);
