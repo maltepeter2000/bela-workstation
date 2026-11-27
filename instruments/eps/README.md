@@ -47,9 +47,14 @@ of the load, the fade-in of GPR 127, the OS flags the drivers read, the mod-sour
 0, 2, 3 go to SER0, SER2, SER3, the output is SER1, channel 1 (aux) stays dry. Checked with
 CLASSIC PAD, DECAY BASS and some 45 Waveboy effects; `build/fxprobe ROM OS file.efe` lists an
 effect's parameters and runs noise through it. Messages `fx 0|1`, `fx`, `fxparam k v`,
-`fxpage ±1|0`, `fxcell k v127`, `fxvar ±1`. The editor has a band EFFECT (name, on, variation,
+`fxpage ±1|0`, `fxcell k v127`, `fxvar ±1`, `fxlist`, `fxsel ±1|cancel`, `fxload [k]`.
+Another effect: the ROM holds the built-in effects as whole effect blocks (as in an instrument,
+the length a plain long at the start; `findRomEffects` finds them by name at $3C and the
+descriptor list), effect files are EFEs of type 24 (in the library, a folder in it, or in an
+image). The chosen block goes into the instrument on save (`Instrument::effect`, the file laid
+out anew by `buildInstrument`; voices unchanged, checked with render_note). The editor has a band EFFECT (name, on, variation,
 pages of 8 parameters named by the effect), the Launchkey the page E20 (INST pressed again;
-INST again: the next 8, after the last E1; O/N: variation). The descriptors: flags $80 start a
+INST again: the next 8, after the last E1; O/N: variation; SEL + O/N: EFFECT?, O/N loads). The descriptors: flags $80 start a
 group, $C0 continue its name (" R" after "ECHOTIME L"), $E0 repeat it unnamed (CH WET LEV 2);
 lists are [lo][names][width][last]. Changed parameters and the variation are written back
 into the instrument's effect block when it is saved. FX mix (P2 encoder 5, `fxmix`) blends the

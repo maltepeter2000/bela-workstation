@@ -113,6 +113,19 @@ int main() {
     S.padColours(st, 13460, col);
     CHECK(col[0] == 1 && col[12] == 17);                               // INST bright, O/N: VAR
     CHECK(has(S.pad(48, true, 13470, st), "fxvar 1"));
+    st.fxSources = 20;                                                 // EFFECT?: SEL + O/N
+    S.pad(44, true, 13471, st);
+    CHECK(has(S.pad(48, true, 13472, st), "fxsel 1") && S.fxAsk);
+    CHECK(has(S.pad(48, true, 13473, st), "fxsel 1") && S.fxAsk);     // again: the next
+    S.pad(44, false, 13474, st);
+    S.padColours(st, 13475, col);
+    CHECK(col[12] == 33);                                              // O/N flashes
+    CHECK(has(S.pad(48, true, 13476, st), "fxload") && !S.fxAsk);
+    S.pad(44, true, 13477, st);
+    S.pad(48, true, 13478, st);
+    S.pad(44, false, 13479, st);
+    CHECK(has(S.pad(45, true, 13479, st), "fxsel cancel") && !S.fxAsk); // another pad: no
+    st.fxSources = 0;
     CHECK(has(S.pad(36, true, 13480, st), "fxpage 1") && S.page == page("E20"));
     st.fxPage = 1;
     CHECK(has(S.pad(36, true, 13490, st), "@page") && S.page == page("E1"));

@@ -176,7 +176,13 @@ MESSAGES = [
     "  effect parameters (outlet: fxpage effect page/pages",
     "  variation on, then fxcell k name 0-127 value, k 0-7).",
     "fxcell k 0-127: parameter k of the page shown.",
-    "fxvar 1 / -1: the next / previous variation of the effect.",
+    "fxvar 1 / -1: the next / previous variation (round).",
+    "fxlist: the effects to choose, fxsource k name each: 0 the",
+    "  instrument's own, then the ROM's, then the effect files",
+    "  (EFE type 24 in the library or a folder in it, and in the",
+    "  images). fxsel 1 / -1: browse them (outlet fxpick name",
+    "  k/n), fxsel cancel. fxload: load the one browsed to,",
+    "  fxload k: effect k. Saved with the instrument.",
     "delete: delete the entry selected in the folder shown (an",
     "  instrument, an empty folder, an EFE file).",
     "init: every control back to 0, the instrument stays.",
@@ -403,8 +409,11 @@ ABOUT = [
     "helpers of ROM and OS and an ES5510 (ESP) the effect program at the effect's rate (29.8, "
     "44.6 or 78.1 kHz). The wavesamples go to the effect by their output bus, bus 3 (aux) stays "
     "dry. Without the two files eps~ plays dry. Mod sources of the effect: bend, wheel, xctrl, "
-    "pedal, sustain, pressure. The variation and the parameters (editor band EFFECT, Launchkey "
-    "E20) are saved with the instrument. FX mix (P2, encoder 5) blends the effect towards the "
+    "pedal, sustain, pressure. Another effect can be chosen: the ROM's (DRY, REVERB, JUST REVERB, "
+    "LONG DELAY, CHORUS+REVRB, FLANGE+REVRB, PHASE+REVERB, ROT.SPKR+REV, CMP+DIST+REV, "
+    "WAH+DIST+REV, DIST INPUT and the 44K / 78K ones, read from your ROM) or an effect file. "
+    "The effect, its variation and the parameters (editor band EFFECT, Launchkey E20) are "
+    "saved with the instrument. FX mix (P2, encoder 5) blends the effect towards the "
     "voices without it: 127 as stored, 0 no effect.",
     "The output runs at Pd's sample rate, not at the 29.76 kHz of the EPS-16 PLUS. Up to 32 "
     "voices, 20 by default.",
@@ -458,8 +467,9 @@ LAUNCHKEY = [
     "The effect: INST pressed again shows E20 EFFECT, the effect's parameters eight at a time, "
     "named by the effect loaded (the display: effect name and page, the encoders in four "
     "letters, CH WET LEV 2 = CWL2). INST again: the next eight, after the last E1 INST. On E20 "
-    "O/N (dim white) steps the variation, with SEL held backwards. The values as the EPS shows "
-    "them, saved with the instrument.",
+    "O/N (dim white) steps the variation. SEL + O/N: EFFECT? with the next effect (ROM, then "
+    "effect files, SEL + O/N again: the one after), O/N (flashing) loads it, another pad: no. "
+    "The values as the EPS shows them, saved with the instrument.",
     "SMPL: the SAMPLE page E18 and the level display, pressed again: record (from the "
     "threshold), again: stop, then play the root key. CMD: the COMMAND page E19, the command "
     "chosen with encoder 1, pressed twice: run it. Then O/N plays the old or the new version "

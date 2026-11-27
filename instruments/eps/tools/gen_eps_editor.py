@@ -224,17 +224,21 @@ FX_H = 110
 def fx_band(c, y):
     """the effect of the instrument: name, on, variation, pages of 8 parameters (named by it)"""
     x0 = X0
-    c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {FX_H - 6} empty empty EFFECT{SP}(ROM{SP}and{SP}OS{SP}of{SP}the{SP}EPS{SP}in{SP}the{SP}library) 4 8 0 10 {S.SETUP[0]} {S.BLUE} 0;")
-    c.add(f"#X symbolatom {x0} {y + 20} 14 0 0 0 - {D}0-fxnamev -;")
-    c.add(f"#X obj {x0 + 100} {y + 20} tgl 15 0 {D}0-fxon {D}0-fxonv on 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 1 1;")
-    c.add(f"#X text {x0 + 150} {y + 20} variation;")
-    bng(c, x0 + 210, y + 20, "fxvprev", "")
-    c.add(f"#X symbolatom {x0 + 232} {y + 20} 16 0 0 0 - {D}0-fxvarv -;")
-    bng(c, x0 + 340, y + 20, "fxvnext", "")
-    c.add(f"#X text {x0 + 380} {y + 20} page;")
-    bng(c, x0 + 414, y + 20, "fxpprev", "")
-    c.add(f"#X symbolatom {x0 + 436} {y + 20} 4 0 0 0 - {D}0-fxpagev -;")
-    bng(c, x0 + 470, y + 20, "fxpnext", "")
+    c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {FX_H - 6} empty empty EFFECT{SP}(ROM{SP}and{SP}OS{SP}of{SP}the{SP}EPS{SP}in{SP}the{SP}library){SP}{SP}<{SP}>{SP}choose{SP}an{SP}effect{SP}then{SP}load 4 8 0 10 {S.SETUP[0]} {S.BLUE} 0;")
+    # the effect: < name > to choose (ROM, effect files), load; on; variation; page
+    bng(c, x0, y + 20, "fxsprev", "")
+    c.add(f"#X symbolatom {x0 + 20} {y + 20} 14 0 0 0 - {D}0-fxnamev -;")
+    bng(c, x0 + 124, y + 20, "fxsnext", "")
+    bng(c, x0 + 146, y + 20, "fxsload", "load")
+    c.add(f"#X obj {x0 + 200} {y + 21} tgl 15 0 {D}0-fxon {D}0-fxonv on 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 1 1;")
+    c.add(f"#X text {x0 + 240} {y + 20} var;")
+    bng(c, x0 + 262, y + 20, "fxvprev", "")
+    c.add(f"#X symbolatom {x0 + 282} {y + 20} 16 0 0 0 - {D}0-fxvarv -;")
+    bng(c, x0 + 398, y + 20, "fxvnext", "")
+    c.add(f"#X text {x0 + 424} {y + 20} page;")
+    bng(c, x0 + 456, y + 20, "fxpprev", "")
+    c.add(f"#X symbolatom {x0 + 476} {y + 20} 4 0 0 0 - {D}0-fxpagev -;")
+    bng(c, x0 + 514, y + 20, "fxpnext", "")
     for k in range(8):
         x = x0 + k * CW
         c.add(f"#X symbolatom {x} {y + 46} 10 0 0 0 - {D}0-fxn{k} -;")
@@ -471,12 +475,16 @@ def logic():
     # the effect: editor -> eps~, and fxpage / fxcell replies -> the EFFECT band
     yf = yk + 160
     for k, (recv, text) in enumerate([("fxon", f"fx {D}1"), ("fxvprev", "fxvar -1"), ("fxvnext", "fxvar 1"),
-                                      ("fxpprev", "fxpage -1"), ("fxpnext", "fxpage 1")]):
+                                      ("fxpprev", "fxpage -1"), ("fxpnext", "fxpage 1"),
+                                      ("fxsprev", "fxsel -1"), ("fxsnext", "fxsel 1"), ("fxsload", "fxload")]):
         send(10 + 120 * k, yf, recv, text)
     for k in range(8):
         send(10 + 120 * k, yf + 100, f"fxe{k}", f"fxcell {k} {D}1")
     yf2 = yf + 200
-    rf = c.add(f"#X obj 10 {yf2} route fxpage fxcell;"); c.conn(ro, 0, rf, 0)
+    rf = c.add(f"#X obj 10 {yf2} route fxpage fxcell fxpick;"); c.conn(ro, 0, rf, 0)
+    upk = c.add(f"#X obj 1300 {yf2 + 30} unpack s s;"); c.conn(rf, 2, upk, 0)
+    mpk = c.add(f"#X msg 1300 {yf2 + 60} set {D}1;"); c.conn(upk, 0, mpk, 0)
+    spk = c.add(f"#X obj 1300 {yf2 + 90} s {D}0-fxnamev;"); c.conn(mpk, 0, spk, 0)
     upf = c.add(f"#X obj 10 {yf2 + 30} unpack s s s f;"); c.conn(rf, 0, upf, 0)
     for k, dest in enumerate(["fxnamev", "fxpagev", "fxvarv", "fxonv"]):
         m = c.add(f"#X msg {10 + 110 * k} {yf2 + 60} set {D}1;"); c.conn(upf, k, m, 0)

@@ -12,7 +12,8 @@
 //   EDIT  pads: 36-43 the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page)
 //               44 SEL 45 LAY> 46 WS> 47 ENV# 48 O/N 49 CMD 50 SMPL 51 MODE
 //         INST again: the effect (E20), its pages of eight parameters, then INST again; on the
-//         effect O/N steps the variation (SEL held: back).
+//         effect O/N steps the variation; SEL + O/N: EFFECT? (again: the next effect), O/N
+//         loads it, another pad: no.
 //         encoders: encoder n = cell n of the page shown, whatever CC page the Launchkey is on
 //   SEL held: LAY> WS> ENV# step backwards, a key selects its layer and wavesample silently.
 //   MODE (51, bottom right, in both layers): PLAY <-> EDIT; blue in PLAY, purple in EDIT.
@@ -40,6 +41,7 @@ public:
         bool navTop = true;   // PLAY: the browser is at the top (the library): no UP
         int fxPages = 0;      // pages of eight effect parameters (0 = no effect loaded)
         int fxPage = 0;       // the one shown
+        int fxSources = 0;    // effects to choose from (0: no ROM / OS)
     };
     // A message for eps~ ("presetstep 1", "rec start" ...) or, starting with '@', for the
     // display: "@page" (show the page's legend), "@mode" (PLAY / EDIT changed: pad legend),
@@ -79,6 +81,7 @@ private:
 public:
     bool saveTo = false;     // PLAY: SAVE pressed, SAVE TO? (navigate, SAVE again: save there)
     bool delAsk = false;     // PLAY: SEL + OPEN pressed, DELETE? (SEL: yes, anything else: no)
+    bool fxAsk = false;      // E20: SEL + O/N pressed, EFFECT? (SEL + O/N: the next, O/N: load it)
 private:
     bool selUsed_ = false;
     int selNote_ = -1;            // the pad held as SEL

@@ -16,8 +16,12 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    seinem Effekt wie am EPS (auch Waveboy-Effekte). Ohne die beiden Dateien klingt es trocken.
    Im Editor die Leiste EFFECT: Name, an/aus, Variation, Seiten zu 8 Parametern (nach dem
    Effekt benannt). Am Launchkey in EDIT: INST nochmal = Seite E20 EFFECT, INST weiter = die
-   nächsten 8, nach der letzten wieder E1; O/N wechselt dort die Variation (SEL gehalten:
-   zurück). Variation und Parameter werden mit dem Instrument gespeichert. FX mix (P2,
+   nächsten 8, nach der letzten wieder E1; O/N wechselt dort die Variation.
+   Effekt wechseln: im Editor < > neben dem Namen, dann "load"; am Launchkey auf E20 SEL
+   halten + O/N (EFFECT?, nochmal: der nächste), dann O/N zum Laden. Zur Wahl stehen die
+   Effekte aus deinem ROM (Reverb, Delay, Chorus, Flanger, Phaser, Rotor, Distortion ...) und
+   Effekt-Dateien (EFE Typ 24, z. B. Waveboy) in der Library oder einem Ordner darin.
+   Effekt, Variation und Parameter werden mit dem Instrument gespeichert. FX mix (P2,
    Encoder 5): 127 = Effekt wie gespeichert, 0 = ohne Effekt.
 4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge). Klick auf das Objekt öffnet den Editor.
    "library N" lädt Instrument N aus dem Ordner eps, Noten auf MIDI-Kanal 1.

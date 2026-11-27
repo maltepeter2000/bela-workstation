@@ -456,6 +456,7 @@ eps::Surface::Status lk_status(const t_eps* x) {
         st.fxPages = std::max(1, int((fx_cells(x->fx->m).size() + 7) / 8));
         st.fxPage = x->fx->page;
     }
+    st.fxSources = x->fx->m.hasSystem() || (!g_fxRom.empty() && !g_fxOs.empty()) ? fx_source_count() - 1 : 0;
     return st;
 }
 

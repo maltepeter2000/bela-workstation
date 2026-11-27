@@ -165,6 +165,10 @@ struct Instrument {
     // the PCM of every wavesample is preceded by its header and the instrument's
     // other data. Loop start-X reads into it, as on the original.
     std::vector<int16_t> image;
+    // A new effect block for buildInstrument (effectSet): another effect chosen, or its
+    // values changed in size; empty = no effect. Not set: the file's effect as it is.
+    std::vector<uint8_t> effect;
+    bool effectSet = false;
 
     // Resolve copy references: returns the wavesample that owns the PCM.
     const WaveSample *pcmOwner(const WaveSample &ws) const;

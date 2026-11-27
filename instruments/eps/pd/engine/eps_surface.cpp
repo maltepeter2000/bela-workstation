@@ -70,6 +70,7 @@ int Surface::encoder(int cc, bool &pageChanged) {
 Surface::Actions Surface::setMode(Mode m) {
     Actions a;
     if (m == mode) return a;
+    fxAsk = false;
     if (mode == Edit && kPages[page].area == kAreaSample) a.push_back("rec level 0");
     mode = m;
     page = m == Play ? lastPlay_ : lastEdit_;
@@ -117,6 +118,12 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
         if (sel) return {"delete"};
         return {"@cancel"};
     }
+    if (down && fxAsk && !sel) {                 // EFFECT?: SEL + O/N the next, O/N load it, else no
+        if (i == 12 && selHeld) return {"fxsel 1"};
+        fxAsk = false;
+        if (i == 12) return {"fxload"};
+        if (i != 15) return {"fxsel cancel", "@page"};
+    }
     if (sel) {
         if (down) {
             selHeld = true;
@@ -158,7 +165,8 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
         if (st.fxPage + 1 < st.fxPages) return {"fxpage 1", "@page"};
         return setPage(kAreas[0].first);
     }
-    if (i == 0 && kPages[page].area == 0 && page == kAreas[0].first + kAreas[0].count - 1 && st.fxPages > 0) {
+    if (i == 0 && kPages[page].area == 0 && page == kAreas[0].first + kAreas[0].count - 1 &&
+        (st.fxPages > 0 || st.fxSources > 0)) {
         Actions a = {"fxpage 0"};                // INST again: the effect, from its first page
         for (const std::string &s : setPage(kAreas[kAreaEffect].first)) a.push_back(s);
         return a;
@@ -185,8 +193,11 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
             cmdArm_ = now;
             return {"@cmdask"};
         case 12:
-            if (kPages[page].area == kAreaEffect && st.cmd == 0 && st.fxPages > 0)
-                return {selHeld ? "fxvar -1" : "fxvar 1"};   // the effect: the variation
+            if (kPages[page].area == kAreaEffect && st.cmd == 0) {
+                if (selHeld && st.fxSources > 0) { fxAsk = true; return {"fxsel 1"}; }   // EFFECT?
+                if (!selHeld && st.fxPages > 0) return {"fxvar 1"};                  // the variation
+                return {};
+            }
             if (st.cmd == 2) return {"cmd old"};
             if (st.cmd == 3) return {"cmd new"};
             return {};
@@ -224,7 +235,10 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
     else if (now - cmdArm_ < kTwiceMs) out[13] = kWhite + kFlash;
     else out[13] = a == kAreaCommand ? kWhite : avail;
     out[12] = st.cmd == 3 ? kOrange : (st.cmd == 2 ? kGreen : kOff);
-    if (a == kAreaEffect && st.cmd == 0 && st.fxPages > 0) out[12] = kDim + kWhite;   // VAR
+    if (a == kAreaEffect && st.cmd == 0) {           // VAR; EFFECT? flashing
+        if (fxAsk) out[12] = kWhite + kFlash;
+        else if (st.fxPages > 0 || st.fxSources > 0) out[12] = kDim + kWhite;
+    }
     out[15] = kPurple;
 }
 

@@ -87,7 +87,14 @@ void FxMachine::write8(uint32_t a, uint8_t v) {
 static unsigned long g_steps = 0;
 void FxMachine::onInstruction(uint32_t pc) {
     ++g_steps;
+    if (pc != kStop) { lastPc_[0] = lastPc_[1]; lastPc_[1] = lastPc_[2]; lastPc_[2] = pc; }
     if (pc == kSentinel || pc == kStop) {
+        if (pc == kStop && std::getenv("FXDEBUG")) {
+            const uint32_t sp = m68k_get_reg(nullptr, M68K_REG_A7);
+            std::fprintf(stderr, "fx exception: from pc %06x (sr %04x), last %06x %06x %06x\n",
+                         unsigned(read8(sp + 2) << 24 | read8(sp + 3) << 16 | read8(sp + 4) << 8 | read8(sp + 5)) & 0xffffff,
+                         unsigned(read8(sp) << 8 | read8(sp + 1)), unsigned(lastPc_[0]), unsigned(lastPc_[1]), unsigned(lastPc_[2]));
+        }
         stopped_ = true;
         m68k_end_timeslice();
     }
@@ -193,14 +200,14 @@ bool FxMachine::load(const uint8_t *block, size_t size, std::string &err) {
     mem_[0xC81] = 0;
     put16(0xCBBA, 0);
     put32(0x8000, 0);
-    if (!call(kRomLoader, kBlock, 0, kBlock + section, 0, 0, 200)) { err = "the ESP program did not load"; unload(); return false; }
+    if (!call(kRomLoader, kBlock, 0, kBlock + section, 0, 0, 4000)) { err = "the ESP program did not load"; unload(); return false; }
     if (tables) {
         const uint32_t t = kBlock + tables;
         const uint32_t a1 = t + 4, a2 = a1 + blk16(tables);
         const uint32_t d1 = blk16(tables + 2);
-        if (!call(0xC0F894, 0, a1, 0, 0, d1, 200, a2)) { err = "the effect tables did not load"; unload(); return false; }
+        if (!call(0xC0F894, 0, a1, 0, 0, d1, 2000, a2)) { err = "the effect tables did not load"; unload(); return false; }
     }
-    if (init && !call(kBlock + init, kBlock, 0, 0, 0, 0, 200)) { err = "the effect init stopped"; unload(); return false; }
+    if (init && !call(kBlock + init, kBlock, 0, 0, 0, 0, 2000)) { err = "the effect init stopped"; unload(); return false; }
     mem_[0xC90] = 0;   // the loader leaves the "ESP halted" flags set: the OS clears them
     mem_[0xC81] = 0;
     put16(0xCBBA, 0);
@@ -323,4 +330,37 @@ void FxMachine::frame(const int16_t in[6], int16_t &outL, int16_t &outR) {
     outR = esp_.serial(3);
 }
 
-}  // namespace eps
+std::vector<RomEffect> findRomEffects(const std::vector<uint8_t> &rom) {
+    std::vector<RomEffect> out;
+    auto w = [&](size_t i) { return uint32_t(rom[i] << 8 | rom[i + 1]); };
+    for (size_t o = 0; o + 0x80 < rom.size(); o += 2) {
+        const uint32_t len = w(o) << 16 | w(o + 2);   // in the ROM a plain length
+        if (len < 0x100 || len > 0x8000 || o + len > rom.size()) continue;
+        const uint32_t from = w(o + 0x36), to = w(o + 0x38);
+        if (from < 0x60 || to <= from || to >= len || rom[o + 0x66] > 2) continue;
+        std::string name;
+        bool ok = true;
+        for (size_t i = 0; i < 12; ++i) {
+            const uint8_t c = rom[o + 0x3c + i];
+            if (c < 32 || c > 126) { ok = false; break; }
+            name += char(c);
+        }
+        if (!ok || name[0] == ' ') continue;
+        while (!name.empty() && name.back() == ' ') name.pop_back();
+        RomEffect e;
+        e.offset = uint32_t(o);
+        e.size = (len + 1) & ~1u;
+        e.rateMode = rom[o + 0x66];
+        e.name = name + (e.rateMode == 1 ? " 44K" : (e.rateMode == 2 ? " 78K" : ""));
+        int same = 1;
+        for (const RomEffect &f : out)
+            if (f.name == e.name || (f.name.rfind(e.name + " ", 0) == 0 &&
+                                     f.name.find_first_not_of("0123456789", e.name.size() + 1) == std::string::npos)) ++same;
+        if (same > 1) e.name += " " + std::to_string(same);
+        out.push_back(e);
+        o += e.size - 2;
+    }
+    return out;
+}
+
+} // namespace eps

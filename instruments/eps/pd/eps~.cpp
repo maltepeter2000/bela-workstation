@@ -236,6 +236,33 @@ std::vector<uint8_t> read_whole(const std::string& path) {
 
 std::string join(const std::string& a, const std::string& b);
 
+// The effects to choose from: 0 = the instrument's own, then the ROM's, then effect files
+// (EFE of type 24 in the library or a folder in it, type 24 files in the images).
+struct FxSource {
+    std::string name;
+    char kind = 'R';                     // R the ROM, F an EFE file, I a file in an image
+    std::string file, path;              // F: the full path; I: the image (library) and its path
+    uint32_t offset = 0, size = 0;       // R
+};
+std::vector<FxSource> g_fxRomList, g_fxFileList;
+
+// An EFE's file type (header byte $32), -1 if it is no EFE
+int efe_type(const std::string& path) {
+    uint8_t h[0x40] = {};
+    FILE* f = std::fopen(path.c_str(), "rb");
+    if (!f) return -1;
+    const size_t n = std::fread(h, 1, sizeof h, f);
+    std::fclose(f);
+    return n == sizeof h && h[0] == 0x0d ? h[0x32] : -1;
+}
+
+std::string efe_title(std::string n) {   // "CMP+DST+RV+X.[24].EFE" -> "CMP+DST+RV+X"
+    const size_t k = n.find(".[");
+    if (k != std::string::npos) n.resize(k);
+    else if (n.size() > 4 && lower(n.substr(n.size() - 4)) == ".efe") n.resize(n.size() - 4);
+    return n;
+}
+
 void fx_read_system(const std::string& dir) {
     if (dir == g_fxDir) return;
     g_fxDir = dir;
@@ -274,6 +301,15 @@ void fx_read_system(const std::string& dir) {
         }
     }
 #endif
+    g_fxRomList.clear();
+    for (const eps::RomEffect& e : eps::findRomEffects(g_fxRom)) {
+        FxSource f;
+        f.name = e.name;
+        f.kind = 'R';
+        f.offset = e.offset;
+        f.size = e.size;
+        g_fxRomList.push_back(f);
+    }
     ++g_fxGeneration;
 }
 
@@ -281,13 +317,40 @@ int scan_library(const std::string& dir) {
     fx_read_system(dir);
     g_lib.clear();
     g_files.clear();
+    g_fxFileList.clear();
     g_lib_dir = dir;
     std::vector<std::string> files;
 #ifndef _WIN32
     if (DIR* d = opendir(dir.c_str())) {
         while (dirent* e = readdir(d)) {
             const std::string n = e->d_name;
-            if (n[0] != '.' && is_image_name(n) && n != kFxOsName) files.push_back(n);
+            if (n[0] == '.' || n == kFxOsName) continue;
+            const std::string full = join(dir, n);
+            const int t = lower(n).size() > 4 && lower(n).compare(n.size() - 4, 4, ".efe") == 0 ? efe_type(full) : -1;
+            if (t == 24) {                       // an effect file: to choose, not to play
+                FxSource f;
+                f.name = efe_title(n);
+                f.kind = 'F';
+                f.file = full;
+                g_fxFileList.push_back(f);
+            } else if (t == 27) {                // the OS
+            } else if (is_image_name(n)) {
+                files.push_back(n);
+            } else {                             // a folder: its effect files
+                if (DIR* sd = opendir(full.c_str())) {
+                    while (dirent* se = readdir(sd)) {
+                        const std::string sn = se->d_name;
+                        if (sn[0] == '.' || lower(sn).size() < 5 || lower(sn).compare(sn.size() - 4, 4, ".efe") != 0) continue;
+                        if (efe_type(join(full, sn)) != 24) continue;
+                        FxSource f;
+                        f.name = efe_title(sn);
+                        f.kind = 'F';
+                        f.file = join(full, sn);
+                        g_fxFileList.push_back(f);
+                    }
+                    closedir(sd);
+                }
+            }
         }
         closedir(d);
     }
@@ -309,6 +372,15 @@ int scan_library(const std::string& dir) {
         lf.image = image;
         lf.entries = disk.files();
         g_files.push_back(lf);
+        for (const eps::DirEntry& de : disk.files())
+            if (de.type == 24) {                 // effect files in the image
+                FxSource fs;
+                fs.name = de.name;
+                fs.kind = 'I';
+                fs.file = f;
+                fs.path = de.path;
+                g_fxFileList.push_back(fs);
+            }
         for (size_t k = 0; k < list.size(); ++k) {
             LibEntry le;
             le.file = f;
@@ -598,6 +670,11 @@ struct t_eps {
         double t0 = 0, t1 = 0;           // the times of the last two ESP outputs
         float prev[6] = {};              // the last input sample
         float o0[2] = {}, o1[2] = {};    // the last two ESP outputs
+        std::vector<uint8_t> orig;       // the instrument's own effect block (empty: none)
+        int choice = 0;                  // 0 = the instrument's, else 1 + the list of sources
+        bool swapped = false;            // another effect than the instrument's: saved as new
+        bool picking = false;            // fxsel: browsing the list, fxload loads
+        int pick = 0;
     }* fx;
     t_clock* fxclock;                    // the effect's real-time routine, 77 Hz
 };
@@ -957,6 +1034,11 @@ void fx_page_out(t_eps* x) {
 
 // The effect block, with the parameters as they are now, back into the instrument (for saving).
 void fx_store(t_eps* x, eps::Instrument& in) {
+    if (x->fx->swapped) {                    // another effect: a new block in the file
+        in.effectSet = true;
+        in.effect = x->fx->m.loaded() ? x->fx->m.block() : std::vector<uint8_t>();
+        return;
+    }
     if (!x->fx->m.loaded()) return;
     const std::vector<uint8_t>& b = x->fx->m.block();
     const size_t size = in.image.size() * 2;
@@ -973,14 +1055,15 @@ void fx_store(t_eps* x, eps::Instrument& in) {
     }
 }
 
-void fx_load(t_eps* x) {
-    t_eps::Fx& F = *x->fx;
-    F.m.unload();
+void fx_reset_audio(t_eps::Fx& F) {
     F.clock = F.next = F.t0 = F.t1 = 0;
     std::fill(F.prev, F.prev + 6, 0.f);
     F.o0[0] = F.o0[1] = F.o1[0] = F.o1[1] = 0;
-    std::vector<uint8_t> block;
-    if (!x->sampler || !fx_block(x->sampler->instrument(), block)) { fx_info(x); fx_page_out(x); return; }
+}
+
+// The ROM and OS into the machine when they were read again; false (said once) without them.
+bool fx_system(t_eps* x) {
+    t_eps::Fx& F = *x->fx;
     if (F.generation != g_fxGeneration) {
         F.generation = g_fxGeneration;
         std::string err;
@@ -992,15 +1075,100 @@ void fx_load(t_eps* x) {
         if (!F.told) post("eps~: the effects need the ROM dumps of your EPS-16 PLUS (U27 / U28: *.u27, "
                           "*.u28) and its OS 1.30 file (%s or the OS EFE) in the library %s", kFxOsName, g_lib_dir.c_str());
         F.told = true;
-        fx_info(x);
-        fx_page_out(x);
-        return;
+        return false;
     }
+    return true;
+}
+
+int fx_source_count() { return 1 + int(g_fxRomList.size() + g_fxFileList.size()); }
+
+// The block of a source (1 .. count-1); 0 = the instrument's own.
+bool fx_source_block(t_eps* x, int k, std::vector<uint8_t>& out, std::string& err) {
+    out.clear();
+    if (k == 0) { out = x->fx->orig; return true; }
+    const size_t r = g_fxRomList.size();
+    if (k < 1 || k >= fx_source_count()) { err = "no such effect"; return false; }
+    const FxSource& f = size_t(k - 1) < r ? g_fxRomList[size_t(k - 1)] : g_fxFileList[size_t(k - 1) - r];
+    std::vector<uint8_t> d;
+    if (f.kind == 'R') {
+        if (f.offset + f.size > g_fxRom.size()) { err = "not in the ROM"; return false; }
+        out.assign(g_fxRom.begin() + f.offset, g_fxRom.begin() + f.offset + f.size);
+        return true;
+    }
+    if (f.kind == 'F') {
+        d = read_whole(f.file);
+        if (d.size() < 512 + 0x100) { err = "cannot read " + f.file; return false; }
+        d.erase(d.begin(), d.begin() + 512);
+    } else {
+        eps::Disk disk;
+        if (!disk.open(join(g_lib_dir, f.file), err)) return false;
+        const eps::DirEntry* de = nullptr;
+        for (const eps::DirEntry& e : disk.files()) if (e.path == f.path && e.type == 24) de = &e;
+        if (!de) { err = "not found in " + f.file; return false; }
+        if (!disk.readFile(*de, d, err)) return false;
+    }
+    if (d.size() < 0x100) { err = "too short"; return false; }
+    const uint32_t len = (uint32_t(d[2] << 8 | d[3]) >> 4) << 12 | (uint32_t(d[0] << 8 | d[1]) >> 4);
+    if (len >= 0x100 && len <= d.size()) d.resize((len + 1) & ~1u);
+    out = std::move(d);
+    return true;
+}
+
+std::string fx_source_name(t_eps* x, int k) {
+    if (k == 0) {
+        const std::vector<uint8_t>& o = x->fx->orig;
+        if (o.size() < 0x48) return "NO EFFECT";
+        std::string n(reinterpret_cast<const char*>(o.data()) + 0x3c, 12);
+        while (!n.empty() && (n.back() == ' ' || n.back() == 0)) n.pop_back();
+        return n;
+    }
+    const size_t r = g_fxRomList.size();
+    if (k < 1 || k >= fx_source_count()) return "-";
+    return size_t(k - 1) < r ? g_fxRomList[size_t(k - 1)].name : g_fxFileList[size_t(k - 1) - r].name;
+}
+
+void fx_load(t_eps* x) {
+    t_eps::Fx& F = *x->fx;
+    F.m.unload();
+    fx_reset_audio(F);
+    F.orig.clear();
+    F.choice = 0;
+    F.swapped = false;
+    F.picking = false;
+    std::vector<uint8_t> block;
+    if (!x->sampler || !fx_block(x->sampler->instrument(), block)) { fx_info(x); fx_page_out(x); return; }
+    F.orig = block;
+    if (!fx_system(x)) { fx_info(x); fx_page_out(x); return; }
     std::string err;
     if (!F.m.load(block.data(), block.size(), err)) pd_error(x, "eps~: effect: %s", err.c_str());
     F.page = 0;
     fx_info(x);
     fx_page_out(x);
+}
+
+// Another effect for the instrument: source k (0 = its own again). Saved with it.
+bool fx_choose(t_eps* x, int k) {
+    t_eps::Fx& F = *x->fx;
+    F.picking = false;
+    if (!fx_system(x)) return false;
+    std::vector<uint8_t> block;
+    std::string err;
+    if (!fx_source_block(x, k, block, err)) {
+        pd_error(x, "eps~: effect %d: %s", k, err.c_str());
+        return false;
+    }
+    F.m.unload();
+    fx_reset_audio(F);
+    if (!block.empty() && !F.m.load(block.data(), block.size(), err)) {
+        pd_error(x, "eps~: effect %s: %s", fx_source_name(x, k).c_str(), err.c_str());
+        F.m.unload();
+    }
+    F.choice = k;
+    F.swapped = k != 0;
+    F.page = 0;
+    fx_info(x);
+    fx_page_out(x);
+    return F.m.loaded() || block.empty();
 }
 
 void fx_tick(t_eps* x) {
@@ -2313,11 +2481,48 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         else x->fx->page += n < 0 ? -1 : 1;
         fx_page_out(x);
         return;
-    } else if (is("fxvar")) {    // fxvar 1 / -1: the next / previous variation
+    } else if (is("fxsel")) {    // fxsel 1 / -1: browse the effects; fxsel cancel: stop
+        t_eps::Fx& F = *x->fx;
+        if (argc >= 1 && argv[0].a_type == A_SYMBOL) {
+            F.picking = false;
+            fx_page_out(x);
+            return;
+        }
+        const int cnt = fx_source_count();
+        if (!F.picking) { F.picking = true; F.pick = F.choice; }
+        F.pick = ((F.pick + (n < 0 ? -1 : 1)) % cnt + cnt) % cnt;
+        const std::string nm = fx_source_name(x, F.pick);
+        t_atom a[2];
+        SETSYMBOL(&a[0], gensym(spaces_to_underscore(nm).c_str()));
+        SETSYMBOL(&a[1], gensym((std::to_string(F.pick) + "/" + std::to_string(cnt - 1)).c_str()));
+        outlet_anything(x->info, gensym("fxpick"), 2, a);
+        const std::string head = F.pick == 0 ? "EFFECT? THE INSTRUMENT'S" : "EFFECT? " + std::to_string(F.pick) + "/" + std::to_string(cnt - 1);
+        if (lk_drawing(x)) {
+            std::string a1, b1;
+            lk_split(nm, a1, b1);
+            lk_screen(x, 10, head, a1, b1);
+        } else {
+            out_display_text(x, head, nm);
+        }
+        return;
+    } else if (is("fxload")) {   // fxload: the effect browsed to; fxload k: source k (fxlist)
+        const int k = argc >= 1 ? n : (x->fx->picking ? x->fx->pick : x->fx->choice);
+        if (fx_choose(x, k)) out_display(x, "Effect", fx_source_name(x, k));
+        return;
+    } else if (is("fxlist")) {   // the effects to choose: fxsource k name (0 = the instrument's)
+        for (int k = 0; k < fx_source_count(); ++k) {
+            t_atom a[2];
+            SETFLOAT(&a[0], k);
+            SETSYMBOL(&a[1], gensym(spaces_to_underscore(fx_source_name(x, k)).c_str()));
+            outlet_anything(x->info, gensym("fxsource"), 2, a);
+        }
+        return;
+    } else if (is("fxvar")) {    // fxvar 1 / -1: the next / previous variation (round)
         const int v = fx_variation(x->fx->m);
         if (v >= 0) {
             const auto& p = x->fx->m.params()[size_t(v)];
-            x->fx->m.setParam(v, std::clamp(p.value + (n < 0 ? -1 : 1), p.lo, p.hi));
+            const int span = p.hi - p.lo + 1;
+            x->fx->m.setParam(v, p.lo + ((p.value - p.lo + (n < 0 ? -1 : 1)) % span + span) % span);
             out_display(x, "Variation", fx_value_text(x->fx->m.params()[size_t(v)]));
         }
         fx_page_out(x);

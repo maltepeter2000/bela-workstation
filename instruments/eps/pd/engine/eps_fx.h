@@ -17,6 +17,15 @@
 
 namespace eps {
 
+// The effects built into the ROM (full effect blocks, as in an instrument): where they are,
+// their name (with 44K / 78K for the faster rates, a number for a second of the same name).
+struct RomEffect {
+    uint32_t offset = 0, size = 0;
+    std::string name;
+    int rateMode = 0;
+};
+std::vector<RomEffect> findRomEffects(const std::vector<uint8_t> &rom);
+
 class FxMachine {
 public:
     FxMachine();
@@ -78,6 +87,7 @@ private:
 
     std::vector<uint8_t> mem_;    // the OS RAM, 64 KB: $0000-$7FFF and $FF8000-$FFFFFF are one
     std::vector<uint8_t> rom_;    // 128 KB at $C00000
+    uint32_t lastPc_[3] = {};
     std::vector<uint8_t> block_;  // the effect block, at kBlock
     std::vector<uint8_t> ctx_;    // the 68000 context (Musashi keeps one global CPU)
     ES5510 esp_;

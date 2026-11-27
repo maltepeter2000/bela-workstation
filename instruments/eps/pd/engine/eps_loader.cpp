@@ -390,6 +390,8 @@ bool parseInstrument(const uint8_t *data, size_t size, const std::string &fallba
 }
 
 bool encodeInstrument(const Instrument &inst, std::vector<uint8_t> &out, std::string &err) {
+    // another effect (its size differs): the file laid out anew, the rest copied from the old
+    if (inst.effectSet) return buildInstrument(inst, out, err);
     if (inst.image.size() * 2 < 644) { err = "no file data to write"; return false; }
     out.resize(inst.image.size() * 2);
     for (size_t i = 0; i < inst.image.size(); ++i) {
@@ -872,10 +874,17 @@ bool buildInstrument(const Instrument &inst, std::vector<uint8_t> &out, std::str
         return uint32_t(at);
     };
 
-    // The effect: copied as it is.
+    // The effect: copied as it is, or the one chosen (its length in the first four bytes).
     uint32_t len = 0;
-    if (haveOld && oldBlock(encoded24(old.data() + 644), len))
+    if (in.effectSet) {
+        if (in.effect.size() >= 0x70) {
+            const uint32_t at = append(in.effect.data(), in.effect.size());
+            putEpsLong(out.data() + at, uint32_t(in.effect.size()));
+            putEncoded24(out.data() + 644, at);
+        }
+    } else if (haveOld && oldBlock(encoded24(old.data() + 644), len)) {
         putEncoded24(out.data() + 644, append(old.data() + encoded24(old.data() + 644), len));
+    }
 
     std::vector<bool> written(128, false);
     auto writeWs = [&](int idx) {
