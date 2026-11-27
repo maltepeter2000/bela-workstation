@@ -168,21 +168,30 @@ MESSAGES = [
     "  shown (an instrument loads, a folder is only shown). nav",
     "  open: into the folder shown. nav up: one level up (the",
     "  Launchkey pads > < OPEN EXIT).",
-    "fx 0 or 1: the effect off (dry) or on. fx: the effect and its",
-    "  parameters (outlet: effect name rate count, then fxparam",
-    "  k name lo hi value item for each).",
+    "fxmode off / inst / bank / rom n / step 1 or -1: the effect",
+    "  as on the EPS's EFFECT/Select page: OFF dry, INST the",
+    "  instrument's, BANK the bank effect, ROM 1-13 (global, not",
+    "  saved). Outlet: fxmode OFF|INST|BANK|ROM_n name.",
+    "fx 0 or 1: FX=OFF, or the mode before. fx: the effect and",
+    "  its parameters (outlet: effect name rate count, then",
+    "  fxparam k name lo hi value item for each).",
     "fxparam k value: parameter k of the effect.",
     "fxpage 1 / -1 / 0: the next / previous / first page of eight",
-    "  effect parameters (outlet: fxpage effect page/pages",
-    "  variation on, then fxcell k name 0-127 value, k 0-7).",
-    "fxcell k 0-127: parameter k of the page shown.",
+    "  effect parameters, the variation first (outlet: fxpage",
+    "  effect page/pages variation on, then fxcell k name 0-127",
+    "  value, k 0-7). fxcell k 0-127: parameter k of the page.",
     "fxvar 1 / -1: the next / previous variation (round).",
-    "fxlist: the effects to choose, fxsource k name each: 0 the",
-    "  instrument's own, then the ROM's, then the effect files",
-    "  (EFE type 24 in the library or a folder in it, and in the",
-    "  images). fxsel 1 / -1: browse them (outlet fxpick name",
-    "  k/n), fxsel cancel. fxload: load the one browsed to,",
-    "  fxload k: effect k. Saved with the instrument.",
+    "  Editing a ROM effect makes it the bank effect (as the EPS).",
+    "fxlist: the effect files (fxsource k name: EFE type 24 in",
+    "  the library or a folder in it, and in the images) and the",
+    "  ROM effects (fxrom n name). fxsel 1 / -1: browse the files",
+    "  (outlet fxpick name k/n), fxsel cancel. fxload [k]: the",
+    "  file into the bank effect (LOAD EFFECT), FX=BANK.",
+    "fxcopy bank: COPY CURRENT EFFECT TO BANK (what plays).",
+    "fxcopy inst: the bank effect into the instrument (saved",
+    "  with it). fxsave [name]: SAVE BANK EFFECT as an effect",
+    "  file into the folder shown (a number added if taken).",
+    "fxdelete: DELETE INST EFFECT, the instrument keeps none.",
     "delete: delete the entry selected in the folder shown (an",
     "  instrument, an empty folder, an EFE file).",
     "init: every control back to 0, the instrument stays.",
@@ -409,12 +418,14 @@ ABOUT = [
     "helpers of ROM and OS and an ES5510 (ESP) the effect program at the effect's rate (29.8, "
     "44.6 or 78.1 kHz). The wavesamples go to the effect by their output bus, bus 3 (aux) stays "
     "dry. Without the two files eps~ plays dry. Mod sources of the effect: bend, wheel, xctrl, "
-    "pedal, sustain, pressure. Another effect can be chosen: the ROM's (DRY, REVERB, JUST REVERB, "
-    "LONG DELAY, CHORUS+REVRB, FLANGE+REVRB, PHASE+REVERB, ROT.SPKR+REV, CMP+DIST+REV, "
-    "WAH+DIST+REV, DIST INPUT and the 44K / 78K ones, read from your ROM) or an effect file. "
-    "The effect, its variation and the parameters (editor band EFFECT, Launchkey E20) are "
-    "saved with the instrument. FX mix (P2, encoder 5) blends the effect towards the "
-    "voices without it: 127 as stored, 0 no effect.",
+    "pedal, sustain, pressure. The effects work as on the EPS: FX=INST plays the instrument's "
+    "effect (saved with it), FX=BANK the bank effect (effect files load into it, SAVE BANK "
+    "EFFECT writes it as a file), FX=ROM 1-13 the effects of the ROM, global and not saved: "
+    "HALL REVERB, 44KHZ REVERB, ROOM REVERB, DUAL DELAYS, 44KHZ DELAYS, CHORUS+REVERB, "
+    "PHASER+REVERB, FLANGER+REV, ROT. SPKR+REV, CHOR+REV+DDL, CMP+DIST+REV, DIST+CHO+REV, "
+    "WAH+DIST+REV. A ROM effect edited becomes the bank effect. COPY CURRENT EFFECT copies "
+    "what plays into the bank, or the bank effect into the instrument. FX mix (P2, encoder 5) "
+    "blends the effect towards the voices without it: 127 as stored, 0 no effect.",
     "The output runs at Pd's sample rate, not at the 29.76 kHz of the EPS-16 PLUS. Up to 32 "
     "voices, 20 by default.",
 ]
@@ -467,9 +478,11 @@ LAUNCHKEY = [
     "The effect: INST pressed again shows E20 EFFECT, the effect's parameters eight at a time, "
     "named by the effect loaded (the display: effect name and page, the encoders in four "
     "letters, CH WET LEV 2 = CWL2). INST again: the next eight, after the last E1 INST. On E20 "
-    "O/N (dim white) steps the variation. SEL + O/N: EFFECT? with the next effect (ROM, then "
-    "effect files, SEL + O/N again: the one after), O/N (flashing) loads it, another pad: no. "
-    "The values as the EPS shows them, saved with the instrument.",
+    "O/N steps FX= OFF INST BANK ROM 1-13 (the display: mode, name, rate). SEL + O/N: LOAD "
+    "EFFECT, an effect file (SEL + O/N again: the next), O/N (flashing) loads it into the bank "
+    "effect, another pad: no. CMD: COPY TO BANK? (SEL + CMD: COPY TO INST?, SAVE BANK "
+    "EFFECT?, DELETE INST EFFECT?), CMD again: do it, another pad: no. VAR is the first encoder. "
+    "The values as the EPS shows them.",
     "SMPL: the SAMPLE page E18 and the level display, pressed again: record (from the "
     "threshold), again: stop, then play the root key. CMD: the COMMAND page E19, the command "
     "chosen with encoder 1, pressed twice: run it. Then O/N plays the old or the new version "

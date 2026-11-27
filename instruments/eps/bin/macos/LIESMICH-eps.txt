@@ -14,15 +14,21 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    Effekte: deine beiden ROM-Dumps (eps16plus-100f-lower.u27 und ...-upper.u28, so wie
    sie heißen) und dein OS 1.30 (die OS-EFE, z. B. "EPS-16+ O.S..[27].EFE", Name egal) in die Library legen, dann spielt jedes Instrument mit
    seinem Effekt wie am EPS (auch Waveboy-Effekte). Ohne die beiden Dateien klingt es trocken.
-   Im Editor die Leiste EFFECT: Name, an/aus, Variation, Seiten zu 8 Parametern (nach dem
-   Effekt benannt). Am Launchkey in EDIT: INST nochmal = Seite E20 EFFECT, INST weiter = die
-   nächsten 8, nach der letzten wieder E1; O/N wechselt dort die Variation.
-   Effekt wechseln: im Editor < > neben dem Namen, dann "load"; am Launchkey auf E20 SEL
-   halten + O/N (EFFECT?, nochmal: der nächste), dann O/N zum Laden. Zur Wahl stehen die
-   Effekte aus deinem ROM (Reverb, Delay, Chorus, Flanger, Phaser, Rotor, Distortion ...) und
-   Effekt-Dateien (EFE Typ 24, z. B. Waveboy) in der Library oder einem Ordner darin.
-   Effekt, Variation und Parameter werden mit dem Instrument gespeichert. FX mix (P2,
-   Encoder 5): 127 = Effekt wie gespeichert, 0 = ohne Effekt.
+   Effekte wie am EPS (Handbuch Teil 4): FX=INST spielt den Effekt des Instruments (wird mit
+   ihm gespeichert), FX=BANK den Bank-Effekt, FX=ROM 1-13 die ROM-Effekte (HALL REVERB,
+   44KHZ REVERB, ROOM REVERB, DUAL DELAYS, 44KHZ DELAYS, CHORUS+REVERB, PHASER+REVERB,
+   FLANGER+REV, ROT. SPKR+REV, CHOR+REV+DDL, CMP+DIST+REV, DIST+CHO+REV, WAH+DIST+REV;
+   global, nicht gespeichert), FX=OFF trocken. Wer einen ROM-Effekt verändert, macht ihn zum
+   Bank-Effekt. Effekt-Dateien (EFE Typ 24, z. B. Waveboy, in der Library, einem Ordner darin
+   oder im Image) werden in den Bank-Effekt geladen; SAVE BANK EFFECT speichert ihn als eigene
+   Datei in den gezeigten Ordner. COPY TO BANK: was gerade spielt, in den Bank-Effekt;
+   COPY TO INST: den Bank-Effekt ins Instrument.
+   Editor, Leiste EFFECT: FX= < >, Name, Variation, Seite; "load effect" < > load,
+   copy to bank, copy to inst, save bank fx; 8 Zellen nach dem Effekt benannt (VAR zuerst).
+   Launchkey EDIT: INST nochmal = Seite E20 EFFECT (INST weiter: nächste 8, danach E1).
+   Dort O/N = FX= weiter; SEL + O/N = LOAD EFFECT (nochmal: nächste Datei), O/N lädt;
+   CMD = COPY TO BANK? (SEL + CMD: COPY TO INST?, SAVE BANK EFFECT?, DELETE INST EFFECT?), CMD nochmal führt aus.
+   FX mix (P2, Encoder 5): 127 = Effekt wie gespeichert, 0 = ohne Effekt.
 4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge). Klick auf das Objekt öffnet den Editor.
    "library N" lädt Instrument N aus dem Ordner eps, Noten auf MIDI-Kanal 1.
 5. Regler: Offsets über dem geladenen Instrument (0 = wie gespeichert). Seite 1 (P1 PERFORM):

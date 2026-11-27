@@ -236,8 +236,8 @@ std::vector<uint8_t> read_whole(const std::string& path) {
 
 std::string join(const std::string& a, const std::string& b);
 
-// The effects to choose from: 0 = the instrument's own, then the ROM's, then effect files
-// (EFE of type 24 in the library or a folder in it, type 24 files in the images).
+// The ROM effects 1-13 (from the user's ROM) and the effect files to load into the bank
+// effect (EFE of type 24 in the library or a folder in it, type 24 files in the images).
 struct FxSource {
     std::string name;
     char kind = 'R';                     // R the ROM, F an EFE file, I a file in an image
@@ -670,10 +670,13 @@ struct t_eps {
         double t0 = 0, t1 = 0;           // the times of the last two ESP outputs
         float prev[6] = {};              // the last input sample
         float o0[2] = {}, o1[2] = {};    // the last two ESP outputs
-        std::vector<uint8_t> orig;       // the instrument's own effect block (empty: none)
-        int choice = 0;                  // 0 = the instrument's, else 1 + the list of sources
-        bool swapped = false;            // another effect than the instrument's: saved as new
-        bool picking = false;            // fxsel: browsing the list, fxload loads
+        // As the EFFECT/Select-Bypass page of the EPS: 0 OFF, 1 INST, 2 BANK, 3.. ROM 1-13.
+        int mode = 1, lastMode = 1;
+        std::vector<uint8_t> inst;       // the instrument's effect (empty: none), as edited
+        bool instSet = false;            // copied into the instrument: written anew on save
+        std::vector<uint8_t> bank;       // the bank effect (effect files load here)
+        std::string bankName;
+        bool picking = false;            // fxsel: browsing the effect files, fxload loads
         int pick = 0;
     }* fx;
     t_clock* fxclock;                    // the effect's real-time routine, 77 Hz
@@ -978,12 +981,39 @@ void fx_info(t_eps* x) {
     outlet_anything(x->info, gensym("effect"), 3, a);
 }
 
-// The parameters on pages of 8 (the variation has its own control): k-th of a page -> index.
+// The parameters on pages of 8, the variation first (as on the EPS): k-th of a page -> index.
 std::vector<int> fx_cells(const eps::FxMachine& m) {
     std::vector<int> v;
     for (size_t i = 0; i < m.params().size(); ++i)
+        if (m.params()[i].variation) v.push_back(int(i));
+    for (size_t i = 0; i < m.params().size(); ++i)
         if (!m.params()[i].variation) v.push_back(int(i));
     return v;
+}
+
+// The effect modes: 0 OFF, 1 INST, 2 BANK, 3.. ROM 1-13.
+int fx_mode_count() { return 3 + int(g_fxRomList.size()); }
+std::string fx_mode_text(int mode) {
+    if (mode <= 0) return "OFF";
+    if (mode == 1) return "INST";
+    if (mode == 2) return "BANK";
+    return "ROM " + std::to_string(mode - 2);
+}
+std::string fx_block_name(const std::vector<uint8_t>& b) {
+    if (b.size() < 0x48) return "";
+    std::string n(reinterpret_cast<const char*>(b.data()) + 0x3c, 12);
+    while (!n.empty() && (n.back() == ' ' || n.back() == 0)) n.pop_back();
+    while (!n.empty() && n.front() == ' ') n.erase(0, 1);
+    return n;
+}
+// What the mode plays, by name (ROM: as the manual names them)
+std::string fx_mode_name(t_eps* x, int mode) {
+    const t_eps::Fx& F = *x->fx;
+    if (mode <= 0) return "DRY";
+    if (mode == 1) return F.inst.empty() ? "NO EFFECT" : fx_block_name(F.inst);
+    if (mode == 2) return F.bank.empty() ? "NO EFFECT" : (F.bankName.empty() ? fx_block_name(F.bank) : F.bankName);
+    const size_t k = size_t(mode - 3);
+    return k < g_fxRomList.size() ? g_fxRomList[k].name : "-";
 }
 int fx_variation(const eps::FxMachine& m) {
     for (size_t i = 0; i < m.params().size(); ++i)
@@ -1004,6 +1034,12 @@ int fx_from127(const eps::FxMachine::Param& p, int v) {
 // fxpage <effect> <page>/<pages> <variation> <on>, then fxcell k <name> <0-127> <value> (k 0..7)
 void fx_page_out(t_eps* x) {
     t_eps::Fx& F = *x->fx;
+    {   // fxmode <OFF|INST|BANK|ROM_n> <name>
+        t_atom m[2];
+        SETSYMBOL(&m[0], gensym(spaces_to_underscore(fx_mode_text(F.mode)).c_str()));
+        SETSYMBOL(&m[1], gensym(spaces_to_underscore(fx_mode_name(x, F.mode)).c_str()));
+        outlet_anything(x->info, gensym("fxmode"), 2, m);
+    }
     const std::vector<int> cells = fx_cells(F.m);
     const int pages = std::max(1, int((cells.size() + 7) / 8));
     F.page = std::clamp(F.page, 0, pages - 1);
@@ -1034,13 +1070,14 @@ void fx_page_out(t_eps* x) {
 
 // The effect block, with the parameters as they are now, back into the instrument (for saving).
 void fx_store(t_eps* x, eps::Instrument& in) {
-    if (x->fx->swapped) {                    // another effect: a new block in the file
+    const t_eps::Fx& F = *x->fx;
+    const std::vector<uint8_t> b = F.mode == 1 && F.m.loaded() ? F.m.block() : F.inst;
+    if (F.instSet) {                         // another effect copied in: a new block in the file
         in.effectSet = true;
-        in.effect = x->fx->m.loaded() ? x->fx->m.block() : std::vector<uint8_t>();
+        in.effect = b;
         return;
     }
-    if (!x->fx->m.loaded()) return;
-    const std::vector<uint8_t>& b = x->fx->m.block();
+    if (b.empty()) return;
     const size_t size = in.image.size() * 2;
     if (size < 648) return;
     auto byte = [&](size_t i) { return uint8_t(uint16_t(in.image[i / 2]) >> ((i & 1) ? 0 : 8)); };
@@ -1080,21 +1117,14 @@ bool fx_system(t_eps* x) {
     return true;
 }
 
-int fx_source_count() { return 1 + int(g_fxRomList.size() + g_fxFileList.size()); }
+int fx_file_count() { return int(g_fxFileList.size()); }
 
-// The block of a source (1 .. count-1); 0 = the instrument's own.
-bool fx_source_block(t_eps* x, int k, std::vector<uint8_t>& out, std::string& err) {
+// The block of effect file k (0 .. count-1), as the file has it (its length in the first word).
+bool fx_file_block(int k, std::vector<uint8_t>& out, std::string& err) {
     out.clear();
-    if (k == 0) { out = x->fx->orig; return true; }
-    const size_t r = g_fxRomList.size();
-    if (k < 1 || k >= fx_source_count()) { err = "no such effect"; return false; }
-    const FxSource& f = size_t(k - 1) < r ? g_fxRomList[size_t(k - 1)] : g_fxFileList[size_t(k - 1) - r];
+    if (k < 0 || k >= fx_file_count()) { err = "no such effect file"; return false; }
+    const FxSource& f = g_fxFileList[size_t(k)];
     std::vector<uint8_t> d;
-    if (f.kind == 'R') {
-        if (f.offset + f.size > g_fxRom.size()) { err = "not in the ROM"; return false; }
-        out.assign(g_fxRom.begin() + f.offset, g_fxRom.begin() + f.offset + f.size);
-        return true;
-    }
     if (f.kind == 'F') {
         d = read_whole(f.file);
         if (d.size() < 512 + 0x100) { err = "cannot read " + f.file; return false; }
@@ -1114,61 +1144,113 @@ bool fx_source_block(t_eps* x, int k, std::vector<uint8_t>& out, std::string& er
     return true;
 }
 
-std::string fx_source_name(t_eps* x, int k) {
-    if (k == 0) {
-        const std::vector<uint8_t>& o = x->fx->orig;
-        if (o.size() < 0x48) return "NO EFFECT";
-        std::string n(reinterpret_cast<const char*>(o.data()) + 0x3c, 12);
-        while (!n.empty() && (n.back() == ' ' || n.back() == 0)) n.pop_back();
-        return n;
-    }
-    const size_t r = g_fxRomList.size();
-    if (k < 1 || k >= fx_source_count()) return "-";
-    return size_t(k - 1) < r ? g_fxRomList[size_t(k - 1)].name : g_fxFileList[size_t(k - 1) - r].name;
+std::string fx_file_name(int k) {
+    return k >= 0 && k < fx_file_count() ? g_fxFileList[size_t(k)].name : "-";
 }
 
+// What plays goes back to its place: the instrument's or the bank effect, as edited.
+void fx_park(t_eps* x) {
+    t_eps::Fx& F = *x->fx;
+    if (!F.m.loaded()) return;
+    if (F.mode == 1) F.inst = F.m.block();
+    else if (F.mode == 2) F.bank = F.m.block();
+}
+
+// The effect of the mode into the ESP (a ROM effect with its default values).
+void fx_play(t_eps* x) {
+    t_eps::Fx& F = *x->fx;
+    F.m.unload();
+    fx_reset_audio(F);
+    F.on = F.mode != 0;
+    F.page = 0;
+    std::vector<uint8_t> block;
+    if (F.mode == 1) block = F.inst;
+    else if (F.mode == 2) block = F.bank;
+    else if (F.mode >= 3 && size_t(F.mode - 3) < g_fxRomList.size()) {
+        const FxSource& r = g_fxRomList[size_t(F.mode - 3)];
+        if (r.offset + r.size <= g_fxRom.size()) block.assign(g_fxRom.begin() + r.offset, g_fxRom.begin() + r.offset + r.size);
+    }
+    if (!block.empty() && fx_system(x)) {
+        std::string err;
+        if (!F.m.load(block.data(), block.size(), err))
+            pd_error(x, "eps~: effect %s: %s", fx_mode_name(x, F.mode).c_str(), err.c_str());
+    }
+    fx_info(x);
+    fx_page_out(x);
+}
+
+void fx_set_mode(t_eps* x, int mode) {
+    t_eps::Fx& F = *x->fx;
+    fx_park(x);
+    F.mode = std::clamp(mode, 0, fx_mode_count() - 1);
+    if (F.mode) F.lastMode = F.mode;
+    F.picking = false;
+    fx_play(x);
+}
+
+// Editing a ROM effect: as on the EPS it becomes the bank effect first.
+void fx_edit_prepare(t_eps* x) {
+    t_eps::Fx& F = *x->fx;
+    if (F.mode < 3 || !F.m.loaded()) return;
+    F.bank = F.m.block();
+    F.bankName = fx_mode_name(x, F.mode);
+    F.mode = F.lastMode = 2;
+}
+
+// A new instrument: its effect is the INST effect; it plays when FX=INST (BANK and ROM stay).
 void fx_load(t_eps* x) {
     t_eps::Fx& F = *x->fx;
-    F.m.unload();
-    fx_reset_audio(F);
-    F.orig.clear();
-    F.choice = 0;
-    F.swapped = false;
-    F.picking = false;
-    std::vector<uint8_t> block;
-    if (!x->sampler || !fx_block(x->sampler->instrument(), block)) { fx_info(x); fx_page_out(x); return; }
-    F.orig = block;
-    if (!fx_system(x)) { fx_info(x); fx_page_out(x); return; }
-    std::string err;
-    if (!F.m.load(block.data(), block.size(), err)) pd_error(x, "eps~: effect: %s", err.c_str());
-    F.page = 0;
-    fx_info(x);
-    fx_page_out(x);
+    if (F.mode != 1) fx_park(x);
+    F.inst.clear();
+    F.instSet = false;
+    if (x->sampler) fx_block(x->sampler->instrument(), F.inst);
+    if (F.mode == 1) {
+        F.m.unload();               // the old instrument's effect is not parked into the new one
+        fx_play(x);
+    } else {
+        fx_info(x);
+        fx_page_out(x);
+    }
 }
 
-// Another effect for the instrument: source k (0 = its own again). Saved with it.
-bool fx_choose(t_eps* x, int k) {
+// An effect file into the bank effect (as LOAD EFFECT on the EPS), FX=BANK.
+bool fx_load_file(t_eps* x, int k) {
     t_eps::Fx& F = *x->fx;
     F.picking = false;
-    if (!fx_system(x)) return false;
     std::vector<uint8_t> block;
     std::string err;
-    if (!fx_source_block(x, k, block, err)) {
-        pd_error(x, "eps~: effect %d: %s", k, err.c_str());
+    if (!fx_file_block(k, block, err)) {
+        pd_error(x, "eps~: effect file %d: %s", k, err.c_str());
         return false;
     }
-    F.m.unload();
-    fx_reset_audio(F);
-    if (!block.empty() && !F.m.load(block.data(), block.size(), err)) {
-        pd_error(x, "eps~: effect %s: %s", fx_source_name(x, k).c_str(), err.c_str());
-        F.m.unload();
+    fx_park(x);
+    F.bank = block;
+    F.bankName = fx_file_name(k);
+    F.mode = F.lastMode = 2;
+    fx_play(x);
+    return F.m.loaded();
+}
+
+// COPY CURRENT EFFECT: TO BANK (what plays into the bank effect) or TO INST (the bank effect
+// into the instrument, saved with it).
+bool fx_copy(t_eps* x, bool toBank, std::string& err) {
+    t_eps::Fx& F = *x->fx;
+    fx_park(x);
+    if (toBank) {
+        if (F.mode == 0 || !F.m.loaded()) { err = "no effect plays"; return false; }
+        F.bank = F.m.block();
+        F.bankName = fx_mode_name(x, F.mode);
+        F.mode = F.lastMode = 2;
+        fx_page_out(x);
+        return true;
     }
-    F.choice = k;
-    F.swapped = k != 0;
-    F.page = 0;
-    fx_info(x);
-    fx_page_out(x);
-    return F.m.loaded() || block.empty();
+    if (F.bank.empty()) { err = "no bank effect"; return false; }
+    if (!x->sampler) { err = "no instrument"; return false; }
+    F.inst = F.bank;
+    F.instSet = true;
+    if (F.mode == 1) fx_play(x);
+    else fx_page_out(x);
+    return true;
 }
 
 void fx_tick(t_eps* x) {
@@ -1457,6 +1539,66 @@ std::string free_name(t_eps* x) {
         if (!used) return cand;
     }
     return base;
+}
+
+// SAVE BANK EFFECT: the bank effect as an effect file (type 24) into the folder shown: into
+// the image, or NAME.efe at the top of the library. A free name (a number added) if taken.
+bool fx_save(t_eps* x, std::string name, std::string& saved, std::string& err) {
+    t_eps::Fx& F = *x->fx;
+    fx_park(x);
+    if (F.bank.empty()) { err = "no bank effect (COPY TO BANK or load an effect first)"; return false; }
+    std::vector<uint8_t> data = F.bank;
+    data.resize((data.size() + 1) & ~size_t(1), 0);
+    {   // the length as the files have it: two words with 12 bits each
+        const uint32_t v = uint32_t(data.size());
+        const uint32_t lo = (v & 0xFFF) << 4, hi = (v >> 12 & 0xFFF) << 4;
+        data[0] = uint8_t(lo >> 8); data[1] = uint8_t(lo); data[2] = uint8_t(hi >> 8); data[3] = uint8_t(hi);
+    }
+    if (name.empty()) name = F.bankName.empty() ? fx_block_name(F.bank) : F.bankName;
+    const std::string base = eps::ensoniqName(name.empty() ? "EFFECT" : name);
+    const LibFile* lf = x->bfile->empty() ? nullptr : lib_file(*x->bfile);
+    auto numbered = [&](int k) {
+        if (k == 0) return base;
+        const std::string suf = " " + std::to_string(k);
+        std::string b = base;
+        while (!b.empty() && b.size() + suf.size() > 12) b.pop_back();
+        while (!b.empty() && b.back() == ' ') b.pop_back();
+        return b + suf;
+    };
+    if (lf && lf->image) {
+        eps::Volume vol;
+        const std::string img = join(g_lib_dir, *x->bfile);
+        if (!vol.open(img, err)) return false;
+        vol.setJournal(img + ".undo");
+        uint32_t dir = 3;
+        if (!vol.dirOfPath(*x->bdir, false, dir, err)) return false;
+        std::vector<eps::FsEntry> l;
+        if (!vol.list(dir, l, err)) return false;
+        std::string nm;
+        for (int k = 0; k < 100 && nm.empty(); ++k) {
+            const std::string c = numbered(k);
+            bool used = false;
+            for (const eps::FsEntry& e : l) used = used || e.name == c;
+            if (!used) nm = c;
+        }
+        int slot = -1;
+        bool exists = false;
+        if (!vol.writeFile(dir, nm, eps::kPlusFx, data, -1, slot, exists, err)) return false;
+        vol.close();
+        saved = nm;
+    } else {
+        std::string path;
+        for (int k = 0; k < 100 && path.empty(); ++k) {
+            const std::string c = join(g_lib_dir, spaces_to_underscore(numbered(k)) + ".efe");
+            if (FILE* f = std::fopen(c.c_str(), "rb")) { std::fclose(f); continue; }
+            path = c;
+            saved = numbered(k);
+        }
+        if (path.empty() || !eps::writeEfe(path, saved, eps::kPlusFx, data, err)) return false;
+    }
+    F.bankName = saved;
+    scan_library(g_lib_dir);
+    return true;
 }
 
 // ---- the wave recorder ---------------------------------------------------------------
@@ -2456,8 +2598,8 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         out_value(x, "presets", static_cast<t_float>(g_lib.size()));
         out_value(x, "sounding", x->sampler ? x->sampler->activeVoiceCount() : 0);
     } else if (is("fx")) {
-        // fx 0 / 1: the effect off (dry) / on; fx (no argument) = the effect and its parameters
-        if (argc >= 1) x->fx->on = f != 0;
+        // fx 0 / 1: FX=OFF / back to the mode before; fx (no argument) = the effect, parameters
+        if (argc >= 1) fx_set_mode(x, f != 0 ? std::max(1, x->fx->lastMode) : 0);
         fx_info(x);
         fx_page_out(x);
         if (argc == 0) {
@@ -2476,27 +2618,54 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
             }
         }
         return;
+    } else if (is("fxmode")) {
+        // fxmode off / inst / bank / rom n, fxmode step 1 / -1, fxmode n (0 OFF 1 INST 2 BANK 3.. ROM)
+        t_eps::Fx& F = *x->fx;
+        int m = F.mode;
+        const std::string w = argc >= 1 && argv[0].a_type == A_SYMBOL ? atom_getsymbol(argv)->s_name : "";
+        const int arg2 = argc >= 2 ? static_cast<int>(atom_getfloat(argv + 1)) : 1;
+        if (w == "off") m = 0;
+        else if (w == "inst") m = 1;
+        else if (w == "bank") m = 2;
+        else if (w == "rom") m = 2 + std::clamp(arg2, 1, std::max(1, fx_mode_count() - 3));
+        else if (w == "step") m = ((F.mode + (arg2 < 0 ? -1 : 1)) % fx_mode_count() + fx_mode_count()) % fx_mode_count();
+        else if (argc >= 1 && argv[0].a_type == A_FLOAT) m = n;
+        else { pd_error(x, "eps~: fxmode off|inst|bank|rom n|step 1|-1"); return; }
+        fx_set_mode(x, m);
+        const std::string head = "FX=" + fx_mode_text(F.mode);
+        if (lk_drawing(x)) {
+            std::string a1, b1;
+            lk_split(fx_mode_name(x, F.mode), a1, b1);
+            lk_screen(x, 10, head + (F.m.loaded() ? "  " + std::to_string(int(F.m.rate() / 1000 + 0.5)) + "KHZ" : ""), a1, b1);
+        } else {
+            out_display_text(x, head, fx_mode_name(x, F.mode));
+        }
+        return;
     } else if (is("fxpage")) {   // fxpage 1 / -1 / 0: the next / previous / first 8 parameters
         if (argc >= 1 && n == 0) x->fx->page = 0;   // fxpage 0: the first
         else x->fx->page += n < 0 ? -1 : 1;
         fx_page_out(x);
         return;
-    } else if (is("fxsel")) {    // fxsel 1 / -1: browse the effects; fxsel cancel: stop
+    } else if (is("fxsel")) {    // fxsel 1 / -1: browse the effect files; fxsel cancel: stop
         t_eps::Fx& F = *x->fx;
         if (argc >= 1 && argv[0].a_type == A_SYMBOL) {
             F.picking = false;
             fx_page_out(x);
             return;
         }
-        const int cnt = fx_source_count();
-        if (!F.picking) { F.picking = true; F.pick = F.choice; }
+        const int cnt = fx_file_count();
+        if (cnt == 0) {
+            if (!lk_text(x, "LOAD EFFECT", "NO EFFECTS")) out_display_text(x, "Load effect", "no effects");
+            return;
+        }
+        if (!F.picking) { F.picking = true; F.pick = n < 0 ? 0 : -1; }
         F.pick = ((F.pick + (n < 0 ? -1 : 1)) % cnt + cnt) % cnt;
-        const std::string nm = fx_source_name(x, F.pick);
+        const std::string nm = fx_file_name(F.pick);
         t_atom a[2];
         SETSYMBOL(&a[0], gensym(spaces_to_underscore(nm).c_str()));
-        SETSYMBOL(&a[1], gensym((std::to_string(F.pick) + "/" + std::to_string(cnt - 1)).c_str()));
+        SETSYMBOL(&a[1], gensym((std::to_string(F.pick + 1) + "/" + std::to_string(cnt)).c_str()));
         outlet_anything(x->info, gensym("fxpick"), 2, a);
-        const std::string head = F.pick == 0 ? "EFFECT? THE INSTRUMENT'S" : "EFFECT? " + std::to_string(F.pick) + "/" + std::to_string(cnt - 1);
+        const std::string head = "LOAD EFFECT " + std::to_string(F.pick + 1) + "/" + std::to_string(cnt);
         if (lk_drawing(x)) {
             std::string a1, b1;
             lk_split(nm, a1, b1);
@@ -2505,19 +2674,48 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
             out_display_text(x, head, nm);
         }
         return;
-    } else if (is("fxload")) {   // fxload: the effect browsed to; fxload k: source k (fxlist)
-        const int k = argc >= 1 ? n : (x->fx->picking ? x->fx->pick : x->fx->choice);
-        if (fx_choose(x, k)) out_display(x, "Effect", fx_source_name(x, k));
+    } else if (is("fxload")) {   // fxload: the file browsed to; fxload k: file k (fxlist): the bank effect
+        if (argc < 1 && !x->fx->picking) { pd_error(x, "eps~: fxload: browse with fxsel first, or fxload k"); return; }
+        const int k = argc >= 1 ? n : x->fx->pick;
+        if (fx_load_file(x, k)) out_display(x, "Bank effect", fx_file_name(k));
         return;
-    } else if (is("fxlist")) {   // the effects to choose: fxsource k name (0 = the instrument's)
-        for (int k = 0; k < fx_source_count(); ++k) {
+    } else if (is("fxlist")) {   // the effect files: fxsource k name; the ROM effects: fxrom k name
+        for (int k = 0; k < fx_file_count(); ++k) {
             t_atom a[2];
             SETFLOAT(&a[0], k);
-            SETSYMBOL(&a[1], gensym(spaces_to_underscore(fx_source_name(x, k)).c_str()));
+            SETSYMBOL(&a[1], gensym(spaces_to_underscore(fx_file_name(k)).c_str()));
             outlet_anything(x->info, gensym("fxsource"), 2, a);
         }
+        for (size_t k = 0; k < g_fxRomList.size(); ++k) {
+            t_atom a[2];
+            SETFLOAT(&a[0], static_cast<t_float>(k + 1));
+            SETSYMBOL(&a[1], gensym(spaces_to_underscore(g_fxRomList[k].name).c_str()));
+            outlet_anything(x->info, gensym("fxrom"), 2, a);
+        }
+        return;
+    } else if (is("fxcopy")) {   // fxcopy bank / inst: COPY CURRENT EFFECT TO BANK / TO INST
+        const bool toBank = argc >= 1 && argv[0].a_type == A_SYMBOL && !std::strcmp(atom_getsymbol(argv)->s_name, "bank");
+        std::string err;
+        if (fx_copy(x, toBank, err)) out_display(x, toBank ? "Copied to bank" : "Copied to inst", fx_mode_name(x, toBank ? 2 : 1));
+        else { pd_error(x, "eps~: fxcopy: %s", err.c_str()); out_display(x, "Not copied", err); }
+        return;
+    } else if (is("fxdelete")) { // DELETE INST EFFECT: the instrument keeps no effect (saved so)
+        t_eps::Fx& F = *x->fx;
+        if (!x->sampler) return;
+        fx_park(x);
+        F.inst.clear();
+        F.instSet = true;
+        if (F.mode == 1) fx_play(x);
+        else fx_page_out(x);
+        out_display(x, "Inst effect", "deleted");
+        return;
+    } else if (is("fxsave")) {   // fxsave [name]: SAVE BANK EFFECT into the folder shown
+        std::string err, saved;
+        if (fx_save(x, argc >= 1 ? pd_text(argc, argv) : std::string(), saved, err)) out_display(x, "Effect saved", saved);
+        else { pd_error(x, "eps~: fxsave: %s", err.c_str()); out_display(x, "Not saved", err); }
         return;
     } else if (is("fxvar")) {    // fxvar 1 / -1: the next / previous variation (round)
+        fx_edit_prepare(x);
         const int v = fx_variation(x->fx->m);
         if (v >= 0) {
             const auto& p = x->fx->m.params()[size_t(v)];
@@ -2531,20 +2729,27 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         const std::vector<int> cells = fx_cells(x->fx->m);
         const size_t c = size_t(x->fx->page * 8 + n);
         if (argc >= 2 && n >= 0 && n < 8 && c < cells.size()) {
+            const bool wasRom = x->fx->mode >= 3;
+            fx_edit_prepare(x);
             const auto& p = x->fx->m.params()[size_t(cells[c])];
             x->fx->m.setParam(cells[c], fx_from127(p, static_cast<int>(atom_getfloat(argv + 1))));
             const auto& q = x->fx->m.params()[size_t(cells[c])];
             out_display(x, q.name, fx_value_text(q));
-            t_atom b[4];
-            SETFLOAT(&b[0], n);
-            SETSYMBOL(&b[1], gensym(spaces_to_underscore(q.name.empty() ? "-" : q.name).c_str()));
-            SETFLOAT(&b[2], fx_to127(q));
-            SETSYMBOL(&b[3], gensym(spaces_to_underscore(fx_value_text(q)).c_str()));
-            outlet_anything(x->info, gensym("fxcell"), 4, b);
+            if (wasRom || q.variation) {
+                fx_page_out(x);             // a ROM effect became the bank effect / all values new
+            } else {
+                t_atom b[4];
+                SETFLOAT(&b[0], n);
+                SETSYMBOL(&b[1], gensym(spaces_to_underscore(q.name.empty() ? "-" : q.name).c_str()));
+                SETFLOAT(&b[2], fx_to127(q));
+                SETSYMBOL(&b[3], gensym(spaces_to_underscore(fx_value_text(q)).c_str()));
+                outlet_anything(x->info, gensym("fxcell"), 4, b);
+            }
         }
         return;
     } else if (is("fxparam")) {
         // fxparam k value: parameter k of the effect (as "fx" lists them)
+        fx_edit_prepare(x);
         if (argc >= 2 && x->fx->m.setParam(n, static_cast<int>(atom_getfloat(argv + 1)))) {
             const auto& p = x->fx->m.params()[size_t(n)];
             out_display(x, p.name, p.items.empty() ? std::to_string(p.value) :

@@ -47,18 +47,21 @@ of the load, the fade-in of GPR 127, the OS flags the drivers read, the mod-sour
 0, 2, 3 go to SER0, SER2, SER3, the output is SER1, channel 1 (aux) stays dry. Checked with
 CLASSIC PAD, DECAY BASS and some 45 Waveboy effects; `build/fxprobe ROM OS file.efe` lists an
 effect's parameters and runs noise through it. Messages `fx 0|1`, `fx`, `fxparam k v`,
-`fxpage ±1|0`, `fxcell k v127`, `fxvar ±1`, `fxlist`, `fxsel ±1|cancel`, `fxload [k]`.
-Another effect: the ROM holds the built-in effects as whole effect blocks (as in an instrument,
-the length a plain long at the start; `findRomEffects` finds them by name at $3C and the
-descriptor list), effect files are EFEs of type 24 (in the library, a folder in it, or in an
-image). The chosen block goes into the instrument on save (`Instrument::effect`, the file laid
-out anew by `buildInstrument`; voices unchanged, checked with render_note). The editor has a band EFFECT (name, on, variation,
-pages of 8 parameters named by the effect), the Launchkey the page E20 (INST pressed again;
-INST again: the next 8, after the last E1; O/N: variation; SEL + O/N: EFFECT?, O/N loads). The descriptors: flags $80 start a
-group, $C0 continue its name (" R" after "ECHOTIME L"), $E0 repeat it unnamed (CH WET LEV 2);
-lists are [lo][names][width][last]. Changed parameters and the variation are written back
-into the instrument's effect block when it is saved. FX mix (P2 encoder 5, `fxmix`) blends the
-effect output with the voices that went into it. Not yet: the X-IN effects (audio input into
+`fxpage ±1|0`, `fxcell k v127`, `fxvar ±1`, `fxmode off|inst|bank|rom n|step ±1`, `fxlist`,
+`fxsel ±1|cancel`, `fxload [k]`, `fxcopy bank|inst`, `fxsave [name]`.
+The effects follow the EPS-16 PLUS manual (section 4, COMMAND/Effects, section 11): FX=INST plays
+the instrument's effect (saved with it), FX=BANK the bank effect (effect files load into it; SAVE
+BANK EFFECT writes it as a type 24 file), FX=ROM 1-13 the ROM effects (global, not saved; edited,
+one becomes the bank effect), FX=OFF dry. COPY CURRENT EFFECT: TO BANK (what plays), TO INST (the
+bank effect into the instrument; the file is then laid out anew by `buildInstrument`). The ROM
+effects are whole effect blocks in the ROM; `findRomEffects` reads the OS's table of 13 pointers
+(at $C03E48 in ROM 1.00F) and names them as the manual does. Editor band EFFECT: FX= < >, name,
+variation, page; load effect < > load, copy to bank, copy to inst, save bank fx. Launchkey E20
+(INST again): O/N FX=, SEL + O/N LOAD EFFECT, CMD COPY TO BANK? / COPY TO INST? / SAVE BANK
+EFFECT? / DELETE INST EFFECT? (SEL + CMD: next, CMD: do it; `fxdelete`); VAR is the first encoder. The descriptors: flags $80 start
+a group, $C0 continue its name, $E0 repeat it unnamed; lists are [lo][names][width][last].
+FX mix (P2 encoder 5, `fxmix`) blends the effect output with the voices that went into it.
+Not yet: the X-IN effects (audio input into
 the ESP).
 
 **Calibrated against the original operating system** (OS 1.30, ROM 1.00F, running in an

@@ -106,14 +106,15 @@ int main() {
     st.rec = 1;
     CHECK(has(S.pad(36, true, 13300, st), "rec level 0") && S.page == page("E1"));   // leaving SAMPLE
     st.rec = 0;
-    // INST again: the effect pages (none loaded: E1 stays), then INST
+    // INST again: the effect pages (no ROM / OS: E1 stays), then INST
     CHECK(S.pad(36, true, 13400, st).size() && S.page == page("E1"));
+    st.fxSystem = true;
     st.fxPages = 2;
     CHECK(has(S.pad(36, true, 13450, st), "fxpage 0") && S.page == page("E20"));
     S.padColours(st, 13460, col);
-    CHECK(col[0] == 1 && col[12] == 17);                               // INST bright, O/N: VAR
-    CHECK(has(S.pad(48, true, 13470, st), "fxvar 1"));
-    st.fxSources = 20;                                                 // EFFECT?: SEL + O/N
+    CHECK(col[0] == 1 && col[12] == 17 && col[13] == 17);              // INST bright, O/N: FX=, CMD
+    CHECK(has(S.pad(48, true, 13470, st), "fxmode step 1"));
+    st.fxSources = 20;                                                 // LOAD EFFECT: SEL + O/N
     S.pad(44, true, 13471, st);
     CHECK(has(S.pad(48, true, 13472, st), "fxsel 1") && S.fxAsk);
     CHECK(has(S.pad(48, true, 13473, st), "fxsel 1") && S.fxAsk);     // again: the next
@@ -125,12 +126,22 @@ int main() {
     S.pad(48, true, 13478, st);
     S.pad(44, false, 13479, st);
     CHECK(has(S.pad(45, true, 13479, st), "fxsel cancel") && !S.fxAsk); // another pad: no
-    st.fxSources = 0;
-    CHECK(has(S.pad(36, true, 13480, st), "fxpage 1") && S.page == page("E20"));
+    // CMD: COPY TO BANK?, SEL + CMD: COPY TO INST?, SAVE BANK EFFECT?, CMD: do it
+    CHECK(has(S.pad(49, true, 13480, st), "@fxcmd") && S.fxCmd == 1);
+    S.pad(44, true, 13481, st);
+    CHECK(has(S.pad(49, true, 13482, st), "@fxcmd") && S.fxCmd == 2);
+    CHECK(has(S.pad(49, true, 13483, st), "@fxcmd") && S.fxCmd == 3);
+    S.pad(44, false, 13484, st);
+    CHECK(has(S.pad(49, true, 13485, st), "fxsave") && S.fxCmd == 0);
+    CHECK(has(S.pad(49, true, 13486, st), "@fxcmd") && S.fxCmd == 1);
+    CHECK(has(S.pad(49, true, 13487, st), "fxcopy bank"));
+    CHECK(has(S.pad(36, true, 13488, st), "fxpage 1") && S.page == page("E20"));
     st.fxPage = 1;
     CHECK(has(S.pad(36, true, 13490, st), "@page") && S.page == page("E1"));
     st.fxPages = 0;
     st.fxPage = 0;
+    st.fxSources = 0;
+    st.fxSystem = false;
     // CMD: the page, then twice: run; O/N, KEEP
     S.padColours(st, 13900, col);
     CHECK(col[0] == 1 && col[1] == 20 && col[2] == 22 && col[7] == 28);   // INST shown: bright, the others dimmed

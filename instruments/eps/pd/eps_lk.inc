@@ -456,7 +456,8 @@ eps::Surface::Status lk_status(const t_eps* x) {
         st.fxPages = std::max(1, int((fx_cells(x->fx->m).size() + 7) / 8));
         st.fxPage = x->fx->page;
     }
-    st.fxSources = x->fx->m.hasSystem() || (!g_fxRom.empty() && !g_fxOs.empty()) ? fx_source_count() - 1 : 0;
+    st.fxSystem = x->fx->m.hasSystem() || (!g_fxRom.empty() && !g_fxOs.empty());
+    st.fxSources = st.fxSystem ? fx_file_count() : 0;
     return st;
 }
 
@@ -522,6 +523,15 @@ void lk_do(t_eps* x, const eps::Surface::Actions& acts) {
             lk_split(any ? (v[size_t(x->bsel)].kind == 'D' ? "> " : "") + v[size_t(x->bsel)].name : "NOTHING", a1, b1);
             if (!lk_drawing(x)) out_display_text(x, "Delete? SEL: yes", a1 + " " + b1);
             else lk_screen(x, 10, "DELETE?  SEL: YES", a1, b1);
+        } else if (a == "@fxcmd") {
+            static const char* const kQ[5] = {"", "COPY TO BANK?", "COPY TO INST?", "SAVE BANK EFFECT?", "DELETE INST EFFECT?"};
+            const char* q = kQ[std::clamp(x->lk->fxCmd, 0, 4)];
+            if (!lk_drawing(x)) out_display_text(x, q, "CMD: yes, SEL+CMD: next");
+            else {
+                std::string a1, b1;
+                lk_split(q, a1, b1);
+                lk_screen(x, 10, "CMD: YES  SEL+CMD: NEXT", a1, b1);
+            }
         } else if (a == "@cmdask") {
             const std::string c = eps::waveCmdName(static_cast<eps::WaveCmd>(x->wave->cmd));
             if (!lk_drawing(x)) out_display_text(x, c, "press CMD again");

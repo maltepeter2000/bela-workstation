@@ -330,36 +330,49 @@ void FxMachine::frame(const int16_t in[6], int16_t &outL, int16_t &outR) {
     outR = esp_.serial(3);
 }
 
-std::vector<RomEffect> findRomEffects(const std::vector<uint8_t> &rom) {
-    std::vector<RomEffect> out;
+namespace {
+// An effect block at o in the ROM: its size (0 = none). The ROM keeps the length as a plain long.
+uint32_t romBlock(const std::vector<uint8_t> &rom, size_t o) {
     auto w = [&](size_t i) { return uint32_t(rom[i] << 8 | rom[i + 1]); };
-    for (size_t o = 0; o + 0x80 < rom.size(); o += 2) {
-        const uint32_t len = w(o) << 16 | w(o + 2);   // in the ROM a plain length
-        if (len < 0x100 || len > 0x8000 || o + len > rom.size()) continue;
-        const uint32_t from = w(o + 0x36), to = w(o + 0x38);
-        if (from < 0x60 || to <= from || to >= len || rom[o + 0x66] > 2) continue;
-        std::string name;
-        bool ok = true;
-        for (size_t i = 0; i < 12; ++i) {
-            const uint8_t c = rom[o + 0x3c + i];
-            if (c < 32 || c > 126) { ok = false; break; }
-            name += char(c);
+    if (o + 0x80 >= rom.size()) return 0;
+    const uint32_t len = w(o) << 16 | w(o + 2);
+    if (len < 0x100 || len > 0x8000 || o + len > rom.size()) return 0;
+    const uint32_t from = w(o + 0x36), to = w(o + 0x38);
+    if (from < 0x60 || to <= from || to >= len || rom[o + 0x66] > 2) return 0;
+    for (size_t i = 0; i < 12; ++i)
+        if (rom[o + 0x3c + i] < 32 || rom[o + 0x3c + i] > 126) return 0;
+    return (len + 1) & ~1u;
+}
+}  // namespace
+
+std::vector<RomEffect> findRomEffects(const std::vector<uint8_t> &rom) {
+    // The names the manual gives the 13 ROM effects (the blocks' own names repeat).
+    static const char *const kNames[13] = {
+        "HALL REVERB", "44KHZ REVERB", "ROOM REVERB", "DUAL DELAYS", "44KHZ DELAYS",
+        "CHORUS+REVERB", "PHASER+REVERB", "FLANGER+REV", "ROT. SPKR+REV", "CHOR+REV+DDL",
+        "CMP+DIST+REV", "DIST+CHO+REV", "WAH+DIST+REV"};
+    std::vector<RomEffect> out;
+    // The OS's table: consecutive pointers ($C0xxxx) to the effect blocks, ROM 1 to 13.
+    for (size_t t = 0; t + 4 <= rom.size() && out.empty(); t += 2) {
+        std::vector<RomEffect> run;
+        for (size_t i = t; i + 4 <= rom.size(); i += 4) {
+            const uint32_t v = uint32_t(rom[i]) << 24 | uint32_t(rom[i + 1]) << 16 | uint32_t(rom[i + 2]) << 8 | rom[i + 3];
+            if ((v & 0xFFF00000u) != 0x00C00000u) break;
+            const uint32_t o = v - 0xC00000u, size = romBlock(rom, o);
+            if (!size) break;
+            RomEffect e;
+            e.offset = o;
+            e.size = size;
+            e.rateMode = rom[o + 0x66];
+            for (size_t k = 0; k < 12; ++k) e.name += char(rom[o + 0x3c + k]);
+            while (!e.name.empty() && e.name.back() == ' ') e.name.pop_back();
+            while (!e.name.empty() && e.name.front() == ' ') e.name.erase(0, 1);
+            run.push_back(e);
         }
-        if (!ok || name[0] == ' ') continue;
-        while (!name.empty() && name.back() == ' ') name.pop_back();
-        RomEffect e;
-        e.offset = uint32_t(o);
-        e.size = (len + 1) & ~1u;
-        e.rateMode = rom[o + 0x66];
-        e.name = name + (e.rateMode == 1 ? " 44K" : (e.rateMode == 2 ? " 78K" : ""));
-        int same = 1;
-        for (const RomEffect &f : out)
-            if (f.name == e.name || (f.name.rfind(e.name + " ", 0) == 0 &&
-                                     f.name.find_first_not_of("0123456789", e.name.size() + 1) == std::string::npos)) ++same;
-        if (same > 1) e.name += " " + std::to_string(same);
-        out.push_back(e);
-        o += e.size - 2;
+        if (run.size() >= 8) out = run;
     }
+    if (out.size() == 13)
+        for (size_t k = 0; k < 13; ++k) out[k].name = kNames[k];
     return out;
 }
 

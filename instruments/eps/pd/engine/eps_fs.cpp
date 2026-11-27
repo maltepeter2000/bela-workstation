@@ -426,7 +426,7 @@ bool writeEfe(const std::string &path, const std::string &name, int type, const 
     std::string text = "\r\nEps File:       ";
     text += nm + std::string(12 - nm.size(), ' ');
     text += "    ";
-    text += type == 3 ? "Instrument   " : "File         ";
+    text += type == 3 ? "Instrument   " : (type == 24 ? "Effect       " : "File         ");
     text += "\r\n\x1a";
     std::memcpy(h, text.data(), text.size());   // 0x32 bytes
     const uint32_t n = uint32_t((data.size() + kBlk - 1) / kBlk);

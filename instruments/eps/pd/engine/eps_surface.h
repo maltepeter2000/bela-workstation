@@ -11,9 +11,12 @@
 //         encoders: CC page 1 = P1 PERFORM, CC page 2 = P2 PLAY (the controller layer's numbers)
 //   EDIT  pads: 36-43 the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page)
 //               44 SEL 45 LAY> 46 WS> 47 ENV# 48 O/N 49 CMD 50 SMPL 51 MODE
-//         INST again: the effect (E20), its pages of eight parameters, then INST again; on the
-//         effect O/N steps the variation; SEL + O/N: EFFECT? (again: the next effect), O/N
-//         loads it, another pad: no.
+//         INST again: the effect (E20), its pages of eight parameters (VAR first), then INST
+//         again. On E20, as the EPS: O/N steps FX= OFF INST BANK ROM 1-13; SEL + O/N: LOAD
+//         EFFECT (an effect file into the bank effect; again: the next), O/N loads it; CMD:
+//         COPY TO BANK? (SEL + CMD: COPY TO INST?, SAVE BANK EFFECT?, DELETE INST EFFECT?),
+//         CMD again: do it.
+//         Another pad: no.
 //         encoders: encoder n = cell n of the page shown, whatever CC page the Launchkey is on
 //   SEL held: LAY> WS> ENV# step backwards, a key selects its layer and wavesample silently.
 //   MODE (51, bottom right, in both layers): PLAY <-> EDIT; blue in PLAY, purple in EDIT.
@@ -41,7 +44,8 @@ public:
         bool navTop = true;   // PLAY: the browser is at the top (the library): no UP
         int fxPages = 0;      // pages of eight effect parameters (0 = no effect loaded)
         int fxPage = 0;       // the one shown
-        int fxSources = 0;    // effects to choose from (0: no ROM / OS)
+        int fxSources = 0;    // effect files to load (0: none or no ROM / OS)
+        bool fxSystem = false;  // ROM and OS there: the effects work
     };
     // A message for eps~ ("presetstep 1", "rec start" ...) or, starting with '@', for the
     // display: "@page" (show the page's legend), "@mode" (PLAY / EDIT changed: pad legend),
@@ -81,7 +85,8 @@ private:
 public:
     bool saveTo = false;     // PLAY: SAVE pressed, SAVE TO? (navigate, SAVE again: save there)
     bool delAsk = false;     // PLAY: SEL + OPEN pressed, DELETE? (SEL: yes, anything else: no)
-    bool fxAsk = false;      // E20: SEL + O/N pressed, EFFECT? (SEL + O/N: the next, O/N: load it)
+    bool fxAsk = false;      // E20: SEL + O/N pressed, LOAD EFFECT (SEL + O/N: the next, O/N: load)
+    int fxCmd = 0;           // E20: CMD: 1 COPY TO BANK? 2 COPY TO INST? 3 SAVE BANK FX? 4 DELETE INST FX?
 private:
     bool selUsed_ = false;
     int selNote_ = -1;            // the pad held as SEL
