@@ -112,11 +112,12 @@ AREAS = ["INST", "LAYER", "WAVE", "PITCH", "FILTER", "AMP", "LFO", "ENV", "SAMPL
 
 # The pads (notes 36-51 on the pad channel): name for the legend (<= 5)
 # 51 (bottom right) is MODE in both layers: PLAY <-> EDIT, blue in PLAY, purple in EDIT
-PADS_PLAY = {36: "LIB>", 37: "DIR>", 38: "INIT", 39: "PAT>", 40: "SMPL",
-             44: "LIB<", 45: "DIR<", 46: "SAVE", 47: "PAT<", 48: "SEL", 51: "MODE"}
+PADS_PLAY = {36: "LIB>", 37: "DIR>", 38: "INIT", 39: "PAT>", 41: "OPEN",
+             44: "LIB<", 45: "DIR<", 46: "SAVE", 47: "PAT<", 48: "SEL", 49: "UP", 50: "SMPL",
+             51: "MODE"}
 PADS_EDIT = {36 + k: AREAS[k] for k in range(8)}
-PADS_EDIT.update({44: "SEL", 45: "LAY>", 46: "WS>", 47: "ENV#", 48: "SMPL", 49: "CMD",
-                  50: "O/N", 51: "MODE"})
+PADS_EDIT.update({44: "SEL", 45: "LAY>", 46: "WS>", 47: "ENV#", 48: "O/N", 49: "CMD",
+                  50: "SMPL", 51: "MODE"})
 
 REC = {"rate", "thresh", "pre", "input", "dest", "monitor"}
 CMD = {"cmd", "range", "depth", "zone", "sstart", "send", "rate", "opt"}

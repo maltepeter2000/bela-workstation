@@ -44,9 +44,19 @@ int main() {
     CHECK(has(S.pad(38, true, 500, st), "init"));
     CHECK(has(S.pad(38, true, 3000, st), "@ask INIT"));                 // too late: asks again
     CHECK(has(S.pad(46, true, 5000, st), "@ask SAVE") && S.armed(5100) && !S.armed(7000));
+    // the folders: DIR steps, OPEN, UP
+    CHECK(has(S.pad(37, true, 6000, st), "nav step 1") && has(S.pad(45, true, 6100, st), "nav step -1"));
+    CHECK(has(S.pad(41, true, 6200, st), "nav open") && has(S.pad(49, true, 6300, st), "nav up"));
     int col[16];
     S.padColours(st, 9000, col);
-    CHECK(col[15] == 7);                   // MODE blue in PLAY
+    CHECK(col[15] == 7 && col[0] == 20 && col[1] == 22 && col[3] == 25);   // MODE blue, LIB DIR PAT
+    CHECK(col[5] == 16 && col[13] == 16 && col[14] == 18);     // no folder shown, at the top; SMPL
+    st.navDir = true;
+    st.navTop = false;
+    S.padColours(st, 9000, col);
+    CHECK(col[5] == 5 && col[13] == 21);
+    st.navDir = false;
+    st.navTop = true;
     // SEL tapped twice does nothing any more
     S.pad(48, true, 9500, st);
     S.pad(48, false, 9600, st);
@@ -72,39 +82,41 @@ int main() {
     S.pad(44, false, 12400, st);
     CHECK(has(S.pad(46, true, 12500, st), "sel wsstep 1"));
     // SMPL: the page and the level display, then record, then stop
-    CHECK(has(S.pad(48, true, 13000, st), "rec level 1") && S.page == page("E18"));
+    CHECK(has(S.pad(50, true, 13000, st), "rec level 1") && S.page == page("E18"));
     st.rec = 1;
-    CHECK(has(S.pad(48, true, 13100, st), "rec start"));
+    CHECK(has(S.pad(50, true, 13100, st), "rec start"));
     st.rec = 3;
-    CHECK(has(S.pad(48, true, 13200, st), "rec stop"));
+    CHECK(has(S.pad(50, true, 13200, st), "rec stop"));
     st.rec = 1;
     CHECK(has(S.pad(36, true, 13300, st), "rec level 0") && S.page == page("E1"));   // leaving SAMPLE
     st.rec = 0;
     // CMD: the page, then twice: run; O/N, KEEP
     S.padColours(st, 13900, col);
     CHECK(col[0] == 1 && col[1] == 20 && col[2] == 22 && col[7] == 28);   // INST shown: bright, the others dimmed
-        CHECK(has(S.pad(49, true, 14000, st), "@page") && S.page == page("E19"));
+    CHECK(has(S.pad(49, true, 14000, st), "@page") && S.page == page("E19"));
     CHECK(has(S.pad(49, true, 14100, st), "@cmdask"));
     CHECK(has(S.pad(49, true, 14200, st), "cmd do"));
     st.cmd = 2;
-    CHECK(has(S.pad(50, true, 15000, st), "cmd old"));
+    CHECK(has(S.pad(48, true, 15000, st), "cmd old"));
     st.cmd = 3;
-    CHECK(has(S.pad(50, true, 15100, st), "cmd new"));
+    CHECK(has(S.pad(48, true, 15100, st), "cmd new"));
     S.padColours(st, 15150, col);
-    CHECK(col[14] == 3 && col[13] == 5 && col[15] == 8);   // O/N orange, CMD green: keep, MODE purple
+    CHECK(col[12] == 3 && col[13] == 5 && col[15] == 8);   // O/N orange, CMD green: keep, MODE purple
     CHECK(has(S.pad(49, true, 15200, st), "cmd keep"));
     st.cmd = 2;
     S.padColours(st, 15300, col);
-    CHECK(col[14] == 5 && col[13] == 5 && col[8] == 17);   // O/N green
+    CHECK(col[12] == 5 && col[13] == 5 && col[8] == 17);   // O/N green
     st.cmd = 0;
     S.padColours(st, 15300, col);
-    CHECK(col[14] == 16 && col[13] != 5 && col[15] == 8);
+    CHECK(col[12] == 16 && col[13] != 5 && col[15] == 8);
     // PLAY again: the page played last
     S.pad(44, true, 15900, st);            // SEL held over the switch
     CHECK(has(S.pad(51, true, 16000, st), "@mode") && S.mode == Surface::Play && S.page == page("P2"));
     S.pad(51, false, 16050, st);
     S.padColours(st, 16200, col);
-    CHECK(col[0] == 17 && col[4] == 18 && col[5] == 16 && col[12] == 1);   // SEL held: white
+    CHECK(col[0] == 20 && col[14] == 18 && col[5] == 16 && col[12] == 1);   // SEL held: white
+    S.pad(48, false, 16300, st);
+    CHECK(has(S.pad(50, true, 16400, st), "rec level 1") && S.page == page("E18"));   // SMPL from PLAY
 
     // every area has a page, the SAMPLE and COMMAND pages are where the pads go
     CHECK(eps::kPages[eps::kAreas[eps::kAreaSample].first].area == eps::kAreaSample);

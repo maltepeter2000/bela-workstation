@@ -13,7 +13,8 @@ bool reserved(int cc) {
 
 // pad colours (launchkey_firmware cfw/drum_pads.c)
 constexpr int kOff = 16;          // black, dimmed: dark (0 would give the pad back to the Launchkey)
-constexpr int kWhite = 1, kRed = 2, kOrange = 3, kGreen = 5, kBlue = 7, kPurple = 8;
+constexpr int kWhite = 1, kRed = 2, kOrange = 3, kYellow = 4, kGreen = 5, kCyan = 6, kBlue = 7,
+              kPurple = 8, kPink = 9;
 constexpr int kDim = 16, kFlash = 32, kPulse = 64;
 // EDIT, top row: a colour of its own for each area (dimmed, bright when its page is shown):
 // INST white, LAYER yellow, WAVE cyan, PITCH pink, FILTER lime, AMP amber, LFO sky, ENV magenta
@@ -126,8 +127,10 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
         switch (i) {
             case 0: return {"presetstep 1"};
             case 8: return {"presetstep -1"};
-            case 1: return {"userstep 1"};
-            case 9: return {"userstep -1"};
+            case 1: return {"nav step 1"};
+            case 9: return {"nav step -1"};
+            case 5: return {"nav open"};
+            case 13: return {"nav up"};
             case 2:
                 if (now - initArm_ < kTwiceMs) { initArm_ = -1e9; return {"init"}; }
                 initArm_ = now;
@@ -138,7 +141,7 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
                 return {"@ask SAVE"};
             case 3: return {"cycle patch"};
             case 11: return {"cycle patch -1"};
-            case 4: return smpl(st);
+            case 14: return smpl(st);
             default: return {};
         }
     }
@@ -155,7 +158,7 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
         case 11:
             std::snprintf(b, sizeof b, "sel env %d", (st.env + (selHeld ? 2 : 1)) % 3 + 1);
             return {b};
-        case 12: return smpl(st);
+        case 14: return smpl(st);
         case 13:
             if (st.cmd >= 2) return {"cmd keep"};          // a result to keep: CMD keeps it
             if (kPages[page].area != kAreaCommand) return setPage(kAreas[kAreaCommand].first);
@@ -163,7 +166,7 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
             if (now - cmdArm_ < kTwiceMs) { cmdArm_ = -1e9; return {"cmd do"}; }
             cmdArm_ = now;
             return {"@cmdask"};
-        case 14:
+        case 12:
             if (st.cmd == 2) return {"cmd old"};
             if (st.cmd == 3) return {"cmd new"};
             return {};
@@ -179,10 +182,14 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
     for (int i = 0; i < 16; ++i) out[i] = kOff;
     const int avail = kDim + kWhite;
     if (mode == Play) {
-        for (int i : {0, 1, 3, 8, 9, 11}) out[i] = avail;
+        out[0] = out[8] = kDim + kYellow;             // LIB> LIB<
+        out[1] = out[9] = kDim + kCyan;               // DIR> DIR<
+        out[3] = out[11] = kDim + kPink;              // PAT> PAT<
         out[2] = now - initArm_ < kTwiceMs ? kWhite + kFlash : avail;
         out[10] = now - saveArm_ < kTwiceMs ? kWhite + kFlash : avail;
-        out[4] = sampleColour(st.rec);
+        out[5] = st.navDir ? kGreen : kOff;           // OPEN: a folder is shown
+        out[13] = st.navTop ? kOff : kDim + kGreen;   // UP
+        out[14] = sampleColour(st.rec);
         out[12] = selHeld ? kWhite : avail;
         out[15] = kBlue;
         return;
@@ -191,12 +198,12 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
     for (int i = 0; i < 8; ++i) out[i] = kAreaColour[i] + (a == i ? 0 : kDim);
     out[8] = selHeld ? kWhite : avail;
     out[9] = out[10] = out[11] = avail;
-    out[12] = a == kAreaSample && st.rec == 0 ? kWhite : sampleColour(st.rec);
+    out[14] = a == kAreaSample && st.rec == 0 ? kRed : sampleColour(st.rec);
     if (st.cmd == 1) out[13] = kWhite + kPulse;
     else if (st.cmd >= 2) out[13] = kGreen;          // pressed: keep
     else if (now - cmdArm_ < kTwiceMs) out[13] = kWhite + kFlash;
     else out[13] = a == kAreaCommand ? kWhite : avail;
-    out[14] = st.cmd == 3 ? kOrange : (st.cmd == 2 ? kGreen : kOff);
+    out[12] = st.cmd == 3 ? kOrange : (st.cmd == 2 ? kGreen : kOff);
     out[15] = kPurple;
 }
 

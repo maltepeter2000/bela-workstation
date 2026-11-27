@@ -1924,6 +1924,41 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         }
         out_folder(x);
         return;
+    } else if (is("nav")) {
+        // the folders from the pads: nav step n (an instrument loads, a folder is shown),
+        // nav open (into the folder shown), nav up (one level up; the top: the library)
+        const std::string w = argc > 0 && argv[0].a_type == A_SYMBOL ? atom_getsymbol(argv)->s_name : "";
+        std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+        if (w == "step") {
+            const int by = argc > 1 && atom_getfloat(argv + 1) < 0 ? -1 : 1;
+            const int cnt = static_cast<int>(v.size());
+            if (cnt) x->bsel = ((x->bsel + by) % cnt + cnt) % cnt;
+        } else if (w == "open") {
+            if (x->bsel < 0 || x->bsel >= static_cast<int>(v.size()) || v[size_t(x->bsel)].kind != 'D') return;
+            *x->bfile = v[size_t(x->bsel)].file;
+            *x->bdir = v[size_t(x->bsel)].path;
+            x->bsel = 0;
+        } else if (w == "up") {
+            if (x->bfile->empty()) return;
+            const std::string from = *x->bdir, was = *x->bfile;
+            if (from.empty()) x->bfile->clear();
+            else *x->bdir = parent_path(from);
+            v = folder_items(*x->bfile, *x->bdir);
+            for (size_t i = 0; i < v.size(); ++i)
+                if (from.empty() ? v[i].file == was && v[i].kind == 'D' : v[i].path == from) x->bsel = static_cast<int>(i);
+        } else {
+            return;
+        }
+        v = folder_items(*x->bfile, *x->bdir);
+        out_folder(x);
+        if (x->bsel >= 0 && x->bsel < static_cast<int>(v.size()) && v[size_t(x->bsel)].kind == 'I' &&
+            v[size_t(x->bsel)].lib >= 0 && v[size_t(x->bsel)].lib != (x->source == kLibrary ? x->index : -1)) {
+            select_library(x, v[size_t(x->bsel)].lib);   // the display follows when it has loaded
+        } else {
+            lk_show_nav(x);
+        }
+        lk_refresh(x, false);
+        return;
     } else if (is("userstep")) {
         // the next instrument in the folder of the one playing
         follow_entry(x);

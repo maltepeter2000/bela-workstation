@@ -382,8 +382,25 @@ void lk_draw(t_eps* x, lkg_t* g, int kind) {
 
 // ---- encoders, pads, feedback ---------------------------------------------------------------
 
+// What the folder browser shows: a folder ("> NAME"), an instrument, or EMPTY.
+void lk_show_nav(t_eps* x) {
+    const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+    const std::string where = lk_up(x->bfile->empty() ? std::string("LIBRARY") : folder_text(*x->bfile, *x->bdir), 21);
+    std::string a, b;
+    if (v.empty()) a = "EMPTY";
+    else if (v[size_t(x->bsel)].kind == 'D') lk_split("> " + v[size_t(x->bsel)].name, a, b);
+    else lk_split(v[size_t(x->bsel)].name, a, b);
+    if (!lk_drawing(x)) out_display_text(x, where, a + (b.empty() ? "" : " " + b));
+    else lk_screen(x, 10, where, a, b);
+}
+
 eps::Surface::Status lk_status(const t_eps* x) {
     eps::Surface::Status st;
+    {
+        const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+        st.navDir = x->bsel >= 0 && x->bsel < static_cast<int>(v.size()) && v[size_t(x->bsel)].kind == 'D';
+        st.navTop = x->bfile->empty();
+    }
     st.rec = x->rec->state;
     const t_eps::Wave& W = *x->wave;
     st.cmd = W.other ? (W.showingOld ? 3 : 2) : (x->jobkind == 2 && x->rec->waiting ? 1 : 0);

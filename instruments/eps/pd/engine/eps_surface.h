@@ -3,11 +3,14 @@
 // encoders into messages for eps~ (the same ones the editor sends) and says which page the
 // encoders act on; eps~ reads and writes the values and draws the display.
 //
-//   PLAY  pads: 36 LIB> 37 DIR> 38 INIT (twice) 39 PAT> 40 SMPL
-//               44 LIB< 45 DIR< 46 SAVE (twice) 47 PAT< 48 SEL 51 MODE
+//   PLAY  pads: 36 LIB> 37 DIR> 38 INIT (twice) 39 PAT> 41 OPEN
+//               44 LIB< 45 DIR< 46 SAVE (twice) 47 PAT< 48 SEL 49 UP 50 SMPL 51 MODE
+//         LIB yellow, DIR cyan, PAT pink, OPEN / UP green, SMPL red
+//         DIR> DIR<: the next entry of the folder (an instrument loads, a folder is shown),
+//         OPEN: into the folder shown, UP: one level up (the top: the library, images as folders)
 //         encoders: CC page 1 = P1 PERFORM, CC page 2 = P2 PLAY (the controller layer's numbers)
 //   EDIT  pads: 36-43 the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page)
-//               44 SEL 45 LAY> 46 WS> 47 ENV# 48 SMPL 49 CMD 50 O/N 51 MODE
+//               44 SEL 45 LAY> 46 WS> 47 ENV# 48 O/N 49 CMD 50 SMPL 51 MODE
 //         encoders: encoder n = cell n of the page shown, whatever CC page the Launchkey is on
 //   SEL held: LAY> WS> ENV# step backwards, a key selects its layer and wavesample silently.
 //   MODE (51, bottom right, in both layers): PLAY <-> EDIT; blue in PLAY, purple in EDIT.
@@ -31,6 +34,8 @@ public:
         int rec = 0;        // 0 off, 1 level, 2 armed, 3 recording, 4 root key
         int cmd = 0;        // 0 idle, 1 busy, 2 NEW plays, 3 OLD plays
         int env = 2;        // 0..2 = ENV1..ENV3
+        bool navDir = false;  // PLAY: the folder browser shows a folder (OPEN lights)
+        bool navTop = true;   // PLAY: the browser is at the top (the library): no UP
     };
     // A message for eps~ ("presetstep 1", "rec start" ...) or, starting with '@', for the
     // display: "@page" (show the page's legend), "@mode" (PLAY / EDIT changed: pad legend),
