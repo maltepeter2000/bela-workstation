@@ -46,9 +46,15 @@ of the load, the fade-in of GPR 127, the OS flags the drivers read, the mod-sour
 ($FFDF4C). Output buses: 0 / 1 / 2 / 3 play on chip channel 0 / 2 / 3 / 1 (measured); channels
 0, 2, 3 go to SER0, SER2, SER3, the output is SER1, channel 1 (aux) stays dry. Checked with
 CLASSIC PAD, DECAY BASS and some 45 Waveboy effects; `build/fxprobe ROM OS file.efe` lists an
-effect's parameters and runs noise through it. Messages `fx 0|1`, `fx`, `fxparam k v`.
-Not yet: saving changed effect parameters, an effect page in the editor and on the Launchkey,
-the X-IN effects (audio input into the ESP).
+effect's parameters and runs noise through it. Messages `fx 0|1`, `fx`, `fxparam k v`,
+`fxpage ±1|0`, `fxcell k v127`, `fxvar ±1`. The editor has a band EFFECT (name, on, variation,
+pages of 8 parameters named by the effect), the Launchkey the page E20 (INST pressed again;
+INST again: the next 8, after the last E1; O/N: variation). The descriptors: flags $80 start a
+group, $C0 continue its name (" R" after "ECHOTIME L"), $E0 repeat it unnamed (CH WET LEV 2);
+lists are [lo][names][width][last]. Changed parameters and the variation are written back
+into the instrument's effect block when it is saved. FX mix (P2 encoder 5, `fxmix`) blends the
+effect output with the voices that went into it. Not yet: the X-IN effects (audio input into
+the ESP).
 
 **Calibrated against the original operating system** (OS 1.30, ROM 1.00F, running in an
 emulator; register traces of test instruments, see `tests/calibration/`): the cutoff scale of
@@ -91,7 +97,7 @@ display says what they do. Pad 51 (bottom right) is MODE in both layers: PLAY <-
 | Layer | Top pads 36–43 | Bottom pads 44–51 | Encoders |
 |---|---|---|---|
 | PLAY | > – INIT(2x) PAT> – SMPL OPEN – | < – SAVE(2x) PAT< SEL – EXIT MODE | CC page 1 = P1, page 2 = P2 |
-| EDIT | INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page) | SEL LAY> WS> ENV# O/N CMD SMPL MODE | encoder n = cell n of the page shown (E1–E19) |
+| EDIT | INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page) | SEL LAY> WS> ENV# O/N CMD SMPL MODE | encoder n = cell n of the page shown (E1–E20) |
 
 Display: a small line (page, layer, wavesample), two big lines of 10 characters with the chosen
 option underlined, or a picture; the encoder names after a page change. The values of the page

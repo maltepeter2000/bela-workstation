@@ -35,7 +35,8 @@ int main() {
     // PLAY: CC page 1 = P1, page 2 = P2, the others nothing
     CHECK(S.encoder(21, changed) == 1 && !changed && S.page == page("P1"));
     CHECK(S.encoder(29, changed) == 1 && changed && S.page == page("P2"));
-    CHECK(S.encoder(33, changed) == -1);                               // P2 cell 5 is empty
+    CHECK(S.encoder(33, changed) == 4);                                // P2 cell 5: FX MIX
+    CHECK(S.encoder(34, changed) == -1);                               // P2 cell 6 is empty
     CHECK(S.encoder(40, changed) == -1 && S.page == page("P2"));
     // pads in PLAY
     CHECK(has(S.pad(36, true, 0, st), "nav step 1"));
@@ -105,6 +106,18 @@ int main() {
     st.rec = 1;
     CHECK(has(S.pad(36, true, 13300, st), "rec level 0") && S.page == page("E1"));   // leaving SAMPLE
     st.rec = 0;
+    // INST again: the effect pages (none loaded: E1 stays), then INST
+    CHECK(S.pad(36, true, 13400, st).size() && S.page == page("E1"));
+    st.fxPages = 2;
+    CHECK(has(S.pad(36, true, 13450, st), "fxpage 0") && S.page == page("E20"));
+    S.padColours(st, 13460, col);
+    CHECK(col[0] == 1 && col[12] == 17);                               // INST bright, O/N: VAR
+    CHECK(has(S.pad(48, true, 13470, st), "fxvar 1"));
+    CHECK(has(S.pad(36, true, 13480, st), "fxpage 1") && S.page == page("E20"));
+    st.fxPage = 1;
+    CHECK(has(S.pad(36, true, 13490, st), "@page") && S.page == page("E1"));
+    st.fxPages = 0;
+    st.fxPage = 0;
     // CMD: the page, then twice: run; O/N, KEEP
     S.padColours(st, 13900, col);
     CHECK(col[0] == 1 && col[1] == 20 && col[2] == 22 && col[7] == 28);   // INST shown: bright, the others dimmed

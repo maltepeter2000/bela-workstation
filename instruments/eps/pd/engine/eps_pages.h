@@ -9,7 +9,7 @@ struct PageCell { const char *shortName, *longName; char kind; const char *targe
 struct Page { const char *id, *title; int area; PageCell cell[8]; };
 static const Page kPages[] = {
     {"P1", "PERFORM", -1, {{"CUT", "CUTOFF", 'c', "cut"}, {"CUT2", "CUTOFF 2", 'c', "cut2"}, {"FATT", "F ATTACK", 'c', "fatt"}, {"FDEC", "F DECAY", 'c', "fdec"}, {"FREL", "F RELEASE", 'c', "frel"}, {"AATT", "A ATTACK", 'c', "att"}, {"ADEC", "A DECAY", 'c', "dec"}, {"AREL", "A RELEASE", 'c', "rel"}}},
-    {"P2", "PLAY", -1, {{"VOL", "VOLUME", 'c', "volume"}, {"TRNS", "TRANSPOSE", 'c', "transpose"}, {"WAVE", "WAVE POS", 'c', "wave"}, {"FENV", "FILTER ENV", 'c', "fenv"}, {"", "", 0, ""}, {"", "", 0, ""}, {"", "", 0, ""}, {"", "", 0, ""}}},
+    {"P2", "PLAY", -1, {{"VOL", "VOLUME", 'c', "volume"}, {"TRNS", "TRANSPOSE", 'c', "transpose"}, {"WAVE", "WAVE POS", 'c', "wave"}, {"FENV", "FILTER ENV", 'c', "fenv"}, {"FX", "FX MIX", 'c', "fxmix"}, {"", "", 0, ""}, {"", "", 0, ""}, {"", "", 0, ""}}},
     {"E1", "INST", 0, {{"TRNS", "TRANSPOSE", 'e', "i_trans"}, {"KLO", "KEY LOW", 'e', "i_keylo"}, {"KHI", "KEY HIGH", 'e', "i_keyhi"}, {"PRES", "PRESSURE", 'e', "i_press"}, {"PMOD", "PATCH MODE", 'e', "i_psel"}, {"PROG", "MIDI PROG", 'e', "i_prog"}, {"MOUT", "MIDI OUT", 'e', "i_mout"}, {"XCTL", "XCTRL CC", 'c', "xcc"}}},
     {"E2", "LAYER", 1, {{"VLO", "VEL LOW", 'e', "l_vello"}, {"VHI", "VEL HIGH", 'e', "l_velhi"}, {"GLMD", "GLIDE MODE", 'e', "l_glmode"}, {"GLTM", "GLIDE TIME", 'e', "l_gltime"}, {"DLY", "DELAY", 'e', "l_delay"}, {"DVEL", "DELAY VEL", 'e', "l_dlyvel"}, {"RSTK", "RESTRIKE", 'e', "l_restrk"}, {"LEG", "LEGATO", 'e', "l_legato"}}},
     {"E3", "PATCHES", 1, {{"IN00", "IN 00", 'e', "l_in00"}, {"IN0*", "IN 0*", 'e', "l_in0x"}, {"IN*0", "IN *0", 'e', "l_inx0"}, {"IN**", "IN **", 'e', "l_inxx"}, {"KYUP", "KEY UP", 'e', "l_keyup"}, {"STLK", "STEREO LNK", 'e', "l_stlink"}, {"PTBL", "PITCH TBL", 'e', "l_ptable"}, {"", "", 0, ""}}},
@@ -29,8 +29,9 @@ static const Page kPages[] = {
     {"E17", "SOFT", 7, {{"L0S", "L0 SOFT", 'e', "e_l0s"}, {"L1S", "L1 SOFT", 'e', "e_l1s"}, {"L2S", "L2 SOFT", 'e', "e_l2s"}, {"L3S", "L3 SOFT", 'e', "e_l3s"}, {"L4S", "L4 SOFT", 'e', "e_l4s"}, {"T1V", "ATTACK VEL", 'e', "e_t1vel"}, {"KBS", "KEY SCALE", 'e', "e_kbs"}, {"VSW", "VEL SWITCH", 'e', "e_vsw"}}},
     {"E18", "SAMPLE", 8, {{"RATE", "RATE", 'r', "rate"}, {"THRS", "THRESHOLD", 'r', "thresh"}, {"PRE", "PRE TRIG", 'r', "pre"}, {"IN", "INPUT", 'r', "input"}, {"DEST", "DEST", 'r', "dest"}, {"MON", "MONITOR", 'r', "monitor"}, {"", "", 0, ""}, {"", "", 0, ""}}},
     {"E19", "COMMAND", 9, {{"CMD", "COMMAND", 'x', "cmd"}, {"RNG", "RANGE", 'x', "range"}, {"DPTH", "DEPTH", 'x', "depth"}, {"ZONE", "FADE ZONE", 'x', "zone"}, {"SCL1", "SCALE STRT", 'x', "sstart"}, {"SCL2", "SCALE END", 'x', "send"}, {"RATE", "NEW RATE", 'x', "rate"}, {"OPT", "OPTION", 'x', "opt"}}},
+    {"E20", "EFFECT", 10, {{"FX1", "FX 1", 'f', "0"}, {"FX2", "FX 2", 'f', "1"}, {"FX3", "FX 3", 'f', "2"}, {"FX4", "FX 4", 'f', "3"}, {"FX5", "FX 5", 'f', "4"}, {"FX6", "FX 6", 'f', "5"}, {"FX7", "FX 7", 'f', "6"}, {"FX8", "FX 8", 'f', "7"}}},
 };
-constexpr int kPageCount = 21;
+constexpr int kPageCount = 22;
 struct Area { const char *name; int first, count; };
 static const Area kAreas[] = {
     {"INST", 2, 1},
@@ -43,9 +44,10 @@ static const Area kAreas[] = {
     {"ENV", 16, 3},
     {"SAMPLE", 19, 1},
     {"COMMAND", 20, 1},
+    {"EFFECT", 21, 1},
 };
-constexpr int kAreaCount = 10;
-constexpr int kAreaSample = 8, kAreaCommand = 9;
+constexpr int kAreaCount = 11;
+constexpr int kAreaSample = 8, kAreaCommand = 9, kAreaEffect = 10;
 static const char *const kPadsPlay[16] = {">", "", "INIT", "PAT>", "", "SMPL", "OPEN", "", "<", "", "SAVE", "PAT<", "SEL", "", "EXIT", "MODE"};
 static const char *const kPadsEdit[16] = {"INST", "LAYER", "WAVE", "PITCH", "FILTER", "AMP", "LFO", "ENV", "SEL", "LAY>", "WS>", "ENV#", "O/N", "CMD", "SMPL", "MODE"};
 } // namespace eps

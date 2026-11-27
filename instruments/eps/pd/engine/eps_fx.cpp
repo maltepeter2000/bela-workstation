@@ -214,6 +214,8 @@ bool FxMachine::load(const uint8_t *block, size_t size, std::string &err) {
 
 void FxMachine::readParams() {
     params_.clear();
+    std::string group;
+    int repeat = 1;
     const uint16_t from = blk16(0x36), to = blk16(0x38);
     for (uint32_t d1 = from; d1 && d1 <= to && d1 < block_.size(); d1 += 2) {
         const uint16_t d = blk16(d1);
@@ -222,20 +224,34 @@ void FxMachine::readParams() {
         p.index = int(d1);
         p.type = block_[d + 1u];
         const uint16_t name = blk16(d + 6u);
-        for (uint32_t i = name; i < block_.size() && i < name + 16u && block_[i]; ++i) p.name += char(block_[i]);
-        while (!p.name.empty() && p.name.front() == ' ') p.name.erase(0, 1);
+        for (uint32_t i = name; i < block_.size() && i < name + 24u && block_[i]; ++i) p.name += char(block_[i]);
+        while (!p.name.empty() && p.name.back() == ' ') p.name.pop_back();
+        // flags: $80 starts a group, $C0 continues it (" R" after "ECHOTIME L"), $E0 repeats it
+        // without a name (the 2nd, 3rd chorus voice): named after the group as the EPS shows it
+        const uint8_t flags = block_[d];
+        if ((flags & 0xc0) == 0xc0 && !params_.empty()) {
+            std::string head = group;
+            const size_t sp = head.find(' ');
+            if (p.name.find_first_not_of(' ') == std::string::npos) p.name = head + " " + std::to_string(++repeat);
+            else p.name = (sp == std::string::npos ? head : head.substr(0, sp)) + " " + p.name.substr(p.name.find_first_not_of(' '));
+        } else {
+            while (!p.name.empty() && p.name.front() == ' ') p.name.erase(0, 1);
+            group = p.name;
+            repeat = 1;
+        }
         const uint16_t at = blk16(d + 4u);
         p.variation = block_[d + 8u] == 4;
         bool word = false, sign = false;
-        if (p.type == 0x0e) {   // a list: [lo] [next] [width] [last], then the names
+        if (p.type == 0x0e) {   // a list: [lo] [names] [width] [last], the names at <names>
             const uint16_t l = blk16(d + 2u);
             if (l + 6u <= block_.size()) {
+                const uint32_t at = blk16(l + 2u);
                 const int width = block_[l + 4u];
                 p.hi = block_[l + 5u];
                 for (int k = 0; k <= p.hi; ++k) {
                     std::string s;
-                    for (int i = 0; i < width && l + 6u + k * width + i < block_.size(); ++i) {
-                        const char c = char(block_[l + 6u + uint32_t(k * width + i)]);
+                    for (int i = 0; i < width && at + k * width + i < block_.size(); ++i) {
+                        const char c = char(block_[at + uint32_t(k * width + i)]);
                         if (c) s += c;
                     }
                     while (!s.empty() && s.back() == ' ') s.pop_back();

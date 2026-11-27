@@ -48,7 +48,7 @@
 #X obj 10 940 inlet;
 #X obj 10 970 route info pickup sync channel txchannel;
 #X obj 420 1000 t b f;
-#X msg 560 1000 ninfo cut \, ninfo cut2 \, ninfo fatt \, ninfo fdec \, ninfo frel \, ninfo att \, ninfo dec \, ninfo rel \, ninfo volume \, ninfo transpose \, ninfo wave \, ninfo fenv;
+#X msg 560 1000 ninfo cut \, ninfo cut2 \, ninfo fatt \, ninfo fdec \, ninfo frel \, ninfo att \, ninfo dec \, ninfo rel \, ninfo volume \, ninfo transpose \, ninfo wave \, ninfo fenv \, ninfo fxmix;
 #X obj 300 440 sel 3;
 #X obj 160 1000 list;
 #X obj 10 1030 unpack s f s;
@@ -97,7 +97,7 @@
 #X msg 420 1230 0;
 #X obj 540 1230 f;
 #X obj 560 940 text define -k \$0-map;
-#A set - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; cut \; cut2 \; fatt \; fdec \; frel \; att \; dec \; rel \; volume \; transpose \; wave \; fenv \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \;;
+#A set - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; cut \; cut2 \; fatt \; fdec \; frel \; att \; dec \; rel \; volume \; transpose \; wave \; fenv \; - \; fxmix \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \; - \;;
 #X connect 1 0 2 0;
 #X connect 2 3 3 0;
 #X connect 2 3 4 0;

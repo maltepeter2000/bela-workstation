@@ -218,6 +218,30 @@ def command_band(c, y):
     c.add(f"#X obj {x0 + 520} {y + 72} tgl 15 0 {D}0-cclip {D}0-cclipv clip{SP}prev. 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
 
 
+FX_H = 110
+
+
+def fx_band(c, y):
+    """the effect of the instrument: name, on, variation, pages of 8 parameters (named by it)"""
+    x0 = X0
+    c.add(f"#X obj {x0 - 4} {y} cnv 15 {8 * CW} {FX_H - 6} empty empty EFFECT{SP}(ROM{SP}and{SP}OS{SP}of{SP}the{SP}EPS{SP}in{SP}the{SP}library) 4 8 0 10 {S.SETUP[0]} {S.BLUE} 0;")
+    c.add(f"#X symbolatom {x0} {y + 20} 14 0 0 0 - {D}0-fxnamev -;")
+    c.add(f"#X obj {x0 + 100} {y + 20} tgl 15 0 {D}0-fxon {D}0-fxonv on 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 1 1;")
+    c.add(f"#X text {x0 + 150} {y + 20} variation;")
+    bng(c, x0 + 210, y + 20, "fxvprev", "")
+    c.add(f"#X symbolatom {x0 + 232} {y + 20} 16 0 0 0 - {D}0-fxvarv -;")
+    bng(c, x0 + 340, y + 20, "fxvnext", "")
+    c.add(f"#X text {x0 + 380} {y + 20} page;")
+    bng(c, x0 + 414, y + 20, "fxpprev", "")
+    c.add(f"#X symbolatom {x0 + 436} {y + 20} 4 0 0 0 - {D}0-fxpagev -;")
+    bng(c, x0 + 470, y + 20, "fxpnext", "")
+    for k in range(8):
+        x = x0 + k * CW
+        c.add(f"#X symbolatom {x} {y + 46} 10 0 0 0 - {D}0-fxn{k} -;")
+        c.add(f"#X obj {x} {y + 66} hsl 70 12 0 127 0 0 {D}0-fxe{k} {D}0-fxv{k} empty -2 -8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
+        c.add(f"#X symbolatom {x} {y + 82} 10 0 0 0 - {D}0-fxt{k} -;")
+
+
 def tint(title, r):
     for key, colours in TINT.items():
         if key in title:
@@ -246,6 +270,7 @@ def gui(c):
                 c.add(f"#X symbolatom {x + 26} {yc + 46} 7 0 0 0 - {D}0-t-{nm} -;")
     sample_band(c, TOP + len(LEFT) * ROWH)
     command_band(c, TOP + len(RIGHT) * ROWH)
+    fx_band(c, TOP + max(len(LEFT), len(RIGHT)) * ROWH + SAMPLE_H)
 
 
 def logic():
@@ -281,7 +306,7 @@ def logic():
     rr = c.add(f"#X obj 110 {y} r {D}0-refresh;")
     dl = c.add(f"#X obj 10 {y + 30} del 800;")
     c.conn(lb, 0, dl, 0); c.conn(rr, 0, dl, 0)
-    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump {COMMA} browse {COMMA} rec status {COMMA} cmd status, f 70;")
+    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump {COMMA} browse {COMMA} rec status {COMMA} cmd status {COMMA} fx, f 70;")
     c.conn(dl, 0, allm, 0)
     s2 = c.add(f"#X obj 10 {y + 330} s {D}1;")
     c.conn(allm, 0, s2, 0)
@@ -443,6 +468,26 @@ def logic():
         ll = c.add(f"#X obj {x} {yk + 30} list;"); c.conn(rk, outlet, ll, 0)
         m = c.add(f"#X msg {x} {yk + 60} set {D}1;"); c.conn(ll, 0, m, 0)
         s_ = c.add(f"#X obj {x} {yk + 90} s {D}0-{dest};"); c.conn(m, 0, s_, 0)
+    # the effect: editor -> eps~, and fxpage / fxcell replies -> the EFFECT band
+    yf = yk + 160
+    for k, (recv, text) in enumerate([("fxon", f"fx {D}1"), ("fxvprev", "fxvar -1"), ("fxvnext", "fxvar 1"),
+                                      ("fxpprev", "fxpage -1"), ("fxpnext", "fxpage 1")]):
+        send(10 + 120 * k, yf, recv, text)
+    for k in range(8):
+        send(10 + 120 * k, yf + 100, f"fxe{k}", f"fxcell {k} {D}1")
+    yf2 = yf + 200
+    rf = c.add(f"#X obj 10 {yf2} route fxpage fxcell;"); c.conn(ro, 0, rf, 0)
+    upf = c.add(f"#X obj 10 {yf2 + 30} unpack s s s f;"); c.conn(rf, 0, upf, 0)
+    for k, dest in enumerate(["fxnamev", "fxpagev", "fxvarv", "fxonv"]):
+        m = c.add(f"#X msg {10 + 110 * k} {yf2 + 60} set {D}1;"); c.conn(upf, k, m, 0)
+        s_ = c.add(f"#X obj {10 + 110 * k} {yf2 + 90} s {D}0-{dest};"); c.conn(m, 0, s_, 0)
+    rc = c.add(f"#X obj 500 {yf2 + 30} route 0 1 2 3 4 5 6 7;"); c.conn(rf, 1, rc, 0)
+    for k in range(8):
+        x = 500 + 100 * k
+        u = c.add(f"#X obj {x} {yf2 + 60} unpack s f s;"); c.conn(rc, k, u, 0)
+        for j, dest in enumerate([f"fxn{k}", f"fxv{k}", f"fxt{k}"]):
+            m = c.add(f"#X msg {x} {yf2 + 90 + 30 * j} set {D}1;"); c.conn(u, j, m, 0)
+            s_ = c.add(f"#X obj {x + 40} {yf2 + 105 + 30 * j} s {D}0-{dest};"); c.conn(m, 0, s_, 0)
     lem = c.add(f"#X obj 800 {ys2} list;"); c.conn(ri, 9, lem, 0)
     lbs = c.add(f"#X obj 1000 {ys2} list;"); c.conn(ri, 10, lbs, 0)
     mbs = c.add(f"#X msg 1000 {ys2 + 30} set {D}4;"); c.conn(lbs, 0, mbs, 0)
@@ -459,7 +504,7 @@ def build():
     gui(c)
     lg = logic()
     rows = max(len(LEFT), len(RIGHT))
-    yl = TOP + rows * ROWH + SAMPLE_H
+    yl = TOP + rows * ROWH + SAMPLE_H + FX_H
     sub = ["#N canvas 40 40 1320 900 logic 0;"] + lg.lines + lg.conns + [f"#X restore {X0} {yl} pd logic;"]
     h = yl + 30
     return "\n".join([f"#N canvas 20 20 {X1 + 8 * CW + 10} {h} 10;"] + c.lines + sub + c.conns) + "\n"

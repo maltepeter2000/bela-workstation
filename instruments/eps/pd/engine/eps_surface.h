@@ -11,6 +11,8 @@
 //         encoders: CC page 1 = P1 PERFORM, CC page 2 = P2 PLAY (the controller layer's numbers)
 //   EDIT  pads: 36-43 the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page)
 //               44 SEL 45 LAY> 46 WS> 47 ENV# 48 O/N 49 CMD 50 SMPL 51 MODE
+//         INST again: the effect (E20), its pages of eight parameters, then INST again; on the
+//         effect O/N steps the variation (SEL held: back).
 //         encoders: encoder n = cell n of the page shown, whatever CC page the Launchkey is on
 //   SEL held: LAY> WS> ENV# step backwards, a key selects its layer and wavesample silently.
 //   MODE (51, bottom right, in both layers): PLAY <-> EDIT; blue in PLAY, purple in EDIT.
@@ -36,6 +38,8 @@ public:
         int env = 2;        // 0..2 = ENV1..ENV3
         bool navDir = false;  // PLAY: the folder browser shows a folder (OPEN lights)
         bool navTop = true;   // PLAY: the browser is at the top (the library): no UP
+        int fxPages = 0;      // pages of eight effect parameters (0 = no effect loaded)
+        int fxPage = 0;       // the one shown
     };
     // A message for eps~ ("presetstep 1", "rec start" ...) or, starting with '@', for the
     // display: "@page" (show the page's legend), "@mode" (PLAY / EDIT changed: pad legend),

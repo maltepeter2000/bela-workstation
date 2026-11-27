@@ -14,6 +14,7 @@ static const Control kControls[] = {
     {"transpose", 'O', -24, 24, 0, "Transpose", ""},
     {"wave", 'O', 0, 127, 0, "Wave pos", ""},
     {"fenv", 'O', -63, 63, 0, "Filter env", ""},
+    {"fxmix", 'O', 0, 127, 127, "FX mix", ""},
     {"patch", 'O', 0, 3, 0, "Patch sel", "00|0*|*0|**"},
     {"tune", 'O', -50, 50, 0, "Tune", ""},
     {"bend", 'O', 0, 12, 2, "Bend range", ""},
@@ -24,4 +25,4 @@ static const Control kControls[] = {
     {"alf", 'S', 0, 1, 1, "Auto loop", "off|on"},
 };
 
-enum Ctl { kC_cut, kC_cut2, kC_fatt, kC_fdec, kC_frel, kC_att, kC_dec, kC_rel, kC_volume, kC_transpose, kC_wave, kC_fenv, kC_patch, kC_tune, kC_bend, kC_vib, kC_vibrate, kC_voices, kC_xcc, kC_alf, kCtlCount };
+enum Ctl { kC_cut, kC_cut2, kC_fatt, kC_fdec, kC_frel, kC_att, kC_dec, kC_rel, kC_volume, kC_transpose, kC_wave, kC_fenv, kC_fxmix, kC_patch, kC_tune, kC_bend, kC_vib, kC_vibrate, kC_voices, kC_xcc, kC_alf, kCtlCount };

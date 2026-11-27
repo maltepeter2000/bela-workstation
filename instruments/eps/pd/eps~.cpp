@@ -592,6 +592,7 @@ struct t_eps {
         int generation = -1;             // of the ROM / OS files it has
         bool told = false;               // "no ROM / OS" said once
         bool on = true;                  // fx 0: dry
+        int page = 0;                    // the editor / Launchkey page of 8 parameters
         std::vector<float> ch[8];        // the chip's channels, one block
         double clock = 0, next = 0;      // Pd samples: now, the next ESP frame
         double t0 = 0, t1 = 0;           // the times of the last two ESP outputs
@@ -900,6 +901,78 @@ void fx_info(t_eps* x) {
     outlet_anything(x->info, gensym("effect"), 3, a);
 }
 
+// The parameters on pages of 8 (the variation has its own control): k-th of a page -> index.
+std::vector<int> fx_cells(const eps::FxMachine& m) {
+    std::vector<int> v;
+    for (size_t i = 0; i < m.params().size(); ++i)
+        if (!m.params()[i].variation) v.push_back(int(i));
+    return v;
+}
+int fx_variation(const eps::FxMachine& m) {
+    for (size_t i = 0; i < m.params().size(); ++i)
+        if (m.params()[i].variation) return int(i);
+    return -1;
+}
+std::string fx_value_text(const eps::FxMachine::Param& p) {
+    if (!p.items.empty()) return p.items[size_t(std::clamp(p.value, 0, int(p.items.size()) - 1))];
+    return std::to_string(p.value);
+}
+int fx_to127(const eps::FxMachine::Param& p) {
+    return p.hi > p.lo ? int(std::lround(127.0 * (p.value - p.lo) / (p.hi - p.lo))) : 0;
+}
+int fx_from127(const eps::FxMachine::Param& p, int v) {
+    return p.lo + int(std::lround(double(std::clamp(v, 0, 127)) * (p.hi - p.lo) / 127.0));
+}
+
+// fxpage <effect> <page>/<pages> <variation> <on>, then fxcell k <name> <0-127> <value> (k 0..7)
+void fx_page_out(t_eps* x) {
+    t_eps::Fx& F = *x->fx;
+    const std::vector<int> cells = fx_cells(F.m);
+    const int pages = std::max(1, int((cells.size() + 7) / 8));
+    F.page = std::clamp(F.page, 0, pages - 1);
+    const int var = fx_variation(F.m);
+    t_atom a[4];
+    SETSYMBOL(&a[0], gensym(F.m.loaded() ? spaces_to_underscore(F.m.name()).c_str() : "-"));
+    SETSYMBOL(&a[1], gensym((std::to_string(F.page + 1) + "/" + std::to_string(pages)).c_str()));
+    SETSYMBOL(&a[2], gensym(var >= 0 ? spaces_to_underscore(fx_value_text(F.m.params()[size_t(var)])).c_str() : "-"));
+    SETFLOAT(&a[3], F.on ? 1 : 0);
+    outlet_anything(x->info, gensym("fxpage"), 4, a);
+    for (int k = 0; k < 8; ++k) {
+        const size_t c = size_t(F.page * 8 + k);
+        t_atom b[4];
+        SETFLOAT(&b[0], k);
+        if (c < cells.size()) {
+            const auto& p = F.m.params()[size_t(cells[c])];
+            SETSYMBOL(&b[1], gensym(spaces_to_underscore(p.name.empty() ? "-" : p.name).c_str()));
+            SETFLOAT(&b[2], fx_to127(p));
+            SETSYMBOL(&b[3], gensym(spaces_to_underscore(fx_value_text(p)).c_str()));
+        } else {
+            SETSYMBOL(&b[1], gensym("-"));
+            SETFLOAT(&b[2], 0);
+            SETSYMBOL(&b[3], gensym("-"));
+        }
+        outlet_anything(x->info, gensym("fxcell"), 4, b);
+    }
+}
+
+// The effect block, with the parameters as they are now, back into the instrument (for saving).
+void fx_store(t_eps* x, eps::Instrument& in) {
+    if (!x->fx->m.loaded()) return;
+    const std::vector<uint8_t>& b = x->fx->m.block();
+    const size_t size = in.image.size() * 2;
+    if (size < 648) return;
+    auto byte = [&](size_t i) { return uint8_t(uint16_t(in.image[i / 2]) >> ((i & 1) ? 0 : 8)); };
+    const uint32_t off = uint32_t(byte(647) >> 4 & 15) << 20 | uint32_t(byte(644)) << 12 |
+                         uint32_t(byte(646)) << 4 | (byte(647) & 15);
+    if (off < 648 || off + b.size() > size) return;
+    for (size_t i = 0; i < b.size(); ++i) {
+        uint16_t w = uint16_t(in.image[(off + i) / 2]);
+        if ((off + i) & 1) w = uint16_t((w & 0xff00) | b[i]);
+        else w = uint16_t((w & 0x00ff) | b[i] << 8);
+        in.image[(off + i) / 2] = int16_t(w);
+    }
+}
+
 void fx_load(t_eps* x) {
     t_eps::Fx& F = *x->fx;
     F.m.unload();
@@ -907,7 +980,7 @@ void fx_load(t_eps* x) {
     std::fill(F.prev, F.prev + 6, 0.f);
     F.o0[0] = F.o0[1] = F.o1[0] = F.o1[1] = 0;
     std::vector<uint8_t> block;
-    if (!x->sampler || !fx_block(x->sampler->instrument(), block)) { fx_info(x); return; }
+    if (!x->sampler || !fx_block(x->sampler->instrument(), block)) { fx_info(x); fx_page_out(x); return; }
     if (F.generation != g_fxGeneration) {
         F.generation = g_fxGeneration;
         std::string err;
@@ -920,11 +993,14 @@ void fx_load(t_eps* x) {
                           "*.u28) and its OS 1.30 file (%s or the OS EFE) in the library %s", kFxOsName, g_lib_dir.c_str());
         F.told = true;
         fx_info(x);
+        fx_page_out(x);
         return;
     }
     std::string err;
     if (!F.m.load(block.data(), block.size(), err)) pd_error(x, "eps~: effect: %s", err.c_str());
+    F.page = 0;
     fx_info(x);
+    fx_page_out(x);
 }
 
 void fx_tick(t_eps* x) {
@@ -1097,6 +1173,7 @@ void follow_entry(t_eps* x) {
 // the parameter), then set to 0: what plays stays the same.
 void bake_offsets(t_eps* x) {
     eps::Instrument& in = x->sampler->editInstrument();
+    fx_store(x, in);
     auto v = [x](int c) { return x->value[c]; };
     in.transpose = std::clamp(in.transpose + v(kC_transpose), -36, 36);
     for (auto& kv : in.waveSamples) {
@@ -2214,6 +2291,7 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         // fx 0 / 1: the effect off (dry) / on; fx (no argument) = the effect and its parameters
         if (argc >= 1) x->fx->on = f != 0;
         fx_info(x);
+        fx_page_out(x);
         if (argc == 0) {
             const auto& ps = x->fx->m.params();
             for (size_t k = 0; k < ps.size(); ++k) {
@@ -2228,6 +2306,36 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
                 SETSYMBOL(&a[5], gensym(item.empty() ? "-" : spaces_to_underscore(item).c_str()));
                 outlet_anything(x->info, gensym("fxparam"), 6, a);
             }
+        }
+        return;
+    } else if (is("fxpage")) {   // fxpage 1 / -1 / 0: the next / previous / first 8 parameters
+        if (argc >= 1 && n == 0) x->fx->page = 0;   // fxpage 0: the first
+        else x->fx->page += n < 0 ? -1 : 1;
+        fx_page_out(x);
+        return;
+    } else if (is("fxvar")) {    // fxvar 1 / -1: the next / previous variation
+        const int v = fx_variation(x->fx->m);
+        if (v >= 0) {
+            const auto& p = x->fx->m.params()[size_t(v)];
+            x->fx->m.setParam(v, std::clamp(p.value + (n < 0 ? -1 : 1), p.lo, p.hi));
+            out_display(x, "Variation", fx_value_text(x->fx->m.params()[size_t(v)]));
+        }
+        fx_page_out(x);
+        return;
+    } else if (is("fxcell")) {   // fxcell k 0-127: parameter k of the page shown
+        const std::vector<int> cells = fx_cells(x->fx->m);
+        const size_t c = size_t(x->fx->page * 8 + n);
+        if (argc >= 2 && n >= 0 && n < 8 && c < cells.size()) {
+            const auto& p = x->fx->m.params()[size_t(cells[c])];
+            x->fx->m.setParam(cells[c], fx_from127(p, static_cast<int>(atom_getfloat(argv + 1))));
+            const auto& q = x->fx->m.params()[size_t(cells[c])];
+            out_display(x, q.name, fx_value_text(q));
+            t_atom b[4];
+            SETFLOAT(&b[0], n);
+            SETSYMBOL(&b[1], gensym(spaces_to_underscore(q.name.empty() ? "-" : q.name).c_str()));
+            SETFLOAT(&b[2], fx_to127(q));
+            SETSYMBOL(&b[3], gensym(spaces_to_underscore(fx_value_text(q)).c_str()));
+            outlet_anything(x->info, gensym("fxcell"), 4, b);
         }
         return;
     } else if (is("fxparam")) {
@@ -2491,6 +2599,7 @@ t_int* eps_perform(t_int* w) {
         x->sampler->processChannels(ch, n);
         const double step = x->sr / F.m.rate();   // Pd samples per ESP frame
         static const int kIn[6] = {0, 1, 4, 5, 6, 7};
+        const float wet = float(x->value[kC_fxmix]) / 127.f;
         auto pcm = [](float v) { v *= 32768.f; return int16_t(v > 32767.f ? 32767 : (v < -32768.f ? -32768 : std::lrint(v))); };
         for (int i = 0; i < n; ++i) {
             float cur[6];
@@ -2514,8 +2623,14 @@ t_int* eps_perform(t_int* w) {
             const double span = F.t1 - F.t0;
             float g = span > 0 ? float((F.clock - 1.0 - F.t0) / span) : 1.f;
             g = g < 0.f ? 0.f : (g > 1.f ? 1.f : g);
-            l[i] = F.o0[0] + (F.o1[0] - F.o0[0]) * g + ch[2][i];
-            r[i] = F.o0[1] + (F.o1[1] - F.o0[1]) * g + ch[3][i];
+            const float el = F.o0[0] + (F.o1[0] - F.o0[0]) * g, er = F.o0[1] + (F.o1[1] - F.o0[1]) * g;
+            if (wet < 1.f) {   // FX mix: towards the voices that went into the ESP, without it
+                l[i] = el * wet + (cur[0] + cur[2] + cur[4]) * (1.f - wet) + ch[2][i];
+                r[i] = er * wet + (cur[1] + cur[3] + cur[5]) * (1.f - wet) + ch[3][i];
+            } else {
+                l[i] = el + ch[2][i];
+                r[i] = er + ch[3][i];
+            }
         }
         if (F.clock > 1e9) { F.clock -= 1e9; F.next -= 1e9; F.t0 -= 1e9; F.t1 -= 1e9; }
     } else if (x->sampler) {

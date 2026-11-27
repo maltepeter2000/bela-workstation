@@ -4,8 +4,8 @@ EDIT areas and the pads, in one table. pd/engine/eps_pages.h, the help and the e
 
   PLAY  P1 PERFORM, P2 PLAY: the controls of eps_params.py (offsets over the instrument), on
         CC page 1 and 2 of the controller layer (the same numbers for the Bela)
-  EDIT  E1-E19: the parameters of the loaded instrument (eps_edit_params.py), the sampler (E18)
-        and the wavesample commands (E19); the area pads choose the page, the encoders send
+  EDIT  E1-E20: the parameters of the loaded instrument (eps_edit_params.py), the sampler (E18)
+        the wavesample commands (E19) and the effect (E20); the area pads choose the page, the encoders send
         whatever CC page the Launchkey is on: encoder n is always cell n of the page shown
 
 A cell: (short name for the legend, <= 4; long name for the display, <= 10; target)
@@ -13,6 +13,7 @@ A cell: (short name for the legend, <= 4; long name for the display, <= 10; targ
   r:<setting>   rec <setting> (the wave recorder)  x:<arg>    cmd <arg> (the wavesample commands)
   k:<command>   turned: that wavesample command chosen on the COMMAND page (CMD twice runs it)
   a:<message>   turned: the message is sent (copy and paste the envelope)
+  f:<k>         parameter k of the effect page shown (fxcell k)
   -             not there yet (shown as --)        None       empty
 usage: python3 tools/eps_pages.py   (writes pd/engine/eps_pages.h)
 """
@@ -33,7 +34,7 @@ PAGES = [
                            ("ADEC", "A DECAY", "c:dec"), ("AREL", "A RELEASE", "c:rel")]),
     ("P2", "PLAY", -1, [("VOL", "VOLUME", "c:volume"), ("TRNS", "TRANSPOSE", "c:transpose"),
                         ("WAVE", "WAVE POS", "c:wave"), ("FENV", "FILTER ENV", "c:fenv"),
-                        None, None, None, None]),
+                        ("FX", "FX MIX", "c:fxmix"), None, None, None]),
     ("E1", "INST", 0, [("TRNS", "TRANSPOSE", "e:i_trans"), ("KLO", "KEY LOW", "e:i_keylo"),
                        ("KHI", "KEY HIGH", "e:i_keyhi"), ("PRES", "PRESSURE", "e:i_press"),
                        ("PMOD", "PATCH MODE", "e:i_psel"), ("PROG", "MIDI PROG", "e:i_prog"),
@@ -104,11 +105,15 @@ PAGES = [
                            ("DPTH", "DEPTH", "x:depth"), ("ZONE", "FADE ZONE", "x:zone"),
                            ("SCL1", "SCALE STRT", "x:sstart"), ("SCL2", "SCALE END", "x:send"),
                            ("RATE", "NEW RATE", "x:rate"), ("OPT", "OPTION", "x:opt")]),
+    ("E20", "EFFECT", 10, [(f"FX{k + 1}", f"FX {k + 1}", f"f:{k}") for k in range(8)]),
 ]
 
 # The EDIT areas: the top row of pads 36-43 (pressed again: the next page of the area); 8 and 9
-# are the pages of the SMPL and CMD pads.
-AREAS = ["INST", "LAYER", "WAVE", "PITCH", "FILTER", "AMP", "LFO", "ENV", "SAMPLE", "COMMAND"]
+# are the pages of the SMPL and CMD pads, 10 the effect: INST pressed again (E1, then the pages
+# of eight effect parameters, then E1 again). Its cells are the effect's parameters, named by
+# the effect loaded (f:<k> = parameter k of the effect page shown).
+AREAS = ["INST", "LAYER", "WAVE", "PITCH", "FILTER", "AMP", "LFO", "ENV", "SAMPLE", "COMMAND",
+         "EFFECT"]
 
 # The pads (notes 36-51 on the pad channel): name for the legend (<= 5)
 # 51 (bottom right) is MODE in both layers: PLAY <-> EDIT, blue in PLAY, purple in EDIT
@@ -122,7 +127,7 @@ REC = {"rate", "thresh", "pre", "input", "dest", "monitor"}
 CMD = {"cmd", "range", "depth", "zone", "sstart", "send", "rate", "opt"}
 
 # checks
-assert len(AREAS) == 10
+assert len(AREAS) == 11
 for pid, title, area, cells in PAGES:
     assert len(cells) == 8 and len(title) <= 10, pid
     assert area < 0 or area < len(AREAS)
@@ -133,7 +138,8 @@ for pid, title, area, cells in PAGES:
         assert len(s) <= 4 and len(ln) <= 10, c
         k, _, n = tg.partition(":")
         assert tg == "-" or (k == "c" and n in T.CONTROLS) or (k == "e" and n in E.P) or \
-            (k == "r" and n in REC) or (k == "x" and n in CMD) or (k in "ka" and n), c
+            (k == "r" and n in REC) or (k == "x" and n in CMD) or (k in "ka" and n) or \
+            (k == "f" and n.isdigit()), c
 for a in range(len(AREAS)):
     assert any(p[2] == a for p in PAGES), AREAS[a]
 for _p in list(PADS_PLAY.values()) + list(PADS_EDIT.values()):
@@ -175,7 +181,8 @@ def write_header(path):
         L.append(f'    {{"{nm}", {ps[0]}, {len(ps)}}},')
     L.append("};")
     L.append(f"constexpr int kAreaCount = {len(AREAS)};")
-    L.append(f"constexpr int kAreaSample = {AREAS.index('SAMPLE')}, kAreaCommand = {AREAS.index('COMMAND')};")
+    L.append(f"constexpr int kAreaSample = {AREAS.index('SAMPLE')}, kAreaCommand = {AREAS.index('COMMAND')}, "
+             f"kAreaEffect = {AREAS.index('EFFECT')};")
     for nm, tab in (("kPadsPlay", PADS_PLAY), ("kPadsEdit", PADS_EDIT)):
         L.append(f"static const char *const {nm}[16] = {{" +
                  ", ".join(f'"{tab.get(36 + i, "")}"' for i in range(16)) + "};")

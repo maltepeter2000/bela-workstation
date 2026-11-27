@@ -154,6 +154,15 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
             default: return {};
         }
     }
+    if (i == 0 && kPages[page].area == kAreaEffect) {   // the effect: its next page, then INST
+        if (st.fxPage + 1 < st.fxPages) return {"fxpage 1", "@page"};
+        return setPage(kAreas[0].first);
+    }
+    if (i == 0 && kPages[page].area == 0 && page == kAreas[0].first + kAreas[0].count - 1 && st.fxPages > 0) {
+        Actions a = {"fxpage 0"};                // INST again: the effect, from its first page
+        for (const std::string &s : setPage(kAreas[kAreaEffect].first)) a.push_back(s);
+        return a;
+    }
     if (i < 8) {                                 // an area; again: its next page
         const Area &ar = kAreas[i];
         int p = ar.first;
@@ -176,6 +185,8 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
             cmdArm_ = now;
             return {"@cmdask"};
         case 12:
+            if (kPages[page].area == kAreaEffect && st.cmd == 0 && st.fxPages > 0)
+                return {selHeld ? "fxvar -1" : "fxvar 1"};   // the effect: the variation
             if (st.cmd == 2) return {"cmd old"};
             if (st.cmd == 3) return {"cmd new"};
             return {};
@@ -204,7 +215,7 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
         return;
     }
     const int a = kPages[page].area;
-    for (int i = 0; i < 8; ++i) out[i] = kAreaColour[i] + (a == i ? 0 : kDim);
+    for (int i = 0; i < 8; ++i) out[i] = kAreaColour[i] + (a == i || (i == 0 && a == kAreaEffect) ? 0 : kDim);
     out[8] = selHeld ? kWhite : avail;
     out[9] = out[10] = out[11] = avail;
     out[14] = a == kAreaSample && st.rec == 0 ? kRed : sampleColour(st.rec);
@@ -213,6 +224,7 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
     else if (now - cmdArm_ < kTwiceMs) out[13] = kWhite + kFlash;
     else out[13] = a == kAreaCommand ? kWhite : avail;
     out[12] = st.cmd == 3 ? kOrange : (st.cmd == 2 ? kGreen : kOff);
+    if (a == kAreaEffect && st.cmd == 0 && st.fxPages > 0) out[12] = kDim + kWhite;   // VAR
     out[15] = kPurple;
 }
 

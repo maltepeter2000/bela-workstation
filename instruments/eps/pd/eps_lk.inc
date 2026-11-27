@@ -96,7 +96,34 @@ int lk_from127(LkRange r, int v) {
     return from127(c, v);
 }
 
+std::string lk_up(std::string s, size_t n);
+
+// f: parameter <k> of the effect page shown: its index in the effect's parameters, or -1
+int lk_fx_param(const t_eps* x, const eps::PageCell& c) {
+    if (c.kind != 'f' || !x->fx->m.loaded()) return -1;
+    const std::vector<int> cells = fx_cells(x->fx->m);
+    const size_t i = size_t(x->fx->page * 8 + std::atoi(c.target));
+    return i < cells.size() ? cells[i] : -1;
+}
+
+// The name of an effect parameter in four letters: CH WET LEV 2 -> CWL2, REVERB MIX -> REVM
+std::string lk_fx_short(const std::string& name) {
+    std::vector<std::string> w;
+    std::string cur;
+    for (char ch : lk_up(name, 32)) {
+        if (ch == ' ') { if (!cur.empty()) w.push_back(cur); cur.clear(); }
+        else cur += ch;
+    }
+    if (!cur.empty()) w.push_back(cur);
+    if (w.empty()) return "--";
+    if (w.size() > 4) w.resize(4);
+    std::string s = w[0].substr(0, 5 - w.size());
+    for (size_t k = 1; k < w.size(); ++k) s += w[k][0];
+    return s;
+}
+
 bool lk_cell_valid(const t_eps* x, const eps::PageCell& c) {
+    if (c.kind == 'f') return lk_fx_param(x, c) >= 0;
     if (c.kind == 'e') return x->sampler && eps::Editor::find(c.target) >= 0;
     if (c.kind == 'x' && !std::strcmp(c.target, "opt")) return *lk_opt_key(x) != 0;
     return c.kind == 'c' || c.kind == 'r' || c.kind == 'x';
@@ -112,6 +139,7 @@ int lk_cell_get(t_eps* x, const eps::PageCell& c) {
         case 'e': return x->editor->get127(x->sampler->editInstrument(), eps::Editor::find(c.target));
         case 'r': return lk_to127(lk_rec_range(c.target), lk_rec_value(x, c.target));
         case 'x': return lk_to127(lk_cmd_range(x, c.target), lk_cmd_value(x, c.target));
+        case 'f': return fx_to127(x->fx->m.params()[size_t(lk_fx_param(x, c))]);
         default: return 0;
     }
 }
@@ -122,6 +150,11 @@ std::string lk_cell_text(t_eps* x, const eps::PageCell& c, bool& names) {
     if (c.kind == '-') return "NOT YET";
     if (c.kind == 'k' || c.kind == 'a') return c.target;
     if (!lk_cell_valid(x, c)) return "--";
+    if (c.kind == 'f') {
+        const auto& p = x->fx->m.params()[size_t(lk_fx_param(x, c))];
+        names = !p.items.empty();
+        return fx_value_text(p);
+    }
     switch (c.kind) {
         case 'c': {
             const Control* k = find_control(c.target);
@@ -193,6 +226,7 @@ void lk_cell_set(t_eps* x, const eps::PageCell& c, int v) {
         case 'c': std::snprintf(b, sizeof b, "n %s %d", c.target, v); break;
         case 'e': std::snprintf(b, sizeof b, "e %s %d", c.target, v); break;
         case 'r': std::snprintf(b, sizeof b, "rec %s %d", c.target, lk_from127(lk_rec_range(c.target), v)); break;
+        case 'f': std::snprintf(b, sizeof b, "fxcell %s %d", c.target, v); break;
         case 'x': {
             std::string n = !std::strcmp(c.target, "opt") ? lk_opt_key(x) : c.target;
             if (n == "rate" && lk_balance(x)) n = "balance";
@@ -227,7 +261,11 @@ std::string lk_context(t_eps* x) {
         std::snprintf(b, sizeof b, "%s %s %s", p.id, p.title, kPat[x->value[kC_patch] & 3]);
     } else if (x->sampler) {
         const int pos = x->editor->wsPosition(x->sampler->instrument());
-        if (p.area == 7)
+        if (p.area == eps::kAreaEffect) {
+            const int pages = std::max(1, int((fx_cells(x->fx->m).size() + 7) / 8));
+            std::snprintf(b, sizeof b, "%s %s %d/%d", p.id, x->fx->m.loaded() ? x->fx->m.name().c_str() : "NO EFFECT",
+                          x->fx->page + 1, pages);
+        } else if (p.area == 7)
             std::snprintf(b, sizeof b, "%s ENV%d L%d WS%d", p.id, x->editor->env + 1, x->editor->layer + 1, pos);
         else
             std::snprintf(b, sizeof b, "%s %s L%d WS%d", p.id, p.title, x->editor->layer + 1, pos);
@@ -351,8 +389,14 @@ void lk_draw(t_eps* x, lkg_t* g, int kind) {
             const int bx = (i % 4) * 32, by = 10 + (i / 4) * 19;
             const eps::PageCell& c = p.cell[i];
             if (!c.kind) continue;
+            std::string fxs;
+            if (c.kind == 'f') {                 // the effect: named by the effect loaded
+                const int k = lk_fx_param(x, c);
+                if (k < 0) continue;
+                fxs = lk_fx_short(x->fx->m.params()[size_t(k)].name);
+            }
             lkg_rect(g, bx, by, 31, 18);
-            const char* t = c.kind == '-' ? "--" : c.shortName;
+            const char* t = c.kind == 'f' ? fxs.c_str() : (c.kind == '-' ? "--" : c.shortName);
             const int w = 6 * static_cast<int>(std::strlen(t)) - 1;
             lkg_text(g, bx + (31 - w) / 2, by + 6, t);
         }
@@ -408,6 +452,10 @@ eps::Surface::Status lk_status(const t_eps* x) {
     st.cmd = W.other ? (W.showingOld ? 3 : 2) : (x->jobkind == 2 && x->rec->waiting ? 1 : 0);
     if (x->jobkind == 2 && x->loader->state.load() != 0) st.cmd = 1;
     st.env = x->editor->env;
+    if (x->fx->m.loaded()) {
+        st.fxPages = std::max(1, int((fx_cells(x->fx->m).size() + 7) / 8));
+        st.fxPage = x->fx->page;
+    }
     return st;
 }
 
@@ -509,6 +557,10 @@ bool lk_encoder(t_eps* x, int cc, int v) {
         return true;
     }
     const eps::PageCell& c = x->lk->current().cell[cell];
+    if (c.kind == 'f' && !lk_cell_valid(x, c)) {    // no effect parameter there: black
+        if (lk_drawing(x)) lk_screen(x, 14, "", "", "");
+        return true;
+    }
     if (c.kind == '-') {
         if (!lk_text(x, c.longName, "NOT YET")) out_display_text(x, c.longName, "not yet");
         return true;

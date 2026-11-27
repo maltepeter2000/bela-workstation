@@ -172,6 +172,11 @@ MESSAGES = [
     "  parameters (outlet: effect name rate count, then fxparam",
     "  k name lo hi value item for each).",
     "fxparam k value: parameter k of the effect.",
+    "fxpage 1 / -1 / 0: the next / previous / first page of eight",
+    "  effect parameters (outlet: fxpage effect page/pages",
+    "  variation on, then fxcell k name 0-127 value, k 0-7).",
+    "fxcell k 0-127: parameter k of the page shown.",
+    "fxvar 1 / -1: the next / previous variation of the effect.",
     "delete: delete the entry selected in the folder shown (an",
     "  instrument, an empty folder, an EFE file).",
     "init: every control back to 0, the instrument stays.",
@@ -220,7 +225,7 @@ MESSAGES = [
     "env copy / env paste: the selected envelope of the selected",
     "  wavesample into a buffer / from it (E16 COPY and PSTE).",
     "lk 0/1: the Launchkey surface off / on (eps.i~: on).",
-    "lk edit [0/1], lk mode: EDIT / PLAY. lk page <P1 .. E19>.",
+    "lk edit [0/1], lk mode: EDIT / PLAY. lk page <P1 .. E20>.",
     "lk legend: show the pads. lk sync: colours and values again.",
     "lk pad <note> <velocity>, lk cc <cc> <value>: as from the",
     "  Launchkey. padchannel n: the pads' channel (default 10).",
@@ -398,7 +403,9 @@ ABOUT = [
     "helpers of ROM and OS and an ES5510 (ESP) the effect program at the effect's rate (29.8, "
     "44.6 or 78.1 kHz). The wavesamples go to the effect by their output bus, bus 3 (aux) stays "
     "dry. Without the two files eps~ plays dry. Mod sources of the effect: bend, wheel, xctrl, "
-    "pedal, sustain, pressure. Parameter changes are not yet saved with the instrument.",
+    "pedal, sustain, pressure. The variation and the parameters (editor band EFFECT, Launchkey "
+    "E20) are saved with the instrument. FX mix (P2, encoder 5) blends the effect towards the "
+    "voices without it: 127 as stored, 0 no effect.",
     "The output runs at Pd's sample rate, not at the 29.76 kHz of the EPS-16 PLUS. Up to 32 "
     "voices, 20 by default.",
 ]
@@ -448,6 +455,11 @@ LAUNCHKEY = [
     "wavesample of the layer), 47 ENV# (ENV1 > ENV2 > ENV3), 48 O/N, 49 CMD, 50 SMPL, 51 MODE. "
     "The keys play, follow key selects. The encoders act on the page shown, whatever CC page "
     "the Launchkey is on: encoder n is cell n.",
+    "The effect: INST pressed again shows E20 EFFECT, the effect's parameters eight at a time, "
+    "named by the effect loaded (the display: effect name and page, the encoders in four "
+    "letters, CH WET LEV 2 = CWL2). INST again: the next eight, after the last E1 INST. On E20 "
+    "O/N (dim white) steps the variation, with SEL held backwards. The values as the EPS shows "
+    "them, saved with the instrument.",
     "SMPL: the SAMPLE page E18 and the level display, pressed again: record (from the "
     "threshold), again: stop, then play the root key. CMD: the COMMAND page E19, the command "
     "chosen with encoder 1, pressed twice: run it. Then O/N plays the old or the new version "

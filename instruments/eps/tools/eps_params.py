@@ -58,16 +58,20 @@ CONTROL_LIST = [
      "the MIDI controller that is the XCTRL mod source (2 = breath, as on the EPS), not stored"),
     ("alf", "S", 0, 1, 1, "Auto loop", "off|on",
      "AUTO-LOOP FINDING as on the EPS: a moved loop point goes where the loop joins best (on)"),
+    ("fxmix", "O", 0, 127, 127, "FX mix", "",
+     "the effect against the voices without it: 127 = as the instrument has it, 0 = no effect "
+     "(the effect keeps running, its tail fades with the mix)"),
     ("voices", "S", 1, 32, 20, "Voices", "",
      "polyphony: 20 as on the EPS-16 PLUS, up to the 32 of the ES5505, not stored"),
 ]
 
 # Controller pages (row k = CC page k of common/tools/ctlayer.py): P1 and P2 of the Launchkey
 # surface (tools/eps_pages.py), the same CC numbers for the Bela. P1: the two filters and the
-# filter and amp envelopes; P2: volume, transpose, wave position, filter envelope amount.
+# filter and amp envelopes; P2: volume, transpose, wave position, filter envelope amount,
+# effect mix.
 CC_ROWS = [
     ("PERFORM", ["cut", "cut2", "fatt", "fdec", "frel", "att", "dec", "rel"]),
-    ("PLAY", ["volume", "transpose", "wave", "fenv", None, None, None, None]),
+    ("PLAY", ["volume", "transpose", "wave", "fenv", "fxmix", None, None, None]),
 ]
 # Without CC: the editor and the pads (patch select on PAT < >).
 EXTRA_ROWS = [
