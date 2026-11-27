@@ -168,6 +168,10 @@ MESSAGES = [
     "  shown (an instrument loads, a folder is only shown). nav",
     "  open: into the folder shown. nav up: one level up (the",
     "  Launchkey pads > < OPEN EXIT).",
+    "fx 0 or 1: the effect off (dry) or on. fx: the effect and its",
+    "  parameters (outlet: effect name rate count, then fxparam",
+    "  k name lo hi value item for each).",
+    "fxparam k value: parameter k of the effect.",
     "delete: delete the entry selected in the folder shown (an",
     "  instrument, an empty folder, an EFE file).",
     "init: every control back to 0, the instrument stays.",
@@ -385,8 +389,15 @@ ABOUT = [
     "modulation types and range, the pitch, "
     "filter and key amounts, the mod sources 0-11. Still approximations: the soft/hard "
     "velocity levels, amp and pan modulation amounts, crossfade curves, glide (every mode is "
-    "mono with glide). Not there: pitch tables and the effects of the ES5510. The controls of "
+    "mono with glide). Not there: pitch tables. The controls of "
     "eps~ are offsets over the instrument, 0 plays it as stored.",
+    "Effects: the instrument's effect runs as on the EPS-16 PLUS, with the ROM and OS of your "
+    "EPS: put eps16plus-rom.bin (the ROM, 128 KB, both chips as one file) and eps16plus-os.efe "
+    "(the OS 1.30 file) into the library. A 68000 runs the effect's own driver code with the "
+    "helpers of ROM and OS and an ES5510 (ESP) the effect program at the effect's rate (29.8, "
+    "44.6 or 78.1 kHz). The wavesamples go to the effect by their output bus, bus 3 (aux) stays "
+    "dry. Without the two files eps~ plays dry. Mod sources of the effect: bend, wheel, xctrl, "
+    "pedal, sustain, pressure. Parameter changes are not yet saved with the instrument.",
     "The output runs at Pd's sample rate, not at the 29.76 kHz of the EPS-16 PLUS. Up to 32 "
     "voices, 20 by default.",
 ]
@@ -426,7 +437,7 @@ LAUNCHKEY = [
     "selected). Also: 38 INIT (twice), 39 PAT> 47 PAT< (patch select, pink), 41 SMPL (red), "
     "46 SAVE (SAVE TO?: go to the folder with > < OPEN EXIT, SAVE again: a copy with a free "
     "name there, another pad: no), 48 SEL (held + OPEN: DELETE? the entry shown, SEL: yes, "
-    "another pad: no; a folder only when empty), 51 MODE. The encoders: CC page 1 of the "
+    "another pad: no, a folder only when empty), 51 MODE. The encoders: CC page 1 of the "
     "Launchkey is P1 PERFORM, page 2 is P2 PLAY (the same CC numbers as the controller layer "
     "of the Bela).",
     "EDIT pads, top row: the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (pressed again: "

@@ -200,6 +200,21 @@ void ES5505::renderInt(int32_t *out[kChannels * 2], size_t frames) {
     }
 }
 
+void ES5505::renderAddChannels(float *out[kChannels * 2], size_t frames) {
+    constexpr float kScale = 1.f / float(1 << 19);
+    for (size_t i = 0; i < frames; ++i) {
+        int32_t sum[kChannels * 2] = {};
+        for (int vi = 0; vi <= activeVoices_; ++vi) {
+            Voice &v = voices_[vi];
+            if (v.control & kStopMask) continue;
+            const int ch = (v.control >> 8) & 3;
+            generate(v, &sum[ch * 2]);
+            v.control &= uint16_t(~kIrq);
+        }
+        for (int c = 0; c < kChannels * 2; ++c) out[c][i] += float(sum[c]) * kScale;
+    }
+}
+
 void ES5505::renderAdd(float *left, float *right, size_t frames) {
     constexpr float kScale = 1.f / float(1 << 19);
     for (size_t i = 0; i < frames; ++i) {

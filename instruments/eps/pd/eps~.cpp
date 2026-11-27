@@ -101,6 +101,7 @@ extern "C" {
 #include "eps_record.h"
 #include "eps_wave.h"
 #include "eps_surface.h"
+#include "eps_fx.h"
 #include "../../../common/gfx/lkgfx_pd.h"
 
 #include <strings.h>
@@ -215,7 +216,36 @@ std::string spaces_to_underscore(std::string s) {
     return s;
 }
 
+// ---- the effect: ROM and OS of the EPS-16 PLUS in the library (the user's files) ----------
+const char* const kFxRomName = "eps16plus-rom.bin";
+const char* const kFxOsName = "eps16plus-os.efe";
+std::vector<uint8_t> g_fxRom, g_fxOs;
+std::string g_fxDir;
+int g_fxGeneration = 0;                  // grows when the files are read again
+
+std::vector<uint8_t> read_whole(const std::string& path) {
+    std::vector<uint8_t> v;
+    if (FILE* f = std::fopen(path.c_str(), "rb")) {
+        uint8_t b[65536];
+        size_t n;
+        while ((n = std::fread(b, 1, sizeof b, f)) > 0) v.insert(v.end(), b, b + n);
+        std::fclose(f);
+    }
+    return v;
+}
+
+std::string join(const std::string& a, const std::string& b);
+
+void fx_read_system(const std::string& dir) {
+    if (dir == g_fxDir) return;
+    g_fxDir = dir;
+    g_fxRom = read_whole(join(dir, kFxRomName));
+    g_fxOs = read_whole(join(dir, kFxOsName));
+    ++g_fxGeneration;
+}
+
 int scan_library(const std::string& dir) {
+    fx_read_system(dir);
     g_lib.clear();
     g_files.clear();
     g_lib_dir = dir;
@@ -224,7 +254,7 @@ int scan_library(const std::string& dir) {
     if (DIR* d = opendir(dir.c_str())) {
         while (dirent* e = readdir(d)) {
             const std::string n = e->d_name;
-            if (n[0] != '.' && is_image_name(n)) files.push_back(n);
+            if (n[0] != '.' && is_image_name(n) && n != kFxOsName) files.push_back(n);
         }
         closedir(d);
     }
@@ -524,6 +554,18 @@ struct t_eps {
     std::string* libhome;                // eps.i~: <patch folder>/eps (libhome)
     std::string* libarg;                 // eps.i~: argument 3 (libarg)
     eps::Envelope* envbuf;               // env copy / paste (null = nothing copied)
+    struct Fx {                          // the effect of the instrument (eps_fx)
+        eps::FxMachine m;
+        int generation = -1;             // of the ROM / OS files it has
+        bool told = false;               // "no ROM / OS" said once
+        bool on = true;                  // fx 0: dry
+        std::vector<float> ch[8];        // the chip's channels, one block
+        double clock = 0, next = 0;      // Pd samples: now, the next ESP frame
+        double t0 = 0, t1 = 0;           // the times of the last two ESP outputs
+        float prev[6] = {};              // the last input sample
+        float o0[2] = {}, o1[2] = {};    // the last two ESP outputs
+    }* fx;
+    t_clock* fxclock;                    // the effect's real-time routine, 77 Hz
 };
 
 void out_value(t_eps* x, const char* key, t_float v) {
@@ -798,6 +840,74 @@ void request(t_eps* x, const LibEntry& e) {
     clock_delay(x->poll, 5);
 }
 
+// ---- the effect of the instrument --------------------------------------------------------
+
+// The effect block of the instrument file (its offset at byte 644, its length in its first word).
+bool fx_block(const eps::Instrument& in, std::vector<uint8_t>& out) {
+    out.clear();
+    const size_t size = in.image.size() * 2;
+    if (size < 648) return false;
+    auto byte = [&](size_t i) { return uint8_t(uint16_t(in.image[i / 2]) >> ((i & 1) ? 0 : 8)); };
+    const uint32_t off = uint32_t(byte(647) >> 4 & 15) << 20 | uint32_t(byte(644)) << 12 |
+                         uint32_t(byte(646)) << 4 | (byte(647) & 15);
+    if (off < 648 || off + 8 > size) return false;
+    const uint32_t len = (uint32_t(byte(off + 2) << 8 | byte(off + 3)) >> 4) << 12 | (uint32_t(byte(off) << 8 | byte(off + 1)) >> 4);
+    if (len < 0x100 || off + len > size) return false;
+    out.resize(len);
+    for (uint32_t i = 0; i < len; ++i) out[i] = byte(off + i);
+    return true;
+}
+
+void fx_info(t_eps* x) {
+    t_atom a[3];
+    const eps::FxMachine& m = x->fx->m;
+    SETSYMBOL(&a[0], gensym(m.loaded() ? spaces_to_underscore(m.name()).c_str() : "-"));
+    SETFLOAT(&a[1], m.loaded() ? static_cast<t_float>(m.rate()) : 0);
+    SETFLOAT(&a[2], m.loaded() ? static_cast<t_float>(m.params().size()) : 0);
+    outlet_anything(x->info, gensym("effect"), 3, a);
+}
+
+void fx_load(t_eps* x) {
+    t_eps::Fx& F = *x->fx;
+    F.m.unload();
+    F.clock = F.next = F.t0 = F.t1 = 0;
+    std::fill(F.prev, F.prev + 6, 0.f);
+    F.o0[0] = F.o0[1] = F.o1[0] = F.o1[1] = 0;
+    std::vector<uint8_t> block;
+    if (!x->sampler || !fx_block(x->sampler->instrument(), block)) { fx_info(x); return; }
+    if (F.generation != g_fxGeneration) {
+        F.generation = g_fxGeneration;
+        std::string err;
+        if (!g_fxRom.empty() || !g_fxOs.empty()) {
+            if (!F.m.setSystem(g_fxRom, g_fxOs, err)) pd_error(x, "eps~: effects: %s", err.c_str());
+        }
+    }
+    if (!F.m.hasSystem()) {
+        if (!F.told) post("eps~: the effects need %s and %s (from your EPS-16 PLUS) in the library %s",
+                          kFxRomName, kFxOsName, g_lib_dir.c_str());
+        F.told = true;
+        fx_info(x);
+        return;
+    }
+    std::string err;
+    if (!F.m.load(block.data(), block.size(), err)) pd_error(x, "eps~: effect: %s", err.c_str());
+    fx_info(x);
+}
+
+void fx_tick(t_eps* x) {
+    t_eps::Fx& F = *x->fx;
+    if (F.m.loaded()) {
+        F.m.setMod(4, int(std::lround(64 + x->bend * 63)));
+        F.m.setMod(5, int(std::lround(x->wheel * 127)));
+        F.m.setMod(7, int(std::lround(x->ctl[2] * 127)));
+        F.m.setMod(8, int(std::lround(x->ctl[1] * 127)));
+        F.m.setMod(10, x->sustain ? 127 : 0);
+        F.m.setMod(11, int(std::lround(x->ctl[0] * 127)));
+        F.m.tick();
+    }
+    clock_delay(x->fxclock, 1000.0 / 77.0);
+}
+
 void eps_poll(t_eps* x) {
     Loader& L = *x->loader;
     if (L.state.load() == 3) {
@@ -831,6 +941,7 @@ void eps_poll(t_eps* x) {
             x->sampler = s.release();
             if (x->sampler->sampleRate() != x->sr) x->sampler->setSampleRate(x->sr);
             apply(x);
+            fx_load(x);
             if (old && made && x->jobkind == 2) {
                 x->wave->other = old;            // KEEP=OLD NEW: the old one waits
                 x->wave->showingOld = false;
@@ -2066,6 +2177,34 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         out_value(x, "thru", x->thru);
         out_value(x, "presets", static_cast<t_float>(g_lib.size()));
         out_value(x, "sounding", x->sampler ? x->sampler->activeVoiceCount() : 0);
+    } else if (is("fx")) {
+        // fx 0 / 1: the effect off (dry) / on; fx (no argument) = the effect and its parameters
+        if (argc >= 1) x->fx->on = f != 0;
+        fx_info(x);
+        if (argc == 0) {
+            const auto& ps = x->fx->m.params();
+            for (size_t k = 0; k < ps.size(); ++k) {
+                t_atom a[6];
+                SETFLOAT(&a[0], static_cast<t_float>(k));
+                SETSYMBOL(&a[1], gensym(spaces_to_underscore(ps[k].name.empty() ? "-" : ps[k].name).c_str()));
+                SETFLOAT(&a[2], ps[k].lo);
+                SETFLOAT(&a[3], ps[k].hi);
+                SETFLOAT(&a[4], ps[k].value);
+                const std::string item = ps[k].items.empty() ? "" :
+                    ps[k].items[size_t(std::clamp(ps[k].value, 0, int(ps[k].items.size()) - 1))];
+                SETSYMBOL(&a[5], gensym(item.empty() ? "-" : spaces_to_underscore(item).c_str()));
+                outlet_anything(x->info, gensym("fxparam"), 6, a);
+            }
+        }
+        return;
+    } else if (is("fxparam")) {
+        // fxparam k value: parameter k of the effect (as "fx" lists them)
+        if (argc >= 2 && x->fx->m.setParam(n, static_cast<int>(atom_getfloat(argv + 1)))) {
+            const auto& p = x->fx->m.params()[size_t(n)];
+            out_display(x, p.name, p.items.empty() ? std::to_string(p.value) :
+                        p.items[size_t(std::clamp(p.value, 0, int(p.items.size()) - 1))]);
+        }
+        return;
     } else if (is("bend")) {
         x->bend = f;
         if (x->sampler) x->sampler->setBend(f);
@@ -2311,7 +2450,42 @@ t_int* eps_perform(t_int* w) {
     const bool mon = R.monitor && static_cast<int>(R.mon.size()) >= n;   // on / off, whatever the state
     if (mon) std::copy(in, in + n, R.mon.begin());
     record_block(R, in, n);
-    if (x->sampler) {
+    t_eps::Fx& F = *x->fx;
+    if (x->sampler && F.on && F.m.loaded() && static_cast<int>(F.ch[0].size()) >= n) {
+        // the chip's channels: 0, 2, 3 into the ESP (at its rate), 1 (aux) dry
+        float* ch[8];
+        for (int c = 0; c < 8; ++c) ch[c] = F.ch[c].data();
+        x->sampler->processChannels(ch, n);
+        const double step = x->sr / F.m.rate();   // Pd samples per ESP frame
+        static const int kIn[6] = {0, 1, 4, 5, 6, 7};
+        auto pcm = [](float v) { v *= 32768.f; return int16_t(v > 32767.f ? 32767 : (v < -32768.f ? -32768 : std::lrint(v))); };
+        for (int i = 0; i < n; ++i) {
+            float cur[6];
+            for (int k = 0; k < 6; ++k) cur[k] = ch[kIn[k]][i];
+            // the ESP frames that fall between the last sample and this one
+            while (F.next <= F.clock + 1.0) {
+                const float f = float(F.next - F.clock);
+                int16_t s[6];
+                for (int k = 0; k < 6; ++k) s[k] = pcm(F.prev[k] + (cur[k] - F.prev[k]) * f);
+                int16_t ol, orr;
+                F.m.frame(s, ol, orr);
+                F.o0[0] = F.o1[0]; F.o0[1] = F.o1[1];
+                F.o1[0] = ol / 32768.f; F.o1[1] = orr / 32768.f;
+                F.t0 = F.t1;
+                F.t1 = F.next;
+                F.next += step;
+            }
+            std::copy(cur, cur + 6, F.prev);
+            F.clock += 1.0;
+            // the output, one ESP frame late: between the last two outputs
+            const double span = F.t1 - F.t0;
+            float g = span > 0 ? float((F.clock - 1.0 - F.t0) / span) : 1.f;
+            g = g < 0.f ? 0.f : (g > 1.f ? 1.f : g);
+            l[i] = F.o0[0] + (F.o1[0] - F.o0[0]) * g + ch[2][i];
+            r[i] = F.o0[1] + (F.o1[1] - F.o0[1]) * g + ch[3][i];
+        }
+        if (F.clock > 1e9) { F.clock -= 1e9; F.next -= 1e9; F.t0 -= 1e9; F.t1 -= 1e9; }
+    } else if (x->sampler) {
         x->sampler->process(l, r, n);
     } else {
         std::fill(l, l + n, 0.0f);
@@ -2325,6 +2499,7 @@ t_int* eps_perform(t_int* w) {
 void eps_dsp(t_eps* x, t_signal** sp) {
     x->sr = sp[0]->s_sr;
     x->rec->mon.assign(static_cast<size_t>(sp[0]->s_n), 0.f);
+    for (auto& c : x->fx->ch) c.assign(static_cast<size_t>(sp[0]->s_n), 0.f);
     if (x->sampler) x->sampler->setSampleRate(x->sr);
     // sp[0]: the audio to sample (inlet 4), sp[1], sp[2]: left, right
     dsp_add(eps_perform, 5, x, sp[0]->s_vec, sp[1]->s_vec, sp[2]->s_vec, static_cast<t_int>(sp[0]->s_n));
@@ -2366,6 +2541,9 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     set_defaults(x, false);
     for (int& v : x->shown) v = INT32_MIN;
     x->poll = clock_new(x, reinterpret_cast<t_method>(eps_poll));
+    x->fx = new t_eps::Fx();
+    x->fxclock = clock_new(x, reinterpret_cast<t_method>(fx_tick));
+    clock_delay(x->fxclock, 13);
     x->sxclock = clock_new(x, reinterpret_cast<t_method>(eps_sx_tick));
     x->recclock = clock_new(x, reinterpret_cast<t_method>(eps_rec_tick));
     x->epsch = 1;
@@ -2415,6 +2593,8 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
 
 void eps_free(t_eps* x) {
     clock_free(x->poll);
+    clock_free(x->fxclock);
+    delete x->fx;
     clock_free(x->sxclock);
     clock_free(x->recclock);
     lkg_pd_free(x->gfx);

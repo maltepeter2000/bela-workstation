@@ -11,6 +11,12 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    - im Editor "choose" (Zeile folder) und den Ordner wählen: das wird in eps-library.txt
      neben dem Patch gespeichert und beim nächsten Öffnen wieder genommen, oder
    - ein Ordner "eps" neben dem Patch.
+   Effekte: eps16plus-rom.bin (dein ROM, 128 KB, beide Chips als eine Datei) und
+   eps16plus-os.efe (dein OS 1.30) in die Library legen, dann spielt jedes Instrument mit
+   seinem Effekt wie am EPS (auch Waveboy-Effekte). Ohne die beiden Dateien klingt es trocken.
+   "fx 0" / "fx 1" schaltet den Effekt aus / an, "fx" listet seine Parameter,
+   "fxparam k wert" stellt Parameter k. Geänderte Effekt-Parameter werden noch nicht
+   mitgespeichert.
 4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge). Klick auf das Objekt öffnet den Editor.
    "library N" lädt Instrument N aus dem Ordner eps, Noten auf MIDI-Kanal 1.
 5. Regler: Offsets über dem geladenen Instrument (0 = wie gespeichert). Seite 1 (P1 PERFORM):

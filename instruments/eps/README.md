@@ -33,8 +33,21 @@ your instruments into a folder `eps/` beside your patch.
 - **Loads in the background**: a file is read and the instrument built in a thread of its own;
   the scheduler swaps it in when it is ready, so the audio goes on.
 
-Not yet there: pitch tables (format unknown, no instrument with one yet) and the ES5510
-effects.
+Not yet there: pitch tables (format unknown, no instrument with one yet).
+
+**Effects** (ES5510 / ESP) run as on the EPS-16 PLUS, with the user's ROM and OS (not part of
+eps~): `eps16plus-rom.bin` (128 KB) and `eps16plus-os.efe` (OS 1.30) in the library. A 68000
+(Musashi, MIT, `third_party/musashi`, without its FPU and MMU) executes the effect block's
+driver code together with the ROM and OS helpers (program loader, parameter bytecode,
+real-time routine at 77 Hz); `engine/es5510` (from MAME, BSD-3) runs the ESP program at the
+effect's rate (byte $66: 29 762 / 44 643 / 78 125 Hz). The OS parts eps~ does itself: the order
+of the load, the fade-in of GPR 127, the OS flags the drivers read, the mod-source table
+($FFDF4C). Output buses: 0 / 1 / 2 / 3 play on chip channel 0 / 2 / 3 / 1 (measured); channels
+0, 2, 3 go to SER0, SER2, SER3, the output is SER1, channel 1 (aux) stays dry. Checked with
+CLASSIC PAD, DECAY BASS and some 45 Waveboy effects; `build/fxprobe ROM OS file.efe` lists an
+effect's parameters and runs noise through it. Messages `fx 0|1`, `fx`, `fxparam k v`.
+Not yet: saving changed effect parameters, an effect page in the editor and on the Launchkey,
+the X-IN effects (audio input into the ESP).
 
 **Calibrated against the original operating system** (OS 1.30, ROM 1.00F, running in an
 emulator; register traces of test instruments, see `tests/calibration/`): the cutoff scale of

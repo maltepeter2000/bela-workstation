@@ -76,6 +76,8 @@ public:
     void renderInt(int32_t *out[kChannels * 2], size_t frames);
     // Sums all channels to stereo float (-1..1, no clipping), adds into L/R.
     void renderAdd(float *left, float *right, size_t frames);
+    // The same per output channel (float, -1..1): out[2*c] / out[2*c+1] = channel c L / R.
+    void renderAddChannels(float *out[kChannels * 2], size_t frames);
 
     // Volume code -> linear gain (code 255 = ~0.97).
     static float volumeGain(uint8_t code);

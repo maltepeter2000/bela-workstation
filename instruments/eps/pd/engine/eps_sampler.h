@@ -107,6 +107,10 @@ public:
     Instrument &editInstrument() { return inst_; }
     int patch() const { return patch_; }
     void process(float *left, float *right, int frames);   // overwrites buffers
+    // The four output channels of the chip apart (overwrites ch[0..7]): the wavesample's
+    // output bus 0 / 1 / 2 / 3 plays on channel 0 / 2 / 3 / 1, as the EPS-16 PLUS OS sets it
+    // (measured); channels 0, 2, 3 go to the effect, 1 is the aux output.
+    void processChannels(float *ch[8], int frames);
     int activeVoiceCount() const;
     const otis::ES5505 &chipForDebug() const { return chip_; }
 

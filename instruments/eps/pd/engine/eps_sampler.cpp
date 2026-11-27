@@ -368,7 +368,9 @@ void Sampler::startVoice(const WaveSample &ws, int note, int velocity, bool held
     sl.glide = glideFrom;
     sl.glideRate = glideSec > 0.f ? std::fabs(glideFrom) / glideSec : 0.f;
 
-    uint16_t ctrl = uint16_t(((ws.filterMode & 3) << 10) | (bank1 ? otis::kBank : 0));
+    static const uint16_t kBusChannel[4] = {0, 2, 3, 1};
+    uint16_t ctrl = uint16_t(((ws.filterMode & 3) << 10) | (bank1 ? otis::kBank : 0) |
+                             kBusChannel[ws.outputBus & 3] << 8);
     uint32_t st, en, acc;
     switch (mode) {
         case 1:  st = a29(sStart); en = a29(sEnd); acc = en; ctrl |= otis::kDir; break;
@@ -780,6 +782,30 @@ void Sampler::process(float *left, float *right, int frames) {
         chip_.renderAdd(left + done, right + done, size_t(n));
         if (volume_ != 1.f)
             for (int i = done; i < done + n; ++i) { left[i] *= volume_; right[i] *= volume_; }
+        done += n;
+        counter_ -= n;
+    }
+}
+
+void Sampler::processChannels(float *ch[8], int frames) {
+    for (int c = 0; c < 8; ++c) std::memset(ch[c], 0, sizeof(float) * size_t(frames));
+    if (!loaded_) return;
+    int done = 0;
+    while (done < frames) {
+        if (counter_ <= 0) {
+            const float dt = float(s_.controlInterval) / s_.sampleRate;
+            vibPhase_ += 2.f * float(M_PI) * vibRate_ * dt;
+            if (vibPhase_ > 2.f * float(M_PI)) vibPhase_ -= 2.f * float(M_PI);
+            for (int v = 0; v < s_.maxVoices; ++v) updateControl(v, dt);
+            counter_ = s_.controlInterval;
+        }
+        int n = frames - done < counter_ ? frames - done : counter_;
+        float *part[8];
+        for (int c = 0; c < 8; ++c) part[c] = ch[c] + done;
+        chip_.renderAddChannels(part, size_t(n));
+        if (volume_ != 1.f)
+            for (int c = 0; c < 8; ++c)
+                for (int i = done; i < done + n; ++i) ch[c][i] *= volume_;
         done += n;
         counter_ -= n;
     }
