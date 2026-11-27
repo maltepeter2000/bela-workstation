@@ -15,6 +15,9 @@ bool reserved(int cc) {
 constexpr int kOff = 16;          // black, dimmed: dark (0 would give the pad back to the Launchkey)
 constexpr int kWhite = 1, kRed = 2, kOrange = 3, kGreen = 5, kBlue = 7, kPurple = 8;
 constexpr int kDim = 16, kFlash = 32, kPulse = 64;
+// EDIT, top row: a colour of its own for each area (dimmed, bright when its page is shown):
+// INST white, LAYER yellow, WAVE cyan, PITCH pink, FILTER lime, AMP amber, LFO sky, ENV magenta
+constexpr int kAreaColour[8] = {1, 4, 6, 9, 10, 13, 14, 12};
 
 int sampleColour(int rec) {
     switch (rec) {
@@ -185,7 +188,7 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
         return;
     }
     const int a = kPages[page].area;
-    for (int i = 0; i < 8; ++i) out[i] = a == i ? kWhite : avail;
+    for (int i = 0; i < 8; ++i) out[i] = kAreaColour[i] + (a == i ? 0 : kDim);
     out[8] = selHeld ? kWhite : avail;
     out[9] = out[10] = out[11] = avail;
     out[12] = a == kAreaSample && st.rec == 0 ? kWhite : sampleColour(st.rec);

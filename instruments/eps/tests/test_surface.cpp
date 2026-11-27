@@ -81,7 +81,9 @@ int main() {
     CHECK(has(S.pad(36, true, 13300, st), "rec level 0") && S.page == page("E1"));   // leaving SAMPLE
     st.rec = 0;
     // CMD: the page, then twice: run; O/N, KEEP
-    CHECK(has(S.pad(49, true, 14000, st), "@page") && S.page == page("E19"));
+    S.padColours(st, 13900, col);
+    CHECK(col[0] == 1 && col[1] == 20 && col[2] == 22 && col[7] == 28);   // INST shown: bright, the others dimmed
+        CHECK(has(S.pad(49, true, 14000, st), "@page") && S.page == page("E19"));
     CHECK(has(S.pad(49, true, 14100, st), "@cmdask"));
     CHECK(has(S.pad(49, true, 14200, st), "cmd do"));
     st.cmd = 2;

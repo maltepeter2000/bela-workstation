@@ -419,7 +419,8 @@ LAUNCHKEY = [
     "Launchkey is P1 PERFORM, page 2 is P2 PLAY (the same CC numbers as the controller layer "
     "of the Bela).",
     "EDIT pads, top row: the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (pressed again: "
-    "the next page of the area). Bottom row: 44 SEL (held: LAY> WS> ENV# step backwards, a key "
+    "the next page of the area), each in its own colour: white, yellow, cyan, pink, lime, "
+    "amber, sky, magenta, bright while its page is shown. Bottom row: 44 SEL (held: LAY> WS> ENV# step backwards, a key "
     "selects its layer and wavesample without sound), 45 LAY> (next layer), 46 WS> (next "
     "wavesample of the layer), 47 ENV# (ENV1 > ENV2 > ENV3), 48 SMPL, 49 CMD, 50 O/N, 51 MODE. "
     "The keys play, follow key selects. The encoders act on the page shown, whatever CC page "

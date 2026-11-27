@@ -44,6 +44,7 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    PLAY: oben LIB> DIR> INIT(2x) PAT> SMPL, unten LIB< DIR< SAVE(2x) PAT< SEL MODE.
    Encoder: CC-Seite 1 = P1, Seite 2 = P2.
    EDIT: oben die Bereiche INST LAYER WAVE PITCH FILTER AMP LFO ENV (nochmal = nächste Seite),
+   jeder in eigener Farbe: weiß, gelb, cyan, pink, hellgrün, bernstein, himmelblau, magenta,
    unten SEL LAY> WS> ENV# SMPL CMD O/N MODE. Die Encoder wirken auf die gezeigte Seite,
    egal auf welcher CC-Seite der Launchkey steht. SEL halten + Taste wählt Layer/WS ohne Ton.
    SMPL: Seite SAMPLE und Pegel, nochmal: Aufnahme, nochmal: Stopp, dann Grundton spielen.
