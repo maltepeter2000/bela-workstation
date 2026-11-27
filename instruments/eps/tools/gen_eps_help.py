@@ -409,23 +409,23 @@ def page_line(p):
 LAUNCHKEY = [
     "eps~ drives the Launchkey Mini MK4 itself (custom firmware, pads in Drum mode): the "
     "encoders, the pads and the display follow two layers, PLAY and EDIT. The pads have fixed "
-    "meanings, the display shows what they do. SEL tapped twice switches PLAY and EDIT (later "
-    "the pad-nav button). On the switch the display shows the pads for 1.5 s.",
+    "meanings, the display shows what they do. The bottom right pad 51 is MODE in both layers: "
+    "pressed, it switches PLAY and EDIT, blue in PLAY, purple in EDIT. On the switch the display shows the pads for 1.5 s.",
     "PLAY pads, top row: 36 LIB> (next instrument of the library), 37 DIR> (next in the "
     "folder), 38 INIT (twice), 39 PAT> (patch select), 40 SMPL. Bottom row: 44 LIB<, 45 DIR<, "
-    "46 SAVE (twice: a copy with a free name), 47 PAT<, 48 SEL. The encoders: CC page 1 of the "
+    "46 SAVE (twice: a copy with a free name), 47 PAT<, 48 SEL, 51 MODE. The encoders: CC page 1 of the "
     "Launchkey is P1 PERFORM, page 2 is P2 PLAY (the same CC numbers as the controller layer "
     "of the Bela).",
     "EDIT pads, top row: the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (pressed again: "
     "the next page of the area). Bottom row: 44 SEL (held: LAY> WS> ENV# step backwards, a key "
     "selects its layer and wavesample without sound), 45 LAY> (next layer), 46 WS> (next "
-    "wavesample of the layer), 47 ENV# (ENV1 > ENV2 > ENV3), 48 SMPL, 49 CMD, 50 O/N, 51 KEEP. "
+    "wavesample of the layer), 47 ENV# (ENV1 > ENV2 > ENV3), 48 SMPL, 49 CMD, 50 O/N, 51 MODE. "
     "The keys play, follow key selects. The encoders act on the page shown, whatever CC page "
     "the Launchkey is on: encoder n is cell n.",
     "SMPL: the SAMPLE page E18 and the level display, pressed again: record (from the "
     "threshold), again: stop, then play the root key. CMD: the COMMAND page E19, the command "
     "chosen with encoder 1, pressed twice: run it. Then O/N plays the old or the new version "
-    "(orange / green), KEEP keeps the new one, anything else keeps what plays.",
+    "(orange / green), CMD (now green) keeps the new one, anything else keeps what plays.",
     "The display: one small line (page, layer, wavesample), then two big lines of 10, the "
     "chosen option underlined, or a picture (envelope, filters, LFO). After a page change it "
     "shows the names of the 8 encoders. The values of the page go back to the encoders as CC "

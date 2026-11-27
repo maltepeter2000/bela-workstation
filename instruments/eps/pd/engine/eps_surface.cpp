@@ -13,7 +13,7 @@ bool reserved(int cc) {
 
 // pad colours (launchkey_firmware cfw/drum_pads.c)
 constexpr int kOff = 16;          // black, dimmed: dark (0 would give the pad back to the Launchkey)
-constexpr int kWhite = 1, kRed = 2, kOrange = 3, kGreen = 5;
+constexpr int kWhite = 1, kRed = 2, kOrange = 3, kGreen = 5, kBlue = 7, kPurple = 8;
 constexpr int kDim = 16, kFlash = 32, kPulse = 64;
 
 int sampleColour(int rec) {
@@ -102,10 +102,9 @@ Surface::Actions Surface::smpl(const Status &st) {
 Surface::Actions Surface::pad(int note, bool down, double now, const Status &st) {
     const int i = note - 36;
     if (i < 0 || i > 15) return {};
-    if (!down && note == selNote_) {             // SEL let go (also after it switched the mode)
+    if (!down && note == selNote_) {             // SEL let go (also after the mode changed)
         selHeld = false;
         selNote_ = -1;
-        if (selUsed_) selTap_ = -1e9;
         return {};
     }
     const bool sel = mode == Play ? i == 12 : i == 8;
@@ -114,15 +113,11 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
             selHeld = true;
             selNote_ = note;
             selUsed_ = false;
-            if (now - selTap_ < kTapMs) {
-                selTap_ = -1e9;
-                return setMode(mode == Play ? Edit : Play);
-            }
-            selTap_ = now;
         }
         return {};
     }
     if (!down) return {};
+    if (i == 15) return setMode(mode == Play ? Edit : Play);   // MODE, the same pad in both
     if (selHeld) selUsed_ = true;
     if (mode == Play) {
         switch (i) {
@@ -159,6 +154,7 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
             return {b};
         case 12: return smpl(st);
         case 13:
+            if (st.cmd >= 2) return {"cmd keep"};          // a result to keep: CMD keeps it
             if (kPages[page].area != kAreaCommand) return setPage(kAreas[kAreaCommand].first);
             if (st.cmd == 1) return {};
             if (now - cmdArm_ < kTwiceMs) { cmdArm_ = -1e9; return {"cmd do"}; }
@@ -167,9 +163,6 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
         case 14:
             if (st.cmd == 2) return {"cmd old"};
             if (st.cmd == 3) return {"cmd new"};
-            return {};
-        case 15:
-            if (st.cmd >= 2) return {"cmd keep"};
             return {};
         default: return {};
     }
@@ -188,6 +181,7 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
         out[10] = now - saveArm_ < kTwiceMs ? kWhite + kFlash : avail;
         out[4] = sampleColour(st.rec);
         out[12] = selHeld ? kWhite : avail;
+        out[15] = kBlue;
         return;
     }
     const int a = kPages[page].area;
@@ -196,10 +190,11 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
     out[9] = out[10] = out[11] = avail;
     out[12] = a == kAreaSample && st.rec == 0 ? kWhite : sampleColour(st.rec);
     if (st.cmd == 1) out[13] = kWhite + kPulse;
+    else if (st.cmd >= 2) out[13] = kGreen;          // pressed: keep
     else if (now - cmdArm_ < kTwiceMs) out[13] = kWhite + kFlash;
     else out[13] = a == kAreaCommand ? kWhite : avail;
     out[14] = st.cmd == 3 ? kOrange : (st.cmd == 2 ? kGreen : kOff);
-    out[15] = st.cmd >= 2 ? kGreen : kOff;
+    out[15] = kPurple;
 }
 
 } // namespace eps

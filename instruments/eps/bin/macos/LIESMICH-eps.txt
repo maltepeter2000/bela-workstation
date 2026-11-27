@@ -38,14 +38,14 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    xcc (Reihe MORE): welcher MIDI-Controller XCTRL ist (Standard 2). do, dann old / new vergleichen,
    keep oder cancel – wie KEEP=OLD NEW am EPS.
 9. Launchkey Mini MK4 (eigene Firmware, Pads im Drum-Modus auf Kanal 10): eps.i~ steuert ihn
-   selbst, mit zwei Ebenen. SEL zweimal tippen wechselt PLAY und EDIT (das Display zeigt
-   dann 1,5 s die Pads).
-   PLAY: oben LIB> DIR> INIT(2x) PAT> SMPL, unten LIB< DIR< SAVE(2x) PAT< SEL.
+   selbst, mit zwei Ebenen. Pad 51 (unten rechts) ist in beiden Ebenen MODE und wechselt
+   PLAY und EDIT: blau in PLAY, lila in EDIT (das Display zeigt dann 1,5 s die Pads).
+   PLAY: oben LIB> DIR> INIT(2x) PAT> SMPL, unten LIB< DIR< SAVE(2x) PAT< SEL MODE.
    Encoder: CC-Seite 1 = P1, Seite 2 = P2.
    EDIT: oben die Bereiche INST LAYER WAVE PITCH FILTER AMP LFO ENV (nochmal = nächste Seite),
-   unten SEL LAY> WS> ENV# SMPL CMD O/N KEEP. Die Encoder wirken auf die gezeigte Seite,
+   unten SEL LAY> WS> ENV# SMPL CMD O/N MODE. Die Encoder wirken auf die gezeigte Seite,
    egal auf welcher CC-Seite der Launchkey steht. SEL halten + Taste wählt Layer/WS ohne Ton.
    SMPL: Seite SAMPLE und Pegel, nochmal: Aufnahme, nochmal: Stopp, dann Grundton spielen.
-   CMD: Seite COMMAND, Befehl mit Encoder 1, CMD 2x: ausführen; O/N alt/neu, KEEP behält.
+   CMD: Seite COMMAND, Befehl mit Encoder 1, CMD 2x: ausführen; O/N alt/neu, CMD (grün) behält.
    Display: kleine Zeile (Seite, Layer, WS), zwei große Zeilen, gewählte Option unterstrichen.
 10. Laden läuft im Hintergrund: der Klang wechselt, sobald das Instrument eingelesen ist.

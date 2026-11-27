@@ -72,12 +72,12 @@ and `voices` are settings. One table: `tools/eps_params.py`.
 
 eps.i~ drives the Launchkey Mini MK4 (custom firmware, pads in Drum mode) itself, in two layers
 (`tools/eps_pages.py`, `pd/engine/eps_surface.*`, `pd/eps_lk.inc`): fixed pad meanings, the
-display says what they do. SEL tapped twice: PLAY <-> EDIT.
+display says what they do. Pad 51 (bottom right) is MODE in both layers: PLAY <-> EDIT, blue in PLAY, purple in EDIT.
 
 | Layer | Top pads 36–43 | Bottom pads 44–51 | Encoders |
 |---|---|---|---|
-| PLAY | LIB> DIR> INIT(2x) PAT> SMPL | LIB< DIR< SAVE(2x) PAT< SEL | CC page 1 = P1, page 2 = P2 |
-| EDIT | INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page) | SEL LAY> WS> ENV# SMPL CMD O/N KEEP | encoder n = cell n of the page shown (E1–E19) |
+| PLAY | LIB> DIR> INIT(2x) PAT> SMPL | LIB< DIR< SAVE(2x) PAT< SEL MODE | CC page 1 = P1, page 2 = P2 |
+| EDIT | INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page) | SEL LAY> WS> ENV# SMPL CMD O/N MODE | encoder n = cell n of the page shown (E1–E19) |
 
 Display: a small line (page, layer, wavesample), two big lines of 10 characters with the chosen
 option underlined, or a picture; the encoder names after a page change. The values of the page

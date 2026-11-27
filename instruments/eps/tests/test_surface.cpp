@@ -44,10 +44,15 @@ int main() {
     CHECK(has(S.pad(38, true, 500, st), "init"));
     CHECK(has(S.pad(38, true, 3000, st), "@ask INIT"));                 // too late: asks again
     CHECK(has(S.pad(46, true, 5000, st), "@ask SAVE") && S.armed(5100) && !S.armed(7000));
-    // SEL tapped twice: EDIT
-    S.pad(48, true, 10000, st);
-    S.pad(48, false, 10100, st);
-    CHECK(has(S.pad(48, true, 10200, st), "@mode") && S.mode == Surface::Edit && S.page == page("E1"));
+    int col[16];
+    S.padColours(st, 9000, col);
+    CHECK(col[15] == 7);                   // MODE blue in PLAY
+    // SEL tapped twice does nothing any more
+    S.pad(48, true, 9500, st);
+    S.pad(48, false, 9600, st);
+    CHECK(S.pad(48, true, 9700, st).empty() && S.mode == Surface::Play);
+    // MODE (51): EDIT, SEL let go after the switch
+    CHECK(has(S.pad(51, true, 10000, st), "@mode") && S.mode == Surface::Edit && S.page == page("E1"));
     S.pad(48, false, 10300, st);           // SEL (pad 48 in PLAY) let go, though pad 48 is SMPL in EDIT
     CHECK(!S.selHeld);
     // areas: FILTER, again: FILTER MOD, again: FILTER
@@ -83,17 +88,19 @@ int main() {
     CHECK(has(S.pad(50, true, 15000, st), "cmd old"));
     st.cmd = 3;
     CHECK(has(S.pad(50, true, 15100, st), "cmd new"));
-    CHECK(has(S.pad(51, true, 15200, st), "cmd keep"));
-    int col[16];
+    S.padColours(st, 15150, col);
+    CHECK(col[14] == 3 && col[13] == 5 && col[15] == 8);   // O/N orange, CMD green: keep, MODE purple
+    CHECK(has(S.pad(49, true, 15200, st), "cmd keep"));
+    st.cmd = 2;
     S.padColours(st, 15300, col);
-    CHECK(col[14] == 3 && col[15] == 5 && col[13] == 1 && col[8] == 17);   // O/N orange (old), KEEP green
+    CHECK(col[14] == 5 && col[13] == 5 && col[8] == 17);   // O/N green
     st.cmd = 0;
     S.padColours(st, 15300, col);
-    CHECK(col[14] == 16 && col[15] == 16);
+    CHECK(col[14] == 16 && col[13] != 5 && col[15] == 8);
     // PLAY again: the page played last
-    S.pad(44, true, 16000, st);
-    S.pad(44, false, 16050, st);
-    CHECK(has(S.pad(44, true, 16100, st), "@mode") && S.mode == Surface::Play && S.page == page("P2"));
+    S.pad(44, true, 15900, st);            // SEL held over the switch
+    CHECK(has(S.pad(51, true, 16000, st), "@mode") && S.mode == Surface::Play && S.page == page("P2"));
+    S.pad(51, false, 16050, st);
     S.padColours(st, 16200, col);
     CHECK(col[0] == 17 && col[4] == 18 && col[5] == 16 && col[12] == 1);   // SEL held: white
 

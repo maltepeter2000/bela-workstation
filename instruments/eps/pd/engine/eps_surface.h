@@ -4,15 +4,16 @@
 // encoders act on; eps~ reads and writes the values and draws the display.
 //
 //   PLAY  pads: 36 LIB> 37 DIR> 38 INIT (twice) 39 PAT> 40 SMPL
-//               44 LIB< 45 DIR< 46 SAVE (twice) 47 PAT< 48 SEL
+//               44 LIB< 45 DIR< 46 SAVE (twice) 47 PAT< 48 SEL 51 MODE
 //         encoders: CC page 1 = P1 PERFORM, CC page 2 = P2 PLAY (the controller layer's numbers)
 //   EDIT  pads: 36-43 the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page)
-//               44 SEL 45 LAY> 46 WS> 47 ENV# 48 SMPL 49 CMD 50 O/N 51 KEEP
+//               44 SEL 45 LAY> 46 WS> 47 ENV# 48 SMPL 49 CMD 50 O/N 51 MODE
 //         encoders: encoder n = cell n of the page shown, whatever CC page the Launchkey is on
 //   SEL held: LAY> WS> ENV# step backwards, a key selects its layer and wavesample silently.
-//   SEL tapped twice: PLAY <-> EDIT (until the pad-nav button of the firmware sends it).
+//   MODE (51, bottom right, in both layers): PLAY <-> EDIT; blue in PLAY, purple in EDIT.
 //   SMPL: the SAMPLE page and the level display, then record, then stop (PLAY ROOT KEY).
-//   CMD:  the COMMAND page, then pressed twice: run the command; O/N old <-> new, KEEP.
+//   CMD:  the COMMAND page, then pressed twice: run the command; O/N old <-> new; with a
+//         result to keep CMD is green: pressed, it keeps the new one.
 #pragma once
 
 #include <string>
@@ -42,7 +43,6 @@ public:
     bool selHeld = false;
 
     static constexpr double kTwiceMs = 1500.0;   // INIT, SAVE, CMD: the second press within
-    static constexpr double kTapMs = 400.0;      // SEL tapped twice
 
     // The controller layer's CC pages (common/tools/ctlayer.py): page and encoder of a CC.
     static bool ccPage(int cc, int &pg, int &enc);
@@ -66,7 +66,7 @@ public:
 
 private:
     int lastPlay_ = 0, lastEdit_ = 2;
-    double selTap_ = -1e9, initArm_ = -1e9, saveArm_ = -1e9, cmdArm_ = -1e9;
+    double initArm_ = -1e9, saveArm_ = -1e9, cmdArm_ = -1e9;
     bool selUsed_ = false;
     int selNote_ = -1;            // the pad held as SEL
     Actions smpl(const Status &st);
