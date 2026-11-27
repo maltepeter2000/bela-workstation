@@ -76,7 +76,7 @@ display says what they do. Pad 51 (bottom right) is MODE in both layers: PLAY <-
 
 | Layer | Top pads 36–43 | Bottom pads 44–51 | Encoders |
 |---|---|---|---|
-| PLAY | LIB> DIR> INIT(2x) PAT> – OPEN – – | LIB< DIR< SAVE(2x) PAT< SEL UP SMPL MODE | CC page 1 = P1, page 2 = P2 |
+| PLAY | > – INIT(2x) PAT> – SMPL OPEN – | < – SAVE(2x) PAT< SEL – EXIT MODE | CC page 1 = P1, page 2 = P2 |
 | EDIT | INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page) | SEL LAY> WS> ENV# O/N CMD SMPL MODE | encoder n = cell n of the page shown (E1–E19) |
 
 Display: a small line (page, layer, wavesample), two big lines of 10 characters with the chosen

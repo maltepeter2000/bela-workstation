@@ -125,12 +125,10 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
     if (selHeld) selUsed_ = true;
     if (mode == Play) {
         switch (i) {
-            case 0: return {"presetstep 1"};
-            case 8: return {"presetstep -1"};
-            case 1: return {"nav step 1"};
-            case 9: return {"nav step -1"};
-            case 5: return {"nav open"};
-            case 13: return {"nav up"};
+            case 0: return {"nav step 1"};
+            case 8: return {"nav step -1"};
+            case 6: return {"nav open"};
+            case 14: return {"nav up"};
             case 2:
                 if (now - initArm_ < kTwiceMs) { initArm_ = -1e9; return {"init"}; }
                 initArm_ = now;
@@ -141,7 +139,7 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
                 return {"@ask SAVE"};
             case 3: return {"cycle patch"};
             case 11: return {"cycle patch -1"};
-            case 14: return smpl(st);
+            case 5: return smpl(st);
             default: return {};
         }
     }
@@ -182,14 +180,13 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
     for (int i = 0; i < 16; ++i) out[i] = kOff;
     const int avail = kDim + kWhite;
     if (mode == Play) {
-        out[0] = out[8] = kDim + kYellow;             // LIB> LIB<
-        out[1] = out[9] = kDim + kCyan;               // DIR> DIR<
+        out[0] = out[8] = kDim + kCyan;               // > < through the folder
         out[3] = out[11] = kDim + kPink;              // PAT> PAT<
         out[2] = now - initArm_ < kTwiceMs ? kWhite + kFlash : avail;
         out[10] = now - saveArm_ < kTwiceMs ? kWhite + kFlash : avail;
-        out[5] = st.navDir ? kGreen : kOff;           // OPEN: a folder is shown
-        out[13] = st.navTop ? kOff : kDim + kGreen;   // UP
-        out[14] = sampleColour(st.rec);
+        out[6] = st.navDir ? kGreen : kDim + kGreen;  // OPEN: bright on a folder, dim on a patch
+        out[14] = st.navTop ? kOff : kDim + kYellow;  // EXIT
+        out[5] = sampleColour(st.rec);
         out[12] = selHeld ? kWhite : avail;
         out[15] = kBlue;
         return;

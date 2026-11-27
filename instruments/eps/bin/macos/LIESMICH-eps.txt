@@ -41,9 +41,10 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
 9. Launchkey Mini MK4 (eigene Firmware, Pads im Drum-Modus auf Kanal 10): eps.i~ steuert ihn
    selbst, mit zwei Ebenen. Pad 51 (unten rechts) ist in beiden Ebenen MODE und wechselt
    PLAY und EDIT: blau in PLAY, lila in EDIT (das Display zeigt dann 1,5 s die Pads).
-   PLAY: oben LIB> DIR> INIT(2x) PAT> - OPEN, unten LIB< DIR< SAVE(2x) PAT< SEL UP SMPL MODE.
-   DIR> DIR<: nächster Eintrag im Ordner (Instrument lädt, Ordner wird als "> NAME" gezeigt),
-   OPEN (grün, wenn ein Ordner gezeigt wird): hinein, UP: eine Ebene höher (oben die Library).
+   PLAY (wie am EPS): Start ganz oben (Library, Images als Ordner). 36 > / 44 <: durch den
+   Ordner (lädt nichts), 42 OPEN: Ordner öffnen bzw. Patch laden, 50 EXIT: eine Ebene zurück.
+   Danach zeigt das Display, wo du bist. Weiter: 38 INIT(2x) 39/47 PAT> PAT< 41 SMPL
+   46 SAVE(2x) 48 SEL 51 MODE.
    Encoder: CC-Seite 1 = P1, Seite 2 = P2.
    EDIT: oben die Bereiche INST LAYER WAVE PITCH FILTER AMP LFO ENV (nochmal = nächste Seite),
    jeder in eigener Farbe: weiß, gelb, cyan, pink, hellgrün, bernstein, himmelblau, magenta,

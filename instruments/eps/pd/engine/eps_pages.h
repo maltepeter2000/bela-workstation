@@ -46,6 +46,6 @@ static const Area kAreas[] = {
 };
 constexpr int kAreaCount = 10;
 constexpr int kAreaSample = 8, kAreaCommand = 9;
-static const char *const kPadsPlay[16] = {"LIB>", "DIR>", "INIT", "PAT>", "", "OPEN", "", "", "LIB<", "DIR<", "SAVE", "PAT<", "SEL", "UP", "SMPL", "MODE"};
+static const char *const kPadsPlay[16] = {">", "", "INIT", "PAT>", "", "SMPL", "OPEN", "", "<", "", "SAVE", "PAT<", "SEL", "", "EXIT", "MODE"};
 static const char *const kPadsEdit[16] = {"INST", "LAYER", "WAVE", "PITCH", "FILTER", "AMP", "LFO", "ENV", "SEL", "LAY>", "WS>", "ENV#", "O/N", "CMD", "SMPL", "MODE"};
 } // namespace eps

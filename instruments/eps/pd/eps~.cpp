@@ -491,6 +491,7 @@ struct t_eps {
     std::string* bfile;                  // the folder shown: library file ("" = top level)
     std::string* bdir;                   // and directory in it (slot numbers)
     int bsel;                            // the selected item in the folder
+    bool startTop;                       // the browser stays at the top until a pad navigates
     LibEntry* entry;                     // what plays (or loads)
     std::string* name;
     float wheel, bend;
@@ -873,7 +874,7 @@ void eps_poll(t_eps* x) {
             SETFLOAT(&a[2], static_cast<t_float>(in.waveSamples.size()));
             outlet_anything(x->info, gensym("loaded"), 3, a);
             x->editor->fit(in);
-            follow_entry(x);
+            if (!x->startTop) follow_entry(x);   // at the start the browser shows the top level
             out_sel(x);
             out_edump(x, "ilmwepf");
             if (made && x->jobkind == 2)
@@ -1928,15 +1929,22 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         // the folders from the pads: nav step n (an instrument loads, a folder is shown),
         // nav open (into the folder shown), nav up (one level up; the top: the library)
         const std::string w = argc > 0 && argv[0].a_type == A_SYMBOL ? atom_getsymbol(argv)->s_name : "";
+        x->startTop = false;
         std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
         if (w == "step") {
             const int by = argc > 1 && atom_getfloat(argv + 1) < 0 ? -1 : 1;
             const int cnt = static_cast<int>(v.size());
             if (cnt) x->bsel = ((x->bsel + by) % cnt + cnt) % cnt;
-        } else if (w == "open") {
-            if (x->bsel < 0 || x->bsel >= static_cast<int>(v.size()) || v[size_t(x->bsel)].kind != 'D') return;
-            *x->bfile = v[size_t(x->bsel)].file;
-            *x->bdir = v[size_t(x->bsel)].path;
+        } else if (w == "open") {          // a folder: into it; an instrument: load it
+            if (x->bsel < 0 || x->bsel >= static_cast<int>(v.size())) return;
+            const BItem it = v[size_t(x->bsel)];
+            if (it.kind != 'D') {
+                if (it.lib >= 0) select_library(x, it.lib);
+                lk_refresh(x, false);
+                return;
+            }
+            *x->bfile = it.file;
+            *x->bdir = it.path;
             x->bsel = 0;
         } else if (w == "up") {
             if (x->bfile->empty()) return;
@@ -1949,14 +1957,8 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         } else {
             return;
         }
-        v = folder_items(*x->bfile, *x->bdir);
         out_folder(x);
-        if (x->bsel >= 0 && x->bsel < static_cast<int>(v.size()) && v[size_t(x->bsel)].kind == 'I' &&
-            v[size_t(x->bsel)].lib >= 0 && v[size_t(x->bsel)].lib != (x->source == kLibrary ? x->index : -1)) {
-            select_library(x, v[size_t(x->bsel)].lib);   // the display follows when it has loaded
-        } else {
-            lk_show_nav(x);
-        }
+        lk_show_nav(x);                   // where I am: the folder and what is selected in it
         lk_refresh(x, false);
         return;
     } else if (is("userstep")) {
@@ -2316,6 +2318,8 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->source = kNone;
     x->index = -1;
     x->bfile = new std::string();
+    x->startTop = true;
+    x->bsel = 0;
     x->bdir = new std::string();
     x->bsel = 0;
     x->wheel = 0;

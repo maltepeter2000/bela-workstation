@@ -38,23 +38,23 @@ int main() {
     CHECK(S.encoder(33, changed) == -1);                               // P2 cell 5 is empty
     CHECK(S.encoder(40, changed) == -1 && S.page == page("P2"));
     // pads in PLAY
-    CHECK(has(S.pad(36, true, 0, st), "presetstep 1"));
+    CHECK(has(S.pad(36, true, 0, st), "nav step 1"));
     CHECK(has(S.pad(47, true, 0, st), "cycle patch -1"));
     CHECK(has(S.pad(38, true, 0, st), "@ask INIT"));
     CHECK(has(S.pad(38, true, 500, st), "init"));
     CHECK(has(S.pad(38, true, 3000, st), "@ask INIT"));                 // too late: asks again
     CHECK(has(S.pad(46, true, 5000, st), "@ask SAVE") && S.armed(5100) && !S.armed(7000));
     // the folders: DIR steps, OPEN, UP
-    CHECK(has(S.pad(37, true, 6000, st), "nav step 1") && has(S.pad(45, true, 6100, st), "nav step -1"));
-    CHECK(has(S.pad(41, true, 6200, st), "nav open") && has(S.pad(49, true, 6300, st), "nav up"));
+    CHECK(has(S.pad(44, true, 6100, st), "nav step -1") && S.pad(37, true, 6150, st).empty());
+    CHECK(has(S.pad(42, true, 6200, st), "nav open") && has(S.pad(50, true, 6300, st), "nav up"));
     int col[16];
     S.padColours(st, 9000, col);
-    CHECK(col[15] == 7 && col[0] == 20 && col[1] == 22 && col[3] == 25);   // MODE blue, LIB DIR PAT
-    CHECK(col[5] == 16 && col[13] == 16 && col[14] == 18);     // no folder shown, at the top; SMPL
+    CHECK(col[15] == 7 && col[0] == 22 && col[1] == 16 && col[3] == 25);   // MODE blue, > <, PAT
+    CHECK(col[6] == 21 && col[14] == 16 && col[5] == 18);     // a patch shown, at the top; SMPL
     st.navDir = true;
     st.navTop = false;
     S.padColours(st, 9000, col);
-    CHECK(col[5] == 5 && col[13] == 21);
+    CHECK(col[6] == 5 && col[14] == 20);
     st.navDir = false;
     st.navTop = true;
     // SEL tapped twice does nothing any more
@@ -114,9 +114,9 @@ int main() {
     CHECK(has(S.pad(51, true, 16000, st), "@mode") && S.mode == Surface::Play && S.page == page("P2"));
     S.pad(51, false, 16050, st);
     S.padColours(st, 16200, col);
-    CHECK(col[0] == 20 && col[14] == 18 && col[5] == 16 && col[12] == 1);   // SEL held: white
+    CHECK(col[0] == 22 && col[5] == 18 && col[12] == 1);   // SEL held: white
     S.pad(48, false, 16300, st);
-    CHECK(has(S.pad(50, true, 16400, st), "rec level 1") && S.page == page("E18"));   // SMPL from PLAY
+    CHECK(has(S.pad(41, true, 16400, st), "rec level 1") && S.page == page("E18"));   // SMPL from PLAY
 
     // every area has a page, the SAMPLE and COMMAND pages are where the pads go
     CHECK(eps::kPages[eps::kAreas[eps::kAreaSample].first].area == eps::kAreaSample);

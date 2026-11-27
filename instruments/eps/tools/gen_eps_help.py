@@ -417,12 +417,12 @@ LAUNCHKEY = [
     "encoders, the pads and the display follow two layers, PLAY and EDIT. The pads have fixed "
     "meanings, the display shows what they do. The bottom right pad 51 is MODE in both layers: "
     "pressed, it switches PLAY and EDIT, blue in PLAY, purple in EDIT. On the switch the display shows the pads for 1.5 s.",
-    "PLAY pads, top row: 36 LIB> (next instrument of the library, yellow), 37 DIR> (next "
-    "entry of the folder, cyan: an instrument loads, a folder is shown as > NAME), 38 INIT "
-    "(twice), 39 PAT> (patch select, pink), 41 OPEN (green while a folder is shown: into it). "
-    "Bottom row: 44 LIB<, 45 DIR<, 46 SAVE (twice: a copy with a free name), 47 PAT<, 48 SEL, "
-    "49 UP (one level up, the top is the library with the images as folders), 50 SMPL (red), "
-    "51 MODE. The encoders: CC page 1 of the "
+    "PLAY pads, as on the EPS: the browser starts at the top level (the library, the images "
+    "as folders). 36 > and 44 < (cyan) go through the folder shown, nothing loads. 42 OPEN "
+    "(green, bright on a folder): a folder: into it, a patch: load it. 50 EXIT (yellow): one "
+    "level up. After each step the display shows where you are (the folder, what is "
+    "selected). Also: 38 INIT (twice), 39 PAT> 47 PAT< (patch select, pink), 41 SMPL (red), "
+    "46 SAVE (twice: a copy with a free name), 48 SEL, 51 MODE. The encoders: CC page 1 of the "
     "Launchkey is P1 PERFORM, page 2 is P2 PLAY (the same CC numbers as the controller layer "
     "of the Bela).",
     "EDIT pads, top row: the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (pressed again: "

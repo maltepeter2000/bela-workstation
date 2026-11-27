@@ -3,11 +3,11 @@
 // encoders into messages for eps~ (the same ones the editor sends) and says which page the
 // encoders act on; eps~ reads and writes the values and draws the display.
 //
-//   PLAY  pads: 36 LIB> 37 DIR> 38 INIT (twice) 39 PAT> 41 OPEN
-//               44 LIB< 45 DIR< 46 SAVE (twice) 47 PAT< 48 SEL 49 UP 50 SMPL 51 MODE
-//         LIB yellow, DIR cyan, PAT pink, OPEN / UP green, SMPL red
-//         DIR> DIR<: the next entry of the folder (an instrument loads, a folder is shown),
-//         OPEN: into the folder shown, UP: one level up (the top: the library, images as folders)
+//   PLAY  pads: 36 > 38 INIT (twice) 39 PAT> 41 SMPL 42 OPEN
+//               44 < 46 SAVE (twice) 47 PAT< 48 SEL 50 EXIT 51 MODE
+//         > <: through the folder shown (nothing loads), OPEN: a folder: into it, a patch:
+//         load it; EXIT: one level up (the top: the library, images as folders). The display
+//         shows where it is after each step. Cyan > <, green OPEN, yellow EXIT, red SMPL.
 //         encoders: CC page 1 = P1 PERFORM, CC page 2 = P2 PLAY (the controller layer's numbers)
 //   EDIT  pads: 36-43 the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (again: next page)
 //               44 SEL 45 LAY> 46 WS> 47 ENV# 48 O/N 49 CMD 50 SMPL 51 MODE
