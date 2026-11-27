@@ -80,7 +80,7 @@ EDITOR = [
     "ms, input (Pd's audio input: none, 1, 2, 1+2), into (new WS, replace WS, new layer, new instrument), level: the level display "
     "(the bars and the star of the threshold), rec and stop, then the state and what it "
     "says. root key, low key, high key: the next key you play sets it for the selected "
-    "wavesample. monitor: hear the input while level or the recording runs (off by default, "
+    "wavesample. monitor: hear the input, on or off whatever the recorder does (off by default, "
     "with a microphone it feeds back).",
     "COMMAND band: the wavesample commands of the EPS for the selected wavesample, see "
     "Wavesample commands. command with its arrows, range (sample, loop, start to loop, loop "
@@ -205,7 +205,7 @@ MESSAGES = [
     "rec root n: the root key without playing it.",
     "rec learn root / lo / hi: the next key played sets the root",
     "  key / lowest / highest key of the selected wavesample.",
-    "rec monitor 0/1: hear the input while level / recording runs.",
+    "rec monitor 0/1: hear the input (on / off, always).",
     "lkgfx 0/1: the Launchkey pictures off / on (default on).",
     "env copy / env paste: the selected envelope of the selected",
     "  wavesample into a buffer / from it (E16 COPY and PSTE).",

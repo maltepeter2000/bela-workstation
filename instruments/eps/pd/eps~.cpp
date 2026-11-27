@@ -443,7 +443,7 @@ struct Recorder {
     int pre = 15;                 // pre-trigger in ms (0..127)
     int dest = 0;                 // eps::RecordDest
     int input = 1;                // eps.i~: Pd's audio input 0 none, 1 in 1, 2 in 2, 3 both
-    bool monitor = false;         // hear the input while level / armed / recording
+    bool monitor = false;         // hear the input (on / off, independent of level and recording)
     std::vector<float> mon;       // the input of one block (it may share its buffer with an output)
     int learn = 0;                // the next key sets 1 root, 2 low key, 3 high key
     bool asking = false;          // after a recording: PLAY LOW KEY, then PLAY HIGH KEY
@@ -2233,8 +2233,7 @@ t_int* eps_perform(t_int* w) {
     const int n = static_cast<int>(w[5]);
     Recorder& R = *x->rec;
     const t_sample* in = reinterpret_cast<t_sample*>(w[2]);
-    const bool mon = R.monitor && R.state >= Recorder::Level && R.state <= Recorder::Recording &&
-                     static_cast<int>(R.mon.size()) >= n;
+    const bool mon = R.monitor && static_cast<int>(R.mon.size()) >= n;   // on / off, whatever the state
     if (mon) std::copy(in, in + n, R.mon.begin());
     record_block(R, in, n);
     if (x->sampler) {
