@@ -517,6 +517,8 @@ struct t_eps {
     t_clock* lkclock;
     LkScreen* scr;
     double legendUntil;                  // the pad legend shows until then
+    std::string* libhome;                // eps.i~: <patch folder>/eps (libhome)
+    std::string* libarg;                 // eps.i~: argument 3 (libarg)
     eps::Envelope* envbuf;               // env copy / paste (null = nothing copied)
 };
 
@@ -1722,6 +1724,60 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         const int got = scan_library(dir);
         post("eps~: library %s: %d instruments", dir.c_str(), got);
         out_value(x, "presets", got);
+    } else if (is("libhome") || is("libarg") || is("libset")) {
+        // Where the library is (eps.i~): libhome <folder of the patch>/eps at load; libarg <path>
+        // from argument 3 of eps.i~ (relative to the patch's folder, ~ = home); libset <path>
+        // (the editor's folder dialog) chooses it and keeps it in eps-library.txt beside the
+        // patch. Order: argument 3, then eps-library.txt, then eps/ beside the patch.
+        const std::string a = argc > 0 && argv[0].a_type == A_SYMBOL ? atom_getsymbol(argv)->s_name : "";
+        if (is("libhome")) *x->libhome = a;
+        else if (is("libarg")) *x->libarg = a == "0" ? std::string() : a;
+        const std::string& lh = *x->libhome;
+        const std::string home = lh.empty() ? std::string() : lh.substr(0, lh.rfind('/'));
+        auto resolve = [&home](std::string p) {
+            if (p.empty()) return p;
+            if (p[0] == '~') { const char* h = getenv("HOME"); p = std::string(h ? h : "") + p.substr(1); }
+            if (p[0] != '/' && !home.empty()) p = home + "/" + p;
+            while (p.size() > 1 && p.back() == '/') p.pop_back();
+            return p;
+        };
+        const std::string keep = home.empty() ? std::string() : home + "/eps-library.txt";
+        std::string dir;
+        if (is("libset")) {
+            if (a.empty()) return;
+            dir = resolve(a);
+            if (!keep.empty()) {
+                // inside the patch's folder: kept relative, so the folder can move as a whole
+                std::string stored = dir;
+                if (dir.compare(0, home.size() + 1, home + "/") == 0) stored = dir.substr(home.size() + 1);
+                FILE* f = std::fopen(keep.c_str(), "w");
+                if (f) { std::fprintf(f, "%s\n", stored.c_str()); std::fclose(f); }
+                else pd_error(x, "eps~: libset: cannot write %s", keep.c_str());
+            }
+        } else if (!x->libarg->empty()) {
+            dir = resolve(*x->libarg);
+        } else if (!keep.empty()) {
+            if (FILE* f = std::fopen(keep.c_str(), "r")) {
+                char line[1024] = {};
+                if (std::fgets(line, sizeof line, f)) {
+                    std::string s = line;
+                    while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ')) s.pop_back();
+                    dir = resolve(s);
+                }
+                std::fclose(f);
+            }
+            if (dir.empty()) dir = lh;
+        }
+        if (dir.empty()) return;
+        if (dir == g_lib_dir && !is("libset")) return;
+        const int got = scan_library(dir);
+        post("eps~: library %s: %d instruments", dir.c_str(), got);
+        out_value(x, "presets", got);
+        t_atom at;
+        SETSYMBOL(&at, gensym(dir.c_str()));
+        outlet_anything(x->info, gensym("libdir"), 1, &at);
+        if (is("libset") && got > 0) select_library(x, 0);
+        return;
     } else if (is("rescan")) {
         out_value(x, "presets", scan_library(g_lib_dir.empty() ? g_ext_dir + "/eps" : g_lib_dir));
     } else if (is("preset")) {
@@ -2253,6 +2309,8 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->scr = new LkScreen();
     x->legendUntil = 0;
     x->envbuf = nullptr;
+    x->libhome = new std::string();
+    x->libarg = new std::string();
 
     Loader* L = x->loader;
     L->thread = std::thread([L] { L->run(); });
@@ -2280,6 +2338,8 @@ void eps_free(t_eps* x) {
     delete x->lk;
     delete x->scr;
     delete x->envbuf;
+    delete x->libhome;
+    delete x->libarg;
     delete x->sysex;
     x->loader->quit.store(true);
     if (x->loader->thread.joinable()) x->loader->thread.join();

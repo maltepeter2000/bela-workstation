@@ -4,9 +4,13 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    eps~.pd_darwin, eps.i~.pd, eps.i~-help.pd, eps~-help.pd, epscc.pd, epspads.pd,
    epsedit.pd, lkdisplay.pd.
 2. In Pd: Datei > Einstellungen > Pfad: diesen Ordner hinzufügen.
-3. Neuen Patch anlegen und speichern. Daneben einen Ordner "eps" anlegen und eigene
-   Ensoniq-Instrumente hineinlegen: .efe-Dateien oder ganze Disk-Images (.img, .ede, .eda,
-   .gkh; .hfe vorher nach .img wandeln).
+3. Die Library (eigene Ensoniq-Instrumente: .efe-Dateien oder ganze Disk-Images .img, .ede,
+   .eda, .gkh; .hfe vorher nach .img wandeln) in einen eigenen Ordner legen, nicht in den
+   Ordner von eps~, z. B. ~/Documents/Pd/eps-library. eps.i~ findet sie so:
+   - Argument 3: [eps.i~ 1 10 ~/Documents/Pd/eps-library] (auch relativ zum Patch), oder
+   - im Editor "choose" (Zeile folder) und den Ordner wählen: das wird in eps-library.txt
+     neben dem Patch gespeichert und beim nächsten Öffnen wieder genommen, oder
+   - ein Ordner "eps" neben dem Patch.
 4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge). Klick auf das Objekt öffnet den Editor.
    "library N" lädt Instrument N aus dem Ordner eps, Noten auf MIDI-Kanal 1.
 5. Regler: Offsets über dem geladenen Instrument (0 = wie gespeichert). Seite 1 (P1 PERFORM):

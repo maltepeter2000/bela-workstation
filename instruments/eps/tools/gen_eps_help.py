@@ -34,7 +34,8 @@ OBJECT = [
     "instruments into a folder eps beside the patch, connect the two left outlets to dac~ "
     "and play. Click it to open the editor, see Editor.",
     "Argument 1 is the MIDI channel (0 or none = 1), argument 2 the channel of the pads "
-    "(0 or none = 10, the Drums Channel). Several eps.i~ do not get in each other's way, "
+    "(0 or none = 10, the Drums Channel), argument 3 the library folder (relative to the "
+    "patch's folder or ~/..., e.g. [eps.i~ 1 10 ~/Documents/Pd/eps-library]). Several eps.i~ do not get in each other's way, "
     "each has its own editor and plays its own instrument.",
     "eps.i~ samples Pd's audio input 1 (input in the SAMPLE band: none, 1, 2 or both) and "
     "whatever comes into its inlet 2: record new wavesamples with the SAMPLE band of the "
@@ -145,6 +146,10 @@ MESSAGES = [
     "zerox 0/1: points snap to zero crossings.",
     "library [dir]: use this folder as the library and read",
     "  its list. Without dir: eps beside the external.",
+    "libset <dir>: the library folder (relative to the patch's",
+    "  folder or ~/...), kept in eps-library.txt beside the patch.",
+    "libhome <dir>, libarg <dir>: from eps.i~ at load (the folder",
+    "  eps beside the patch, argument 3). Answer: libdir <dir>.",
     "rescan: read the library folder again.",
     "preset n: load library instrument n (from 0), controls",
     "  back to 0.",
@@ -246,7 +251,11 @@ MESSAGES = [
 ]
 
 PRESETS = [
-    "The library is the folder eps beside the patch: Ensoniq disk images (IMG from a floppy, "
+    "Where the library is: argument 3 of eps.i~ if there is one, else the folder chosen "
+    "with choose in the editor (kept in eps-library.txt beside the patch, so it stays when "
+    "the patch is opened again), else the folder eps beside the patch. Keep it apart from "
+    "the folder with eps.i~ itself, so an update of eps never touches it.",
+    "The library holds Ensoniq disk images (IMG from a floppy, "
     "HDA or IMG images of the hard disk on the SD card of a ZuluSCSI or BlueSCSI, EDE, EDA, "
     "GKH) and EFE files. The editor shows it as on the EPS: each image is a folder with its "
     "directories, the EFE files lie at the top. preset N, presetstep and program changes "

@@ -86,6 +86,7 @@ def top_band(c):
     bng(c, X0 + 290, y + 20, "reload", "reload")
     bng(c, X0 + 360, y + 20, "init", "init")
     bng(c, X0 + 420, y + 20, "rescan", "rescan")
+    bng(c, X0 + 566, y + 46, "libchoose", "choose")
     bng(c, X0 + 8 * CW - 110, y + 20, "refresh", "refresh")
     c.add(f"#X text {X0} {y + 46} folder;")
     c.add(f"#X symbolatom {X0 + 46} {y + 46} 40 0 0 0 - {D}0-folderv -;")
@@ -348,9 +349,15 @@ def logic():
         mm = c.add(f"#X msg {x} {ys + 60} {msg} {D}1;"); c.conn(sy, 0, mm, 0)
         ss = c.add(f"#X obj {x} {ys + 90} s {D}1;"); c.conn(mm, 0, ss, 0)
     c.add(f"#X text 760 {ys + 30} new name: '_' = space \\, 12 characters A-Z 0-9 * - +, f 40;")
+    # the library folder: a folder dialog -> libset (eps.i~ keeps it in eps-library.txt)
+    rlc = c.add(f"#X obj 10 {ys + 110} r {D}0-libchoose;")
+    opl = c.add(f"#X obj 10 {ys + 140} openpanel 1;"); c.conn(rlc, 0, opl, 0)
+    mls = c.add(f"#X msg 10 {ys + 170} libset {D}1;"); c.conn(opl, 0, mls, 0)
+    sls = c.add(f"#X obj 10 {ys + 200} s {D}1;"); c.conn(mls, 0, sls, 0)
+    c.add(f"#X text 130 {ys + 140} choose: the library folder \\, kept beside the patch in eps-library.txt, f 40;")
 
     # replies -> cells, names, numbers
-    y2 = ys + 150
+    y2 = ys + 240
     ro = c.add(f"#X obj 10 {y2} r {D}1-out;")
     ri = c.add(f"#X obj 10 {y2 + 30} route info name preset folder channel txchannel thru presets sel editmode bsel;"); c.conn(ro, 0, ri, 0)
     lp = c.add(f"#X obj 10 {y2 + 60} list prepend {D}0;")   # route info gives the list: name 0-127 text

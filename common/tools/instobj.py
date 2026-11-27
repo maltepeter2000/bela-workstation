@@ -131,7 +131,7 @@ def bank_rewrite(lines, f):
 def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkdisplay=None,
           midi=("raw", 2), pads_channel_rule=True, more_edits=(), save=True, store_writes=False,
           editor_bank=None, channel_msg="channel", clock=False, dir_msgs=(), sig_in=None, adc_in=False,
-          surface=False):
+          surface=False, arg3=None):
     """obj: 'juno.i~', ext: the external with its arguments ('juno~'), short: bus name,
     edit / cc / pads / nav / lkdisplay: paths of the generated abstractions,
     edit_title: the title of the bare editor ('juno~ editor'), more_edits: [(path, name)] more
@@ -148,7 +148,9 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     [inlet~] (eps~: the audio to sample). adc_in: Pd's audio inputs 1 and 2 go there as well,
     chosen by the external's reply `recset input n ...` (0 none, 1 in 1, 2 in 2, 3 both).
     surface: the external drives the Launchkey itself (eps~): no controller layer and no pads
-    abstraction (cc=None, pads=None); at load `padchannel <argument 2, 10 if none>` and `lk 1`."""
+    abstraction (cc=None, pads=None); at load `padchannel <argument 2, 10 if none>` and `lk 1`.
+    arg3: (message, text) with surface: argument 3 goes to the external at load as `message $3`
+    (eps~: libarg, the library folder)."""
     bus = "\\$0-" + short
     extname = ext.split()[0]
     title_re = r"^(#X obj \d+ \d+ cnv 10 10 10 empty empty )" + re.escape(edit_title.replace(" ", "\\ ")) + "(?= )"
@@ -193,6 +195,9 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
     argtext = "Argument 1: MIDI channel (0 or none = 1)"
     if pads or surface:
         argtext += " \\, argument 2: Launchkey pads (0 or none = 10)"
+    if arg3:
+        args += " <" + arg3[1].split(" ")[0] + ">"
+        argtext += " \\, argument 3: " + arg3[1]
     files = " and ".join([f for _, _, f in banks] + ([editor_bank] if editor_bank else []))
     nfiles = len(banks) + (1 if editor_bank else 0)
     banktext = (f" The user bank{'s are' if nfiles > 1 else ' is'} {files} beside the patch that "
@@ -386,10 +391,14 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
         m10 = add(f"#X msg {XR} {cy + 100} 10;")
         pch = add(f"#X msg {XR} {cy + 125} padchannel \\$1;")
         lk1 = add(f"#X msg {XR + 120} {cy + 125} lk 1;")
+        if arg3:
+            a3 = add(f"#X msg {XR + 160} {cy + 125} {arg3[0]} \\$3;")
+            con(tb2, 0, a3, 0)
         ss = add(f"#X obj {XR} {cy + 150} s {bus};")
         con(lb2, 0, tb2, 0); con(tb2, 1, f2, 0); con(f2, 0, s0, 0)
         con(s0, 0, m10, 0); con(s0, 1, pch, 0); con(m10, 0, pch, 0)
         con(tb2, 0, lk1, 0); con(pch, 0, ss, 0); con(lk1, 0, ss, 0)
+        if arg3: con(a3, 0, ss, 0)
         cy += 190
     note(XR, cy, ("controller layer" if cc else "Launchkey") + (" \\, pads" if pads else "") +
          (" \\, display" if lkdisplay else ""), 40)

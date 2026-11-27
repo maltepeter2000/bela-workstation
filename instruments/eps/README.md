@@ -86,8 +86,9 @@ go back to the encoders as CC. The bare `eps~` has the surface off (`lk 1`); `ep
 
 ## Library and saving
 
-- **Library**: `eps/` beside the patch (`eps.i~` sends `library <dir>/eps` at load; `[eps~]`
-  alone takes `eps/` beside the external): disk images (floppy, ZuluSCSI / BlueSCSI hard disk
+- **Library**: argument 3 of `eps.i~` (relative to the patch or `~/...`), else the folder chosen
+  with *choose* in the editor (kept in `eps-library.txt` beside the patch), else `eps/` beside
+  the patch (`[eps~]` alone takes `eps/` beside the external): disk images (floppy, ZuluSCSI / BlueSCSI hard disk
   images) and EFE files. Folders as on the EPS: `browse`, `bstep`, `benter`, `bup`; `preset n`,
   `presetstep`, program change go through all instruments. `rescan` after adding files.
 - **Saving** (`pd/engine/eps_fs.*`) always in the Ensoniq format, so the EPS reads it:

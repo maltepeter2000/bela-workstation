@@ -24,8 +24,9 @@ if __name__ == "__main__":
                   obj="eps.i~", ext="eps~", short="eps",
                   edit=os.path.join(PD, "epsedit.pd"), edit_title="eps~ editor",
                   cc=None, pads=None, surface=True,
+                  arg3=("libarg", "library folder (relative to the patch or ~/...)"),
                   lkdisplay=os.path.join(PD, "lkdisplay.pd"),
                   banks=[],
-                  dir_msgs=[("library", "eps")],
+                  dir_msgs=[("libhome", "eps")],
                   midi=("raw", 2, "sysex"),
                   sig_in=3, adc_in=True)
