@@ -59,6 +59,13 @@ int main(int argc, char **argv) {
     CHECK(v.writeFile(sub, "EDITED", eps::kInstrument, data, 1, slot, exists, err));   // replace
     const uint32_t n = uint32_t((data.size() + 511) / 512);
     CHECK(v.freeBlocks() == free0 - 2 - n);
+    CHECK(!v.deleteFile(3, dslot, err));                // the folder is not empty
+    {   // a second file in the folder, deleted again: the blocks come back
+        int s2 = -1;
+        CHECK(v.writeFile(sub, "second", eps::kInstrument, data, -1, s2, exists, err));
+        CHECK(v.deleteFile(sub, s2, err) && v.freeBlocks() == free0 - 2 - n);
+        CHECK(!v.deleteFile(sub, s2, err));
+    }
     v.close();
     {
         eps::Volume again;   // its consistency checks pass on what was written

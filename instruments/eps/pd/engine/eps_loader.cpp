@@ -658,7 +658,8 @@ bool Disk::parseDir(uint32_t first, uint32_t blocks, uint32_t contiguous, const 
             // a folder that cannot be read is left out (with what was in it), the rest stays
             const size_t keep = files_.size() - 1;
             std::string why;
-            if (!parseDir(de.firstBlock, 2, 2, de.path, depth + 1, why)) {
+            // 2 blocks; the second where the FAT says (not always the next one on large disks)
+            if (!parseDir(de.firstBlock, 2, 1, de.path, depth + 1, why)) {
                 files_.resize(keep);
                 warnings_.push_back(de.name + " (block " + std::to_string(de.firstBlock) + "): " + why);
             }

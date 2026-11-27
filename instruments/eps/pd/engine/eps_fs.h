@@ -66,12 +66,19 @@ public:
     bool writeFile(uint32_t dirBlock, const std::string &name, int type, const std::vector<uint8_t> &data,
                    int replaceSlot, int &slot, bool &exists, std::string &err);
     bool makeDir(uint32_t dirBlock, const std::string &name, int &slot, std::string &err);
+    // Delete the file in a slot (its blocks are freed); a directory only when it is empty.
+    bool deleteFile(uint32_t dirBlock, int slot, std::string &err);
 
 private:
     bool readBlock(uint32_t b, uint8_t *p);
     bool writeBlock(uint32_t b, const uint8_t *p);
     bool readDir(uint32_t first, std::vector<uint8_t> &d, std::string &err);
     bool writeDir(uint32_t first, const std::vector<uint8_t> &d);
+    // the second block of a directory: the FAT's next one (the root: block 4)
+    uint32_t dirSecond(uint32_t first) const {
+        const uint32_t n = first < fat_.size() ? fat_[first] : 0;
+        return first == 3 || n < 3 ? first + 1 : n;
+    }
     uint32_t fat(uint32_t b) const { return fat_[b]; }
     bool flushFat(const std::vector<uint32_t> &blocks);
     bool flushFree();

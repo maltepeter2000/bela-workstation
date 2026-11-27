@@ -43,7 +43,22 @@ int main() {
     CHECK(has(S.pad(38, true, 0, st), "@ask INIT"));
     CHECK(has(S.pad(38, true, 500, st), "init"));
     CHECK(has(S.pad(38, true, 3000, st), "@ask INIT"));                 // too late: asks again
-    CHECK(has(S.pad(46, true, 5000, st), "@ask SAVE") && S.armed(5100) && !S.armed(7000));
+    // SAVE TO?: navigate, SAVE again saves; another pad cancels
+    CHECK(has(S.pad(46, true, 5000, st), "@saveto") && S.saveTo);
+    CHECK(has(S.pad(36, true, 5100, st), "nav step 1") && S.saveTo);
+    CHECK(has(S.pad(46, true, 5200, st), "save") && !S.saveTo);
+    S.pad(46, true, 5300, st);
+    CHECK(has(S.pad(39, true, 5400, st), "@cancel") && !S.saveTo);
+    // SEL + OPEN: DELETE?, SEL: yes, another pad: no
+    S.pad(48, true, 5500, st);
+    CHECK(has(S.pad(42, true, 5600, st), "@delask") && S.delAsk);
+    S.pad(48, false, 5700, st);
+    CHECK(has(S.pad(48, true, 5800, st), "delete") && !S.delAsk);
+    S.pad(48, false, 5850, st);
+    S.pad(48, true, 5900, st);
+    S.pad(42, true, 5950, st);
+    S.pad(48, false, 5960, st);
+    CHECK(has(S.pad(36, true, 5970, st), "@cancel") && !S.delAsk);
     // the folders: DIR steps, OPEN, UP
     CHECK(has(S.pad(44, true, 6100, st), "nav step -1") && S.pad(37, true, 6150, st).empty());
     CHECK(has(S.pad(42, true, 6200, st), "nav open") && has(S.pad(50, true, 6300, st), "nav up"));

@@ -167,7 +167,9 @@ MESSAGES = [
     "nav step 1 or -1: the next or previous entry of the folder",
     "  shown (an instrument loads, a folder is only shown). nav",
     "  open: into the folder shown. nav up: one level up (the",
-    "  Launchkey pads DIR> DIR< OPEN UP).",
+    "  Launchkey pads > < OPEN EXIT).",
+    "delete: delete the entry selected in the folder shown (an",
+    "  instrument, an empty folder, an EFE file).",
     "init: every control back to 0, the instrument stays.",
     "reload: the instrument again, edits dropped.",
     "saveas name: write the instrument as a new file into the",
@@ -422,7 +424,9 @@ LAUNCHKEY = [
     "(green, bright on a folder): a folder: into it, a patch: load it. 50 EXIT (yellow): one "
     "level up. After each step the display shows where you are (the folder, what is "
     "selected). Also: 38 INIT (twice), 39 PAT> 47 PAT< (patch select, pink), 41 SMPL (red), "
-    "46 SAVE (twice: a copy with a free name), 48 SEL, 51 MODE. The encoders: CC page 1 of the "
+    "46 SAVE (SAVE TO?: go to the folder with > < OPEN EXIT, SAVE again: a copy with a free "
+    "name there, another pad: no), 48 SEL (held + OPEN: DELETE? the entry shown, SEL: yes, "
+    "another pad: no; a folder only when empty), 51 MODE. The encoders: CC page 1 of the "
     "Launchkey is P1 PERFORM, page 2 is P2 PLAY (the same CC numbers as the controller layer "
     "of the Bela).",
     "EDIT pads, top row: the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (pressed again: "

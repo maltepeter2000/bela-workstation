@@ -88,7 +88,8 @@ bool Volume::writeBlock(uint32_t b, const uint8_t *p) {
 
 bool Volume::readDir(uint32_t first, std::vector<uint8_t> &d, std::string &err) {
     d.assign(2 * kBlk, 0);
-    if (first < 3 || first + 1 >= total_ || !readBlock(first, d.data()) || !readBlock(first + 1, d.data() + kBlk)) {
+    const uint32_t second = dirSecond(first);
+    if (first < 3 || second >= total_ || !readBlock(first, d.data()) || !readBlock(second, d.data() + kBlk)) {
         err = "cannot read the directory at block " + std::to_string(first);
         return false;
     }
@@ -96,7 +97,7 @@ bool Volume::readDir(uint32_t first, std::vector<uint8_t> &d, std::string &err) 
     return true;
 }
 bool Volume::writeDir(uint32_t first, const std::vector<uint8_t> &d) {
-    return writeBlock(first, d.data()) && writeBlock(first + 1, d.data() + kBlk);
+    return writeBlock(first, d.data()) && writeBlock(dirSecond(first), d.data() + kBlk);
 }
 
 bool Volume::open(const std::string &path, std::string &err) {
@@ -367,6 +368,30 @@ bool Volume::makeDir(uint32_t dirBlock, const std::string &name, int &slot, std:
     put16(e + 16, 2);
     parentOf_[first] = dirBlock;
     if (!writeDir(dirBlock, d)) { err = "write failed"; return false; }
+    fflush(f_);
+    return true;
+}
+
+bool Volume::deleteFile(uint32_t dirBlock, int slot, std::string &err) {
+    if (!f_) { err = "no image open"; return false; }
+    std::vector<uint8_t> d;
+    if (!readDir(dirBlock, d, err)) return false;
+    if (slot < 0 || slot >= kEntries) { err = "no such slot"; return false; }
+    uint8_t *e = d.data() + slot * kEntry;
+    if (!e[1] || e[1] == kParent) { err = "nothing to delete in slot " + std::to_string(slot); return false; }
+    const uint32_t first = be32(e + 18);
+    if (e[1] == kSubdir) {
+        std::vector<uint8_t> sd;
+        if (!readDir(first, sd, err)) return false;
+        for (int i = 0; i < kEntries; ++i)
+            if (sd[size_t(i) * kEntry + 1] && sd[size_t(i) * kEntry + 1] != kParent) { err = "the folder is not empty"; return false; }
+    }
+    freeChain(first);
+    if (!flushFree()) { err = "write failed"; return false; }
+    std::memset(e, 0, kEntry);
+    if (!writeDir(dirBlock, d)) { err = "write failed"; return false; }
+    if (!adjustDirCount(dirBlock, -1, err)) return false;
+    parentOf_.erase(first);
     fflush(f_);
     return true;
 }

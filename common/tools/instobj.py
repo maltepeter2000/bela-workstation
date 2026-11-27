@@ -391,15 +391,19 @@ def build(obj, ext, short, edit, cc, edit_title, banks, pads=None, nav=None, lkd
         m10 = add(f"#X msg {XR} {cy + 100} 10;")
         pch = add(f"#X msg {XR} {cy + 125} padchannel \\$1;")
         lk1 = add(f"#X msg {XR + 120} {cy + 125} lk 1;")
-        if arg3:
-            a3 = add(f"#X msg {XR + 160} {cy + 125} {arg3[0]} \\$3;")
-            con(tb2, 0, a3, 0)
-        ss = add(f"#X obj {XR} {cy + 150} s {bus};")
+        if arg3:   # argument 3 from [pdcontrol] (a $3 in a message box is the message's own)
+            pa = add(f"#X msg {XR + 160} {cy + 50} args;")
+            pc = add(f"#X obj {XR + 160} {cy + 75} pdcontrol;")
+            ls = add(f"#X obj {XR + 160} {cy + 100} list split 2;")
+            rb = add(f"#X obj {XR + 260} {cy + 125} route bang;")
+            a3 = add(f"#X msg {XR + 300} {cy + 150} {arg3[0]} \\$1;")
+            con(tb2, 0, pa, 0); con(pa, 0, pc, 0); con(pc, 0, ls, 0); con(ls, 1, rb, 0); con(rb, 1, a3, 0)
+        ss = add(f"#X obj {XR} {cy + 175} s {bus};")
         con(lb2, 0, tb2, 0); con(tb2, 1, f2, 0); con(f2, 0, s0, 0)
         con(s0, 0, m10, 0); con(s0, 1, pch, 0); con(m10, 0, pch, 0)
         con(tb2, 0, lk1, 0); con(pch, 0, ss, 0); con(lk1, 0, ss, 0)
         if arg3: con(a3, 0, ss, 0)
-        cy += 190
+        cy += 215
     note(XR, cy, ("controller layer" if cc else "Launchkey") + (" \\, pads" if pads else "") +
          (" \\, display" if lkdisplay else ""), 40)
     cy += 30

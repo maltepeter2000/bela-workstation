@@ -72,6 +72,10 @@ public:
 private:
     int lastPlay_ = 0, lastEdit_ = 2;
     double initArm_ = -1e9, saveArm_ = -1e9, cmdArm_ = -1e9;
+public:
+    bool saveTo = false;     // PLAY: SAVE pressed, SAVE TO? (navigate, SAVE again: save there)
+    bool delAsk = false;     // PLAY: SEL + OPEN pressed, DELETE? (SEL: yes, anything else: no)
+private:
     bool selUsed_ = false;
     int selNote_ = -1;            // the pad held as SEL
     Actions smpl(const Status &st);

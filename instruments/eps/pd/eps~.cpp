@@ -1961,6 +1961,43 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         lk_show_nav(x);                   // where I am: the folder and what is selected in it
         lk_refresh(x, false);
         return;
+    } else if (is("delete")) {
+        // delete the entry selected in the folder shown: an instrument, an empty folder, an
+        // EFE file of the library (an image itself is not deleted)
+        const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+        if (x->bsel < 0 || x->bsel >= static_cast<int>(v.size())) return;
+        const BItem it = v[size_t(x->bsel)];
+        std::string err;
+        bool ok = false;
+        if (x->bfile->empty()) {
+            if (it.kind == 'D') err = "an image is not deleted here";
+            else ok = std::remove(join(g_lib_dir, it.file).c_str()) == 0 || ((err = "cannot delete " + it.file), false);
+        } else {
+            eps::Volume vol;
+            const std::string img = join(g_lib_dir, *x->bfile);
+            uint32_t dir = 3;
+            if (vol.open(img, err)) {
+                vol.setJournal(img + ".undo");
+                const size_t sp = it.path.rfind(' ');
+                const int slot = std::atoi(it.path.c_str() + (sp == std::string::npos ? 0 : sp + 1));
+                ok = vol.dirOfPath(*x->bdir, false, dir, err) && vol.deleteFile(dir, slot, err);
+                vol.close();
+            }
+        }
+        if (!ok) {
+            pd_error(x, "eps~: delete %s: %s", it.name.c_str(), err.c_str());
+            out_display(x, "Not deleted", err);
+            return;
+        }
+        scan_library(g_lib_dir);
+        const LibEntry& e = *x->entry;      // the one playing keeps playing; its number may move
+        x->index = x->source == kLibrary ? lib_index(e.file, e.path, e.index) : -1;
+        if (x->index < 0 && x->source == kLibrary) x->source = kSampled;
+        out_value(x, "presets", static_cast<t_float>(g_lib.size()));
+        out_folder(x);
+        out_display(x, "Deleted", it.name);
+        lk_refresh(x, false);
+        return;
     } else if (is("userstep")) {
         // the next instrument in the folder of the one playing
         follow_entry(x);

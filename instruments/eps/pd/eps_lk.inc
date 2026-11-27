@@ -385,7 +385,9 @@ void lk_draw(t_eps* x, lkg_t* g, int kind) {
 // What the folder browser shows: a folder ("> NAME"), an instrument, or EMPTY.
 void lk_show_nav(t_eps* x) {
     const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
-    const std::string where = lk_up(x->bfile->empty() ? std::string("LIBRARY") : folder_text(*x->bfile, *x->bdir), 21);
+    std::string where = x->bfile->empty() ? std::string("LIBRARY") : folder_text(*x->bfile, *x->bdir);
+    if (x->lk->saveTo) where = "SAVE TO " + where;
+    where = lk_up(where, 21);
     std::string a, b;
     if (v.empty()) a = "EMPTY";
     else if (v[size_t(x->bsel)].kind == 'D') lk_split("> " + v[size_t(x->bsel)].name, a, b);
@@ -460,6 +462,17 @@ void lk_do(t_eps* x, const eps::Surface::Actions& acts) {
             const std::string w = a.substr(5);
             if (lk_drawing(x)) lk_screen(x, 10, "PRESS AGAIN TO " + w, w + "?", "");
             else out_display_text(x, w + "?", "press again");
+        } else if (a == "@saveto") {
+            lk_show_nav(x);
+        } else if (a == "@cancel") {
+            lk_show_nav(x);
+        } else if (a == "@delask") {
+            const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
+            const bool any = x->bsel >= 0 && x->bsel < static_cast<int>(v.size());
+            std::string a1, b1;
+            lk_split(any ? (v[size_t(x->bsel)].kind == 'D' ? "> " : "") + v[size_t(x->bsel)].name : "NOTHING", a1, b1);
+            if (!lk_drawing(x)) out_display_text(x, "Delete? SEL: yes", a1 + " " + b1);
+            else lk_screen(x, 10, "DELETE?  SEL: YES", a1, b1);
         } else if (a == "@cmdask") {
             const std::string c = eps::waveCmdName(static_cast<eps::WaveCmd>(x->wave->cmd));
             if (!lk_drawing(x)) out_display_text(x, c, "press CMD again");

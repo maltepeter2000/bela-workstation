@@ -112,6 +112,11 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
         return {};
     }
     const bool sel = mode == Play ? i == 12 : i == 8;
+    if (down && delAsk) {                        // DELETE?: SEL is yes, any other pad no
+        delAsk = false;
+        if (sel) return {"delete"};
+        return {"@cancel"};
+    }
     if (sel) {
         if (down) {
             selHeld = true;
@@ -121,22 +126,28 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
         return {};
     }
     if (!down) return {};
+    if (saveTo && !(mode == Play && (i == 0 || i == 8 || i == 6 || i == 14 || i == 10))) {
+        saveTo = false;                          // SAVE TO?: a pad other than the browser's: no
+        if (i != 15) return {"@cancel"};
+    }
     if (i == 15) return setMode(mode == Play ? Edit : Play);   // MODE, the same pad in both
     if (selHeld) selUsed_ = true;
     if (mode == Play) {
         switch (i) {
             case 0: return {"nav step 1"};
             case 8: return {"nav step -1"};
-            case 6: return {"nav open"};
+            case 6:
+                if (selHeld) { delAsk = true; return {"@delask"}; }   // SEL + OPEN: DELETE?
+                return {"nav open"};
             case 14: return {"nav up"};
             case 2:
                 if (now - initArm_ < kTwiceMs) { initArm_ = -1e9; return {"init"}; }
                 initArm_ = now;
                 return {"@ask INIT"};
-            case 10:
-                if (now - saveArm_ < kTwiceMs) { saveArm_ = -1e9; return {"save"}; }
-                saveArm_ = now;
-                return {"@ask SAVE"};
+            case 10:                             // SAVE TO? then navigate, SAVE again: save
+                if (saveTo) { saveTo = false; return {"save"}; }
+                saveTo = true;
+                return {"@saveto"};
             case 3: return {"cycle patch"};
             case 11: return {"cycle patch -1"};
             case 5: return smpl(st);
@@ -183,7 +194,8 @@ void Surface::padColours(const Status &st, double now, int out[16]) const {
         out[0] = out[8] = kDim + kCyan;               // > < through the folder
         out[3] = out[11] = kDim + kPink;              // PAT> PAT<
         out[2] = now - initArm_ < kTwiceMs ? kWhite + kFlash : avail;
-        out[10] = now - saveArm_ < kTwiceMs ? kWhite + kFlash : avail;
+        out[10] = saveTo ? kWhite + kFlash : avail;
+        if (delAsk) out[12] = kRed + kFlash;          // SEL: yes, delete
         out[6] = st.navDir ? kGreen : kDim + kGreen;  // OPEN: bright on a folder, dim on a patch
         out[14] = st.navTop ? kOff : kDim + kYellow;  // EXIT
         out[5] = sampleColour(st.rec);

@@ -44,7 +44,8 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    PLAY (wie am EPS): Start ganz oben (Library, Images als Ordner). 36 > / 44 <: durch den
    Ordner (lädt nichts), 42 OPEN: Ordner öffnen bzw. Patch laden, 50 EXIT: eine Ebene zurück.
    Danach zeigt das Display, wo du bist. Weiter: 38 INIT(2x) 39/47 PAT> PAT< 41 SMPL
-   46 SAVE(2x) 48 SEL 51 MODE.
+   46 SAVE: "SAVE TO?", zum Ordner navigieren, SAVE nochmal speichert dort (anderes Pad: nein).
+   SEL halten + OPEN: "DELETE?", SEL bestätigt (anderes Pad: nein), 48 SEL, 51 MODE.
    Encoder: CC-Seite 1 = P1, Seite 2 = P2.
    EDIT: oben die Bereiche INST LAYER WAVE PITCH FILTER AMP LFO ENV (nochmal = nächste Seite),
    jeder in eigener Farbe: weiß, gelb, cyan, pink, hellgrün, bernstein, himmelblau, magenta,
