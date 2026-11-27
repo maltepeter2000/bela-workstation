@@ -446,6 +446,7 @@ struct Recorder {
     bool monitor = false;         // hear the input while level / armed / recording
     std::vector<float> mon;       // the input of one block (it may share its buffer with an output)
     int learn = 0;                // the next key sets 1 root, 2 low key, 3 high key
+    bool asking = false;          // after a recording: PLAY LOW KEY, then PLAY HIGH KEY
     bool full = false;            // the memory is full (set in the audio thread)
     std::vector<float> buf, ring; // recording and pre-trigger ring (host rate)
     size_t len = 0, ringPos = 0, preN = 0;
@@ -861,6 +862,8 @@ void eps_poll(t_eps* x) {
                 SETFLOAT(&r[0], x->rec->result->ws);
                 SETFLOAT(&r[1], x->rec->result->layer + 1);
                 outlet_anything(x->info, gensym("sampled"), 2, r);
+                x->rec->learn = 2;                         // then the range: low key, high key
+                x->rec->asking = true;
             }
             t_atom a[3];
             SETSYMBOL(&a[0], gensym(in.modelName()));
@@ -873,6 +876,8 @@ void eps_poll(t_eps* x) {
             out_edump(x, "ilmwepf");
             if (made && x->jobkind == 2)
                 out_display(x, eps::waveCmdName(static_cast<eps::WaveCmd>(x->wave->cmd)), "KEEP=OLD NEW");
+            else if (x->rec->asking)
+                out_display(x, "PLAY LOW KEY", "pad: keep keys");
             else if (x->lkOn)
                 lk_show_home(x);
             lk_refresh(x, false);
@@ -1293,13 +1298,16 @@ bool rec_key(t_eps* x, int note) {
     auto it = in.waveSamples.find(x->editor->ws);
     const int what = R.learn;
     R.learn = 0;
+    if (R.asking && what == 2) R.learn = 3;          // the dialog after a recording goes on
+    else R.asking = false;
     if (it == in.waveSamples.end()) return true;
     eps::WaveSample& w = it->second;
     if (what == 1) w.rootNote = note;
     else eps::setKeyRange(in, x->editor->layer, x->editor->ws, what == 2 ? note : w.keyLow, what == 3 ? note : w.keyHigh);
     out_sel(x);
     out_edump(x, "w");
-    out_display(x, what == 1 ? "Root key" : (what == 2 ? "Key low" : "Key high"), std::to_string(note));
+    if (R.learn == 3) out_display(x, "PLAY HIGH KEY", "pad: keep");
+    else out_display(x, what == 1 ? "Root key" : (what == 2 ? "Key low" : "Key high"), std::to_string(note));
     return true;
 }
 
@@ -1340,6 +1348,7 @@ void rec_command(t_eps* x, int argc, t_atom* argv) {
     } else if (w == "learn") {
         const std::string k = argc > 1 && argv[1].a_type == A_SYMBOL ? atom_getsymbol(argv + 1)->s_name : "";
         R.learn = k == "root" ? 1 : k == "lo" ? 2 : k == "hi" ? 3 : 0;
+        R.asking = false;
         if (R.learn) out_display(x, "Play a key", k == "root" ? "root key" : (k == "lo" ? "low key" : "high key"));
         return;
     } else if (w == "status") {

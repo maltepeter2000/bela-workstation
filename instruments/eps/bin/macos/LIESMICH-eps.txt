@@ -25,7 +25,8 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    Audio-Einstellungen gewählt, Pd darf das Mikrofon benutzen (Systemeinstellungen >
    Datenschutz & Sicherheit > Mikrofon). Mit "level" siehst du, ob etwas ankommt. rate (44,6 bis 11,2 kHz), threshold, pre ms, into (neues WS im gewählten Layer,
    gewähltes WS ersetzen, neuer Layer, neues Instrument), level zeigt den Pegel, rec / stop.
-   Danach PLAY ROOT KEY: die nächste gespielte Taste ist der Grundton. Tastenbereich wie am
+   Danach PLAY ROOT KEY: die nächste gespielte Taste ist der Grundton, dann PLAY LOW KEY und
+   PLAY HIGH KEY (ein Pad am Launchkey behält den Bereich). Tastenbereich wie am
    EPS (Mitte zwischen den Grundtönen der Nachbarn), ändern mit root key / low key / high key
    (nächste Taste) oder den Zellen WS key low / high. Speichern wie unter 6.
 8. Befehle (COMMAND-Leiste): die Wave-, LFO- und Amp-Befehle des EPS für das gewählte WS

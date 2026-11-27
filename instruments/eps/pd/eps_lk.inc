@@ -356,6 +356,7 @@ void lk_draw(t_eps* x, lkg_t* g, int kind) {
             const int w = 6 * static_cast<int>(std::strlen(t)) - 1;
             lkg_text(g, bx + (31 - w) / 2, by + 6, t);
         }
+    } else if (kind == 14) {             // nothing: an encoder without a setting
     } else if (kind == 13) {             // the level: -57 .. 0 dB over the width
         const Recorder& R = *x->rec;
         const int w = std::clamp(static_cast<int>((s.db + 57.f) / 57.f * LKG_W), 0, LKG_W);
@@ -470,7 +471,13 @@ bool lk_encoder(t_eps* x, int cc, int v) {
     bool changed = false;
     const int cell = x->lk->encoder(cc, changed);
     if (changed) for (int& f : x->fbSent) f = -1;
-    if (cell < 0) return x->lk->mode == eps::Surface::Edit && cc >= 20 && cc <= 119;
+    if (cell < 0) {                                  // an encoder with nothing on it: a black screen
+        int pg = 0, enc = 0;
+        if (!eps::Surface::ccPage(cc, pg, enc)) return false;
+        if (x->lk->mode == eps::Surface::Play && pg > 1) return false;
+        if (lk_drawing(x)) lk_screen(x, 14, "", "", "");
+        return true;
+    }
     const eps::PageCell& c = x->lk->current().cell[cell];
     if (c.kind == '-') {
         if (!lk_text(x, c.longName, "NOT YET")) out_display_text(x, c.longName, "not yet");
@@ -502,6 +509,12 @@ bool lk_encoder(t_eps* x, int cc, int v) {
 }
 
 void lk_pad(t_eps* x, int note, bool down) {
+    if (down && x->rec->learn) {                     // a pad ends PLAY LOW / HIGH KEY: the keys stay
+        x->rec->learn = 0;
+        x->rec->asking = false;
+        out_display(x, "Keys", "kept");
+        return;
+    }
     lk_do(x, x->lk->pad(note, down, clock_gettimesince(0), lk_status(x)));
 }
 

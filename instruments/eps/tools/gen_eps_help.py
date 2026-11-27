@@ -299,7 +299,9 @@ SAMPLING = [
     "on rec, 1 to 19 (-54 to 0 dB in steps of 3) waits until the input crosses it, pre ms "
     "keeps that much from before (10 to 20 ms are usually right). stop ends the recording "
     "(full memory too), then the editor says PLAY ROOT KEY: the next key you play is the "
-    "key at which the recording plays back as recorded, it does not sound.",
+    "key at which the recording plays back as recorded, it does not sound. Then PLAY LOW KEY "
+    "and PLAY HIGH KEY: the next two keys set the range of the new wavesample, a Launchkey pad "
+    "(or rec learn 0) keeps the keys it got.",
     "Key mapping as on the EPS: a new wavesample gets the keys between its root key and "
     "the root keys of its neighbours in the layer, split at the midpoints (the whole "
     "keyboard when it is the first). Change it with root key, low key and high key (the "

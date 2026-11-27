@@ -117,7 +117,8 @@ messages) works as SAMPLE on the EPS-16 PLUS, without a waveform display:
   (`recmeter`: bars, `*` = threshold), the free sample memory (1024K words with the instrument).
 - **Into**: a new wavesample in the selected layer, the selected wavesample (keys, parameters
   and the loop if it fits stay), a new layer, a new instrument (UNNAMED INST).
-- **PLAY ROOT KEY** after stop: the next key is the root key. A new wavesample gets the keys
+- **PLAY ROOT KEY** after stop: the next key is the root key, then PLAY LOW KEY and PLAY HIGH
+  KEY (a Launchkey pad or `rec learn 0` keeps the automatic range). A new wavesample gets the keys
   between the midpoints to its neighbours' root keys, as on the EPS; `rec learn root|lo|hi`
   (root key / low key / high key in the editor) and the cells `w_keylo` / `w_keyhi` change the
   key range in the layer's key map.
