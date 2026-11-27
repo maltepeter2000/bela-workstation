@@ -392,8 +392,9 @@ ABOUT = [
     "mono with glide). Not there: pitch tables. The controls of "
     "eps~ are offsets over the instrument, 0 plays it as stored.",
     "Effects: the instrument's effect runs as on the EPS-16 PLUS, with the ROM and OS of your "
-    "EPS: put eps16plus-rom.bin (the ROM, 128 KB, both chips as one file) and eps16plus-os.efe "
-    "(the OS 1.30 file) into the library. A 68000 runs the effect's own driver code with the "
+    "EPS: put the two ROM dumps (U27 lower, U28 upper, 64 KB each, names ending .u27 / .u28, "
+    "or both chips as one file eps16plus-rom.bin) and the OS 1.30 file (eps16plus-os.efe or the OS EFE as it is) into "
+    "the library. A 68000 runs the effect's own driver code with the "
     "helpers of ROM and OS and an ES5510 (ESP) the effect program at the effect's rate (29.8, "
     "44.6 or 78.1 kHz). The wavesamples go to the effect by their output bus, bus 3 (aux) stays "
     "dry. Without the two files eps~ plays dry. Mod sources of the effect: bend, wheel, xctrl, "

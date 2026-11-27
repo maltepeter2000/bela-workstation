@@ -36,7 +36,8 @@ your instruments into a folder `eps/` beside your patch.
 Not yet there: pitch tables (format unknown, no instrument with one yet).
 
 **Effects** (ES5510 / ESP) run as on the EPS-16 PLUS, with the user's ROM and OS (not part of
-eps~): `eps16plus-rom.bin` (128 KB) and `eps16plus-os.efe` (OS 1.30) in the library. A 68000
+eps~): the two ROM dumps (`*.u27` lower = odd bytes, `*.u28` upper = even bytes, or one
+interleaved `eps16plus-rom.bin`) and the OS 1.30 file (`eps16plus-os.efe` or any EFE of file type 27) in the library. A 68000
 (Musashi, MIT, `third_party/musashi`, without its FPU and MMU) executes the effect block's
 driver code together with the ROM and OS helpers (program loader, parameter bytecode,
 real-time routine at 77 Hz); `engine/es5510` (from MAME, BSD-3) runs the ESP program at the

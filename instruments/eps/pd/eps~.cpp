@@ -240,7 +240,40 @@ void fx_read_system(const std::string& dir) {
     if (dir == g_fxDir) return;
     g_fxDir = dir;
     g_fxRom = read_whole(join(dir, kFxRomName));
+    if (g_fxRom.empty()) {
+        // the two chip dumps as they come off the EPS: U28 (upper) has the even bytes, U27
+        // (lower) the odd ones; any file names ending in .u28 / .u27 (or "upper" / "lower")
+        std::vector<uint8_t> hi, lo;
+#ifndef _WIN32
+        if (DIR* d = opendir(dir.c_str())) {
+            while (dirent* e = readdir(d)) {
+                const std::string n = lower(e->d_name);
+                auto ends = [&](const char* s) { return n.size() > std::strlen(s) && n.compare(n.size() - std::strlen(s), std::string::npos, s) == 0; };
+                if (ends(".u28") || (n.find("upper") != std::string::npos && n.find("eps") != std::string::npos)) hi = read_whole(join(dir, e->d_name));
+                else if (ends(".u27") || (n.find("lower") != std::string::npos && n.find("eps") != std::string::npos)) lo = read_whole(join(dir, e->d_name));
+            }
+            closedir(d);
+        }
+#endif
+        if (hi.size() == 0x10000 && lo.size() == 0x10000) {
+            g_fxRom.resize(0x20000);
+            for (size_t i = 0; i < 0x10000; ++i) { g_fxRom[2 * i] = hi[i]; g_fxRom[2 * i + 1] = lo[i]; }
+        }
+    }
     g_fxOs = read_whole(join(dir, kFxOsName));
+#ifndef _WIN32
+    if (g_fxOs.empty()) {   // else any EFE of the OS (file type 27) in the library
+        if (DIR* d = opendir(dir.c_str())) {
+            while (dirent* e = readdir(d)) {
+                const std::string n = lower(e->d_name);
+                if (n.size() < 5 || n.compare(n.size() - 4, 4, ".efe") != 0) continue;
+                std::vector<uint8_t> v = read_whole(join(dir, e->d_name));
+                if (v.size() > 0x10000 && v[0] == 0x0d && v[0x32] == 27) { g_fxOs = std::move(v); break; }
+            }
+            closedir(d);
+        }
+    }
+#endif
     ++g_fxGeneration;
 }
 
@@ -883,8 +916,8 @@ void fx_load(t_eps* x) {
         }
     }
     if (!F.m.hasSystem()) {
-        if (!F.told) post("eps~: the effects need %s and %s (from your EPS-16 PLUS) in the library %s",
-                          kFxRomName, kFxOsName, g_lib_dir.c_str());
+        if (!F.told) post("eps~: the effects need the ROM dumps of your EPS-16 PLUS (U27 / U28: *.u27, "
+                          "*.u28) and its OS 1.30 file (%s or the OS EFE) in the library %s", kFxOsName, g_lib_dir.c_str());
         F.told = true;
         fx_info(x);
         return;
