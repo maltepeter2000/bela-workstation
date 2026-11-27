@@ -31,13 +31,21 @@ const char* lk_opt_key(const t_eps* x) {
     if (c == eps::WaveCmd::Smooth) return "smooth";
     if (c == eps::WaveCmd::CopyWs) return "layer";
     if (c == eps::WaveCmd::CopyLayer) return "data";
-    if (c == eps::WaveCmd::CopyParams || c == eps::WaveCmd::CopyData || c == eps::WaveCmd::MixData ||
-        c == eps::WaveCmd::Merge || c == eps::WaveCmd::Splice) return "ws";
+    if (c == eps::WaveCmd::CopyParams || c == eps::WaveCmd::CopyData || c == eps::WaveCmd::AddData ||
+        c == eps::WaveCmd::Mix || c == eps::WaveCmd::Merge || c == eps::WaveCmd::Splice) return "ws";
     return "";
+}
+
+// cmd rate: for mix, merge and splice the balance (they keep the rate)
+bool lk_balance(const t_eps* x) {
+    const auto c = static_cast<eps::WaveCmd>(x->wave->cmd);
+    return c == eps::WaveCmd::Mix || c == eps::WaveCmd::Merge || c == eps::WaveCmd::Splice;
 }
 
 LkRange lk_cmd_range(const t_eps* x, std::string n) {
     if (n == "opt") n = lk_opt_key(x);
+    if (n == "rate" && lk_balance(x)) n = "balance";
+    if (n == "balance") return {-127, 127};
     if (n == "cmd") return {0, static_cast<int>(eps::WaveCmd::Count) - 1};
     if (n == "range") return {0, 3};
     if (n == "depth") return {0, 5};
@@ -64,6 +72,7 @@ int lk_rec_value(const t_eps* x, const std::string& n) {
 int lk_cmd_value(const t_eps* x, std::string n) {
     const eps::WaveArgs& A = x->wave->args;
     if (n == "opt") n = lk_opt_key(x);
+    if ((n == "rate" && lk_balance(x)) || n == "balance") return A.balance;
     if (n == "cmd") return x->wave->cmd;
     if (n == "range") return static_cast<int>(A.range);
     if (n == "depth") return A.depth;
@@ -140,7 +149,9 @@ std::string lk_cell_text(t_eps* x, const eps::PageCell& c, bool& names) {
         case 'x': {
             std::string n = c.target;
             if (n == "opt") n = lk_opt_key(x);
+            if (n == "rate" && lk_balance(x)) n = "balance";
             const int v = lk_cmd_value(x, n);
+            if (n == "balance") return v == 0 ? "EQUAL" : (v < 0 ? "SRC " : "DEST ") + std::to_string(std::abs(v));
             names = n == "cmd" || n == "range" || n == "smooth" || n == "data";
             if (n == "data") return v ? "WITH DATA" : "PARAMS";
             if (n == "ws") {                         // the wavesample with its layer: L2 WS3
@@ -183,7 +194,8 @@ void lk_cell_set(t_eps* x, const eps::PageCell& c, int v) {
         case 'e': std::snprintf(b, sizeof b, "e %s %d", c.target, v); break;
         case 'r': std::snprintf(b, sizeof b, "rec %s %d", c.target, lk_from127(lk_rec_range(c.target), v)); break;
         case 'x': {
-            const std::string n = !std::strcmp(c.target, "opt") ? lk_opt_key(x) : c.target;
+            std::string n = !std::strcmp(c.target, "opt") ? lk_opt_key(x) : c.target;
+            if (n == "rate" && lk_balance(x)) n = "balance";
             if (n.empty()) return;
             if (n == "cmd") std::snprintf(b, sizeof b, "cmd %d", lk_from127(lk_cmd_range(x, n), v));
             else std::snprintf(b, sizeof b, "cmd %s %d", n.c_str(), lk_from127(lk_cmd_range(x, n), v));

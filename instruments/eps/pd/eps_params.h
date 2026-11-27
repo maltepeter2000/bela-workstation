@@ -21,6 +21,7 @@ static const Control kControls[] = {
     {"vibrate", 'O', 0, 127, 50, "Vib rate", ""},
     {"voices", 'S', 1, 32, 20, "Voices", ""},
     {"xcc", 'S', 0, 119, 2, "XCTRL CC", ""},
+    {"alf", 'S', 0, 1, 1, "Auto loop", "off|on"},
 };
 
-enum Ctl { kC_cut, kC_cut2, kC_fatt, kC_fdec, kC_frel, kC_att, kC_dec, kC_rel, kC_volume, kC_transpose, kC_wave, kC_fenv, kC_patch, kC_tune, kC_bend, kC_vib, kC_vibrate, kC_voices, kC_xcc, kCtlCount };
+enum Ctl { kC_cut, kC_cut2, kC_fatt, kC_fdec, kC_frel, kC_att, kC_dec, kC_rel, kC_volume, kC_transpose, kC_wave, kC_fenv, kC_patch, kC_tune, kC_bend, kC_vib, kC_vibrate, kC_voices, kC_xcc, kC_alf, kCtlCount };

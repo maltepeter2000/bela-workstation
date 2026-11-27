@@ -1387,6 +1387,8 @@ void out_waveset(t_eps* x) {
     one("layer", A.toLayer + 1, "");
     one("data", A.withData ? 1 : 0, A.withData ? "params_&_data" : "params_only");
     one("ws", A.toWs, A.toWs ? "WS_" + std::to_string(A.toWs) : "-");
+    one("balance", A.balance, A.balance == 0 ? "equal" : A.balance < 0 ? "source" : "destination");
+    one("clip", A.clipPrevent ? 1 : 0, A.clipPrevent ? "clip_prevention" : "-");
 }
 
 void trash_sampler(t_eps* x, eps::Sampler* s) {
@@ -1481,6 +1483,10 @@ void wave_command(t_eps* x, int argc, t_atom* argv) {
         A.scaleEnd = std::clamp(n, 0, 200);
     } else if (w == "rate") {
         A.rate = std::clamp(n, 0, 6);
+    } else if (w == "balance") {
+        A.balance = std::clamp(n, -127, 127);
+    } else if (w == "clip") {
+        A.clipPrevent = n != 0;
     } else if (w == "smooth") {
         A.smooth = std::clamp(n, 0, 4);
     } else if (w == "layer") {
@@ -1649,6 +1655,12 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         const int id = eps::Editor::find(atom_getsymbol(argv)->s_name);
         if (id < 0) { pd_error(x, "eps~: e: no parameter '%s'", atom_getsymbol(argv)->s_name); return; }
         x->editor->set127(x->sampler->editInstrument(), id, atom_getfloat(argv + 1));
+        {   // AUTO-LOOP FINDING: a moved loop point goes where the loop joins best
+            const std::string pn = eps::kEditParams[id].name;
+            const bool lend = pn == "w_lend" || pn == "w_lendf", lstart = pn == "w_lst" || pn == "w_lstf";
+            if (x->value[kC_alf] && (lend || lstart))
+                eps::autoLoopSnap(x->sampler->editInstrument(), x->editor->ws, lend);
+        }
         const char sc = eps::kEditParams[id].scope;
         if (sc == 'p' || sc == 'f') out_edump(x, "pf");   // the points limit each other
         else out_einfo(x, id);

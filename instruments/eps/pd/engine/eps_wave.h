@@ -23,7 +23,7 @@ enum class WaveCmd {
     NewWs, CopyWs, DeleteWs,                                                     // COMMAND/Wave
     NewLayer, CopyLayer, DeleteLayer, CopyParams,                                // COMMAND/Layer, Wave
     BidirXFade, LoopLonger, SynthLoop,                                           // COMMAND/Wave
-    CopyData, MixData, Merge, Splice, AutoLoop,                                  // COMMAND/LFO, Wave
+    CopyData, AddData, Replicate, Mix, Merge, Splice,                            // COMMAND/LFO, Amp
     Count
 };
 const char *waveCmdName(WaveCmd c);              // "truncate", "crossfade" ...
@@ -41,7 +41,9 @@ struct WaveArgs {
     int smooth = 2;          // volume smoothing 0 very fine .. 4 very coarse
     int toLayer = 0;         // copy: the layer (position in Instrument::layers)
     bool withData = false;   // copy: params & data (else params only)
-    int toWs = 0;            // copy parameters: the wavesample that takes them (its number)
+    int toWs = 0;            // copy parameters, copy / add data, mix, merge, splice: the other one
+    int balance = 0;         // mix, merge: -127 all source .. 0 equal .. 127 all destination
+    bool clipPrevent = false;  // add data: scale the sum so that it does not clip
 };
 double scaleDepthDb(int depth);
 
@@ -57,14 +59,22 @@ double scaleDepthDb(int depth);
 // layers move with the layers). Copy parameters: all parameters of the wavesample to toWs,
 // but not its data, points, loop mode, root key and tuning, rate, keys and name.
 //
-// More wave commands: bidir_xfade (both loop ends made symmetric over the fade zone, for the
-// bidirectional loop), loop_longer (the loop once more after itself), synth_loop (the loop
-// resynthesized from its spectrum with random phases: a seamless loop of the same colour,
-// at most 65536 samples), copy_data / mix_data (the range of the wavesample written over /
-// added to toWs from its sample start), merge (this wavesample, then toWs, crossfaded over
-// the fade zone of the shorter one; same rate and root key), splice (merge without fade) and
-// auto_loop (the loop end, within the fade zone of the loop length around the old one, where
-// the data matches that around loop start best).
+// More wave commands, after the EPS-16 PLUS External Command Specification (the descriptions
+// there; not measured in the OS): bidir_xfade (both loop ends made symmetric over the fade
+// zone, at most 50 % of the loop, for the bidirectional loop), loop_longer (Lengthen Loop: the
+// loop is followed by itself reversed, the faded-out end and the faded-in reversed copy
+// overlap over the fade zone: the loop gets 2L - F long), synth_loop (the loop resynthesized
+// from its spectrum with random phases, the spectrum smoothed by `smooth`; at most 65536
+// samples), copy_data / add_data (the range of the wavesample written over / added to toWs
+// from its sample start; add with clip prevention: the sum scaled to fit), replicate_data (the
+// range repeated after itself up to the end of the data), mix (Mix Wavesamples: this one, the
+// source, mixed into toWs, balance -127 all source .. 127 all destination), merge (the source
+// crossfaded into the start of toWs: source, then toWs, the fade zone % of the shorter one,
+// before the loop of toWs) and splice (merge without fade). mix, merge and splice need the
+// same rate, root key and tuning (PITCH DIFFERENCE).
+// The EPS has no auto loop command: autoLoopSnap is its AUTO-LOOP FINDING, used when a loop
+// point is edited.
+bool autoLoopSnap(Instrument &in, int ws, bool end, int window = 256);
 bool waveCommand(Instrument &in, int layer, int ws, WaveCmd cmd, const WaveArgs &a, int &selWs,
                  std::string &err, int *selLayer = nullptr);
 

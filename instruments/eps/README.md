@@ -138,8 +138,10 @@ convert sample rate, normalize, fade in / out, volume smoothing, scale / reverse
 clear data (range: sample, loop, start to loop, loop to end), new / copy / delete wavesample,
 new / copy / delete layer (patches and key-up / key-down layers follow), copy parameters (all
 but data, points, loop mode, root key, tuning, rate and keys) to another wavesample,
-bidirectional crossfade, make loop longer, synthesized loop, auto loop (best loop end near the
-old one), copy / mix data into another wavesample, merge and splice two wavesamples.
+bidirectional crossfade, make loop longer, synthesized loop, copy / add / replicate data, mix,
+merge and splice wavesamples (after the descriptions in the External Command Specification,
+not measured). `alf`: AUTO-LOOP FINDING as on the EPS, a moved loop point goes where the loop
+joins best.
 `xcc` (row MORE, E1 XCTL) chooses the MIDI controller of the XCTRL mod source (2 by default).
 The algorithms follow the manual's descriptions. Checked with the original OS: a wavesample
 converted to 12.8 kHz, truncated and crossfaded plays at its pitch; a params-only copy in

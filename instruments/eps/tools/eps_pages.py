@@ -51,7 +51,7 @@ PAGES = [
                        ("LSTR", "LOOP START", "e:w_lst"), ("LSF", "LSTRT FINE", "e:w_lstf"),
                        ("LEND", "LOOP END", "e:w_lend"), ("LEF", "LEND FINE", "e:w_lendf")]),
     ("E5", "LOOP", 2, [("LOOP", "LOOP MODE", "e:w_loop"), ("LPOS", "LOOP POS", "e:w_lpos"),
-                       ("LPF", "LPOS FINE", "e:w_lposf"), ("ALF", "AUTO LOOP", "k:auto_loop"),
+                       ("LPF", "LPOS FINE", "e:w_lposf"), ("ALF", "AUTO LOOP", "c:alf"),
                        ("KLO", "WS KEY LOW", "e:w_keylo"), ("KHI", "WS KEY HI", "e:w_keyhi"),
                        None, None]),
     ("E6", "WAVE MOD", 2, [("WMSR", "WAVE SRC", "e:w_wmsrc"), ("WMAM", "WAVE AMT", "e:w_wmamt"),

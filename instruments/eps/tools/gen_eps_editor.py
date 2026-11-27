@@ -205,6 +205,8 @@ def command_band(c, y):
     c.add(f"#X text {x0 + 376} {y + 46} smooth;")
     c.add(f"#X floatatom {x0 + 418} {y + 46} 1 0 4 0 - {D}0-csmoothv {D}0-csmooth;")
     c.add(f"#X symbolatom {x0 + 434} {y + 46} 11 0 0 0 - {D}0-csmoothnv -;")
+    c.add(f"#X text {x0 + 520} {y + 46} balance;")
+    c.add(f"#X floatatom {x0 + 572} {y + 46} 4 -127 127 0 - {D}0-cbalancev {D}0-cbalance;")
     c.add(f"#X text {x0} {y + 72} copy to layer;")
     c.add(f"#X floatatom {x0 + 84} {y + 72} 1 1 8 0 - {D}0-clayerv {D}0-clayer;")
     c.add(f"#X obj {x0 + 104} {y + 72} tgl 15 0 {D}0-cdata {D}0-cdatav with{SP}data 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
@@ -212,6 +214,7 @@ def command_band(c, y):
     c.add(f"#X floatatom {x0 + 232} {y + 72} 3 0 127 0 - {D}0-cwsv {D}0-cws;")
     c.add(f"#X symbolatom {x0 + 264} {y + 72} 5 0 0 0 - {D}0-cstatev -;")
     c.add(f"#X symbolatom {x0 + 304} {y + 72} 28 0 0 0 - {D}0-cinfov -;")
+    c.add(f"#X obj {x0 + 520} {y + 72} tgl 15 0 {D}0-cclip {D}0-cclipv clip{SP}prev. 19 8 0 10 {S.WIDGET} {S.INK} {S.INK} 0 1;")
 
 
 def tint(title, r):
@@ -327,7 +330,8 @@ def logic():
                                       ("csmooth", f"cmd smooth {D}1"), ("clayer", f"cmd layer {D}1"),
                                       ("cdata", f"cmd data {D}1"), ("cdo", "cmd do"), ("cold", "cmd old"),
                                       ("cnew", "cmd new"), ("ckeep", "cmd keep"), ("ccancel", "cmd cancel"),
-                                      ("cws", f"cmd ws {D}1")]):
+                                      ("cws", f"cmd ws {D}1"), ("cbalance", f"cmd balance {D}1"),
+                                      ("cclip", f"cmd clip {D}1")]):
         send(10 + 120 * (k % 11), yc + 110 * (k // 11), recv, text)
     yp = yc + 110
     yn = yp
@@ -408,7 +412,8 @@ def logic():
     # the command replies -> the COMMAND band
     yk = yq + 180
     rk = c.add(f"#X obj 10 {yk} route cmdset cmdstate cmdinfo;"); c.conn(ro, 0, rk, 0)
-    keys = ["cmd", "range", "depth", "zone", "sstart", "send", "rate", "smooth", "layer", "data", "ws"]
+    keys = ["cmd", "range", "depth", "zone", "sstart", "send", "rate", "smooth", "layer", "data", "ws",
+            "balance", "clip"]
     rks = c.add(f"#X obj 10 {yk + 30} route {' '.join(keys)};"); c.conn(rk, 0, rks, 0)
     dests = [("cmd", [(f"set {D}2", "cmdv")]), ("range", [(f"set {D}1", "crangev"), (f"set {D}2", "crangenv")]),
              ("depth", [(f"set {D}1", "cdepthv"), (f"set {D}2", "cdepthnv")]), ("zone", [(f"set {D}1", "czonev")]),
@@ -416,7 +421,8 @@ def logic():
              ("rate", [(f"set {D}1", "cratev"), (f"set {D}2", "cratenv")]),
              ("smooth", [(f"set {D}1", "csmoothv"), (f"set {D}2", "csmoothnv")]),
              ("layer", [(f"set {D}1", "clayerv")]), ("data", [(f"set {D}1", "cdatav")]),
-             ("ws", [(f"set {D}1", "cwsv")])]
+             ("ws", [(f"set {D}1", "cwsv")]), ("balance", [(f"set {D}1", "cbalancev")]),
+             ("clip", [(f"set {D}1", "cclipv")])]
     col = 0
     for k, (_, outs) in enumerate(dests):
         ll = c.add(f"#X obj {10 + 110 * col} {yk + 60} list;"); c.conn(rks, k, ll, 0)

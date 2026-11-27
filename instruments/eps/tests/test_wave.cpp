@@ -168,9 +168,13 @@ int main() {
         a = WaveArgs();
         WaveSample &w1 = in.waveSamples[1];
         const long ls = long(w1.rawLoopStart >> 9), le = long(w1.rawLoopEnd >> 9), n0 = long(w1.pcm.size());
+        const std::vector<int16_t> old = w1.pcm;
+        const long F = (le - ls) * a.zone / 100;
         CHECK(waveCommand(in, 0, 1, WaveCmd::LoopLonger, a, sel, err));
-        CHECK(long(in.waveSamples[1].rawLoopEnd >> 9) == le + (le - ls) && long(in.waveSamples[1].pcm.size()) == n0 + (le - ls));
-        CHECK(in.waveSamples[1].pcm[size_t(le + 10)] == in.waveSamples[1].pcm[size_t(ls + 10)]);
+        // the loop, then itself reversed, overlapping over F: 2L - F
+        CHECK(long(in.waveSamples[1].rawLoopEnd >> 9) == le + (le - ls) - F && long(in.waveSamples[1].pcm.size()) == n0 + (le - ls) - F);
+        CHECK(in.waveSamples[1].pcm[size_t(le + 10)] == old[size_t(le - 1 - F - 10)]);
+        CHECK(in.waveSamples[1].pcm[size_t(ls + 10)] == old[size_t(ls + 10)]);
         in = make();
         CHECK(waveCommand(in, 0, 1, WaveCmd::SynthLoop, a, sel, err));
         CHECK(reparse(in));
@@ -181,7 +185,7 @@ int main() {
         const long le0 = long(in.waveSamples[1].rawLoopEnd >> 9);
         in.waveSamples[1].rawLoopEnd = uint32_t(le0 + 37) << 9;          // off the best place
         a.zone = 20;
-        CHECK(waveCommand(in, 0, 1, WaveCmd::AutoLoop, a, sel, err));
+        CHECK(autoLoopSnap(in, 1, true, 600));
         {   // the jump back: level and slope as at loop start
             const auto &d = in.waveSamples[1].pcm;
             const long e = long(in.waveSamples[1].rawLoopEnd >> 9), s = 5000;
@@ -197,18 +201,32 @@ int main() {
         CHECK(!waveCommand(in, 0, 1, WaveCmd::Merge, a, sel, err) && err == "PITCH DIFFERENCE");
         CHECK(waveCommand(in, 0, 1, WaveCmd::CopyData, a, sel, err) && sel == 2);
         CHECK(in.waveSamples[2].pcm[100] == in.waveSamples[1].pcm[size_t((in.waveSamples[1].rawStart >> 9) + 100)]);
-        CHECK(waveCommand(in, 0, 1, WaveCmd::MixData, a, sel, err));
+        CHECK(waveCommand(in, 0, 1, WaveCmd::AddData, a, sel, err));
+        a.clipPrevent = true;
+        CHECK(waveCommand(in, 0, 1, WaveCmd::AddData, a, sel, err));
+        a.clipPrevent = false;
+        CHECK(waveCommand(in, 0, 1, WaveCmd::Replicate, a, sel, err));
+        CHECK(!waveCommand(in, 0, 1, WaveCmd::Mix, a, sel, err) && err == "PITCH DIFFERENCE");
+        a.zone = 60;
+        CHECK(!waveCommand(in, 0, 1, WaveCmd::BidirXFade, a, sel, err) && err == "CROSS FADE LENGTH IS GREATER THAN 50%");
         in.waveSamples[2].rootNote = in.waveSamples[1].rootNote;
         in.waveSamples[2].fineTune = in.waveSamples[1].fineTune;
         in.waveSamples[2].sampleRate = in.waveSamples[1].sampleRate;
         in.waveSamples[2].sampleRateIndex = in.waveSamples[1].sampleRateIndex;
         const long la = long(in.waveSamples[1].rawEnd >> 9) - long(in.waveSamples[1].rawStart >> 9);
         const long lb = long(in.waveSamples[2].rawEnd >> 9) - long(in.waveSamples[2].rawStart >> 9);
-        Instrument in2 = in;
-        CHECK(waveCommand(in2, 0, 1, WaveCmd::Splice, a, sel, err) && long(in2.waveSamples[1].rawEnd >> 9) == la + lb);
+        // the result goes to the destination (WS 2): the source, then the destination
+        in.waveSamples[2].loopMode = 0;
+        Instrument in2 = in, in3 = in;
+        CHECK(waveCommand(in2, 0, 1, WaveCmd::Splice, a, sel, err) && sel == 2 && long(in2.waveSamples[2].rawEnd >> 9) == la + lb);
+        CHECK(in2.waveSamples[2].pcm[5] == in.waveSamples[1].pcm[size_t((in.waveSamples[1].rawStart >> 9) + 5)]);
         a.zone = 50;
-        CHECK(waveCommand(in, 0, 1, WaveCmd::Merge, a, sel, err) && long(in.waveSamples[1].rawEnd >> 9) < la + lb);
-        CHECK(reparse(in) && reparse(in2));
+        CHECK(waveCommand(in, 0, 1, WaveCmd::Merge, a, sel, err) && long(in.waveSamples[2].rawEnd >> 9) < la + lb);
+        a.balance = -127;                            // mix: all source
+        CHECK(waveCommand(in3, 0, 1, WaveCmd::Mix, a, sel, err));
+        CHECK(in3.waveSamples[2].pcm[size_t(in3.waveSamples[2].rawStart >> 9) + 7] ==
+              in3.waveSamples[1].pcm[size_t((in3.waveSamples[1].rawStart >> 9) + 7)]);
+        CHECK(reparse(in) && reparse(in2) && reparse(in3));
     }
     std::printf("test_wave: %s\n", failures ? "FAILED" : "ok");
     return failures ? 1 : 0;

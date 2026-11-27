@@ -220,8 +220,8 @@ MESSAGES = [
     "  normalize fade_in fade_out volume_smooth scale_data",
     "  reverse_data invert_data clear_data new_ws copy_ws",
     "  delete_ws new_layer copy_layer delete_layer copy_params",
-    "  bidir_xfade loop_longer synth_loop copy_data mix_data",
-    "  merge splice auto_loop),",
+    "  bidir_xfade loop_longer synth_loop copy_data add_data",
+    "  replicate_data mix merge splice),",
     "  cmd step 1 or -1.",
     "cmd range n: 0 sample, 1 loop, 2 start to loop, 3 loop to end.",
     "cmd depth n (0-5: 3.0 3.5 4.0 4.5 5.5 6.0 dB), cmd zone %,",
@@ -329,18 +329,23 @@ COMMANDS = [
     "copy_params: all parameters of the selected wavesample to WS n (to WS in the editor, "
     "encoder 8 on the Launchkey), not its data, points, loop mode, root key, tuning, rate and "
     "keys. All of them can be heard with old / new before keep.",
-    "bidir_xfade: both loop ends become symmetric over the fade zone (up to 50 %), the loop "
-    "plays forward and back without a corner (loop mode bidir). loop_longer: the loop once more "
-    "after itself (loop end moves). synth_loop: the loop made again from its spectrum with "
-    "random phases, a seamless loop of the same colour (at most 65536 samples). auto_loop: "
-    "the loop end, within the fade zone of the loop length around the old one (at most 8192 "
-    "samples), where the data matches the data at loop start best. On the Launchkey the cell "
-    "ALF (E5) chooses it and opens the COMMAND page.",
-    "copy_data / mix_data: the range of the selected wavesample written over / added to WS n "
-    "from its sample start (to WS). merge: the selected wavesample, then WS n, crossfaded over "
-    "the fade zone of the shorter one, into the selected one (same rate, root key and tuning, "
-    "else PITCH DIFFERENCE, the loop of WS n). splice: the same without a fade. These four "
-    "are the implementation of eps~ after the names of the EPS, not measured.",
+    "These follow the descriptions in the EPS-16 PLUS External Command Specification (not "
+    "measured in the OS): bidir_xfade makes both loop ends symmetric over the fade zone (at "
+    "most 50 % of the loop) for a loop that plays forward and back. loop_longer (Make Loop "
+    "Longer): after the loop comes the loop reversed, the faded-out end and the faded-in "
+    "reversed copy overlap over the fade zone, the loop becomes twice as long less the zone. "
+    "synth_loop: the loop made again from its spectrum with random phases, smooth 0 to 4 "
+    "smooths the spectrum (at most 65536 samples).",
+    "copy_data / add_data: the range of the selected wavesample written over / added to WS n "
+    "from its sample start (to WS, add with clip prevention: the sum scaled to fit). "
+    "replicate_data: the range repeated after itself up to the end of the data. mix (Mix "
+    "Wavesamples): the selected one, the source, mixed into WS n, balance -127 all source, 0 "
+    "half each, 127 all destination. merge: the source, then WS n, crossfaded over the fade "
+    "zone (% of the shorter one, before the loop of WS n), into WS n, balance -127 to 127 "
+    "turns the destination or the source down. splice: the same without a fade. mix, merge "
+    "and splice need the same rate, root key and tuning (else PITCH DIFFERENCE).",
+    "alf (row MORE, E5 ALF on the Launchkey): AUTO-LOOP FINDING as on the EPS, on by default. "
+    "A moved loop start or end goes to the place nearby where the loop joins best.",
 ]
 
 ABOUT = [
