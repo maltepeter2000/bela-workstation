@@ -94,6 +94,8 @@ test: $(ENGINE) $(wildcard engine/*.h) $(wildcard $(TESTDIR)/*.cpp)
 	../build/test_wave
 	$(CXX) $(SAN) -o ../build/test_surface $(TESTDIR)/test_surface.cpp engine/eps_surface.cpp
 	../build/test_surface
+	$(CXX) $(SAN) -o ../build/test_es5510 $(TESTDIR)/test_es5510.cpp engine/es5510.cpp
+	../build/test_es5510
 
 # Tools: eps_dump (list an image, show an instrument, write its wavesamples as WAV),
 # demo_real (render a demo of an instrument file), read_all_files (check an image's FAT),
