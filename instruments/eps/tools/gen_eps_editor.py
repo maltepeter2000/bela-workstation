@@ -39,7 +39,7 @@ assert not set(ALL) & set(EDIT)
 
 CW, ROWH, X0 = 80, 88, 10
 BAND_Y = 44
-BAND_H = 124
+BAND_H = 150
 TOP = BAND_Y + BAND_H + 10
 X1 = X0 + 8 * CW + 30
 BAND = (S.YELLOW, S.ROW)
@@ -112,6 +112,15 @@ def top_band(c):
     c.add(f"#X symbolatom {X0 + 330} {y + 98} 14 0 0 0 - - {D}0-newname;")
     bng(c, X0 + 432, y + 98, "saveas", "save as")
     bng(c, X0 + 520, y + 98, "mkdir", "new folder")
+    # the instrument locations 1-8 (as the INSTRUMENT buttons): each plays on its channel
+    c.add(f"#X text {X0} {y + 124} instrument;")
+    bng(c, X0 + 70, y + 124, "iprev", "")
+    c.add(f"#X floatatom {X0 + 92} {y + 124} 2 1 8 0 - {D}0-instselv {D}0-instsel;")
+    bng(c, X0 + 116, y + 124, "inext", "")
+    c.add(f"#X symbolatom {X0 + 140} {y + 124} 14 0 0 0 - {D}0-instnamev -;")
+    c.add(f"#X text {X0 + 250} {y + 124} its MIDI ch;")
+    c.add(f"#X floatatom {X0 + 322} {y + 124} 3 0 16 0 - {D}0-instchv {D}0-instch;")
+    bng(c, X0 + 360, y + 124, "instdel", "delete instrument")
     select_band(c)
 
 
@@ -318,7 +327,7 @@ def logic():
     rr = c.add(f"#X obj 110 {y} r {D}0-refresh;")
     dl = c.add(f"#X obj 10 {y + 30} del 800;")
     c.conn(lb, 0, dl, 0); c.conn(rr, 0, dl, 0)
-    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump {COMMA} browse {COMMA} rec status {COMMA} cmd status {COMMA} fx, f 70;")
+    allm = c.add(f"#X msg 10 {y + 60} status {COMMA} " + f" {COMMA} ".join(f"ninfo {n}" for n in ALL) + f" {COMMA} edump {COMMA} browse {COMMA} rec status {COMMA} cmd status {COMMA} fx {COMMA} inst, f 70;")
     c.conn(dl, 0, allm, 0)
     s2 = c.add(f"#X obj 10 {y + 330} s {D}1;")
     c.conn(allm, 0, s2, 0)
@@ -335,6 +344,9 @@ def logic():
     send(930, yp, "ch", f"channel {D}1")
     send(1050, yp, "tx", f"txchannel {D}1")
     send(1290, yp, "thru", f"thru {D}1")
+    for k, (recv, text) in enumerate([("instsel", f"inst {D}1"), ("iprev", "inststep -1"), ("inext", "inststep 1"),
+                                      ("instch", f"instch {D}1"), ("instdel", "instdelete")]):
+        send(1410 + 120 * k, yp, recv, text)
     # selection
     ye = yp + 110
     send(10, ye, "lsel", f"sel layer {D}1")
@@ -408,6 +420,14 @@ def logic():
             s = c.add(f"#X obj {x} {y2 + 120} s {D}0-{dest};"); c.conn(m, 0, s, 0)
         return m
 
+    # the instrument locations: instsel k, instcur name channel
+    rp = c.add(f"#X obj 1300 {y2 + 30} route instsel instcur;"); c.conn(ro, 0, rp, 0)
+    mi = c.add(f"#X msg 1300 {y2 + 60} set {D}1;"); c.conn(rp, 0, mi, 0)
+    si = c.add(f"#X obj 1300 {y2 + 90} s {D}0-instselv;"); c.conn(mi, 0, si, 0)
+    ui = c.add(f"#X obj 1400 {y2 + 60} unpack s f;"); c.conn(rp, 1, ui, 0)
+    for j, dest in enumerate(["instnamev", "instchv"]):
+        m = c.add(f"#X msg {1400 + 80 * j} {y2 + 90} set {D}1;"); c.conn(ui, j, m, 0)
+        s_ = c.add(f"#X obj {1400 + 80 * j} {y2 + 120} s {D}0-{dest};"); c.conn(m, 0, s_, 0)
     show(520, 1, f"set {D}1", "namev")
     show(640, 2, f"set {D}1", "presetv")
     show(760, 3, f"set {D}1", "folderv")

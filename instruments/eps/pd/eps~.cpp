@@ -605,6 +605,23 @@ struct LkScreen {
     float db = -100.f;                   // the level on the SAMPLE page
 };
 
+// The instrument locations 1-8, as the INSTRUMENT buttons of the EPS: one sampler each, one
+// effect, one loader, one surface for all. The selected one lives in t_eps (sampler, entry,
+// value ...); the others here.
+constexpr int kParts = 8;
+struct Part {
+    eps::Sampler* sampler = nullptr;     // (not the selected one's: that is t_eps::sampler)
+    LibEntry entry;
+    std::string name;
+    int source = kNone, index = -1;
+    int value[kCtlCount];
+    int channel = 0;                     // its MIDI channel (0: only when selected)
+    float wheel = 0, bend = 0, ctl[3] = {0, 0, 0};
+    bool sustain = false;
+    std::vector<uint8_t> fxInst;         // its instrument effect, as edited
+    bool fxInstSet = false;
+};
+
 struct t_eps {
     t_object obj;
     t_float velocity;
@@ -680,6 +697,9 @@ struct t_eps {
         int pick = 0;
     }* fx;
     t_clock* fxclock;                    // the effect's real-time routine, 77 Hz
+    Part* parts;                         // the instrument locations 1-8
+    int sel;                             // the selected one (0-7)
+    std::vector<float>* tmp;             // the other locations' audio, one block (10 channels)
 };
 
 void out_value(t_eps* x, const char* key, t_float v) {
@@ -872,10 +892,23 @@ void out_edump(t_eps* x, const char* scopes) {
 }
 
 // The controls -> the sampler.
+void apply_values(eps::Sampler* s, const int* v, float wheel, const float* ctl, float bend, bool sustain);
+
 void apply(t_eps* x) {
-    eps::Sampler* s = x->sampler;
+    apply_values(x->sampler, x->value, x->wheel, x->ctl, x->bend, x->sustain);
+}
+
+// A location's sampler (the selected one's or one of the others).
+eps::Sampler* part_sampler(t_eps* x, int k) { return k == x->sel ? x->sampler : x->parts[k].sampler; }
+
+void apply_part(t_eps* x, int k) {
+    if (k == x->sel) { apply(x); return; }
+    const Part& p = x->parts[k];
+    apply_values(p.sampler, p.value, p.wheel, p.ctl, p.bend, p.sustain);
+}
+
+void apply_values(eps::Sampler* s, const int* v, float wheel, const float* ctl, float bend, bool sustain) {
     if (!s) return;
-    const int* v = x->value;
     eps::Sampler::Offsets o;
     o.cutoff = v[kC_cut];
     o.cutoff2 = v[kC_cut2];
@@ -895,12 +928,12 @@ void apply(t_eps* x) {
     s->setVolume(v[kC_volume] / 100.f);
     if (s->voices() != v[kC_voices]) s->setVoices(v[kC_voices]);
     s->setPatch(v[kC_patch]);
-    s->setModWheel(x->wheel);
-    s->setPressure(x->ctl[0]);
-    s->setPedal(x->ctl[1]);
-    s->setXctrl(x->ctl[2]);
-    s->setBend(x->bend);
-    s->setSustain(x->sustain);
+    s->setModWheel(wheel);
+    s->setPressure(ctl[0]);
+    s->setPedal(ctl[1]);
+    s->setXctrl(ctl[2]);
+    s->setBend(bend);
+    s->setSustain(sustain);
 }
 
 void report(t_eps* x) {
@@ -1267,6 +1300,8 @@ void fx_tick(t_eps* x) {
     clock_delay(x->fxclock, 1000.0 / 77.0);
 }
 
+void out_part(t_eps* x, int k);
+
 void eps_poll(t_eps* x) {
     Loader& L = *x->loader;
     if (L.state.load() == 3) {
@@ -1318,6 +1353,7 @@ void eps_poll(t_eps* x) {
                 report(x);
             }
             out_source(x);
+            out_part(x, x->sel);
             const eps::Instrument& in = x->sampler->instrument();
             if (made && x->rec->result && x->jobkind == 2) {
                 x->editor->layer = x->rec->result->layer;
@@ -2166,6 +2202,143 @@ void eps_sx_tick(t_eps* x) {
     if (x->sysex->busy()) clock_delay(x->sxclock, 20);
 }
 
+// ---- the instrument locations 1-8 ------------------------------------------------------
+
+std::string part_name(t_eps* x, int k) {
+    const std::string& n = k == x->sel ? *x->name : x->parts[k].name;
+    return part_sampler(x, k) && !n.empty() ? n : "EMPTY";
+}
+
+// inst k name channel: one location; instsel k: the selected one
+void out_part(t_eps* x, int k) {
+    t_atom a[3];
+    SETFLOAT(&a[0], k + 1);
+    SETSYMBOL(&a[1], gensym(spaces_to_underscore(part_name(x, k)).c_str()));
+    SETFLOAT(&a[2], x->parts[k].channel);
+    outlet_anything(x->info, gensym("inst"), 3, a);
+    if (k == x->sel) outlet_anything(x->info, gensym("instcur"), 2, a + 1);   // the editor
+}
+
+// Select location k (as an INSTRUMENT button): what was selected keeps playing on its channel.
+bool select_part(t_eps* x, int k) {
+    if (k < 0 || k >= kParts) return false;
+    const std::string label = "INST " + std::to_string(k + 1);
+    if (k == x->sel) { out_display(x, label, part_name(x, k)); return true; }
+    if (x->loader->state.load() != 0 || x->pending || x->rec->waiting || x->rec->state != Recorder::Off) {
+        out_display(x, label, "busy: loading or sampling");
+        return false;
+    }
+    wave_settle(x);                                  // KEEP: what plays
+    t_eps::Fx& F = *x->fx;
+    fx_park(x);
+    Part& o = x->parts[x->sel];
+    o.sampler = x->sampler;
+    o.entry = *x->entry;
+    o.name = *x->name;
+    o.source = x->source;
+    o.index = x->index;
+    std::copy(x->value, x->value + kCtlCount, o.value);
+    o.wheel = x->wheel; o.bend = x->bend; std::copy(x->ctl, x->ctl + 3, o.ctl); o.sustain = x->sustain;
+    o.fxInst = F.inst;
+    o.fxInstSet = F.instSet;
+    Part& p = x->parts[k];
+    x->sampler = p.sampler;
+    p.sampler = nullptr;
+    *x->entry = p.entry;
+    *x->name = p.name;
+    x->source = p.source;
+    x->index = p.index;
+    std::copy(p.value, p.value + kCtlCount, x->value);
+    x->wheel = p.wheel; x->bend = p.bend; std::copy(p.ctl, p.ctl + 3, x->ctl); x->sustain = p.sustain;
+    F.inst = p.fxInst;
+    F.instSet = p.fxInstSet;
+    x->sel = k;
+    if (F.mode == 1) fx_play(x);                     // FX=INST: the selected instrument's effect
+    else fx_page_out(x);
+    for (int& v : x->shown) v = INT32_MIN;           // the controller layer follows
+    report(x);
+    if (x->sampler) {
+        x->editor->fit(x->sampler->instrument());
+        out_sel(x);
+        out_edump(x, "ilmwepf");
+    }
+    out_value(x, "instsel", k + 1);
+    out_part(x, k);
+    out_display(x, label, part_name(x, k));
+    lk_refresh(x, true);
+    return true;
+}
+
+// DELETE INSTRUMENT: location k empty (its notes stop).
+void delete_part(t_eps* x, int k) {
+    if (k == x->sel) {
+        if (x->loader->state.load() != 0) return;
+        wave_settle(x);
+        if (x->sampler) {
+            std::lock_guard<std::mutex> g(x->loader->m);
+            x->loader->trash.emplace_back(x->sampler);
+        }
+        x->sampler = nullptr;
+        *x->name = "";
+        *x->entry = LibEntry();
+        x->source = kNone;
+        x->fx->inst.clear();
+        x->fx->instSet = false;
+        if (x->fx->mode == 1) fx_play(x);
+    } else {
+        Part& p = x->parts[k];
+        if (p.sampler) {
+            std::lock_guard<std::mutex> g(x->loader->m);
+            x->loader->trash.emplace_back(p.sampler);
+        }
+        p.sampler = nullptr;
+        p.name.clear();
+        p.fxInst.clear();
+        p.fxInstSet = false;
+    }
+    out_part(x, k);
+    out_display(x, "INST " + std::to_string(k + 1), "deleted");
+}
+
+// A MIDI message for a location that is not selected (on its channel).
+void part_midi(t_eps* x, int k, int status, int d1, int d2) {
+    Part& p = x->parts[k];
+    eps::Sampler* s = p.sampler;
+    switch (status & 0xF0) {
+        case 0x90:
+            if (!s) return;
+            if (d2 > 0) s->noteOn(d1, d2);
+            else s->noteOff(d1);
+            return;
+        case 0x80:
+            if (s) s->noteOff(d1);
+            return;
+        case 0xB0:
+            if (d1 == p.value[kC_xcc]) p.ctl[2] = d2 / 127.0f;
+            else if (d1 == 1) p.wheel = d2 / 127.0f;
+            else if (d1 == 4) p.ctl[1] = d2 / 127.0f;
+            else if (d1 == 7) p.value[kC_volume] = std::clamp(d2, 0, 127);
+            else if (d1 == 64) p.sustain = d2 >= 64;
+            else if ((d1 == 120 || d1 == 123) && s) { s->allNotesOff(); return; }
+            else return;
+            apply_part(x, k);
+            return;
+        case 0xA0:
+            if (s) s->setPolyPressure(d1, d2 / 127.0f);
+            return;
+        case 0xD0:
+            p.ctl[0] = d1 / 127.0f;
+            if (s) s->setPressure(p.ctl[0]);
+            return;
+        case 0xE0:
+            p.bend = ((d2 << 7 | d1) - 8192) / 8192.0f;
+            if (s) s->setBend(p.bend);
+            return;
+        default:
+            return;
+    }
+}
+
 void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     const char* c = s->s_name;
     const t_float f = argc > 0 ? atom_getfloat(argv) : 0;
@@ -2584,6 +2757,25 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
     } else if (is("channel")) {
         x->channel = std::clamp(n, 0, 16);
         out_value(x, "channel", x->channel);
+    } else if (is("inst")) {     // inst k: select location k (1-8); inst: the list
+        if (argc >= 1) select_part(x, n - 1);
+        else {
+            out_value(x, "instsel", x->sel + 1);
+            for (int k = 0; k < kParts; ++k) out_part(x, k);
+        }
+    } else if (is("inststep")) { // inststep 1 / -1: the next / previous location
+        select_part(x, ((x->sel + (n < 0 ? -1 : 1)) % kParts + kParts) % kParts);
+    } else if (is("instch")) {   // instch k ch: the MIDI channel of location k (0 = only selected);
+        if (argc >= 2 && n >= 1 && n <= kParts) {   // instch ch: of the selected one
+            x->parts[n - 1].channel = std::clamp(static_cast<int>(atom_getfloat(argv + 1)), 0, 16);
+            out_part(x, n - 1);
+        } else if (argc == 1) {
+            x->parts[x->sel].channel = std::clamp(n, 0, 16);
+            out_part(x, x->sel);
+        }
+    } else if (is("instdelete")) {   // instdelete [k]: DELETE INSTRUMENT (default the selected)
+        const int k = argc >= 1 ? n - 1 : x->sel;
+        if (k >= 0 && k < kParts) delete_part(x, k);
     } else if (is("txchannel")) {
         x->txchannel = std::clamp(n, 1, 16);
         out_value(x, "txchannel", x->txchannel);
@@ -2825,8 +3017,20 @@ void eps_note(t_eps* x, t_float note, t_float velocity) {
 
 void eps_float(t_eps* x, t_float f) { eps_note(x, f, x->velocity); }
 
+void part_midi(t_eps* x, int k, int status, int d1, int d2);
+
 void eps_list(t_eps* x, t_symbol*, int argc, t_atom* argv) {
-    if (argc >= 3 && x->channel && static_cast<int>(atom_getfloat(argv + 2)) != x->channel) return;
+    if (argc >= 3 && x->channel && static_cast<int>(atom_getfloat(argv + 2)) != x->channel) {
+        const int chan = static_cast<int>(atom_getfloat(argv + 2));   // the locations on it
+        const int nt = std::clamp(static_cast<int>(atom_getfloat(argv)), 0, 127);
+        const int vel = std::clamp(static_cast<int>(atom_getfloat(argv + 1)), 0, 127);
+        for (int k = 0; k < kParts; ++k)
+            if (x->parts[k].channel == chan) {
+                if (k == x->sel) eps_note(x, nt, vel);
+                else part_midi(x, k, 0x90, nt, vel);
+            }
+        return;
+    }
     if (argc >= 2) eps_note(x, atom_getfloat(argv), atom_getfloat(argv + 1));
     else if (argc == 1) eps_float(x, atom_getfloat(argv));
 }
@@ -2836,6 +3040,8 @@ void eps_proxy_anything(t_eps_proxy* p, t_symbol* s, int argc, t_atom* argv) {
 }
 
 // ---- raw MIDI -------------------------------------------------------------------
+
+void midi_selected(t_eps* x, int status, int d1, int d2);
 
 void midi_message(t_eps* x, int status, int d1, int d2) {
     const int type = status & 0xF0;
@@ -2857,8 +3063,27 @@ void midi_message(t_eps* x, int status, int d1, int d2) {
         const int t = status & 0xF0;
         if (t != 0xC0 && t != 0xD0) outlet_float(x->info, d2);
     }
-    if (x->channel && (status & 0x0F) + 1 != x->channel) return;
+    const int chan = (status & 0x0F) + 1;
+    if (x->channel && chan != x->channel) {          // another channel: the locations on it
+        for (int k = 0; k < kParts; ++k)
+            if (x->parts[k].channel == chan) {
+                if (k != x->sel) part_midi(x, k, status, d1, d2);
+                else midi_selected(x, status, d1, d2);
+            }
+        return;
+    }
+    midi_selected(x, status, d1, d2);
+}
+
+// The selected location: the base channel (the keys), or its own channel.
+void midi_selected(t_eps* x, int status, int d1, int d2) {
+    const int type = status & 0xF0;
     eps::Sampler* s = x->sampler;
+    if (x->lkOn && type == 0x90 && d2 > 0 && x->lk->selHeld && x->lk->mode == eps::Surface::Play) {
+        x->lk->keyUsed();                            // PLAY: SEL + C .. G = INST 1-8
+        if (d1 % 12 < kParts) select_part(x, d1 % 12);
+        return;
+    }
     if (x->lkOn && type == 0x90 && d2 > 0 && x->lk->selHeld) {   // SEL + key: select, silently
         x->lk->keyUsed();
         if (s && x->editor->followKey(s->instrument(), d1, s->instrument().patches[std::clamp(x->value[kC_patch], 0, 3)])) {
@@ -3002,11 +3227,25 @@ t_int* eps_perform(t_int* w) {
     if (mon) std::copy(in, in + n, R.mon.begin());
     record_block(R, in, n);
     t_eps::Fx& F = *x->fx;
-    if (x->sampler && F.on && F.m.loaded() && static_cast<int>(F.ch[0].size()) >= n) {
+    // the other locations (each its own chip, all into the one effect)
+    std::vector<float>* T = x->tmp;
+    const bool tmpOk = static_cast<int>(T[0].size()) >= n;
+    bool any = x->sampler != nullptr;
+    for (int k = 0; k < kParts; ++k) any = any || (k != x->sel && x->parts[k].sampler);
+    if (any && F.on && F.m.loaded() && static_cast<int>(F.ch[0].size()) >= n && tmpOk) {
         // the chip's channels: 0, 2, 3 into the ESP (at its rate), 1 (aux) dry
         float* ch[8];
         for (int c = 0; c < 8; ++c) ch[c] = F.ch[c].data();
-        x->sampler->processChannels(ch, n);
+        if (x->sampler) x->sampler->processChannels(ch, n);
+        else for (int c = 0; c < 8; ++c) std::fill(ch[c], ch[c] + n, 0.f);
+        for (int k = 0; k < kParts; ++k) {
+            if (k == x->sel || !x->parts[k].sampler) continue;
+            float* tc[8];
+            for (int c = 0; c < 8; ++c) tc[c] = T[c].data();
+            x->parts[k].sampler->processChannels(tc, n);
+            for (int c = 0; c < 8; ++c)
+                for (int i = 0; i < n; ++i) ch[c][i] += tc[c][i];
+        }
         const double step = x->sr / F.m.rate();   // Pd samples per ESP frame
         static const int kIn[6] = {0, 1, 4, 5, 6, 7};
         const float wet = float(x->value[kC_fxmix]) / 127.f;
@@ -3043,11 +3282,17 @@ t_int* eps_perform(t_int* w) {
             }
         }
         if (F.clock > 1e9) { F.clock -= 1e9; F.next -= 1e9; F.t0 -= 1e9; F.t1 -= 1e9; }
-    } else if (x->sampler) {
-        x->sampler->process(l, r, n);
     } else {
-        std::fill(l, l + n, 0.0f);
-        std::fill(r, r + n, 0.0f);
+        if (x->sampler) x->sampler->process(l, r, n);
+        else {
+            std::fill(l, l + n, 0.0f);
+            std::fill(r, r + n, 0.0f);
+        }
+        for (int k = 0; k < kParts && tmpOk; ++k) {
+            if (k == x->sel || !x->parts[k].sampler) continue;
+            x->parts[k].sampler->process(T[8].data(), T[9].data(), n);
+            for (int i = 0; i < n; ++i) { l[i] += T[8][size_t(i)]; r[i] += T[9][size_t(i)]; }
+        }
     }
     if (mon)
         for (int i = 0; i < n; ++i) { l[i] += R.mon[size_t(i)]; r[i] += R.mon[size_t(i)]; }
@@ -3058,7 +3303,10 @@ void eps_dsp(t_eps* x, t_signal** sp) {
     x->sr = sp[0]->s_sr;
     x->rec->mon.assign(static_cast<size_t>(sp[0]->s_n), 0.f);
     for (auto& c : x->fx->ch) c.assign(static_cast<size_t>(sp[0]->s_n), 0.f);
+    for (int c = 0; c < 10; ++c) x->tmp[c].assign(static_cast<size_t>(sp[0]->s_n), 0.f);
     if (x->sampler) x->sampler->setSampleRate(x->sr);
+    for (int k = 0; k < kParts; ++k)
+        if (x->parts[k].sampler) x->parts[k].sampler->setSampleRate(x->sr);
     // sp[0]: the audio to sample (inlet 4), sp[1], sp[2]: left, right
     dsp_add(eps_perform, 5, x, sp[0]->s_vec, sp[1]->s_vec, sp[2]->s_vec, static_cast<t_int>(sp[0]->s_n));
 }
@@ -3100,6 +3348,13 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     for (int& v : x->shown) v = INT32_MIN;
     x->poll = clock_new(x, reinterpret_cast<t_method>(eps_poll));
     x->fx = new t_eps::Fx();
+    x->parts = new Part[kParts];
+    x->sel = 0;
+    x->tmp = new std::vector<float>[10];
+    for (int k = 0; k < kParts; ++k) {
+        x->parts[k].channel = k + 1;                 // location k on channel k
+        std::copy(x->value, x->value + kCtlCount, x->parts[k].value);
+    }
     x->fxclock = clock_new(x, reinterpret_cast<t_method>(fx_tick));
     clock_delay(x->fxclock, 13);
     x->sxclock = clock_new(x, reinterpret_cast<t_method>(eps_sx_tick));
@@ -3168,6 +3423,9 @@ void eps_free(t_eps* x) {
     if (x->loader->thread.joinable()) x->loader->thread.join();
     delete x->loader;
     delete x->sampler;
+    for (int k = 0; k < kParts; ++k) delete x->parts[k].sampler;
+    delete[] x->parts;
+    delete[] x->tmp;
     delete x->midi;
     delete x->entry;
     delete x->pending_entry;

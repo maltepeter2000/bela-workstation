@@ -61,6 +61,18 @@ variation, page; load effect < > load, copy to bank, copy to inst, save bank fx.
 EFFECT? / DELETE INST EFFECT? (SEL + CMD: next, CMD: do it; `fxdelete`); VAR is the first encoder. The descriptors: flags $80 start
 a group, $C0 continue its name, $E0 repeat it unnamed; lists are [lo][names][width][last].
 FX mix (P2 encoder 5, `fxmix`) blends the effect output with the voices that went into it.
+
+### Instrument locations 1-8
+
+Like the EPS's INSTRUMENT buttons: `inst k` selects, `inststep ±1`, `instch k ch` (location k
+plays on its channel; at the start k on k; the selected one also on the base channel),
+`instdelete [k]`; outlet `inst k name ch`, `instsel k`, `instcur name ch`. Each location has
+its own sampler (chip); all go into the one effect (FX=INST: the selected one's). The selected
+location lives in t_eps (sampler, entry, controls, editor), the others in `Part`; selecting
+swaps them, so loading, editing, sampling and saving work on the selected one unchanged.
+Launchkey PLAY: SEL + a key C..G = location 1-8. Editor: PATCH band, row instrument.
+Not yet: a common voice pool (each location has its own voices), program change on the other
+channels.
 Not yet: the X-IN effects (audio input into
 the ESP).
 

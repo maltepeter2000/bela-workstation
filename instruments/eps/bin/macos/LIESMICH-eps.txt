@@ -29,6 +29,13 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    Dort O/N = FX= weiter; SEL + O/N = LOAD EFFECT (nochmal: nächste Datei), O/N lädt;
    CMD = COPY TO BANK? (SEL + CMD: COPY TO INST?, SAVE BANK EFFECT?, DELETE INST EFFECT?), CMD nochmal führt aus.
    FX mix (P2, Encoder 5): 127 = Effekt wie gespeichert, 0 = ohne Effekt.
+   Instrument-Plätze 1-8 wie die INSTRUMENT-Tasten am EPS: jeder Platz hält ein Instrument
+   und spielt auf seinem MIDI-Kanal (anfangs Platz k auf Kanal k); der gewählte spielt
+   außerdem auf dem Kanal der Tasten. Laden, Editieren, Sampeln, Speichern und die Regler
+   gelten dem gewählten. Editor: PATCH-Leiste, Zeile "instrument" (< >, Name, Kanal, delete).
+   Launchkey PLAY: SEL halten + Taste C bis G = Platz 1-8. Messages inst k, instch k ch,
+   instdelete.
+
 4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge). Klick auf das Objekt öffnet den Editor.
    "library N" lädt Instrument N aus dem Ordner eps, Noten auf MIDI-Kanal 1.
 5. Regler: Offsets über dem geladenen Instrument (0 = wie gespeichert). Seite 1 (P1 PERFORM):

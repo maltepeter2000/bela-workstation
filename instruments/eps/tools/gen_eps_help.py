@@ -69,6 +69,12 @@ EDITOR = [
     "- + (what the EPS lets you type), underscore for a space. See Library and saving.",
     "MIDI in: the receive channel, 0 = all. out: the channel of the controller feedback. "
     "thru: see Messages, thru. size: files in the folder, library size: instruments in all.",
+    "instrument: the locations 1-8, as the INSTRUMENT buttons of the EPS. Each holds an "
+    "instrument and plays on its own MIDI channel (its MIDI ch, location k on channel k at "
+    "the start, 0 = only when selected), the selected one also plays on MIDI in (the keys). "
+    "Loading, editing, sampling, saving and the controls act on the selected one. All share "
+    "the one effect (FX=INST: the selected instrument's). delete instrument: the location "
+    "empty.",
     "The other rows edit the loaded instrument itself (mouse only, see Instrument rows). "
     "SELECT band: the layer and the wavesample the LAYER and WS rows show, with their names "
     "and the key range, root key, rate and length of the wavesample. envelope: which one the "
@@ -273,6 +279,11 @@ MESSAGES = [
     "pedal f, xctrl f: the sources PEDAL and XCTRL, 0 to 1.",
     "sustain 0/1: hold pedal.",
     "channel n: MIDI receive channel, 0 is all.",
+    "inst k: select location k (1-8), inst: all (outlet inst k",
+    "  name channel, instsel k, instcur name channel). inststep",
+    "  1 / -1. instch k ch: the channel of location k (0: only",
+    "  selected), instch ch: of the selected. instdelete [k]:",
+    "  DELETE INSTRUMENT (default the selected).",
     "txchannel n: channel of the controller feedback, 1 to 16.",
     "thru 0/1: MIDI thru, on by default.",
     "status: report instrument, channels, library size and",
@@ -465,7 +476,8 @@ LAUNCHKEY = [
     "selected). Also: 38 INIT (twice), 39 PAT> 47 PAT< (patch select, pink), 41 SMPL (red), "
     "46 SAVE (SAVE TO?: go to the folder with > < OPEN EXIT, SAVE again: a copy with a free "
     "name there, another pad: no), 48 SEL (held + OPEN: DELETE? the entry shown, SEL: yes, "
-    "another pad: no, a folder only when empty), 51 MODE. The encoders: CC page 1 of the "
+    "another pad: no, a folder only when empty), 51 MODE. SEL held + a key C to G (any "
+    "octave): select instrument location 1-8. The encoders: CC page 1 of the "
     "Launchkey is P1 PERFORM, page 2 is P2 PLAY (the same CC numbers as the controller layer "
     "of the Bela).",
     "EDIT pads, top row: the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (pressed again: "
