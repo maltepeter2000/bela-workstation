@@ -7,7 +7,7 @@
 # Needs no data files to build. To play, put Ensoniq instruments (EFE) or disk images
 # (IMG, EDE, EDA, GKH) into a folder eps/ beside your patch (or beside the external).
 
-ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp engine/eps_fs.cpp engine/eps_sysex.cpp engine/eps_record.cpp engine/eps_wave.cpp engine/eps_surface.cpp engine/es5510.cpp engine/eps_fx.cpp
+ENGINE = engine/eps_loader.cpp engine/es5505.cpp engine/eps_sampler.cpp engine/eps_edit.cpp engine/eps_fs.cpp engine/eps_sysex.cpp engine/eps_record.cpp engine/eps_wave.cpp engine/eps_surface.cpp engine/es5510.cpp engine/eps_fx.cpp engine/eps_bank.cpp
 # the 68000 of the effect machine (Musashi, MIT; C): compiled as C, linked in
 MUSASHI = ../third_party/musashi/m68kcpu.c ../third_party/musashi/m68kops.c
 MUSASHI_FLAGS = -DM68K_INSTRUCTION_HOOK=M68K_OPT_ON -I../third_party/musashi
@@ -112,6 +112,8 @@ test: $(MUSASHI_O) $(ENGINE) $(wildcard engine/*.h) $(wildcard $(TESTDIR)/*.cpp)
 	../build/test_surface
 	$(CXX) $(SAN) -o ../build/test_es5510 $(TESTDIR)/test_es5510.cpp engine/es5510.cpp
 	../build/test_es5510
+	$(CXX) $(SAN) -o ../build/test_bank $(TESTDIR)/test_bank.cpp engine/eps_bank.cpp
+	../build/test_bank
 
 # Tools: eps_dump (list an image, show an instrument, write its wavesamples as WAV),
 # demo_real (render a demo of an instrument file), read_all_files (check an image's FAT),

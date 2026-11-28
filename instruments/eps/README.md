@@ -73,6 +73,20 @@ swaps them, so loading, editing, sampling and saving work on the selected one un
 Launchkey PLAY: SEL + a key C..G = location 1-8. Editor: PATCH band, row instrument.
 Not yet: a common voice pool (each location has its own voices), program change on the other
 channels.
+
+### Banks (type 23)
+
+`engine/eps_bank.*` after Thoralt Franz's bank format (v0.7), checked on five EPS-16 PLUS
+banks (parse and rebuild byte for byte): a 1536-byte header (name, track mask, 9 file blocks
+of directory indices from the root, volume/output, pan/effect control, 8 performance presets
+kept as they are), then the bank effect as an effect block. Loading (benter / nav open on a
+bank in an image or an EFE at the top): all locations emptied, each track's file found by its
+indices in the same image (EFE banks: their files cannot be found), loaded one after the other
+into its location with its volume; the bank effect becomes FX=BANK. `banksave [name]` writes
+into the folder shown of an image (the instruments must be on that disk; two locations with the
+same file = a copy), device from the bank loaded or guessed (`bankdevice n`), the disk name
+from the image's label. Not checked on a real EPS yet; output, pan and effect control are kept
+but not played.
 Not yet: the X-IN effects (audio input into
 the ESP).
 

@@ -144,6 +144,7 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
     if (!down) return {};
     if (saveTo && !(mode == Play && (i == 0 || i == 8 || i == 6 || i == 14 || i == 10))) {
         saveTo = false;                          // SAVE TO?: a pad other than the browser's: no
+        saveBank = false;
         if (i != 15) return {"@cancel"};
     }
     if (i == 15) return setMode(mode == Play ? Edit : Play);   // MODE, the same pad in both
@@ -161,8 +162,14 @@ Surface::Actions Surface::pad(int note, bool down, double now, const Status &st)
                 initArm_ = now;
                 return {"@ask INIT"};
             case 10:                             // SAVE TO? then navigate, SAVE again: save
-                if (saveTo) { saveTo = false; return {"save"}; }
+                if (saveTo) {
+                    saveTo = false;
+                    const bool b = saveBank;
+                    saveBank = false;
+                    return {b ? "banksave" : "save"};
+                }
                 saveTo = true;
+                saveBank = selHeld;              // SEL + SAVE: the bank
                 return {"@saveto"};
             case 3: return {"cycle patch"};
             case 11: return {"cycle patch -1"};

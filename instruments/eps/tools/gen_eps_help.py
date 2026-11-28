@@ -74,7 +74,10 @@ EDITOR = [
     "the start, 0 = only when selected), the selected one also plays on MIDI in (the keys). "
     "Loading, editing, sampling, saving and the controls act on the selected one. All share "
     "the one effect (FX=INST: the selected instrument's). delete instrument: the location "
-    "empty.",
+    "empty. save bank: the locations, their volumes and the bank effect as a bank file into "
+    "the folder shown of a disk image (the instruments must be on that disk). A bank in the "
+    "folder list loads with open: all locations emptied, the bank's instruments into theirs, "
+    "the bank effect (FX=BANK).",
     "The other rows edit the loaded instrument itself (mouse only, see Instrument rows). "
     "SELECT band: the layer and the wavesample the LAYER and WS rows show, with their names "
     "and the key range, root key, rate and length of the wavesample. envelope: which one the "
@@ -284,6 +287,13 @@ MESSAGES = [
     "  1 / -1. instch k ch: the channel of location k (0: only",
     "  selected), instch ch: of the selected. instdelete [k]:",
     "  DELETE INSTRUMENT (default the selected).",
+    "banksave [name]: SAVE BANK into the folder shown of an",
+    "  image: the locations (their files on that disk, a copy",
+    "  when two hold the same), volumes, the bank effect.",
+    "  bankdevice n: the device written (0 floppy, 1-8 SCSI",
+    "  0-7, -1 as loaded or guessed). A bank (type 23, in an",
+    "  image or an EFE at the top) loads with benter / nav",
+    "  open (outlet bank name).",
     "txchannel n: channel of the controller feedback, 1 to 16.",
     "thru 0/1: MIDI thru, on by default.",
     "status: report instrument, channels, library size and",
@@ -477,7 +487,8 @@ LAUNCHKEY = [
     "46 SAVE (SAVE TO?: go to the folder with > < OPEN EXIT, SAVE again: a copy with a free "
     "name there, another pad: no), 48 SEL (held + OPEN: DELETE? the entry shown, SEL: yes, "
     "another pad: no, a folder only when empty), 51 MODE. SEL held + a key C to G (any "
-    "octave): select instrument location 1-8. The encoders: CC page 1 of the "
+    "octave): select instrument location 1-8. SEL + SAVE: SAVE BANK TO? (the same, then the "
+    "bank). OPEN on a bank loads it. The encoders: CC page 1 of the "
     "Launchkey is P1 PERFORM, page 2 is P2 PLAY (the same CC numbers as the controller layer "
     "of the Bela).",
     "EDIT pads, top row: the areas INST LAYER WAVE PITCH FILTER AMP LFO ENV (pressed again: "

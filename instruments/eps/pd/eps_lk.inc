@@ -430,11 +430,12 @@ void lk_draw(t_eps* x, lkg_t* g, int kind) {
 void lk_show_nav(t_eps* x) {
     const std::vector<BItem> v = folder_items(*x->bfile, *x->bdir);
     std::string where = x->bfile->empty() ? std::string("LIBRARY") : folder_text(*x->bfile, *x->bdir);
-    if (x->lk->saveTo) where = "SAVE TO " + where;
+    if (x->lk->saveTo) where = (x->lk->saveBank ? "SAVE BANK TO " : "SAVE TO ") + where;
     where = lk_up(where, 21);
     std::string a, b;
     if (v.empty()) a = "EMPTY";
     else if (v[size_t(x->bsel)].kind == 'D') lk_split("> " + v[size_t(x->bsel)].name, a, b);
+    else if (v[size_t(x->bsel)].kind == 'B') lk_split("BANK " + v[size_t(x->bsel)].name, a, b);
     else lk_split(v[size_t(x->bsel)].name, a, b);
     if (!lk_drawing(x)) out_display_text(x, where, a + (b.empty() ? "" : " " + b));
     else lk_screen(x, 10, where, a, b);

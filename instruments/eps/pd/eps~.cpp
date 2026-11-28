@@ -92,6 +92,7 @@
 
 extern "C" {
 #include "m_pd.h"
+#include <sys/stat.h>
 }
 
 #include "eps_sampler.h"
@@ -102,6 +103,7 @@ extern "C" {
 #include "eps_wave.h"
 #include "eps_surface.h"
 #include "eps_fx.h"
+#include "eps_bank.h"
 #include "../../../common/gfx/lkgfx_pd.h"
 
 #include <strings.h>
@@ -245,6 +247,7 @@ struct FxSource {
     uint32_t offset = 0, size = 0;       // R
 };
 std::vector<FxSource> g_fxRomList, g_fxFileList;
+std::vector<std::string> g_bankFiles;  // bank EFEs (type 23) at the top of the library
 
 // An EFE's file type (header byte $32), -1 if it is no EFE
 int efe_type(const std::string& path) {
@@ -318,6 +321,7 @@ int scan_library(const std::string& dir) {
     g_lib.clear();
     g_files.clear();
     g_fxFileList.clear();
+    g_bankFiles.clear();
     g_lib_dir = dir;
     std::vector<std::string> files;
 #ifndef _WIN32
@@ -333,6 +337,8 @@ int scan_library(const std::string& dir) {
                 f.kind = 'F';
                 f.file = full;
                 g_fxFileList.push_back(f);
+            } else if (t == 23) {                // a bank: in the browser, OPEN loads it
+                g_bankFiles.push_back(n);
             } else if (t == 27) {                // the OS
             } else if (is_image_name(n)) {
                 files.push_back(n);
@@ -422,7 +428,7 @@ int lib_index(const std::string& file, const std::string& path, int index) {
 }
 
 struct BItem {
-    char kind;            // 'D' folder, 'I' instrument
+    char kind;            // 'D' folder, 'I' instrument, 'B' bank
     std::string name;
     std::string file, path;
     int lib = -1;         // instrument: index in g_lib
@@ -438,6 +444,7 @@ std::vector<BItem> folder_items(const std::string& file, const std::string& dir)
             const int li = lib_index(lf.file, "", 0);
             if (li >= 0) v.push_back({'I', g_lib[size_t(li)].name, lf.file, "", li});
         }
+        for (const std::string& b : g_bankFiles) v.push_back({'B', spaces_to_underscore(efe_title(b)), b, "", -1});
         return v;
     }
     const LibFile* lf = lib_file(file);
@@ -446,6 +453,7 @@ std::vector<BItem> folder_items(const std::string& file, const std::string& dir)
         if (parent_path(e.path) != dir) continue;
         if (e.type == eps::kSubdir) v.push_back({'D', spaces_to_underscore(e.name), file, e.path, -1});
         else if (e.type == eps::kInstrument) v.push_back({'I', spaces_to_underscore(e.name), file, e.path, lib_index(file, e.path, 0)});
+        else if (e.type == eps::kPlusBank) v.push_back({'B', spaces_to_underscore(e.name), file, e.path, -1});
     }
     return v;
 }
@@ -620,6 +628,12 @@ struct Part {
     bool sustain = false;
     std::vector<uint8_t> fxInst;         // its instrument effect, as edited
     bool fxInstSet = false;
+    eps::BankTrack bank;                 // its track of the bank: output, pan, effect control
+};
+
+// A bank being loaded: one location after the other through the loader.
+struct BankJob {
+    int part = 0, lib = -1, volume = 100;
 };
 
 struct t_eps {
@@ -700,6 +714,10 @@ struct t_eps {
     Part* parts;                         // the instrument locations 1-8
     int sel;                             // the selected one (0-7)
     std::vector<float>* tmp;             // the other locations' audio, one block (10 channels)
+    std::vector<BankJob>* bankq;         // a bank loading: the locations still to load
+    int bankFirst;                       // then select this one (-1: no bank loading)
+    eps::Bank* bank;                     // the bank loaded last (its header is kept on saving)
+    int bankDevice;                      // the device written into a bank (-1: as loaded / guessed)
 };
 
 void out_value(t_eps* x, const char* key, t_float v) {
@@ -1301,6 +1319,7 @@ void fx_tick(t_eps* x) {
 }
 
 void out_part(t_eps* x, int k);
+void bank_next(t_eps* x);
 
 void eps_poll(t_eps* x) {
     Loader& L = *x->loader;
@@ -1407,6 +1426,7 @@ void eps_poll(t_eps* x) {
         }
         L.state.store(1);
     }
+    if (x->bankFirst >= 0 && L.state.load() == 0 && !x->pending) { bank_next(x); return; }
     if (L.state.load() != 0 || x->pending || x->rec->waiting) clock_delay(x->poll, 5);
 }
 
@@ -1436,7 +1456,7 @@ void out_folder(t_eps* x) {
     SETFLOAT(&a[0], x->bsel);
     SETFLOAT(&a[1], static_cast<t_float>(v.size()));
     const bool any = !v.empty();
-    SETSYMBOL(&a[2], gensym(any ? (v[size_t(x->bsel)].kind == 'D' ? "dir" : "inst") : "-"));
+    SETSYMBOL(&a[2], gensym(any ? (v[size_t(x->bsel)].kind == 'D' ? "dir" : (v[size_t(x->bsel)].kind == 'B' ? "bank" : "inst")) : "-"));
     const std::string shown = any ? v[size_t(x->bsel)].name + (v[size_t(x->bsel)].kind == 'D' ? "/" : "") : "-";
     SETSYMBOL(&a[3], gensym(shown.c_str()));
     outlet_anything(x->info, gensym("bsel"), 4, a);
@@ -1577,21 +1597,10 @@ std::string free_name(t_eps* x) {
     return base;
 }
 
-// SAVE BANK EFFECT: the bank effect as an effect file (type 24) into the folder shown: into
-// the image, or NAME.efe at the top of the library. A free name (a number added) if taken.
-bool fx_save(t_eps* x, std::string name, std::string& saved, std::string& err) {
-    t_eps::Fx& F = *x->fx;
-    fx_park(x);
-    if (F.bank.empty()) { err = "no bank effect (COPY TO BANK or load an effect first)"; return false; }
-    std::vector<uint8_t> data = F.bank;
-    data.resize((data.size() + 1) & ~size_t(1), 0);
-    {   // the length as the files have it: two words with 12 bits each
-        const uint32_t v = uint32_t(data.size());
-        const uint32_t lo = (v & 0xFFF) << 4, hi = (v >> 12 & 0xFFF) << 4;
-        data[0] = uint8_t(lo >> 8); data[1] = uint8_t(lo); data[2] = uint8_t(hi >> 8); data[3] = uint8_t(hi);
-    }
-    if (name.empty()) name = F.bankName.empty() ? fx_block_name(F.bank) : F.bankName;
-    const std::string base = eps::ensoniqName(name.empty() ? "EFFECT" : name);
+// A file into the folder shown: into the image (a free name: a number added), or NAME.efe at
+// the top of the library (only when efeOk).
+bool write_shown(t_eps* x, const std::string& base, int type, const std::vector<uint8_t>& data, bool efeOk,
+                 std::string& saved, std::string& err) {
     const LibFile* lf = x->bfile->empty() ? nullptr : lib_file(*x->bfile);
     auto numbered = [&](int k) {
         if (k == 0) return base;
@@ -1619,10 +1628,11 @@ bool fx_save(t_eps* x, std::string name, std::string& saved, std::string& err) {
         }
         int slot = -1;
         bool exists = false;
-        if (!vol.writeFile(dir, nm, eps::kPlusFx, data, -1, slot, exists, err)) return false;
+        if (!vol.writeFile(dir, nm, type, data, -1, slot, exists, err)) return false;
         vol.close();
         saved = nm;
     } else {
+        if (!efeOk) { err = "open a folder in a disk image first"; return false; }
         std::string path;
         for (int k = 0; k < 100 && path.empty(); ++k) {
             const std::string c = join(g_lib_dir, spaces_to_underscore(numbered(k)) + ".efe");
@@ -1630,10 +1640,198 @@ bool fx_save(t_eps* x, std::string name, std::string& saved, std::string& err) {
             path = c;
             saved = numbered(k);
         }
-        if (path.empty() || !eps::writeEfe(path, saved, eps::kPlusFx, data, err)) return false;
+        if (path.empty() || !eps::writeEfe(path, saved, type, data, err)) return false;
     }
-    F.bankName = saved;
     scan_library(g_lib_dir);
+    return true;
+}
+
+// SAVE BANK EFFECT: the bank effect as an effect file (type 24) into the folder shown.
+bool fx_save(t_eps* x, std::string name, std::string& saved, std::string& err) {
+    t_eps::Fx& F = *x->fx;
+    fx_park(x);
+    if (F.bank.empty()) { err = "no bank effect (COPY TO BANK or load an effect first)"; return false; }
+    std::vector<uint8_t> data = F.bank;
+    data.resize((data.size() + 1) & ~size_t(1), 0);
+    {   // the length as the files have it: two words with 12 bits each
+        const uint32_t v = uint32_t(data.size());
+        const uint32_t lo = (v & 0xFFF) << 4, hi = (v >> 12 & 0xFFF) << 4;
+        data[0] = uint8_t(lo >> 8); data[1] = uint8_t(lo); data[2] = uint8_t(hi >> 8); data[3] = uint8_t(hi);
+    }
+    if (name.empty()) name = F.bankName.empty() ? fx_block_name(F.bank) : F.bankName;
+    const std::string base = eps::ensoniqName(name.empty() ? "EFFECT" : name);
+    if (!write_shown(x, base, eps::kPlusFx, data, true, saved, err)) return false;
+    F.bankName = saved;
+    return true;
+}
+
+// ---- banks: the 8 instrument locations, their volume, the bank effect ------------------------
+
+// The bank file's data (an EFE at the top of the library, or a file in an image).
+bool read_item(const BItem& it, std::vector<uint8_t>& d, std::string& err) {
+    const LibFile* lf = lib_file(it.file);
+    if (lf && lf->image) {
+        eps::Disk disk;
+        if (!disk.open(join(g_lib_dir, it.file), err)) return false;
+        for (const eps::DirEntry& e : disk.files())
+            if (e.path == it.path) return disk.readFile(e, d, err);
+        err = "not found";
+        return false;
+    }
+    d = read_whole(join(g_lib_dir, it.file));
+    if (d.size() < 512) { err = "cannot read " + it.file; return false; }
+    d.erase(d.begin(), d.begin() + 512);
+    return true;
+}
+
+// A track's file in the image: the directory indices from the root, into folders until a file.
+const eps::DirEntry* bank_file(const LibFile& lf, const eps::BankTrack& t) {
+    std::string p;
+    for (int idx : t.path) {
+        if (idx == 0xFF) break;
+        char num[8];
+        std::snprintf(num, sizeof num, "%02d", idx);
+        p = p.empty() ? std::string(num) : p + " " + num;
+        const eps::DirEntry* de = nullptr;
+        for (const eps::DirEntry& e : lf.entries) if (e.path == p) de = &e;
+        if (!de) return nullptr;
+        if (de->type == eps::kSubdir) continue;
+        return de->type == eps::kInstrument ? de : nullptr;
+    }
+    return nullptr;
+}
+
+void bank_next(t_eps* x);
+bool select_part(t_eps* x, int k);
+void delete_part(t_eps* x, int k);
+
+// LOAD BANK: all locations emptied, the bank's instruments loaded into theirs (one after the
+// other), their volumes, the bank effect (FX=BANK).
+bool load_bank(t_eps* x, const BItem& it, std::string& err) {
+    if (x->loader->state.load() != 0 || x->pending || x->rec->state != Recorder::Off) { err = "busy"; return false; }
+    std::vector<uint8_t> d;
+    if (!read_item(it, d, err)) return false;
+    eps::Bank b;
+    if (!eps::parseBank(d, b, err)) return false;
+    const LibFile* lf = lib_file(it.file);
+    for (int k = 0; k < kParts; ++k) delete_part(x, k);
+    x->bankq->clear();
+    x->bankFirst = -1;
+    std::string missing;
+    for (int t = 0; t < kParts; ++t) {
+        x->parts[t].bank = b.track[t];
+        if (!b.track[t].valid) continue;
+        int src = t;
+        if (b.track[t].copy && b.track[t].copyOf >= 0 && b.track[t].copyOf < kParts) src = b.track[t].copyOf;
+        const eps::DirEntry* de = lf && lf->image ? bank_file(*lf, b.track[src]) : nullptr;
+        const int li = de ? lib_index(it.file, de->path, 0) : -1;
+        if (li < 0) { missing += " " + std::to_string(t + 1); continue; }
+        BankJob j;
+        j.part = t;
+        j.lib = li;
+        j.volume = std::clamp(int(std::lround(b.track[t].volume * 100.0 / 127.0)), 0, 127);
+        x->bankq->push_back(j);
+        if (x->bankFirst < 0) x->bankFirst = t;
+    }
+    *x->bank = b;
+    t_eps::Fx& F = *x->fx;
+    if (!b.effect.empty()) {
+        fx_park(x);
+        F.bank = b.effect;
+        F.bankName = fx_block_name(b.effect);
+        F.mode = F.lastMode = 2;
+        fx_play(x);
+    }
+    if (!missing.empty()) {
+        pd_error(x, "eps~: bank %s: instruments not found on this disk for location%s%s", b.name.c_str(),
+                 missing.size() > 3 ? "s" : "", missing.c_str());
+        out_display(x, "Bank " + b.name, "not found:" + missing);
+    } else {
+        out_display(x, "Bank " + b.name, "loading");
+    }
+    t_atom a;
+    SETSYMBOL(&a, gensym(spaces_to_underscore(b.name).c_str()));
+    outlet_anything(x->info, gensym("bank"), 1, &a);
+    bank_next(x);
+    return true;
+}
+
+// The next location of the bank (when the loader is free); at the end the first one selected.
+void bank_next(t_eps* x) {
+    if (x->loader->state.load() != 0 || x->pending) { clock_delay(x->poll, 5); return; }
+    if (x->bankq->empty()) {
+        if (x->bankFirst >= 0) {
+            select_part(x, x->bankFirst);
+            out_display(x, "Bank " + x->bank->name, "loaded");
+        }
+        x->bankFirst = -1;
+        return;
+    }
+    const BankJob j = x->bankq->front();
+    x->bankq->erase(x->bankq->begin());
+    select_part(x, j.part);
+    select_library(x, j.lib);
+    x->value[kC_volume] = j.volume;
+    apply(x);
+    report(x);
+    clock_delay(x->poll, 5);
+}
+
+// SAVE BANK: the locations (their files on this disk), volumes, the bank effect, into the
+// folder shown of a disk image.
+bool save_bank(t_eps* x, std::string name, std::string& saved, std::string& err) {
+    const LibFile* lf = x->bfile->empty() ? nullptr : lib_file(*x->bfile);
+    if (!lf || !lf->image) { err = "a bank goes into a disk image, with its instruments: open a folder in one"; return false; }
+    eps::Disk disk;
+    std::string label;
+    if (disk.open(join(g_lib_dir, *x->bfile), err)) label = disk.label();
+    eps::Bank b = *x->bank;
+    b.name = eps::ensoniqName(name.empty() ? (b.name.empty() ? std::string("BANK") : b.name) : name);
+    int device = x->bankDevice;
+    for (int t = 0; t < kParts && device < 0; ++t)
+        if (b.track[t].valid && !b.track[t].copy) device = b.track[t].device;
+    if (device < 0) {                                       // a floppy image, else SCSI 0
+        struct stat st;
+        device = stat(join(g_lib_dir, *x->bfile).c_str(), &st) == 0 && st.st_size <= 2 * 1024 * 1024 ? 0 : 1;
+    }
+    std::string missing;
+    for (int t = 0; t < kParts; ++t) {
+        eps::BankTrack k = x->parts[t].bank;
+        const LibEntry& e = t == x->sel ? *x->entry : x->parts[t].entry;
+        const int* v = t == x->sel ? x->value : x->parts[t].value;
+        if (!part_sampler(x, t)) { b.track[t].valid = false; continue; }
+        if (e.file != *x->bfile || e.path.empty()) { missing += " " + std::to_string(t + 1); b.track[t].valid = false; continue; }
+        k.valid = true;
+        k.copy = false;
+        for (int u = 0; u < t; ++u) {
+            const LibEntry& f = u == x->sel ? *x->entry : x->parts[u].entry;
+            if (part_sampler(x, u) && f.file == e.file && f.path == e.path && b.track[u].valid && !b.track[u].copy) {
+                k.copy = true;
+                k.copyOf = u;
+                break;
+            }
+        }
+        k.device = device;
+        k.disk = label.substr(0, 7);
+        k.path.clear();
+        for (size_t pos = 0; pos < e.path.size();) {
+            const size_t sp = e.path.find(' ', pos);
+            k.path.push_back(std::atoi(e.path.substr(pos, sp == std::string::npos ? std::string::npos : sp - pos).c_str()));
+            pos = sp == std::string::npos ? e.path.size() : sp + 1;
+        }
+        k.volume = std::clamp(int(std::lround(v[kC_volume] * 127.0 / 100.0)), 0, 127);
+        b.track[t] = k;
+    }
+    fx_park(x);
+    b.effect = x->fx->bank;
+    if (!write_shown(x, b.name, eps::kPlusBank, eps::buildBank(b), false, saved, err)) return false;
+    b.name = saved;
+    *x->bank = b;
+    if (!missing.empty()) {
+        pd_error(x, "eps~: bank %s: location%s%s not saved in this folder's image: save the instrument there first",
+                 saved.c_str(), missing.size() > 3 ? "s" : "", missing.c_str());
+        err = "not in it:" + missing;
+    }
     return true;
 }
 
@@ -2610,9 +2808,25 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
             *x->bdir = it.path;
             x->bsel = 0;
             out_folder(x);
+        } else if (it.kind == 'B') {
+            std::string err;
+            if (!load_bank(x, it, err)) { pd_error(x, "eps~: bank: %s", err.c_str()); out_display(x, "Bank", err); }
         } else if (it.lib >= 0) {
             select_library(x, it.lib);
         }
+        return;
+    } else if (is("banksave")) {   // banksave [name]: SAVE BANK into the folder shown (an image)
+        std::string err, saved;
+        if (save_bank(x, argc >= 1 ? pd_text(argc, argv) : std::string(), saved, err)) {
+            out_display(x, "Bank saved", saved + (err.empty() ? "" : " - " + err));
+            follow_entry(x);
+        } else {
+            pd_error(x, "eps~: banksave: %s", err.c_str());
+            out_display(x, "Bank not saved", err);
+        }
+        return;
+    } else if (is("bankdevice")) {   // bankdevice n: 0 floppy, 1-8 SCSI 0-7 (-1: as loaded / guessed)
+        x->bankDevice = std::clamp(n, -1, 8);
         return;
     } else if (is("bup")) {
         if (x->bfile->empty()) return;
@@ -2642,6 +2856,12 @@ void eps_command_core(t_eps* x, t_symbol* s, int argc, t_atom* argv) {
         } else if (w == "open") {          // a folder: into it; an instrument: load it
             if (x->bsel < 0 || x->bsel >= static_cast<int>(v.size())) return;
             const BItem it = v[size_t(x->bsel)];
+            if (it.kind == 'B') {
+                std::string err;
+                if (!load_bank(x, it, err)) { pd_error(x, "eps~: bank: %s", err.c_str()); out_display(x, "Bank", err); }
+                lk_refresh(x, false);
+                return;
+            }
             if (it.kind != 'D') {
                 if (it.lib >= 0) select_library(x, it.lib);
                 lk_refresh(x, false);
@@ -3351,6 +3571,10 @@ void* eps_new(t_symbol*, int argc, t_atom* argv) {
     x->parts = new Part[kParts];
     x->sel = 0;
     x->tmp = new std::vector<float>[10];
+    x->bankq = new std::vector<BankJob>();
+    x->bankFirst = -1;
+    x->bank = new eps::Bank();
+    x->bankDevice = -1;
     for (int k = 0; k < kParts; ++k) {
         x->parts[k].channel = k + 1;                 // location k on channel k
         std::copy(x->value, x->value + kCtlCount, x->parts[k].value);
@@ -3426,6 +3650,8 @@ void eps_free(t_eps* x) {
     for (int k = 0; k < kParts; ++k) delete x->parts[k].sampler;
     delete[] x->parts;
     delete[] x->tmp;
+    delete x->bankq;
+    delete x->bank;
     delete x->midi;
     delete x->entry;
     delete x->pending_entry;

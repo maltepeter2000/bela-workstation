@@ -35,6 +35,11 @@ eps~ – Ensoniq EPS / EPS-16 PLUS / ASR-10 für Pure Data auf dem Mac (Apple Si
    gelten dem gewählten. Editor: PATCH-Leiste, Zeile "instrument" (< >, Name, Kanal, delete).
    Launchkey PLAY: SEL halten + Taste C bis G = Platz 1-8. Messages inst k, instch k ch,
    instdelete.
+   Bänke (Typ 23): im Browser mit OPEN laden (alle Plätze werden geleert, die Instrumente der
+   Bank auf ihre Plätze geladen, Lautstärken, Bank-Effekt = FX=BANK). Bank speichern: Editor
+   "save bank" bzw. Launchkey SEL + SAVE (SAVE BANK TO?, navigieren, SAVE) in einen Ordner
+   eines Disk-Images; die Instrumente müssen auf diesem Image liegen. Bänke als EFE an der
+   obersten Ebene laden nur den Effekt (ihre Instrumente sind nicht auffindbar).
 
 4. Im Patch: [eps.i~ 1] -> [dac~] (beide Ausgänge). Klick auf das Objekt öffnet den Editor.
    "library N" lädt Instrument N aus dem Ordner eps, Noten auf MIDI-Kanal 1.

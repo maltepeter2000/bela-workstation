@@ -84,6 +84,7 @@ private:
     double initArm_ = -1e9, saveArm_ = -1e9, cmdArm_ = -1e9;
 public:
     bool saveTo = false;     // PLAY: SAVE pressed, SAVE TO? (navigate, SAVE again: save there)
+    bool saveBank = false;   // PLAY: SEL + SAVE: SAVE BANK TO? (the same, the bank)
     bool delAsk = false;     // PLAY: SEL + OPEN pressed, DELETE? (SEL: yes, anything else: no)
     bool fxAsk = false;      // E20: SEL + O/N pressed, LOAD EFFECT (SEL + O/N: the next, O/N: load)
     int fxCmd = 0;           // E20: CMD: 1 COPY TO BANK? 2 COPY TO INST? 3 SAVE BANK FX? 4 DELETE INST FX?

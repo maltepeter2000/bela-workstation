@@ -121,6 +121,7 @@ def top_band(c):
     c.add(f"#X text {X0 + 250} {y + 124} its MIDI ch;")
     c.add(f"#X floatatom {X0 + 322} {y + 124} 3 0 16 0 - {D}0-instchv {D}0-instch;")
     bng(c, X0 + 360, y + 124, "instdel", "delete instrument")
+    bng(c, X0 + 520, y + 124, "banksave", "save bank")
     select_band(c)
 
 
@@ -345,7 +346,8 @@ def logic():
     send(1050, yp, "tx", f"txchannel {D}1")
     send(1290, yp, "thru", f"thru {D}1")
     for k, (recv, text) in enumerate([("instsel", f"inst {D}1"), ("iprev", "inststep -1"), ("inext", "inststep 1"),
-                                      ("instch", f"instch {D}1"), ("instdel", "instdelete")]):
+                                      ("instch", f"instch {D}1"), ("instdel", "instdelete"),
+                                      ("banksave", "banksave")]):
         send(1410 + 120 * k, yp, recv, text)
     # selection
     ye = yp + 110
