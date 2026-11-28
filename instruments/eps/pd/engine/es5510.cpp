@@ -291,9 +291,11 @@ void ES5510::step() {
     ram_.io = kAccess[rc] == Io;
     const int32_t offset = gpr_[ipc % 0xc0];
     switch (kAccess[rc]) {
-    case Delay: {
-        const int32_t mod = (dlength_ >> memshift_) + 1;
-        ram_.address = int32_t((int64_t((dbase_ & memmask_) >> memshift_) + ((offset & memmask_) >> memshift_)) % mod);
+    case Delay: {   // (base + offset) modulo the delay length; mostly one subtraction
+        const uint32_t mod = uint32_t(dlength_ >> memshift_) + 1;
+        uint32_t a = uint32_t((dbase_ & memmask_) >> memshift_) + uint32_t((offset & memmask_) >> memshift_);
+        if (a >= mod) { a -= mod; if (a >= mod) a %= mod; }
+        ram_.address = int32_t(a);
         break;
     }
     case TableA: ram_.address = wordAddress(abase_, offset); break;
